@@ -3,7 +3,7 @@ use std::ops::Deref;
 #[derive(Debug, Clone)]
 pub enum RefOrVal<'a, T> {
     Ref(&'a T),
-    Val(T)
+    Val(T),
 }
 
 impl<'a, T: PartialEq> PartialEq for RefOrVal<'a, T> {
@@ -25,7 +25,7 @@ impl<'a, T> Deref for RefOrVal<'a, T> {
     }
 }
 
-impl <'a, T> RefOrVal<'a, T> {
+impl<'a, T> RefOrVal<'a, T> {
     pub fn ref_clone(&'a self) -> Self {
         match self {
             RefOrVal::Ref(v) => RefOrVal::Ref(*v),

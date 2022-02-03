@@ -1,7 +1,6 @@
-use std::{collections::HashSet, borrow::Cow};
-use sql_ast::Span;
 use crate::RefOrVal;
-
+use sql_ast::Span;
+use std::{borrow::Cow, collections::HashSet};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type<'a> {
@@ -36,11 +35,10 @@ impl<'a> Type<'a> {
         match self {
             Type::Enum(e) => Type::Enum(e.ref_clone()),
             Type::Set(e) => Type::Set(e.ref_clone()),
-            t => t.clone(), 
+            t => t.clone(),
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FullType<'a> {
@@ -52,19 +50,16 @@ impl<'a> FullType<'a> {
     pub fn ref_clone(self: &'a Self) -> Self {
         FullType {
             t: self.t.ref_clone(),
-            not_null: self.not_null
+            not_null: self.not_null,
         }
     }
     pub fn new(t: Type<'a>, not_null: bool) -> Self {
-        Self {
-            t,
-            not_null,
-        }
+        Self { t, not_null }
     }
     pub fn invalid() -> Self {
         Self {
             t: Type::Invalid,
-            not_null: false
+            not_null: false,
         }
     }
 }
