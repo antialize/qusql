@@ -41,7 +41,7 @@ pub(crate) fn type_delete<'a>(typer: &mut Typer<'a>, delete: &Delete<'a>) {
 
     if let Some((where_, _)) = &delete.where_ {
         let t = type_expression(typer, where_, false);
-        typer.ensure_bool(where_, &t.t);
+        typer.ensure_bool(where_, &t);
     }
 
     typer.reference_types = old_reference_type;

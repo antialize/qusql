@@ -44,7 +44,7 @@ pub(crate) fn type_select<'a>(typer: &mut Typer<'a>, select: &Select<'a>) -> Sel
 
     if let Some((where_, _)) = &select.where_ {
         let t = type_expression(typer, where_, true);
-        typer.ensure_bool(where_, &t.t);
+        typer.ensure_bool(where_, &t);
     }
 
     let mut result: Vec<(Option<&'a str>, FullType<'a>, Span)> = Vec::new();

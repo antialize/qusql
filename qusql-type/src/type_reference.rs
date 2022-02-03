@@ -73,7 +73,7 @@ pub(crate) fn type_reference<'a>(
             match &specification {
                 Some(s @ sql_ast::JoinSpecification::On(e, r)) => {
                     let t = type_expression(typer, e, false);
-                    typer.ensure_bool(e, &t.t);
+                    typer.ensure_bool(e, &t);
                 }
                 Some(s @ sql_ast::JoinSpecification::Using(_, _)) => {
                     typer.issues.push(Issue::todo(s));
