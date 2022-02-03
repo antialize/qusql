@@ -1,6 +1,12 @@
 use sql_ast::{Expression, Function, Issue, Span};
 
-use crate::{type_::FullType, type_expression::type_expression, typer::Typer, Type};
+use crate::{
+    type_::FullType,
+    type_expression::{self, type_expression},
+    type_select::resolve_kleene_identifier,
+    typer::Typer,
+    Type,
+};
 
 fn arg_cnt<'a>(
     typer: &mut Typer<'a>,
@@ -43,6 +49,19 @@ pub(crate) fn type_function<'a>(
     args: &Vec<Expression<'a>>,
     span: &Span,
 ) -> FullType<'a> {
+    if matches!(func, Function::Count) {
+        arg_cnt(typer, 1..1, args, span);
+        match &args[0] {
+            Expression::Identifier(parts) => {
+                resolve_kleene_identifier(typer, parts, &None, |_, _, _, _| {})
+            }
+            arg => {
+                type_expression(typer, arg, false);
+            }
+        }
+        return FullType::new(Type::Integer, true);
+    }
+
     let mut typed = Vec::new();
     for arg in args {
         typed.push((arg, type_expression(typer, arg, false)));

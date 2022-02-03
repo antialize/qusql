@@ -1,4 +1,4 @@
-use sql_ast::{Expression, Issue, Select, Span};
+use sql_ast::{Expression, IdentifierPart, Issue, OptSpanned, Select, Span};
 
 use crate::{
     type_::FullType,
@@ -16,6 +16,126 @@ pub struct SelectTypeColumn<'a> {
 #[derive(Debug, Clone)]
 pub struct SelectType<'a> {
     pub columns: Vec<SelectTypeColumn<'a>>,
+}
+
+pub(crate) fn resolve_kleene_identifier<'a>(
+    typer: &mut Typer<'a>,
+    parts: &[IdentifierPart<'a>],
+    as_: &Option<(&'a str, Span)>,
+    mut cb: impl FnMut(Option<&'a str>, FullType<'a>, Span, bool) -> (),
+) {
+    match parts.len() {
+        1 => {
+            match &parts[0] {
+                sql_ast::IdentifierPart::Name(col) => {
+                    let mut cnt = 0;
+                    let mut t = None;
+                    for r in &typer.reference_types {
+                        for c in &r.columns {
+                            if c.0 == col.0 {
+                                cnt += 1;
+                                t = Some(c);
+                            }
+                        }
+                    }
+                    let name = as_.as_ref().unwrap_or(col);
+                    if cnt > 1 {
+                        let mut issue = Issue::err("Ambigious reference", col);
+                        for r in &typer.reference_types {
+                            for c in &r.columns {
+                                if c.0 == col.0 {
+                                    issue = issue.frag("Defined here", &r.name);
+                                }
+                            }
+                        }
+                        typer.issues.push(issue);
+                        cb(
+                            Some(name.0),
+                            FullType::invalid(),
+                            name.1.clone(),
+                            as_.is_some(),
+                        );
+                    } else if let Some(t) = t {
+                        cb(Some(name.0), t.1.clone(), name.1.clone(), as_.is_some());
+                    } else {
+                        typer.issues.push(Issue::err("Unknown identifier", col));
+                        cb(
+                            Some(name.0),
+                            FullType::invalid(),
+                            name.1.clone(),
+                            as_.is_some(),
+                        );
+                    }
+                }
+                sql_ast::IdentifierPart::Star(v) => {
+                    if let Some(as_) = as_ {
+                        typer.issues.push(Issue::err("As not supported for *", as_));
+                    }
+                    for r in &typer.reference_types {
+                        for c in &r.columns {
+                            cb(Some(c.0), c.1.clone(), v.clone(), false);
+                        }
+                    }
+                }
+            };
+        }
+        2 => {
+            let tbl = match &parts[0] {
+                sql_ast::IdentifierPart::Name(n) => n,
+                sql_ast::IdentifierPart::Star(v) => {
+                    typer.issues.push(Issue::err("Not supported here", v));
+                    return;
+                }
+            };
+            match &parts[1] {
+                sql_ast::IdentifierPart::Name(col) => {
+                    let mut t = None;
+                    for r in &typer.reference_types {
+                        if r.name.0 == tbl.0 {
+                            for c in &r.columns {
+                                if c.0 == col.0 {
+                                    t = Some(c);
+                                }
+                            }
+                        }
+                    }
+                    let name = as_.as_ref().unwrap_or(col);
+                    if let Some(t) = t {
+                        cb(Some(name.0), t.1.clone(), name.1.clone(), as_.is_some());
+                    } else {
+                        typer.issues.push(Issue::err("Unknown identifier", col));
+                        cb(
+                            Some(name.0),
+                            FullType::invalid(),
+                            name.1.clone(),
+                            as_.is_some(),
+                        );
+                    }
+                }
+                sql_ast::IdentifierPart::Star(v) => {
+                    if let Some(as_) = as_ {
+                        typer.issues.push(Issue::err("As not supported for *", as_));
+                    }
+                    let mut t = None;
+                    for r in &typer.reference_types {
+                        if r.name.0 == tbl.0 {
+                            t = Some(r);
+                        }
+                    }
+                    if let Some(t) = t {
+                        for c in &t.columns {
+                            cb(Some(c.0), c.1.clone(), v.clone(), false);
+                        }
+                    } else {
+                        typer.issues.push(Issue::err("Unknown table", tbl));
+                    }
+                }
+            }
+        }
+        _ => typer
+            .issues
+            .push(Issue::err("Invalid identifier", &parts.opt_span().unwrap())),
+    }
 }
 
 pub(crate) fn type_select<'a>(
@@ -58,145 +178,29 @@ pub(crate) fn type_select<'a>(
     };
 
     let mut add_result_issues = Vec::new();
-    let mut add_result = |name: Option<&'a str>, type_: FullType<'a>, span: Span, as_: bool| {
-        if let Some(name) = name {
-            if as_ {
-                select_refence.columns.push((name, type_.clone()));
-            }
-            for (on, _, os) in &result {
-                if Some(name) == *on && warn_duplicate {
-                    add_result_issues.push(
-                        Issue::warn(format!("Multiple columns with the name '{}'", name), &span)
-                            .frag("Also defined here", os),
-                    );
-                }
-            }
-        }
-        result.push((name, type_, span));
-    };
 
     for e in &select.select_exprs {
-        if let Expression::Identifier(parts) = &e.expr {
-            match parts.len() {
-                1 => {
-                    match &parts[0] {
-                        sql_ast::IdentifierPart::Name(col) => {
-                            let mut cnt = 0;
-                            let mut t = None;
-                            for r in &typer.reference_types {
-                                for c in &r.columns {
-                                    if c.0 == col.0 {
-                                        cnt += 1;
-                                        t = Some(c);
-                                    }
-                                }
-                            }
-                            let name = e.as_.as_ref().unwrap_or(col);
-                            if cnt > 1 {
-                                let mut issue = Issue::err("Ambigious reference", col);
-                                for r in &typer.reference_types {
-                                    for c in &r.columns {
-                                        if c.0 == col.0 {
-                                            issue = issue.frag("Defined here", &r.name);
-                                        }
-                                    }
-                                }
-                                typer.issues.push(issue);
-                                add_result(
-                                    Some(name.0),
-                                    FullType::invalid(),
-                                    name.1.clone(),
-                                    e.as_.is_some(),
-                                );
-                            } else if let Some(t) = t {
-                                add_result(
-                                    Some(name.0),
-                                    t.1.clone(),
-                                    name.1.clone(),
-                                    e.as_.is_some(),
-                                );
-                            } else {
-                                typer.issues.push(Issue::err("Unknown identifier", col));
-                                add_result(
-                                    Some(name.0),
-                                    FullType::invalid(),
-                                    name.1.clone(),
-                                    e.as_.is_some(),
-                                );
-                            }
-                        }
-                        sql_ast::IdentifierPart::Star(v) => {
-                            if let Some(as_) = &e.as_ {
-                                typer.issues.push(Issue::err("As not supported for *", as_));
-                            }
-                            for r in &typer.reference_types {
-                                for c in &r.columns {
-                                    add_result(Some(c.0), c.1.clone(), v.clone(), false);
-                                }
-                            }
-                        }
-                    };
+        let mut add_result = |name: Option<&'a str>, type_: FullType<'a>, span: Span, as_: bool| {
+            if let Some(name) = name {
+                if as_ {
+                    select_refence.columns.push((name, type_.clone()));
                 }
-                2 => {
-                    let tbl = match &parts[0] {
-                        sql_ast::IdentifierPart::Name(n) => n,
-                        sql_ast::IdentifierPart::Star(v) => {
-                            typer.issues.push(Issue::err("Not supported here", v));
-                            continue;
-                        }
-                    };
-                    match &parts[1] {
-                        sql_ast::IdentifierPart::Name(col) => {
-                            let mut t = None;
-                            for r in &typer.reference_types {
-                                if r.name.0 == tbl.0 {
-                                    for c in &r.columns {
-                                        if c.0 == col.0 {
-                                            t = Some(c);
-                                        }
-                                    }
-                                }
-                            }
-                            let name = e.as_.as_ref().unwrap_or(col);
-                            if let Some(t) = t {
-                                add_result(
-                                    Some(name.0),
-                                    t.1.clone(),
-                                    name.1.clone(),
-                                    e.as_.is_some(),
-                                );
-                            } else {
-                                typer.issues.push(Issue::err("Unknown identifier", col));
-                                add_result(
-                                    Some(name.0),
-                                    FullType::invalid(),
-                                    name.1.clone(),
-                                    e.as_.is_some(),
-                                );
-                            }
-                        }
-                        sql_ast::IdentifierPart::Star(v) => {
-                            if let Some(as_) = &e.as_ {
-                                typer.issues.push(Issue::err("As not supported for *", as_));
-                            }
-                            let mut t = None;
-                            for r in &typer.reference_types {
-                                if r.name.0 == tbl.0 {
-                                    t = Some(r);
-                                }
-                            }
-                            if let Some(t) = t {
-                                for c in &t.columns {
-                                    add_result(Some(c.0), c.1.clone(), v.clone(), false);
-                                }
-                            } else {
-                                typer.issues.push(Issue::err("Unknown table", tbl));
-                            }
-                        }
+                for (on, _, os) in &result {
+                    if Some(name) == *on && warn_duplicate {
+                        add_result_issues.push(
+                            Issue::warn(
+                                format!("Multiple columns with the name '{}'", name),
+                                &span,
+                            )
+                            .frag("Also defined here", os),
+                        );
                     }
                 }
-                _ => typer.issues.push(Issue::err("Invalid identifier", &e.expr)),
             }
+            result.push((name, type_, span));
+        };
+        if let Expression::Identifier(parts) = &e.expr {
+            resolve_kleene_identifier(typer, parts, &e.as_, add_result);
         } else {
             let type_ = type_expression(typer, &e.expr, false);
             if let Some((as_, as_span)) = &e.as_ {
