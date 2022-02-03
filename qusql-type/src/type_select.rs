@@ -15,11 +15,15 @@ pub struct SelectTypeColumn<'a> {
 
 #[derive(Debug, Clone)]
 pub struct SelectType<'a> {
-    columns: Vec<SelectTypeColumn<'a>>,
+    pub columns: Vec<SelectTypeColumn<'a>>,
 }
 
-pub(crate) fn type_select<'a>(typer: &mut Typer<'a>, select: &Select<'a>) -> SelectType<'a> {
-    let old_reference_type = std::mem::take(&mut typer.reference_types);
+pub(crate) fn type_select<'a>(
+    typer: &mut Typer<'a>,
+    select: &Select<'a>,
+    warn_duplicate: bool,
+) -> SelectType<'a> {
+    let old_reference_type = typer.reference_types.clone();
 
     for flag in &select.flags {
         match &flag {
@@ -60,7 +64,7 @@ pub(crate) fn type_select<'a>(typer: &mut Typer<'a>, select: &Select<'a>) -> Sel
                 select_refence.columns.push((name, type_.clone()));
             }
             for (on, _, os) in &result {
-                if Some(name) == *on {
+                if Some(name) == *on && warn_duplicate {
                     add_result_issues.push(
                         Issue::warn(format!("Multiple columns with the name '{}'", name), &span)
                             .frag("Also defined here", os),

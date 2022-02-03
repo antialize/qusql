@@ -1,3 +1,5 @@
+use schema::Schemas;
+use sql_ast::parse_statements;
 pub use sql_ast::{Issue, Level};
 
 mod type_;
@@ -9,12 +11,28 @@ mod type_insert;
 mod type_reference;
 mod type_select;
 mod type_statement;
+mod type_update;
 mod typer;
 
 mod ref_or_val;
 pub mod schema;
 pub use ref_or_val::RefOrVal;
 pub use type_::Type;
+use typer::Typer;
+
+pub fn type_single_statement(schemas: Schemas<'_>, statement: &str) {
+    let (statements, mut issues) = parse_statements(statement);
+
+    if let Some(stmt) = statements.get(0) {
+        let mut typer = Typer {
+            schemas: &schemas,
+            issues: &mut issues,
+            reference_types: Vec::new(),
+            arg_types: Vec::new(),
+        };
+        type_statement::type_statement(&mut typer, stmt);
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -67,6 +85,7 @@ mod tests {
                 schemas: &schemas,
                 issues: &mut issues,
                 reference_types: Vec::new(),
+                arg_types: Vec::new(),
             };
             type_statement(&mut typer, &statement);
         }

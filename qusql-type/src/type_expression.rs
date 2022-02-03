@@ -1,9 +1,31 @@
-use sql_ast::{Expression, Issue};
+use sql_ast::{Expression, Issue, Span, UnaryOperator};
 
 use crate::{
     type_::FullType, type_binary_expression::type_binary_expression, type_function::type_function,
-    typer::Typer, Type,
+    type_select::type_select, typer::Typer, Type,
 };
+
+fn type_unary_expression<'a>(
+    typer: &mut Typer<'a>,
+    op: &UnaryOperator,
+    op_span: &Span,
+    operand: &Expression<'a>,
+) -> FullType<'a> {
+    let op_type = type_expression(typer, operand, false);
+    match op {
+        UnaryOperator::Binary
+        | UnaryOperator::Collate
+        | UnaryOperator::LogicalNot
+        | UnaryOperator::Minus => {
+            typer.issues.push(Issue::todo(op_span));
+            FullType::invalid()
+        }
+        UnaryOperator::Not => {
+            typer.ensure_bool(operand, &op_type);
+            op_type
+        }
+    }
+}
 
 pub(crate) fn type_expression<'a>(
     typer: &mut Typer<'a>,
@@ -21,10 +43,7 @@ pub(crate) fn type_expression<'a>(
             op,
             op_span,
             operand,
-        } => {
-            typer.issues.push(Issue::todo(expression));
-            FullType::invalid()
-        }
+        } => type_unary_expression(typer, op, op_span, operand),
         Expression::Subquery(_) => {
             typer.issues.push(Issue::todo(expression));
             FullType::invalid()
@@ -114,18 +133,30 @@ pub(crate) fn type_expression<'a>(
             }
         }
         Expression::Arg((idx, span)) => FullType::new(Type::Arg(*idx, span.clone()), false),
-        Expression::Exists(_) => {
-            typer.issues.push(Issue::todo(expression));
-            FullType::invalid()
+        Expression::Exists(s) => {
+            type_select(typer, s, false);
+            FullType::new(Type::Bool, true)
         }
         Expression::In {
-            lhs,
-            rhs,
-            in_span,
-            not_in,
+            lhs, rhs, in_span, ..
         } => {
-            typer.issues.push(Issue::todo(expression));
-            FullType::invalid()
+            let mut lhs_type = type_expression(typer, lhs, false);
+            let mut not_null = lhs_type.not_null;
+            // Hack to allow null arguments on the right hand side of an in expression
+            // where the lhs is not null
+            lhs_type.not_null = false;
+            for rhs in rhs {
+                let rhs_type = type_expression(typer, rhs, false);
+                not_null = not_null & rhs_type.not_null;
+                if typer.common_type(&lhs_type, &rhs_type).is_none() {
+                    typer.issues.push(
+                        Issue::err("Incompatible types", in_span)
+                            .frag(lhs_type.t.to_string(), lhs)
+                            .frag(rhs_type.to_string(), rhs),
+                    );
+                }
+            }
+            FullType::new(Type::Bool, not_null)
         }
         Expression::Is(e, is, _) => {
             let t = type_expression(typer, e, false);

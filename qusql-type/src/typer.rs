@@ -2,6 +2,7 @@ use sql_ast::{Issue, Span, Spanned};
 
 use crate::{schema::Schemas, type_::FullType, Type};
 
+#[derive(Clone, Debug)]
 pub(crate) struct ReferenceType<'a> {
     pub(crate) name: (&'a str, Span),
     pub(crate) columns: Vec<(&'a str, FullType<'a>)>,
@@ -11,11 +12,15 @@ pub(crate) struct Typer<'a> {
     pub(crate) issues: &'a mut Vec<Issue>,
     pub(crate) schemas: &'a Schemas<'a>,
     pub(crate) reference_types: Vec<ReferenceType<'a>>,
+    pub(crate) arg_types: Vec<FullType<'a>>,
 }
 
 impl<'a> Typer<'a> {
     pub(crate) fn constrain_arg(&mut self, idx: usize, t: &FullType<'a>) {
-        //TODO
+        while self.arg_types.len() <= idx {
+            self.arg_types.push(FullType::invalid());
+        }
+        self.arg_types[idx] = t.clone();
     }
 
     pub(crate) fn common_type(

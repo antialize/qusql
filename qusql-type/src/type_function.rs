@@ -77,6 +77,35 @@ pub(crate) fn type_function<'a>(
             }
             t
         }
+        Function::JsonExtract => {
+            arg_cnt(typer, 2..999, args, span);
+            for (a, t) in &typed {
+                typer.ensure_text(*a, t);
+            }
+            // TODO this can have any type, we do not currently have an any type so we return
+            // invalid
+            FullType::new(Type::Invalid, false)
+        }
+        Function::JsonUnquote => {
+            arg_cnt(typer, 1..1, args, span);
+            for (a, t) in &typed {
+                typer.ensure_text(*a, t);
+            }
+            FullType::new(Type::Text, false)
+        }
+        Function::Right | Function::Left => {
+            arg_cnt(typer, 2..2, args, span);
+            let mut not_null = true;
+            if let Some((a, t)) = typed.get(0) {
+                not_null = not_null && t.not_null;
+                typer.ensure_text(*a, t);
+            }
+            if let Some((a, t)) = typed.get(1) {
+                not_null = not_null && t.not_null;
+                typer.ensure_type(*a, t, &FullType::new(Type::Integer, false));
+            }
+            FullType::new(Type::Text, not_null)
+        }
         _ => {
             typer.issues.push(Issue::todo(span));
             FullType::invalid()

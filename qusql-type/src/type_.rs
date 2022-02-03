@@ -4,7 +4,6 @@ use std::{
     borrow::Cow,
     collections::HashSet,
     fmt::{Display, Write},
-    ops::Deref,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,7 +63,7 @@ impl<'a> Display for Type<'a> {
                 f.write_str("enum(")?;
                 for (i, v) in v.iter().enumerate() {
                     if i != 0 {
-                        f.write_str(", ");
+                        f.write_str(", ")?;
                     }
                     write!(f, "'{}'", v)?
                 }
@@ -74,7 +73,7 @@ impl<'a> Display for Type<'a> {
                 f.write_str("set(")?;
                 for (i, v) in v.iter().enumerate() {
                     if i != 0 {
-                        f.write_str(", ");
+                        f.write_str(", ")?;
                     }
                     write!(f, "'{}'", v)?
                 }
