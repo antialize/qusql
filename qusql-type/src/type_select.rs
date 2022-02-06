@@ -4,7 +4,7 @@ use crate::{
     type_::FullType,
     type_expression::type_expression,
     type_reference::type_reference,
-    typer::{ReferenceType, Typer},
+    typer::{ReferenceType, Typer}, Type,
 };
 
 #[derive(Debug, Clone)]
@@ -228,8 +228,21 @@ pub(crate) fn type_select<'a>(
         }
     }
 
-    if let Some((limit_spam, _, _)) = &select.limit {
-        typer.issues.push(Issue::todo(limit_spam));
+    if let Some((limit_spam, offset, count)) = &select.limit {
+        if let Some(offset) = offset {
+            let t = type_expression(typer, offset, false);
+            if typer.common_type(&t, &FullType::new(Type::U64, true)).is_none() {
+                typer.issues
+                    .push(Issue::err(format!("Expected integer type got {}", t.t), offset));
+
+            }
+        }
+        let t = type_expression(typer, count, false);
+        if typer.common_type(&t, &FullType::new(Type::U64, true)).is_none() {
+            typer.issues
+                .push(Issue::err(format!("Expected integer type got {}", t.t), count));
+
+        }
     }
 
     typer.reference_types = old_reference_type;
