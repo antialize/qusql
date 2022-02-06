@@ -112,6 +112,14 @@ pub(crate) fn type_function<'a>(
             }
             FullType::new(Type::Text, false)
         }
+        Function::Min | Function::Max | Function::Sum => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((_, t2)) = typed.get(0) {
+                t2.clone()
+            } else {
+                FullType::invalid()
+            }
+        }
         Function::Right | Function::Left => {
             arg_cnt(typer, 2..2, args, span);
             let mut not_null = true;

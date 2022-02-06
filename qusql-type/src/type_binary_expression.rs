@@ -52,13 +52,16 @@ pub(crate) fn type_binary_expression<'a>(
             typer.issues.push(Issue::todo(op_span));
             FullType::invalid()
         }
-        BinaryOperator::Add => {
-            typer.issues.push(Issue::todo(op_span));
-            FullType::invalid()
-        }
-        BinaryOperator::Subtract => {
-            typer.issues.push(Issue::todo(op_span));
-            FullType::invalid()
+        BinaryOperator::Add | BinaryOperator::Subtract => {
+            if let Some(t) =  typer.common_type(&lhs_type, &rhs_type) {
+                t
+            } else {
+                typer.issues.push(
+                Issue::err("Type error in addition/subtraction", op_span)
+                    .frag(format!("type {}", lhs_type.t), lhs)
+                    .frag(format!("type {}", rhs_type.t), rhs));
+                FullType::invalid()
+            }
         }
         BinaryOperator::Divide => {
             typer.issues.push(Issue::todo(op_span));
