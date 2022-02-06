@@ -1,7 +1,8 @@
 use sql_ast::{Issue, Statement};
 
 use crate::{
-    type_delete::type_delete, type_insert::type_insert, type_update::type_update, typer::Typer,
+    type_delete::type_delete, type_insert::type_insert, type_select::type_union,
+    type_update::type_update, typer::Typer,
 };
 
 pub(crate) fn type_statement<'a>(typer: &mut Typer<'a>, statement: &Statement<'a>) {
@@ -21,7 +22,9 @@ pub(crate) fn type_statement<'a>(typer: &mut Typer<'a>, statement: &Statement<'a
             type_update(typer, u);
             //println!("HAT {:#?}", typer.arg_types);
         }
-        //Statement::Union(_) => todo!(),
+        Statement::Union(u) => {
+            type_union(typer, u);
+        }
         //Statement::Replace(_) => todo!(),
         s => typer
             .issues

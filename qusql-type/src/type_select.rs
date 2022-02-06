@@ -1,10 +1,13 @@
-use sql_ast::{Expression, IdentifierPart, Issue, OptSpanned, Select, Span};
+use sql_ast::{
+    Expression, IdentifierPart, Issue, OptSpanned, Select, Span, Spanned, Statement, Union,
+};
 
 use crate::{
     type_::FullType,
     type_expression::type_expression,
     type_reference::type_reference,
-    typer::{ReferenceType, Typer}, Type,
+    typer::{ReferenceType, Typer},
+    Type,
 };
 
 #[derive(Debug, Clone)]
@@ -231,17 +234,25 @@ pub(crate) fn type_select<'a>(
     if let Some((limit_spam, offset, count)) = &select.limit {
         if let Some(offset) = offset {
             let t = type_expression(typer, offset, false);
-            if typer.common_type(&t, &FullType::new(Type::U64, true)).is_none() {
-                typer.issues
-                    .push(Issue::err(format!("Expected integer type got {}", t.t), offset));
-
+            if typer
+                .common_type(&t, &FullType::new(Type::U64, true))
+                .is_none()
+            {
+                typer.issues.push(Issue::err(
+                    format!("Expected integer type got {}", t.t),
+                    offset,
+                ));
             }
         }
         let t = type_expression(typer, count, false);
-        if typer.common_type(&t, &FullType::new(Type::U64, true)).is_none() {
-            typer.issues
-                .push(Issue::err(format!("Expected integer type got {}", t.t), count));
-
+        if typer
+            .common_type(&t, &FullType::new(Type::U64, true))
+            .is_none()
+        {
+            typer.issues.push(Issue::err(
+                format!("Expected integer type got {}", t.t),
+                count,
+            ));
         }
     }
 
@@ -252,5 +263,119 @@ pub(crate) fn type_select<'a>(
             .into_iter()
             .map(|(name, type_, _)| SelectTypeColumn { name, type_ })
             .collect(),
+    }
+}
+
+pub(crate) fn type_union<'a>(typer: &mut Typer<'a>, union: &Union<'a>) -> SelectType<'a> {
+    let mut t = type_union_select(typer, &union.left);
+    let mut left = union.left.span();
+    for w in &union.with {
+        let t2 = type_union_select(typer, &w.union_statement);
+
+        for i in 0..usize::max(t.columns.len(), t2.columns.len()) {
+            if let Some(l) = t.columns.get_mut(i) {
+                if let Some(r) = t2.columns.get(i) {
+                    if l.name != r.name {
+                        if let Some(ln) = l.name {
+                            if let Some(rn) = r.name {
+                                typer.issues.push(
+                                    Issue::err("Incompatible names in union", &w.union_span)
+                                        .frag(format!("Column {} is named {}", i, ln), &left)
+                                        .frag(
+                                            format!("Column {} is named {}", i, rn),
+                                            &w.union_statement,
+                                        ),
+                                );
+                            } else {
+                                typer.issues.push(
+                                    Issue::err("Incompatible names in union", &w.union_span)
+                                        .frag(format!("Column {} is named {}", i, ln), &left)
+                                        .frag(
+                                            format!("Column {} has no name", i),
+                                            &w.union_statement,
+                                        ),
+                                );
+                            }
+                        } else {
+                            typer.issues.push(
+                                Issue::err("Incompatible names in union", &w.union_span)
+                                    .frag(format!("Column {} has no name", i), &left)
+                                    .frag(
+                                        format!("Column {} is named {}", i, r.name.unwrap()),
+                                        &w.union_statement,
+                                    ),
+                            );
+                        }
+                    }
+                    if let Some(t) = typer.common_type(&l.type_, &r.type_) {
+                        l.type_ = t;
+                    } else {
+                        typer.issues.push(
+                            Issue::err("Incompatible types in union", &w.union_span)
+                                .frag(format!("Column {} is of type {}", i, l.type_.t), &left)
+                                .frag(
+                                    format!("Column {} is of type {}", i, r.type_.t),
+                                    &w.union_statement,
+                                ),
+                        );
+                    }
+                } else {
+                    if let Some(n) = l.name {
+                        typer.issues.push(
+                            Issue::err("Incompatible types in union", &w.union_span)
+                                .frag(format!("Column {} ({}) only on this side", i, n), &left),
+                        );
+                    } else {
+                        typer.issues.push(
+                            Issue::err("Incompatible types in union", &w.union_span)
+                                .frag(format!("Column {} only on this side", i), &left),
+                        );
+                    }
+                }
+            } else {
+                if let Some(n) = t2.columns[i].name {
+                    typer.issues.push(
+                        Issue::err("Incompatible types in union", &w.union_span).frag(
+                            format!("Column {} ({}) only on this side", i, n),
+                            &w.union_statement,
+                        ),
+                    );
+                } else {
+                    typer.issues.push(
+                        Issue::err("Incompatible types in union", &w.union_span).frag(
+                            format!("Column {} only on this side", i),
+                            &w.union_statement,
+                        ),
+                    );
+                }
+            }
+        }
+        left = left.join_span(&w.union_statement);
+    }
+
+    if let Some((span, _)) = &union.order_by {
+        typer.issues.push(Issue::todo(span));
+    }
+
+    if let Some((span, _, _)) = &union.limit {
+        typer.issues.push(Issue::todo(span));
+    }
+
+    t
+}
+
+pub(crate) fn type_union_select<'a>(
+    typer: &mut Typer<'a>,
+    statement: &Statement<'a>,
+) -> SelectType<'a> {
+    match statement {
+        Statement::Select(s) => type_select(typer, s, true),
+        Statement::Union(u) => type_union(typer, u),
+        s => {
+            typer.issues.push(Issue::err("ICE Unexpected type", s));
+            SelectType {
+                columns: Vec::new(),
+            }
+        }
     }
 }
