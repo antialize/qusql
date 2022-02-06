@@ -146,7 +146,25 @@ pub(crate) fn type_expression<'a>(
             // where the lhs is not null
             lhs_type.not_null = false;
             for rhs in rhs {
-                let rhs_type = type_expression(typer, rhs, false);
+                let rhs_type = if let Expression::Subquery(q) = rhs {
+                    let rhs_type = type_select(typer, q, false);
+                    if rhs_type.columns.len() != 1 {
+                        typer.issues.push(Issue::err(
+                            format!(
+                                "Subquery in IN should yield one column but gave {}",
+                                rhs_type.columns.len()
+                            ),
+                            q,
+                        ))
+                    }
+                    if let Some(c) = rhs_type.columns.get(0) {
+                        c.type_.clone()
+                    } else {
+                        FullType::invalid()
+                    }
+                } else {
+                    type_expression(typer, rhs, false)
+                };
                 not_null = not_null & rhs_type.not_null;
                 if typer.common_type(&lhs_type, &rhs_type).is_none() {
                     typer.issues.push(
