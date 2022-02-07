@@ -44,9 +44,16 @@ pub(crate) fn type_expression<'a>(
             op_span,
             operand,
         } => type_unary_expression(typer, op, op_span, operand),
-        Expression::Subquery(_) => {
-            typer.issues.push(Issue::todo(expression));
-            FullType::invalid()
+        Expression::Subquery(select) => {
+            let select_type = type_select(typer, select, false);
+            if let [v] = select_type.columns.as_slice() {
+                v.type_.clone()
+            } else {
+                typer
+                    .issues
+                    .push(Issue::err("Subquery should yield one column", select));
+                FullType::invalid()
+            }
         }
         Expression::Null(_) => FullType::new(Type::Null, false),
         Expression::Bool(_, _) => FullType::new(Type::Bool, true),
@@ -59,9 +66,9 @@ pub(crate) fn type_expression<'a>(
         Expression::Function(func, args, span) => type_function(typer, func, args, span),
         Expression::Identifier(i) => {
             let mut t = None;
-            match i.len() {
-                1 => {
-                    let col = match &i[0] {
+            match i.as_slice() {
+                [part] => {
+                    let col = match part {
                         sql_ast::IdentifierPart::Name(n) => n,
                         sql_ast::IdentifierPart::Star(v) => {
                             typer.issues.push(Issue::err("Not supported here", v));
@@ -90,15 +97,15 @@ pub(crate) fn type_expression<'a>(
                         return FullType::invalid();
                     }
                 }
-                2 => {
-                    let tbl = match &i[0] {
+                [p1, p2] => {
+                    let tbl = match p1 {
                         sql_ast::IdentifierPart::Name(n) => n,
                         sql_ast::IdentifierPart::Star(v) => {
                             typer.issues.push(Issue::err("Not supported here", v));
                             return FullType::invalid();
                         }
                     };
-                    let col = match &i[1] {
+                    let col = match p2 {
                         sql_ast::IdentifierPart::Name(n) => n,
                         sql_ast::IdentifierPart::Star(v) => {
                             typer.issues.push(Issue::err("Not supported here", v));
@@ -181,13 +188,13 @@ pub(crate) fn type_expression<'a>(
             match is {
                 sql_ast::Is::Null => {
                     if t.not_null {
-                        typer.issues.push(Issue::warn("Is newer null", e));
+                        typer.issues.push(Issue::warn("Cannot be null", e));
                     }
                     FullType::new(Type::Bool, true)
                 }
                 sql_ast::Is::NotNull => {
                     if t.not_null {
-                        typer.issues.push(Issue::warn("Is newer null", e));
+                        typer.issues.push(Issue::warn("Cannot be null", e));
                     }
                     if outer_where {
                         // If were are in the outer part of a where expression possibly behind ands,

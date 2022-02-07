@@ -2,6 +2,7 @@ use sql_ast::{Issue, TableReference};
 
 use crate::{
     type_expression::type_expression,
+    type_select::type_union_select,
     typer::{ReferenceType, Typer},
 };
 
@@ -14,11 +15,13 @@ pub(crate) fn type_reference<'a>(
         sql_ast::TableReference::Table {
             identifier, as_, ..
         } => {
-            if identifier.len() != 1 {
-                typer.issues.push(Issue::todo(reference));
-                return;
-            }
-            let identifier = &identifier[0];
+            let identifier = match identifier.as_slice() {
+                [v] => v,
+                _ => {
+                    typer.issues.push(Issue::todo(reference));
+                    return;
+                }
+            };
             if let Some(s) = typer.schemas.schemas.get(&identifier.0) {
                 let mut columns = Vec::new();
                 for (n, t) in &s.columns {
@@ -42,18 +45,29 @@ pub(crate) fn type_reference<'a>(
                     .push(Issue::err("Unknown table or view", identifier))
             }
         }
-        sql_ast::TableReference::Query {
-            query,
-            as_span,
-            as_,
-        } => {
-            //     Query {
-            //         query: Box<Statement<'a>>,
-            //         as_span: Option<Span>,
-            //         as_: Option<(&'a str, Span)>,
-            //         //TODO collist
-            //     },
-            typer.issues.push(Issue::todo(reference));
+        sql_ast::TableReference::Query { query, as_, .. } => {
+            let select = type_union_select(typer, query);
+
+            let name = if let Some(as_) = as_ {
+                as_.clone()
+            } else {
+                ("", 0..0)
+            };
+
+            typer.reference_types.push(ReferenceType {
+                name,
+                columns: select
+                    .columns
+                    .iter()
+                    .filter_map(|v| {
+                        if let Some(name) = v.name {
+                            Some((name, v.type_.clone()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+            });
         }
         sql_ast::TableReference::Join {
             join,

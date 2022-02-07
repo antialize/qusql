@@ -133,8 +133,23 @@ pub(crate) fn type_function<'a>(
             }
             FullType::new(Type::Text, not_null)
         }
+        Function::FindInSet => {
+            arg_cnt(typer, 2..2, args, span);
+            let mut not_null = true;
+            if let Some((a, t)) = typed.get(0) {
+                not_null = not_null && t.not_null;
+                typer.ensure_text(*a, t);
+            }
+            if let Some((a, t)) = typed.get(1) {
+                not_null = not_null && t.not_null;
+                typer.ensure_text(*a, t);
+            }
+            FullType::new(Type::U8, not_null)
+        }
         _ => {
-            typer.issues.push(Issue::todo(span));
+            typer
+                .issues
+                .push(Issue::err("Function not implemnted", span));
             FullType::invalid()
         }
     }

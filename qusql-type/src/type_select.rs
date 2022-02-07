@@ -14,6 +14,7 @@ use crate::{
 pub struct SelectTypeColumn<'a> {
     pub name: Option<&'a str>,
     pub type_: FullType<'a>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -27,113 +28,101 @@ pub(crate) fn resolve_kleene_identifier<'a>(
     as_: &Option<(&'a str, Span)>,
     mut cb: impl FnMut(Option<&'a str>, FullType<'a>, Span, bool) -> (),
 ) {
-    match parts.len() {
-        1 => {
-            match &parts[0] {
-                sql_ast::IdentifierPart::Name(col) => {
-                    let mut cnt = 0;
-                    let mut t = None;
-                    for r in &typer.reference_types {
-                        for c in &r.columns {
-                            if c.0 == col.0 {
-                                cnt += 1;
-                                t = Some(c);
-                            }
-                        }
-                    }
-                    let name = as_.as_ref().unwrap_or(col);
-                    if cnt > 1 {
-                        let mut issue = Issue::err("Ambigious reference", col);
-                        for r in &typer.reference_types {
-                            for c in &r.columns {
-                                if c.0 == col.0 {
-                                    issue = issue.frag("Defined here", &r.name);
-                                }
-                            }
-                        }
-                        typer.issues.push(issue);
-                        cb(
-                            Some(name.0),
-                            FullType::invalid(),
-                            name.1.clone(),
-                            as_.is_some(),
-                        );
-                    } else if let Some(t) = t {
-                        cb(Some(name.0), t.1.clone(), name.1.clone(), as_.is_some());
-                    } else {
-                        typer.issues.push(Issue::err("Unknown identifier", col));
-                        cb(
-                            Some(name.0),
-                            FullType::invalid(),
-                            name.1.clone(),
-                            as_.is_some(),
-                        );
-                    }
-                }
-                sql_ast::IdentifierPart::Star(v) => {
-                    if let Some(as_) = as_ {
-                        typer.issues.push(Issue::err("As not supported for *", as_));
-                    }
-                    for r in &typer.reference_types {
-                        for c in &r.columns {
-                            cb(Some(c.0), c.1.clone(), v.clone(), false);
-                        }
-                    }
-                }
-            };
-        }
-        2 => {
-            let tbl = match &parts[0] {
-                sql_ast::IdentifierPart::Name(n) => n,
-                sql_ast::IdentifierPart::Star(v) => {
-                    typer.issues.push(Issue::err("Not supported here", v));
-                    return;
-                }
-            };
-            match &parts[1] {
-                sql_ast::IdentifierPart::Name(col) => {
-                    let mut t = None;
-                    for r in &typer.reference_types {
-                        if r.name.0 == tbl.0 {
-                            for c in &r.columns {
-                                if c.0 == col.0 {
-                                    t = Some(c);
-                                }
-                            }
-                        }
-                    }
-                    let name = as_.as_ref().unwrap_or(col);
-                    if let Some(t) = t {
-                        cb(Some(name.0), t.1.clone(), name.1.clone(), as_.is_some());
-                    } else {
-                        typer.issues.push(Issue::err("Unknown identifier", col));
-                        cb(
-                            Some(name.0),
-                            FullType::invalid(),
-                            name.1.clone(),
-                            as_.is_some(),
-                        );
-                    }
-                }
-                sql_ast::IdentifierPart::Star(v) => {
-                    if let Some(as_) = as_ {
-                        typer.issues.push(Issue::err("As not supported for *", as_));
-                    }
-                    let mut t = None;
-                    for r in &typer.reference_types {
-                        if r.name.0 == tbl.0 {
-                            t = Some(r);
-                        }
-                    }
-                    if let Some(t) = t {
-                        for c in &t.columns {
-                            cb(Some(c.0), c.1.clone(), v.clone(), false);
-                        }
-                    } else {
-                        typer.issues.push(Issue::err("Unknown table", tbl));
+    match parts {
+        [sql_ast::IdentifierPart::Name(col)] => {
+            let mut cnt = 0;
+            let mut t = None;
+            for r in &typer.reference_types {
+                for c in &r.columns {
+                    if c.0 == col.0 {
+                        cnt += 1;
+                        t = Some(c);
                     }
                 }
             }
+            let name = as_.as_ref().unwrap_or(col);
+            if cnt > 1 {
+                let mut issue = Issue::err("Ambigious reference", col);
+                for r in &typer.reference_types {
+                    for c in &r.columns {
+                        if c.0 == col.0 {
+                            issue = issue.frag("Defined here", &r.name);
+                        }
+                    }
+                }
+                typer.issues.push(issue);
+                cb(
+                    Some(name.0),
+                    FullType::invalid(),
+                    name.1.clone(),
+                    as_.is_some(),
+                );
+            } else if let Some(t) = t {
+                cb(Some(name.0), t.1.clone(), name.1.clone(), as_.is_some());
+            } else {
+                typer.issues.push(Issue::err("Unknown identifier", col));
+                cb(
+                    Some(name.0),
+                    FullType::invalid(),
+                    name.1.clone(),
+                    as_.is_some(),
+                );
+            }
+        }
+        [sql_ast::IdentifierPart::Star(v)] => {
+            if let Some(as_) = as_ {
+                typer.issues.push(Issue::err("As not supported for *", as_));
+            }
+            for r in &typer.reference_types {
+                for c in &r.columns {
+                    cb(Some(c.0), c.1.clone(), v.clone(), false);
+                }
+            }
+        }
+        [sql_ast::IdentifierPart::Name(tbl), sql_ast::IdentifierPart::Name(col)] => {
+            let mut t = None;
+            for r in &typer.reference_types {
+                if r.name.0 == tbl.0 {
+                    for c in &r.columns {
+                        if c.0 == col.0 {
+                            t = Some(c);
+                        }
+                    }
+                }
+            }
+            let name = as_.as_ref().unwrap_or(col);
+            if let Some(t) = t {
+                cb(Some(name.0), t.1.clone(), name.1.clone(), as_.is_some());
+            } else {
+                typer.issues.push(Issue::err("Unknown identifier", col));
+                cb(
+                    Some(name.0),
+                    FullType::invalid(),
+                    name.1.clone(),
+                    as_.is_some(),
+                );
+            }
+        }
+        [sql_ast::IdentifierPart::Name(tbl), sql_ast::IdentifierPart::Star(v)] => {
+            if let Some(as_) = as_ {
+                typer.issues.push(Issue::err("As not supported for *", as_));
+            }
+            let mut t = None;
+            for r in &typer.reference_types {
+                if r.name.0 == tbl.0 {
+                    t = Some(r);
+                }
+            }
+            if let Some(t) = t {
+                for c in &t.columns {
+                    cb(Some(c.0), c.1.clone(), v.clone(), false);
+                }
+            } else {
+                typer.issues.push(Issue::err("Unknown table", tbl));
+            }
+        }
+        [sql_ast::IdentifierPart::Star(v), _] => {
+            typer.issues.push(Issue::err("Not supported here", v));
         }
         _ => typer
             .issues
@@ -231,7 +220,7 @@ pub(crate) fn type_select<'a>(
         }
     }
 
-    if let Some((limit_spam, offset, count)) = &select.limit {
+    if let Some((_, offset, count)) = &select.limit {
         if let Some(offset) = offset {
             let t = type_expression(typer, offset, false);
             if typer
@@ -261,7 +250,7 @@ pub(crate) fn type_select<'a>(
     SelectType {
         columns: result
             .into_iter()
-            .map(|(name, type_, _)| SelectTypeColumn { name, type_ })
+            .map(|(name, type_, span)| SelectTypeColumn { name, type_, span })
             .collect(),
     }
 }
@@ -353,13 +342,53 @@ pub(crate) fn type_union<'a>(typer: &mut Typer<'a>, union: &Union<'a>) -> Select
         left = left.join_span(&w.union_statement);
     }
 
-    if let Some((span, _)) = &union.order_by {
-        typer.issues.push(Issue::todo(span));
+    typer.reference_types.push(ReferenceType {
+        name: ("", 0..0),
+        columns: t
+            .columns
+            .iter()
+            .filter_map(|v| {
+                if let Some(name) = v.name {
+                    Some((name, v.type_.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect(),
+    });
+
+    if let Some((_, order_by)) = &union.order_by {
+        for (e, _) in order_by {
+            type_expression(typer, e, false);
+        }
     }
 
-    if let Some((span, _, _)) = &union.limit {
-        typer.issues.push(Issue::todo(span));
+    if let Some((_, offset, count)) = &union.limit {
+        if let Some(offset) = offset {
+            let t = type_expression(typer, offset, false);
+            if typer
+                .common_type(&t, &FullType::new(Type::U64, true))
+                .is_none()
+            {
+                typer.issues.push(Issue::err(
+                    format!("Expected integer type got {}", t.t),
+                    offset,
+                ));
+            }
+        }
+        let t = type_expression(typer, count, false);
+        if typer
+            .common_type(&t, &FullType::new(Type::U64, true))
+            .is_none()
+        {
+            typer.issues.push(Issue::err(
+                format!("Expected integer type got {}", t.t),
+                count,
+            ));
+        }
     }
+
+    typer.reference_types.pop();
 
     t
 }

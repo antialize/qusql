@@ -244,7 +244,7 @@ impl<'a> Typer<'a> {
                 Type::Null | Type::Invalid | Type::Arg(_, _) => panic!(),
             },
             Type::Text => match t2.t {
-                Type::Text | Type::Enum(_) => Type::Text,
+                Type::Text | Type::Enum(_) | Type::Set(_) => Type::Text,
                 Type::U8
                 | Type::I8
                 | Type::U16
@@ -262,8 +262,7 @@ impl<'a> Typer<'a> {
                 | Type::DateTime
                 | Type::Timestamp
                 | Type::Date
-                | Type::Bool
-                | Type::Set(_) => return None,
+                | Type::Bool => return None,
                 Type::Null | Type::Invalid | Type::Arg(_, _) => panic!(),
             },
             Type::F32 => match t2.t {
@@ -409,11 +408,17 @@ impl<'a> Typer<'a> {
                 match t2.t {
                     Type::Text => Type::Text,
                     Type::Enum(_) => Type::Text, //TODO
+                    Type::Set(_) => Type::Text,  //TODO
                     _ => return None,
                 }
             }
             Type::Set(_) => {
-                return None;
+                match t2.t {
+                    Type::Text => Type::Text,
+                    Type::Set(_) => Type::Text,  //TODO
+                    Type::Enum(_) => Type::Text, //TODO
+                    _ => return None,
+                }
             }
         };
         Some(FullType::new(t, not_null))

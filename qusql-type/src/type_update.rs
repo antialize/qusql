@@ -21,13 +21,13 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a>, update: &Update<'a>) {
 
     for (key, value) in &update.set {
         let value_type = type_expression(typer, value, false);
-        match key.len() {
-            1 => {
+        match key.as_slice() {
+            [key] => {
                 let mut cnt = 0;
                 let mut t = None;
                 for r in &typer.reference_types {
                     for c in &r.columns {
-                        if c.0 == key[0].0 {
+                        if c.0 == key.0 {
                             cnt += 1;
                             t = Some(c.clone());
                         }
@@ -37,7 +37,7 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a>, update: &Update<'a>) {
                     let mut issue = Issue::err("Ambigious reference", &key.opt_span().unwrap());
                     for r in &typer.reference_types {
                         for c in &r.columns {
-                            if c.0 == key[0].0 {
+                            if c.0 == key.0 {
                                 issue = issue.frag("Defined here", &r.name);
                             }
                         }
@@ -51,14 +51,14 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a>, update: &Update<'a>) {
                         .push(Issue::err("Unknown identifier", &key.opt_span().unwrap()));
                 }
             }
-            2 => {
+            [(table, _), (column, _)] => {
                 let mut t = None;
                 for r in &typer.reference_types {
-                    if r.name.0 != key[0].0 {
+                    if r.name.0 != *table {
                         continue;
                     }
                     for c in &r.columns {
-                        if c.0 == key[1].0 {
+                        if c.0 == *column {
                             t = Some(c.clone());
                         }
                     }

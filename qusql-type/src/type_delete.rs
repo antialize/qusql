@@ -16,14 +16,16 @@ pub(crate) fn type_delete<'a>(typer: &mut Typer<'a>, delete: &Delete<'a>) {
         }
     }
 
-    if delete.table.len() != 1 {
-        typer
-            .issues
-            .push(Issue::todo(&delete.table.opt_span().unwrap()));
-        return;
-    }
+    let identifier = match delete.table.as_slice() {
+        [v] => v,
+        _ => {
+            typer
+                .issues
+                .push(Issue::todo(&delete.table.opt_span().unwrap()));
+            return;
+        }
+    };
 
-    let identifier = &delete.table[0];
     if let Some(s) = typer.schemas.schemas.get(&identifier.0) {
         let mut columns = Vec::new();
         for (n, t) in &s.columns {
