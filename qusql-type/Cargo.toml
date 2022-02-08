@@ -2,8 +2,9 @@
 name = "sql-type"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Jakob Truelsen <antialize@gmail.com>"]
+keywords = [ "mysql", "sql", "typer" ]
+license = "Apache-2.0"
 
 [dev-dependencies]
 codespan-reporting = "0.11"
