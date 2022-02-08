@@ -1,4 +1,4 @@
-use sql_ast::{Issue, TableReference};
+use sql_ast::{issue_todo, Issue, OptSpanned, Spanned, TableReference};
 
 use crate::{
     type_expression::type_expression,
@@ -6,8 +6,8 @@ use crate::{
     typer::{ReferenceType, Typer},
 };
 
-pub(crate) fn type_reference<'a>(
-    typer: &mut Typer<'a>,
+pub(crate) fn type_reference<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
     reference: &TableReference<'a>,
     force_null: bool,
 ) {
@@ -18,11 +18,11 @@ pub(crate) fn type_reference<'a>(
             let identifier = match identifier.as_slice() {
                 [v] => v,
                 _ => {
-                    typer.issues.push(Issue::todo(reference));
+                    typer.issues.push(issue_todo!(reference));
                     return;
                 }
             };
-            if let Some(s) = typer.schemas.schemas.get(&identifier.0) {
+            if let Some(s) = typer.schemas.schemas.get(&identifier.value) {
                 let mut columns = Vec::new();
                 for (n, t) in &s.columns {
                     let mut type_ = t.type_.ref_clone();
@@ -31,14 +31,18 @@ pub(crate) fn type_reference<'a>(
                 }
                 let name = as_.as_ref().unwrap_or(identifier).clone();
                 for v in &typer.reference_types {
-                    if v.name.0 == name.0 {
+                    if v.name == Some(name.value) {
                         typer.issues.push(
                             Issue::err("Duplicate definitions", &name)
-                                .frag("Allready defined here", &v.name),
+                                .frag("Allready defined here", &v.span),
                         );
                     }
                 }
-                typer.reference_types.push(ReferenceType { name, columns });
+                typer.reference_types.push(ReferenceType {
+                    name: Some(name.value),
+                    span: name.span(),
+                    columns,
+                });
             } else {
                 typer
                     .issues
@@ -48,14 +52,15 @@ pub(crate) fn type_reference<'a>(
         sql_ast::TableReference::Query { query, as_, .. } => {
             let select = type_union_select(typer, query);
 
-            let name = if let Some(as_) = as_ {
-                as_.clone()
+            let (name, span) = if let Some(as_) = as_ {
+                (Some(as_.value), as_.span.clone())
             } else {
-                ("", 0..0)
+                (None, select.columns.opt_span().unwrap())
             };
 
             typer.reference_types.push(ReferenceType {
                 name,
+                span,
                 columns: select
                     .columns
                     .iter()
@@ -78,19 +83,19 @@ pub(crate) fn type_reference<'a>(
             let (left_force_null, right_force_null) = match join {
                 sql_ast::JoinType::Left(_) => (force_null, true),
                 _ => {
-                    typer.issues.push(Issue::todo(join));
+                    typer.issues.push(issue_todo!(join));
                     (force_null, force_null)
                 }
             };
             type_reference(typer, left, left_force_null);
             type_reference(typer, right, right_force_null);
             match &specification {
-                Some(sql_ast::JoinSpecification::On(e, r)) => {
+                Some(sql_ast::JoinSpecification::On(e, _)) => {
                     let t = type_expression(typer, e, false);
                     typer.ensure_bool(e, &t);
                 }
                 Some(s @ sql_ast::JoinSpecification::Using(_, _)) => {
-                    typer.issues.push(Issue::todo(s));
+                    typer.issues.push(issue_todo!(s));
                 }
                 None => (),
             }

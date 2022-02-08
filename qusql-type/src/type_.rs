@@ -124,3 +124,14 @@ impl<'a> std::ops::Deref for FullType<'a> {
         &self.t
     }
 }
+
+impl<'a> Display for FullType<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.t.fmt(f)?;
+        if self.not_null {
+            f.write_str(" not null")
+        } else {
+            Ok(())
+        }
+    }
+}

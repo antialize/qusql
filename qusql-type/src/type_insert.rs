@@ -1,4 +1,4 @@
-use sql_ast::{Insert, Issue, Replace, Select};
+use sql_ast::{issue_todo, Insert, Issue, Replace, Spanned};
 
 use crate::{type_expression::type_expression, type_select::type_select, typer::Typer};
 
@@ -7,7 +7,7 @@ enum InsertOrReplace<'a, 'b> {
     Insert(&'b Insert<'a>),
 }
 
-fn type_insert_or_replace<'a>(typer: &mut Typer<'a>, ior: InsertOrReplace<'a, '_>) {
+fn type_insert_or_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, ior: InsertOrReplace<'a, '_>) {
     match ior {
         InsertOrReplace::Replace(replace) => {
             for flag in &replace.flags {
@@ -40,12 +40,12 @@ fn type_insert_or_replace<'a>(typer: &mut Typer<'a>, ior: InsertOrReplace<'a, '_
 
     if let Some(v) = table.get(1..) {
         for t in v {
-            typer.issues.push(Issue::todo(t));
+            typer.issues.push(issue_todo!(t));
         }
     }
 
     let t = &table[0];
-    let s = if let Some(schema) = typer.schemas.schemas.get(t.0) {
+    let s = if let Some(schema) = typer.schemas.schemas.get(t.value) {
         if schema.view {
             typer
                 .issues
@@ -53,8 +53,8 @@ fn type_insert_or_replace<'a>(typer: &mut Typer<'a>, ior: InsertOrReplace<'a, '_
         }
         let mut col_types = Vec::new();
         for col in columns {
-            if let Some(schema_col) = schema.columns.get(col.0) {
-                col_types.push((schema_col.type_.ref_clone(), col.1.clone()));
+            if let Some(schema_col) = schema.columns.get(col.value) {
+                col_types.push((schema_col.type_.ref_clone(), col.span()));
             } else {
                 typer
                     .issues
@@ -124,10 +124,10 @@ fn type_insert_or_replace<'a>(typer: &mut Typer<'a>, ior: InsertOrReplace<'a, '_
     }
 }
 
-pub(crate) fn type_insert<'a>(typer: &mut Typer<'a>, insert: &Insert<'a>) {
+pub(crate) fn type_insert<'a, 'b>(typer: &mut Typer<'a, 'b>, insert: &Insert<'a>) {
     type_insert_or_replace(typer, InsertOrReplace::Insert(insert))
 }
 
-pub(crate) fn type_replace<'a>(typer: &mut Typer<'a>, replace: &Replace<'a>) {
+pub(crate) fn type_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, replace: &Replace<'a>) {
     type_insert_or_replace(typer, InsertOrReplace::Replace(replace))
 }

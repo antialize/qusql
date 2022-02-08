@@ -1,13 +1,8 @@
-use sql_ast::{Issue, OptSpanned, Update};
+use sql_ast::{Identifier, Issue, OptSpanned, Update};
 
-use crate::{
-    type_::FullType,
-    type_expression::{self, type_expression},
-    type_reference::type_reference,
-    typer::Typer,
-};
+use crate::{type_expression::type_expression, type_reference::type_reference, typer::Typer};
 
-pub(crate) fn type_update<'a>(typer: &mut Typer<'a>, update: &Update<'a>) {
+pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>) {
     let old_reference_type = std::mem::take(&mut typer.reference_types);
     for f in &update.flags {
         match f {
@@ -27,7 +22,7 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a>, update: &Update<'a>) {
                 let mut t = None;
                 for r in &typer.reference_types {
                     for c in &r.columns {
-                        if c.0 == key.0 {
+                        if c.0 == key.value {
                             cnt += 1;
                             t = Some(c.clone());
                         }
@@ -37,8 +32,8 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a>, update: &Update<'a>) {
                     let mut issue = Issue::err("Ambigious reference", &key.opt_span().unwrap());
                     for r in &typer.reference_types {
                         for c in &r.columns {
-                            if c.0 == key.0 {
-                                issue = issue.frag("Defined here", &r.name);
+                            if c.0 == key.value {
+                                issue = issue.frag("Defined here", &r.span);
                             }
                         }
                     }
@@ -51,10 +46,10 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a>, update: &Update<'a>) {
                         .push(Issue::err("Unknown identifier", &key.opt_span().unwrap()));
                 }
             }
-            [(table, _), (column, _)] => {
+            [Identifier { value: table, .. }, Identifier { value: column, .. }] => {
                 let mut t = None;
                 for r in &typer.reference_types {
-                    if r.name.0 != *table {
+                    if r.name != Some(*table) {
                         continue;
                     }
                     for c in &r.columns {

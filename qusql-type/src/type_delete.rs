@@ -1,11 +1,11 @@
-use sql_ast::{Delete, Issue, OptSpanned};
+use sql_ast::{issue_todo, Delete, Issue, OptSpanned, Spanned};
 
 use crate::{
     type_expression::type_expression,
     typer::{ReferenceType, Typer},
 };
 
-pub(crate) fn type_delete<'a>(typer: &mut Typer<'a>, delete: &Delete<'a>) {
+pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>) {
     let old_reference_type = std::mem::take(&mut typer.reference_types);
 
     for flag in &delete.flags {
@@ -21,18 +21,19 @@ pub(crate) fn type_delete<'a>(typer: &mut Typer<'a>, delete: &Delete<'a>) {
         _ => {
             typer
                 .issues
-                .push(Issue::todo(&delete.table.opt_span().unwrap()));
+                .push(issue_todo!(&delete.table.opt_span().unwrap()));
             return;
         }
     };
 
-    if let Some(s) = typer.schemas.schemas.get(&identifier.0) {
+    if let Some(s) = typer.schemas.schemas.get(&identifier.value) {
         let mut columns = Vec::new();
         for (n, t) in &s.columns {
             columns.push((*n, t.type_.ref_clone()));
         }
         typer.reference_types.push(ReferenceType {
-            name: (identifier.0, identifier.1.clone()),
+            name: Some(identifier.value),
+            span: identifier.span(),
             columns,
         });
     } else {

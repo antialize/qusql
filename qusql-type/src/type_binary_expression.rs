@@ -1,9 +1,9 @@
-use sql_ast::{BinaryOperator, Expression, Issue, Span};
+use sql_ast::{issue_todo, BinaryOperator, Expression, Issue, Span};
 
 use crate::{type_::FullType, type_expression::type_expression, typer::Typer, Type};
 
-pub(crate) fn type_binary_expression<'a>(
-    typer: &mut Typer<'a>,
+pub(crate) fn type_binary_expression<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
     op: &BinaryOperator,
     op_span: &Span,
     lhs: &Expression<'a>,
@@ -41,15 +41,15 @@ pub(crate) fn type_binary_expression<'a>(
             FullType::new(Type::Bool, lhs_type.not_null && rhs_type.not_null)
         }
         BinaryOperator::NullSafeEq => {
-            typer.issues.push(Issue::todo(op_span));
+            typer.issues.push(issue_todo!(op_span));
             FullType::invalid()
         }
         BinaryOperator::ShiftLeft | BinaryOperator::ShiftRight => {
-            typer.issues.push(Issue::todo(op_span));
+            typer.issues.push(issue_todo!(op_span));
             FullType::invalid()
         }
         BinaryOperator::BitAnd | BinaryOperator::BitOr | BinaryOperator::BitXor => {
-            typer.issues.push(Issue::todo(op_span));
+            typer.issues.push(issue_todo!(op_span));
             FullType::invalid()
         }
         BinaryOperator::Add | BinaryOperator::Subtract => {
@@ -66,19 +66,19 @@ pub(crate) fn type_binary_expression<'a>(
             }
         }
         BinaryOperator::Divide => {
-            typer.issues.push(Issue::todo(op_span));
+            typer.issues.push(issue_todo!(op_span));
             FullType::invalid()
         }
         BinaryOperator::Div => {
-            typer.issues.push(Issue::todo(op_span));
+            typer.issues.push(issue_todo!(op_span));
             FullType::invalid()
         }
         BinaryOperator::Mod => {
-            typer.issues.push(Issue::todo(op_span));
+            typer.issues.push(issue_todo!(op_span));
             FullType::invalid()
         }
         BinaryOperator::Mult => {
-            typer.issues.push(Issue::todo(op_span));
+            typer.issues.push(issue_todo!(op_span));
             FullType::invalid()
         }
         BinaryOperator::Like | BinaryOperator::NotLike => {

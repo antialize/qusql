@@ -4,18 +4,19 @@ use crate::{schema::Schemas, type_::FullType, Type};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ReferenceType<'a> {
-    pub(crate) name: (&'a str, Span),
+    pub(crate) name: Option<&'a str>,
+    pub(crate) span: Span,
     pub(crate) columns: Vec<(&'a str, FullType<'a>)>,
 }
 
-pub(crate) struct Typer<'a> {
-    pub(crate) issues: &'a mut Vec<Issue>,
+pub(crate) struct Typer<'a, 'b> {
+    pub(crate) issues: &'b mut Vec<Issue>,
     pub(crate) schemas: &'a Schemas<'a>,
     pub(crate) reference_types: Vec<ReferenceType<'a>>,
     pub(crate) arg_types: Vec<FullType<'a>>,
 }
 
-impl<'a> Typer<'a> {
+impl<'a, 'b> Typer<'a, 'b> {
     pub(crate) fn constrain_arg(&mut self, idx: usize, t: &FullType<'a>) {
         while self.arg_types.len() <= idx {
             self.arg_types.push(FullType::invalid());

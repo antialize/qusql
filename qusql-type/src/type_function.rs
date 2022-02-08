@@ -1,15 +1,12 @@
-use sql_ast::{Expression, Function, Issue, Span};
+use sql_ast::{issue_todo, Expression, Function, Issue, Span};
 
 use crate::{
-    type_::FullType,
-    type_expression::{self, type_expression},
-    type_select::resolve_kleene_identifier,
-    typer::Typer,
-    Type,
+    type_::FullType, type_expression::type_expression, type_select::resolve_kleene_identifier,
+    typer::Typer, Type,
 };
 
-fn arg_cnt<'a>(
-    typer: &mut Typer<'a>,
+fn arg_cnt<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
     rng: std::ops::Range<usize>,
     args: &[Expression<'a>],
     span: &Span,
@@ -43,8 +40,8 @@ fn arg_cnt<'a>(
     typer.issues.push(issue);
 }
 
-pub(crate) fn type_function<'a>(
-    typer: &mut Typer<'a>,
+pub(crate) fn type_function<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
     func: &Function<'a>,
     args: &Vec<Expression<'a>>,
     span: &Span,
@@ -70,14 +67,14 @@ pub(crate) fn type_function<'a>(
         Function::UnixTimestamp => {
             arg_cnt(typer, 0..1, args, span);
             if let Some(arg) = args.get(0) {
-                typer.issues.push(Issue::todo(arg));
+                typer.issues.push(issue_todo!(arg));
             }
             FullType::new(Type::U64, true)
         }
         Function::Rand => {
             arg_cnt(typer, 0..1, args, span);
             if let Some(arg) = args.get(0) {
-                typer.issues.push(Issue::todo(arg));
+                typer.issues.push(issue_todo!(arg));
             }
             FullType::new(Type::F64, true)
         }

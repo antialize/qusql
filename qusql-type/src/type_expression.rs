@@ -1,12 +1,12 @@
-use sql_ast::{Expression, Issue, Span, UnaryOperator};
+use sql_ast::{issue_todo, Expression, Issue, Span, UnaryOperator};
 
 use crate::{
     type_::FullType, type_binary_expression::type_binary_expression, type_function::type_function,
     type_select::type_select, typer::Typer, Type,
 };
 
-fn type_unary_expression<'a>(
-    typer: &mut Typer<'a>,
+fn type_unary_expression<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
     op: &UnaryOperator,
     op_span: &Span,
     operand: &Expression<'a>,
@@ -17,7 +17,7 @@ fn type_unary_expression<'a>(
         | UnaryOperator::Collate
         | UnaryOperator::LogicalNot
         | UnaryOperator::Minus => {
-            typer.issues.push(Issue::todo(op_span));
+            typer.issues.push(issue_todo!(op_span));
             FullType::invalid()
         }
         UnaryOperator::Not => {
@@ -27,8 +27,8 @@ fn type_unary_expression<'a>(
     }
 }
 
-pub(crate) fn type_expression<'a>(
-    typer: &mut Typer<'a>,
+pub(crate) fn type_expression<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
     expression: &Expression<'a>,
     outer_where: bool,
 ) -> FullType<'a> {
@@ -60,7 +60,7 @@ pub(crate) fn type_expression<'a>(
         Expression::String(_) => FullType::new(Type::Text, true),
         Expression::Integer(_) => FullType::new(Type::Integer, true),
         Expression::Float(_) => {
-            typer.issues.push(Issue::todo(expression));
+            typer.issues.push(issue_todo!(expression));
             FullType::new(Type::Float, true)
         }
         Expression::Function(func, args, span) => type_function(typer, func, args, span),
@@ -78,7 +78,7 @@ pub(crate) fn type_expression<'a>(
                     let mut cnt = 0;
                     for r in &typer.reference_types {
                         for c in &r.columns {
-                            if c.0 == col.0 {
+                            if c.0 == col.value {
                                 cnt += 1;
                                 t = Some(c);
                             }
@@ -88,8 +88,8 @@ pub(crate) fn type_expression<'a>(
                         let mut issue = Issue::err("Ambigious reference", col);
                         for r in &typer.reference_types {
                             for c in &r.columns {
-                                if c.0 == col.0 {
-                                    issue = issue.frag("Defined here", &r.name);
+                                if c.0 == col.value {
+                                    issue = issue.frag("Defined here", &r.span);
                                 }
                             }
                         }
@@ -113,9 +113,9 @@ pub(crate) fn type_expression<'a>(
                         }
                     };
                     for r in &typer.reference_types {
-                        if r.name.0 == tbl.0 {
+                        if r.name == Some(tbl.value) {
                             for c in &r.columns {
-                                if c.0 == col.0 {
+                                if c.0 == col.value {
                                     t = Some(c);
                                 }
                             }
@@ -201,22 +201,21 @@ pub(crate) fn type_expression<'a>(
                         // and the expression is an identifier, we can mark the columns not_null
                         // the reference_types
                         if let Expression::Identifier(parts) = e.as_ref() {
-                            if let Some(sql_ast::IdentifierPart::Name((n0, _))) = parts.get(0) {
+                            if let Some(sql_ast::IdentifierPart::Name(n0)) = parts.get(0) {
                                 if parts.len() == 1 {
                                     for r in &mut typer.reference_types {
                                         for c in &mut r.columns {
-                                            if &c.0 == n0 {
+                                            if c.0 == n0.value {
                                                 c.1.not_null = true;
                                             }
                                         }
                                     }
-                                } else if let Some(sql_ast::IdentifierPart::Name((n1, _))) =
-                                    parts.get(1)
+                                } else if let Some(sql_ast::IdentifierPart::Name(n1)) = parts.get(1)
                                 {
                                     for r in &mut typer.reference_types {
-                                        if &r.name.0 == n0 {
+                                        if r.name == Some(n0.value) {
                                             for c in &mut r.columns {
-                                                if &c.0 == n1 {
+                                                if c.0 == n1.value {
                                                     c.1.not_null = true;
                                                 }
                                             }
@@ -234,20 +233,14 @@ pub(crate) fn type_expression<'a>(
                 | sql_ast::Is::NotFalse
                 | sql_ast::Is::Unknown
                 | sql_ast::Is::NotUnknown => {
-                    typer.issues.push(Issue::todo(expression));
+                    typer.issues.push(issue_todo!(expression));
                     FullType::invalid()
                 }
             }
         }
         Expression::Invalid => FullType::invalid(),
-        Expression::Case {
-            case_span,
-            value,
-            whens,
-            else_,
-            end_span,
-        } => {
-            typer.issues.push(Issue::todo(expression));
+        Expression::Case { .. } => {
+            typer.issues.push(issue_todo!(expression));
             FullType::invalid()
         }
     }
