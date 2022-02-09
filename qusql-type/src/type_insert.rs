@@ -19,7 +19,7 @@ enum InsertOrReplace<'a, 'b> {
     Insert(&'b Insert<'a>),
 }
 
-fn type_insert_or_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, ior: InsertOrReplace<'a, '_>) {
+fn type_insert_or_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, ior: InsertOrReplace<'a, '_>) -> bool {
     match ior {
         InsertOrReplace::Replace(replace) => {
             for flag in &replace.flags {
@@ -57,13 +57,14 @@ fn type_insert_or_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, ior: InsertOrReplac
     }
 
     let t = &table[0];
-    let s = if let Some(schema) = typer.schemas.schemas.get(t.value) {
+    let (s, auto_increment) = if let Some(schema) = typer.schemas.schemas.get(t.value) {
         if schema.view {
             typer
                 .issues
                 .push(Issue::err("Inserts into views not yet implemented", t));
         }
         let mut col_types = Vec::new();
+
         for col in columns {
             if let Some(schema_col) = schema.columns.get(col.value) {
                 col_types.push((schema_col.type_.ref_clone(), col.span()));
@@ -73,10 +74,13 @@ fn type_insert_or_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, ior: InsertOrReplac
                     .push(Issue::err("No such column in schema", col));
             }
         }
-        Some(col_types)
+        (
+            Some(col_types),
+            schema.columns.iter().any(|(_, c)| c.auto_increment),
+        )
     } else {
         typer.issues.push(Issue::err("Unknown table", t));
-        None
+        (None, false)
     };
 
     let values = match ior {
@@ -134,12 +138,14 @@ fn type_insert_or_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, ior: InsertOrReplac
             }
         }
     }
+
+    auto_increment
 }
 
-pub(crate) fn type_insert<'a, 'b>(typer: &mut Typer<'a, 'b>, insert: &Insert<'a>) {
+pub(crate) fn type_insert<'a, 'b>(typer: &mut Typer<'a, 'b>, insert: &Insert<'a>) -> bool {
     type_insert_or_replace(typer, InsertOrReplace::Insert(insert))
 }
 
 pub(crate) fn type_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, replace: &Replace<'a>) {
-    type_insert_or_replace(typer, InsertOrReplace::Replace(replace))
+    type_insert_or_replace(typer, InsertOrReplace::Replace(replace));
 }

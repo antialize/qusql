@@ -41,12 +41,9 @@ pub(crate) fn type_statement<'a, 'b>(
             type_delete(typer, d);
             InnerStatementType::Delete
         }
-        Statement::Insert(i) => {
-            type_insert(typer, i);
-            InnerStatementType::Insert {
-                auto_increment: false,
-            }
-        }
+        Statement::Insert(i) => InnerStatementType::Insert {
+            auto_increment: type_insert(typer, i),
+        },
         Statement::Update(u) => {
             type_update(typer, u);
             InnerStatementType::Update

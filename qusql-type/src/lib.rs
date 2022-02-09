@@ -266,6 +266,7 @@ mod tests {
         let mut errors = 0;
         check_no_errors("schema", &schema_src, &issues, &mut errors);
 
+        issues.clear();
         let options = ParseOptions::new()
             .dialect(SQLDialect::MariaDB)
             .arguments(SQLArguments::QuestionMark);
@@ -295,6 +296,33 @@ mod tests {
             );
         } else {
             println!("q1 should be select");
+            errors += 1;
+        }
+
+        issues.clear();
+        let q2_src =
+        "INSERT INTO `t1` (`cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`, 
+        `ctext`, `cbytes`, `cf32`, `cf64`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        let q2 = type_statement(&schema, q2_src, &mut issues, &options);
+        check_no_errors("q2", &q1_src, &issues, &mut errors);
+        if let StatementType::Insert {
+            arguments,
+            yield_autoincrement,
+        } = q2
+        {
+            check_arguments(
+                "q1",
+                &arguments,
+                "b!,u8!,u16!,u32!,u64!,i8,i16,i32,i64,text!,bytes,f32,f64",
+                &mut errors,
+            );
+            if !yield_autoincrement {
+                println!("q2 should yield autoincrement");
+                errors += 1;
+            }
+        } else {
+            println!("q2 should be insert");
             errors += 1;
         }
 
