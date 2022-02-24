@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_ast::{Issue, Statement};
+use sql_parse::{Issue, Statement};
 
 use crate::{
     type_delete::type_delete,

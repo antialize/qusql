@@ -10,16 +10,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_ast::{issue_todo, Expression, Function, Issue, Span};
+use alloc::{format, vec::Vec};
+use sql_parse::{issue_todo, Expression, Function, Issue, Span};
 
 use crate::{
-    type_::FullType, type_expression::type_expression, type_select::resolve_kleene_identifier,
-    typer::Typer, Type,
+    type_::{BaseType, FullType},
+    type_expression::type_expression,
+    typer::Typer,
+    Type,
 };
 
 fn arg_cnt<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
-    rng: std::ops::Range<usize>,
+    rng: core::ops::Range<usize>,
     args: &[Expression<'a>],
     span: &Span,
 ) {
@@ -27,7 +30,7 @@ fn arg_cnt<'a, 'b>(
         return;
     }
 
-    let mut issue = if rng.len() == 0 {
+    let mut issue = if rng.is_empty() {
         Issue::err(
             format!("Expected {} arguments got {}", rng.start, args.len()),
             span,
@@ -55,22 +58,9 @@ fn arg_cnt<'a, 'b>(
 pub(crate) fn type_function<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     func: &Function<'a>,
-    args: &Vec<Expression<'a>>,
+    args: &[Expression<'a>],
     span: &Span,
 ) -> FullType<'a> {
-    if matches!(func, Function::Count) {
-        arg_cnt(typer, 1..1, args, span);
-        match &args[0] {
-            Expression::Identifier(parts) => {
-                resolve_kleene_identifier(typer, parts, &None, |_, _, _, _| {})
-            }
-            arg => {
-                type_expression(typer, arg, false);
-            }
-        }
-        return FullType::new(Type::Integer, true);
-    }
-
     let mut typed = Vec::new();
     for arg in args {
         typed.push((arg, type_expression(typer, arg, false)));
@@ -100,30 +90,38 @@ pub(crate) fn type_function<'a, 'b>(
             } else {
                 FullType::invalid()
             };
-            if let Some((e, t2)) = typed.get(0) {
+            if let Some((e, t2)) = typed.get(1) {
                 typer.ensure_type(*e, t2, &t);
+                t2.clone()
+            } else {
+                t.clone()
             }
-            t
         }
         Function::JsonExtract => {
             arg_cnt(typer, 2..999, args, span);
             for (a, t) in &typed {
-                typer.ensure_text(*a, t);
+                typer.ensure_base(*a, t, BaseType::String);
             }
-            // TODO this can have any type, we do not currently have an any type so we return
-            // invalid
-            FullType::new(Type::Invalid, false)
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonValue => {
+            arg_cnt(typer, 2..2, args, span);
+            for (a, t) in &typed {
+                typer.ensure_base(*a, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
         }
         Function::JsonUnquote => {
             arg_cnt(typer, 1..1, args, span);
             for (a, t) in &typed {
-                typer.ensure_text(*a, t);
+                typer.ensure_base(*a, t, BaseType::String);
             }
-            FullType::new(Type::Text, false)
+            FullType::new(BaseType::String, false)
         }
         Function::Min | Function::Max | Function::Sum => {
             arg_cnt(typer, 1..1, args, span);
             if let Some((_, t2)) = typed.get(0) {
+                //TODO check that the type can be mined or maxed
                 t2.clone()
             } else {
                 FullType::invalid()
@@ -134,31 +132,109 @@ pub(crate) fn type_function<'a, 'b>(
             let mut not_null = true;
             if let Some((a, t)) = typed.get(0) {
                 not_null = not_null && t.not_null;
-                typer.ensure_text(*a, t);
+                typer.ensure_base(*a, t, BaseType::String);
             }
             if let Some((a, t)) = typed.get(1) {
                 not_null = not_null && t.not_null;
-                typer.ensure_type(*a, t, &FullType::new(Type::Integer, false));
+                typer.ensure_base(*a, t, BaseType::Integer);
             }
-            FullType::new(Type::Text, not_null)
+            FullType::new(BaseType::String, not_null)
         }
         Function::FindInSet => {
             arg_cnt(typer, 2..2, args, span);
             let mut not_null = true;
             if let Some((a, t)) = typed.get(0) {
                 not_null = not_null && t.not_null;
-                typer.ensure_text(*a, t);
+                typer.ensure_base(*a, t, BaseType::String);
             }
             if let Some((a, t)) = typed.get(1) {
                 not_null = not_null && t.not_null;
-                typer.ensure_text(*a, t);
+                typer.ensure_base(*a, t, BaseType::String);
             }
-            FullType::new(Type::U8, not_null)
+            FullType::new(BaseType::Integer, not_null)
+        }
+        Function::Now => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::DateTime, true)
+        }
+        Function::CurDate => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Date, true)
+        }
+        Function::CurrentTimestamp => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::TimeStamp, true)
+        }
+        Function::Concat => {
+            let mut not_null = true;
+            for (e, t) in typed {
+                typer.ensure_base(e, &t, BaseType::String);
+                not_null = not_null && t.not_null;
+            }
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::Least | Function::Greatest => {
+            arg_cnt(typer, 1..9999, args, span);
+            if let Some((a, at)) = typed.get(0) {
+                let mut not_null = true;
+                let mut t = at.t.clone();
+                for (b, bt) in &typed[1..] {
+                    not_null = not_null && bt.not_null;
+                    if bt.t == t {
+                        continue;
+                    };
+                    if let Some(tt) = typer.matched_type(&bt.t, &t) {
+                        t = tt;
+                    } else {
+                        typer.issues.push(
+                            Issue::err("None matching input types", span)
+                                .frag(format!("Type {}", at.t), *a)
+                                .frag(format!("Type {}", bt.t), *b),
+                        );
+                    }
+                }
+                FullType::new(t, true);
+            }
+            FullType::new(BaseType::Any, true)
+        }
+        Function::SubStringIndex => {
+            arg_cnt(typer, 3..3, args, span);
+            let mut not_null = true;
+            if let Some((e, t)) = typed.get(0) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.get(1) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.get(2) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::Replace => {
+            arg_cnt(typer, 3..3, args, span);
+            let mut not_null = true;
+            if let Some((e, t)) = typed.get(0) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.get(1) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.get(2) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::String, not_null)
         }
         _ => {
             typer
                 .issues
-                .push(Issue::err("Function not implemnted", span));
+                .push(Issue::err("Tying for function not implemnted", span));
             FullType::invalid()
         }
     }

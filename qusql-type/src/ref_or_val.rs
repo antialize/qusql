@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use core::ops::Deref;
 
 #[derive(Debug, Clone)]
 pub enum RefOrVal<'a, T> {

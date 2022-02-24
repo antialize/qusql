@@ -10,7 +10,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_ast::{issue_todo, Delete, Issue, OptSpanned, Spanned};
+use alloc::vec::Vec;
+use sql_parse::{issue_todo, Delete, Issue, OptSpanned, Spanned};
 
 use crate::{
     type_expression::type_expression,
@@ -18,22 +19,23 @@ use crate::{
 };
 
 pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>) {
-    let old_reference_type = std::mem::take(&mut typer.reference_types);
+    let old_reference_type = core::mem::take(&mut typer.reference_types);
 
     for flag in &delete.flags {
         match flag {
-            sql_ast::DeleteFlag::LowPriority(_)
-            | sql_ast::DeleteFlag::Quick(_)
-            | sql_ast::DeleteFlag::Ignore(_) => (),
+            sql_parse::DeleteFlag::LowPriority(_)
+            | sql_parse::DeleteFlag::Quick(_)
+            | sql_parse::DeleteFlag::Ignore(_) => (),
         }
     }
 
     let identifier = match delete.table.as_slice() {
         [v] => v,
         _ => {
-            typer
-                .issues
-                .push(issue_todo!(&delete.table.opt_span().unwrap()));
+            typer.issues.push(issue_todo!(&delete
+                .table
+                .opt_span()
+                .expect("table span in type_delete")));
             return;
         }
     };
@@ -56,7 +58,7 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
 
     if let Some((where_, _)) = &delete.where_ {
         let t = type_expression(typer, where_, false);
-        typer.ensure_bool(where_, &t);
+        typer.ensure_base(where_, &t, crate::type_::BaseType::Bool);
     }
 
     typer.reference_types = old_reference_type;

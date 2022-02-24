@@ -10,13 +10,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_ast::{issue_todo, Issue, OptSpanned, Spanned, TableReference};
-
 use crate::{
+    type_::BaseType,
     type_expression::type_expression,
     type_select::type_union_select,
     typer::{ReferenceType, Typer},
 };
+use alloc::vec::Vec;
+use sql_parse::{issue_todo, Issue, OptSpanned, Spanned, TableReference};
 
 pub(crate) fn type_reference<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
@@ -24,7 +25,7 @@ pub(crate) fn type_reference<'a, 'b>(
     force_null: bool,
 ) {
     match reference {
-        sql_ast::TableReference::Table {
+        sql_parse::TableReference::Table {
             identifier, as_, ..
         } => {
             let identifier = match identifier.as_slice() {
@@ -61,13 +62,13 @@ pub(crate) fn type_reference<'a, 'b>(
                     .push(Issue::err("Unknown table or view", identifier))
             }
         }
-        sql_ast::TableReference::Query { query, as_, .. } => {
+        sql_parse::TableReference::Query { query, as_, .. } => {
             let select = type_union_select(typer, query);
 
             let (name, span) = if let Some(as_) = as_ {
                 (Some(as_.value), as_.span.clone())
             } else {
-                (None, select.columns.opt_span().unwrap())
+                (None, select.columns.opt_span().expect("columns span"))
             };
 
             typer.reference_types.push(ReferenceType {
@@ -76,24 +77,22 @@ pub(crate) fn type_reference<'a, 'b>(
                 columns: select
                     .columns
                     .iter()
-                    .filter_map(|v| {
-                        if let Some(name) = v.name {
-                            Some((name, v.type_.clone()))
-                        } else {
-                            None
-                        }
-                    })
+                    .filter_map(|v| v.name.map(|name| (name, v.type_.clone())))
                     .collect(),
             });
         }
-        sql_ast::TableReference::Join {
+        sql_parse::TableReference::Join {
             join,
             left,
             right,
             specification,
         } => {
             let (left_force_null, right_force_null) = match join {
-                sql_ast::JoinType::Left(_) => (force_null, true),
+                sql_parse::JoinType::Left(_) => (force_null, true),
+                sql_parse::JoinType::Right(_) => (true, force_null),
+                sql_parse::JoinType::Inner(_)
+                | sql_parse::JoinType::Cross(_)
+                | sql_parse::JoinType::Normal(_) => (force_null, force_null),
                 _ => {
                     typer.issues.push(issue_todo!(join));
                     (force_null, force_null)
@@ -102,11 +101,11 @@ pub(crate) fn type_reference<'a, 'b>(
             type_reference(typer, left, left_force_null);
             type_reference(typer, right, right_force_null);
             match &specification {
-                Some(sql_ast::JoinSpecification::On(e, _)) => {
+                Some(sql_parse::JoinSpecification::On(e, _)) => {
                     let t = type_expression(typer, e, false);
-                    typer.ensure_bool(e, &t);
+                    typer.ensure_base(e, &t, BaseType::Bool);
                 }
-                Some(s @ sql_ast::JoinSpecification::Using(_, _)) => {
+                Some(s @ sql_parse::JoinSpecification::Using(_, _)) => {
                     typer.issues.push(issue_todo!(s));
                 }
                 None => (),

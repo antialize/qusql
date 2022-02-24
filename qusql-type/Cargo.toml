@@ -5,9 +5,13 @@ edition = "2021"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 keywords = [ "mysql", "sql", "typer" ]
 license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/antialize/sql-type/"
+homepage = "https://github.com/antialize/sql-type/"
+description = "Typer for sql"
 
 [dev-dependencies]
 codespan-reporting = "0.11"
 
 [dependencies]
-sql-ast = {path = "../sql-ast"}
+sql-parse = "0.1.1"

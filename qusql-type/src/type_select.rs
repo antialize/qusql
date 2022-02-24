@@ -10,13 +10,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_ast::{
+use alloc::{format, vec::Vec};
+use sql_parse::{
     issue_ice, issue_todo, Expression, Identifier, IdentifierPart, Issue, OptSpanned, Select, Span,
     Spanned, Statement, Union,
 };
 
 use crate::{
-    type_::FullType,
+    type_::{BaseType, FullType},
     type_expression::type_expression,
     type_reference::type_reference,
     typer::{ReferenceType, Typer},
@@ -39,11 +40,14 @@ impl<'a> Spanned for SelectTypeColumn<'a> {
 #[derive(Debug, Clone)]
 pub struct SelectType<'a> {
     pub columns: Vec<SelectTypeColumn<'a>>,
+    pub select_span: Span,
 }
 
 impl<'a> Spanned for SelectType<'a> {
     fn span(&self) -> Span {
-        self.columns.opt_span().unwrap()
+        self.columns
+            .opt_span()
+            .unwrap_or_else(|| self.select_span.clone())
     }
 }
 
@@ -51,10 +55,10 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     parts: &[IdentifierPart<'a>],
     as_: &Option<Identifier<'a>>,
-    mut cb: impl FnMut(Option<&'a str>, FullType<'a>, Span, bool) -> (),
+    mut cb: impl FnMut(Option<&'a str>, FullType<'a>, Span, bool),
 ) {
     match parts {
-        [sql_ast::IdentifierPart::Name(col)] => {
+        [sql_parse::IdentifierPart::Name(col)] => {
             let mut cnt = 0;
             let mut t = None;
             for r in &typer.reference_types {
@@ -94,7 +98,7 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                 );
             }
         }
-        [sql_ast::IdentifierPart::Star(v)] => {
+        [sql_parse::IdentifierPart::Star(v)] => {
             if let Some(as_) = as_ {
                 typer.issues.push(Issue::err("As not supported for *", as_));
             }
@@ -104,7 +108,7 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                 }
             }
         }
-        [sql_ast::IdentifierPart::Name(tbl), sql_ast::IdentifierPart::Name(col)] => {
+        [sql_parse::IdentifierPart::Name(tbl), sql_parse::IdentifierPart::Name(col)] => {
             let mut t = None;
             for r in &typer.reference_types {
                 if r.name == Some(tbl.value) {
@@ -128,7 +132,7 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                 );
             }
         }
-        [sql_ast::IdentifierPart::Name(tbl), sql_ast::IdentifierPart::Star(v)] => {
+        [sql_parse::IdentifierPart::Name(tbl), sql_parse::IdentifierPart::Star(v)] => {
             if let Some(as_) = as_ {
                 typer.issues.push(Issue::err("As not supported for *", as_));
             }
@@ -146,12 +150,13 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                 typer.issues.push(Issue::err("Unknown table", tbl));
             }
         }
-        [sql_ast::IdentifierPart::Star(v), _] => {
+        [sql_parse::IdentifierPart::Star(v), _] => {
             typer.issues.push(Issue::err("Not supported here", v));
         }
-        _ => typer
-            .issues
-            .push(Issue::err("Invalid identifier", &parts.opt_span().unwrap())),
+        _ => typer.issues.push(Issue::err(
+            "Invalid identifier",
+            &parts.opt_span().expect("parts span"),
+        )),
     }
 }
 
@@ -164,16 +169,16 @@ pub(crate) fn type_select<'a, 'b>(
 
     for flag in &select.flags {
         match &flag {
-            sql_ast::SelectFlag::All(_) => typer.issues.push(issue_todo!(flag)),
-            sql_ast::SelectFlag::Distinct(_) => typer.issues.push(issue_todo!(flag)),
-            sql_ast::SelectFlag::DistinctRow(_) => typer.issues.push(issue_todo!(flag)),
-            sql_ast::SelectFlag::StraightJoin(_) => typer.issues.push(issue_todo!(flag)),
-            sql_ast::SelectFlag::HighPriority(_)
-            | sql_ast::SelectFlag::SqlSmallResult(_)
-            | sql_ast::SelectFlag::SqlBigResult(_)
-            | sql_ast::SelectFlag::SqlBufferResult(_)
-            | sql_ast::SelectFlag::SqlNoCache(_)
-            | sql_ast::SelectFlag::SqlCalcFoundRows(_) => (),
+            sql_parse::SelectFlag::All(_) => typer.issues.push(issue_todo!(flag)),
+            sql_parse::SelectFlag::Distinct(_) => typer.issues.push(issue_todo!(flag)),
+            sql_parse::SelectFlag::DistinctRow(_) => typer.issues.push(issue_todo!(flag)),
+            sql_parse::SelectFlag::StraightJoin(_) => typer.issues.push(issue_todo!(flag)),
+            sql_parse::SelectFlag::HighPriority(_)
+            | sql_parse::SelectFlag::SqlSmallResult(_)
+            | sql_parse::SelectFlag::SqlBigResult(_)
+            | sql_parse::SelectFlag::SqlBufferResult(_)
+            | sql_parse::SelectFlag::SqlNoCache(_)
+            | sql_parse::SelectFlag::SqlCalcFoundRows(_) => (),
         }
     }
 
@@ -185,13 +190,13 @@ pub(crate) fn type_select<'a, 'b>(
 
     if let Some((where_, _)) = &select.where_ {
         let t = type_expression(typer, where_, true);
-        typer.ensure_bool(where_, &t);
+        typer.ensure_base(where_, &t, BaseType::Bool);
     }
 
     let mut result: Vec<(Option<&'a str>, FullType<'a>, Span)> = Vec::new();
     let mut select_refence = ReferenceType {
         name: None,
-        span: select.select_exprs.opt_span().unwrap(),
+        span: select.select_exprs.opt_span().expect("select_exprs span"),
         columns: Vec::new(),
     };
 
@@ -224,9 +229,11 @@ pub(crate) fn type_select<'a, 'b>(
             if let Some(as_) = &e.as_ {
                 add_result(Some(as_.value), type_, as_.span(), true);
             } else {
-                typer
-                    .issues
-                    .push(Issue::warn("Unnamed column in select", e));
+                if typer.options.warn_unnamed_column_in_select {
+                    typer
+                        .issues
+                        .push(Issue::warn("Unnamed column in select", e));
+                }
                 add_result(None, type_, 0..0, false);
             };
         }
@@ -250,7 +257,7 @@ pub(crate) fn type_select<'a, 'b>(
         if let Some(offset) = offset {
             let t = type_expression(typer, offset, false);
             if typer
-                .common_type(&t, &FullType::new(Type::U64, true))
+                .matched_type(&t, &FullType::new(Type::U64, true))
                 .is_none()
             {
                 typer.issues.push(Issue::err(
@@ -261,7 +268,7 @@ pub(crate) fn type_select<'a, 'b>(
         }
         let t = type_expression(typer, count, false);
         if typer
-            .common_type(&t, &FullType::new(Type::U64, true))
+            .matched_type(&t, &FullType::new(Type::U64, true))
             .is_none()
         {
             typer.issues.push(Issue::err(
@@ -278,6 +285,7 @@ pub(crate) fn type_select<'a, 'b>(
             .into_iter()
             .map(|(name, type_, span)| SelectTypeColumn { name, type_, span })
             .collect(),
+        select_span: select.span(),
     }
 }
 
@@ -316,14 +324,17 @@ pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -
                                 Issue::err("Incompatible names in union", &w.union_span)
                                     .frag(format!("Column {} has no name", i), &left)
                                     .frag(
-                                        format!("Column {} is named {}", i, r.name.unwrap()),
+                                        format!("Column {} is named {}", i, r.name.expect("name")),
                                         &w.union_statement,
                                     ),
                             );
                         }
                     }
-                    if let Some(t) = typer.common_type(&l.type_, &r.type_) {
-                        l.type_ = t;
+                    if l.type_.t == r.type_.t {
+                        l.type_ =
+                            FullType::new(l.type_.t.clone(), l.type_.not_null && r.type_.not_null);
+                    } else if let Some(t) = typer.matched_type(&l.type_, &r.type_) {
+                        l.type_ = FullType::new(t, l.type_.not_null && r.type_.not_null);
                     } else {
                         typer.issues.push(
                             Issue::err("Incompatible types in union", &w.union_span)
@@ -334,35 +345,31 @@ pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -
                                 ),
                         );
                     }
+                } else if let Some(n) = l.name {
+                    typer.issues.push(
+                        Issue::err("Incompatible types in union", &w.union_span)
+                            .frag(format!("Column {} ({}) only on this side", i, n), &left),
+                    );
                 } else {
-                    if let Some(n) = l.name {
-                        typer.issues.push(
-                            Issue::err("Incompatible types in union", &w.union_span)
-                                .frag(format!("Column {} ({}) only on this side", i, n), &left),
-                        );
-                    } else {
-                        typer.issues.push(
-                            Issue::err("Incompatible types in union", &w.union_span)
-                                .frag(format!("Column {} only on this side", i), &left),
-                        );
-                    }
+                    typer.issues.push(
+                        Issue::err("Incompatible types in union", &w.union_span)
+                            .frag(format!("Column {} only on this side", i), &left),
+                    );
                 }
+            } else if let Some(n) = t2.columns[i].name {
+                typer.issues.push(
+                    Issue::err("Incompatible types in union", &w.union_span).frag(
+                        format!("Column {} ({}) only on this side", i, n),
+                        &w.union_statement,
+                    ),
+                );
             } else {
-                if let Some(n) = t2.columns[i].name {
-                    typer.issues.push(
-                        Issue::err("Incompatible types in union", &w.union_span).frag(
-                            format!("Column {} ({}) only on this side", i, n),
-                            &w.union_statement,
-                        ),
-                    );
-                } else {
-                    typer.issues.push(
-                        Issue::err("Incompatible types in union", &w.union_span).frag(
-                            format!("Column {} only on this side", i),
-                            &w.union_statement,
-                        ),
-                    );
-                }
+                typer.issues.push(
+                    Issue::err("Incompatible types in union", &w.union_span).frag(
+                        format!("Column {} only on this side", i),
+                        &w.union_statement,
+                    ),
+                );
             }
         }
         left = left.join_span(&w.union_statement);
@@ -370,17 +377,11 @@ pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -
 
     typer.reference_types.push(ReferenceType {
         name: None,
-        span: t.columns.opt_span().unwrap(),
+        span: t.span(),
         columns: t
             .columns
             .iter()
-            .filter_map(|v| {
-                if let Some(name) = v.name {
-                    Some((name, v.type_.clone()))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|v| v.name.map(|name| (name, v.type_.clone())))
             .collect(),
     });
 
@@ -394,7 +395,7 @@ pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -
         if let Some(offset) = offset {
             let t = type_expression(typer, offset, false);
             if typer
-                .common_type(&t, &FullType::new(Type::U64, true))
+                .matched_type(&t, &FullType::new(Type::U64, true))
                 .is_none()
             {
                 typer.issues.push(Issue::err(
@@ -405,7 +406,7 @@ pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -
         }
         let t = type_expression(typer, count, false);
         if typer
-            .common_type(&t, &FullType::new(Type::U64, true))
+            .matched_type(&t, &FullType::new(Type::U64, true))
             .is_none()
         {
             typer.issues.push(Issue::err(
@@ -431,6 +432,7 @@ pub(crate) fn type_union_select<'a, 'b>(
             typer.issues.push(issue_ice!(s));
             SelectType {
                 columns: Vec::new(),
+                select_span: s.span(),
             }
         }
     }

@@ -10,9 +10,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_ast::{issue_todo, Insert, Issue, Replace, Spanned};
+use alloc::{format, vec::Vec};
+use sql_parse::{issue_todo, Insert, Issue, Replace, Spanned};
 
-use crate::{type_expression::type_expression, type_select::type_select, typer::Typer};
+use crate::{type_expression::type_expression, type_select::type_select, typer::Typer, Type};
 
 enum InsertOrReplace<'a, 'b> {
     Replace(&'b Replace<'a>),
@@ -24,17 +25,18 @@ fn type_insert_or_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, ior: InsertOrReplac
         InsertOrReplace::Replace(replace) => {
             for flag in &replace.flags {
                 match &flag {
-                    sql_ast::ReplaceFlag::LowPriority(_) | sql_ast::ReplaceFlag::Delayed(_) => (),
+                    sql_parse::ReplaceFlag::LowPriority(_) | sql_parse::ReplaceFlag::Delayed(_) => {
+                    }
                 }
             }
         }
         InsertOrReplace::Insert(insert) => {
             for flag in &insert.flags {
                 match &flag {
-                    sql_ast::InsertFlag::LowPriority(_)
-                    | sql_ast::InsertFlag::HighPriority(_)
-                    | sql_ast::InsertFlag::Delayed(_)
-                    | sql_ast::InsertFlag::Ignore(_) => (),
+                    sql_parse::InsertFlag::LowPriority(_)
+                    | sql_parse::InsertFlag::HighPriority(_)
+                    | sql_parse::InsertFlag::Delayed(_)
+                    | sql_parse::InsertFlag::Ignore(_) => (),
                 }
             }
         }
@@ -93,11 +95,15 @@ fn type_insert_or_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, ior: InsertOrReplac
             for (j, e) in row.iter().enumerate() {
                 let t = type_expression(typer, e, false);
                 if let Some((et, ets)) = s.as_ref().and_then(|v| v.get(j)) {
-                    if typer.common_type(&t, et).is_none() {
+                    if typer.matched_type(&t, et).is_none() {
                         typer.issues.push(
                             Issue::err(format!("Got type {}", t.t), e)
                                 .frag(format!("Expected {}", et.t), ets),
                         );
+                    } else if let Type::Args(_, args) = &t.t {
+                        for (idx, _) in args {
+                            typer.constrain_arg(*idx, et);
+                        }
                     }
                 }
             }
@@ -114,7 +120,7 @@ fn type_insert_or_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, ior: InsertOrReplac
             for i in 0..usize::max(s.len(), select.columns.len()) {
                 match (s.get(i), select.columns.get(i)) {
                     (Some((et, ets)), Some(t)) => {
-                        if typer.common_type(&t.type_, et).is_none() {
+                        if typer.matched_type(&t.type_, et).is_none() {
                             typer.issues.push(
                                 Issue::err(format!("Got type {}", t.type_.t), &t.span)
                                     .frag(format!("Expected {}", et.t), ets),
@@ -139,6 +145,13 @@ fn type_insert_or_replace<'a, 'b>(typer: &mut Typer<'a, 'b>, ior: InsertOrReplac
         }
     }
 
+    let set = match ior {
+        InsertOrReplace::Replace(replace) => &replace.set,
+        InsertOrReplace::Insert(_) => &None,
+    };
+    if let Some(set) = set {
+        issue_todo!(set);
+    }
     auto_increment
 }
 

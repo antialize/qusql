@@ -9,10 +9,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+extern crate alloc;
 
+use alloc::vec::Vec;
 use schema::Schemas;
-use sql_ast::{parse_statement, ParseOptions};
-pub use sql_ast::{Issue, Level};
+use sql_parse::{parse_statement, ParseOptions};
+pub use sql_parse::{Issue, Level};
 
 mod type_;
 mod type_binary_expression;
@@ -29,29 +33,95 @@ mod typer;
 mod ref_or_val;
 pub mod schema;
 pub use ref_or_val::RefOrVal;
-pub use type_::FullType;
-pub use type_::Type;
+pub use type_::{BaseType, FullType, Type};
+
 pub use type_select::SelectTypeColumn;
 use typer::Typer;
+
+pub use sql_parse::{SQLArguments, SQLDialect};
+
+/// Options used when typing sql or parsing a schema
+#[derive(Debug, Default, Clone)]
+pub struct TypeOptions {
+    parse_options: ParseOptions,
+    warn_unnamed_column_in_select: bool,
+}
+
+impl TypeOptions {
+    /// Produce new default options
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Change what sql dialect is used
+    pub fn dialect(self, dialect: SQLDialect) -> Self {
+        Self {
+            parse_options: self.parse_options.dialect(dialect),
+            ..self
+        }
+    }
+
+    /// Change how sql arguments are supplied
+    pub fn arguments(self, arguments: SQLArguments) -> Self {
+        Self {
+            parse_options: self.parse_options.arguments(arguments),
+            ..self
+        }
+    }
+
+    /// Should we warn about unquoted identifiers
+    pub fn warn_unquoted_identifiers(self, warn_unquoted_identifiers: bool) -> Self {
+        Self {
+            parse_options: self
+                .parse_options
+                .warn_unquoted_identifiers(warn_unquoted_identifiers),
+            ..self
+        }
+    }
+
+    /// Should we warn about keywords not in ALL CAPS
+    pub fn warn_none_capital_keywords(self, warn_none_capital_keywords: bool) -> Self {
+        Self {
+            parse_options: self
+                .parse_options
+                .warn_none_capital_keywords(warn_none_capital_keywords),
+            ..self
+        }
+    }
+
+    /// Should we warn about unnamed columns in selects
+    pub fn warn_unnamed_column_in_select(self, warn_unnamed_column_in_select: bool) -> Self {
+        Self {
+            warn_unnamed_column_in_select,
+            ..self
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum ArgumentKey<'a> {
+    Index(usize),
+    Identifier(&'a str),
+}
 
 #[derive(Debug, Clone)]
 pub enum StatementType<'a> {
     Select {
         columns: Vec<SelectTypeColumn<'a>>,
-        arguments: Vec<FullType<'a>>,
+        arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
     Delete {
-        arguments: Vec<FullType<'a>>,
+        arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
     Insert {
         yield_autoincrement: bool,
-        arguments: Vec<FullType<'a>>,
+        arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
     Update {
-        arguments: Vec<FullType<'a>>,
+        arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
     Replace {
-        arguments: Vec<FullType<'a>>,
+        arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
     Invalid,
 }
@@ -60,14 +130,15 @@ pub fn type_statement<'a>(
     schemas: &'a Schemas<'a>,
     statement: &'a str,
     issues: &mut Vec<Issue>,
-    options: &ParseOptions,
+    options: &TypeOptions,
 ) -> StatementType<'a> {
-    if let Some(stmt) = parse_statement(statement, issues, options) {
+    if let Some(stmt) = parse_statement(statement, issues, &options.parse_options) {
         let mut typer = Typer {
-            schemas: &schemas,
+            schemas,
             issues,
             reference_types: Vec::new(),
-            arg_types: Vec::new(),
+            arg_types: Default::default(),
+            options,
         };
         let t = type_statement::type_statement(&mut typer, &stmt);
         let arguments = typer.arg_types;
@@ -94,6 +165,7 @@ pub fn type_statement<'a>(
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use codespan_reporting::{
         diagnostic::{Diagnostic, Label},
         files::SimpleFiles,
@@ -102,15 +174,16 @@ mod tests {
             termcolor::{ColorChoice, StandardStream},
         },
     };
-    use sql_ast::{Issue, Level, ParseOptions, SQLArguments, SQLDialect};
+    use sql_parse::{Issue, Level, SQLArguments, SQLDialect};
 
     use crate::{
-        schema::parse_schemas, type_statement, FullType, SelectTypeColumn, StatementType, Type,
+        schema::parse_schemas, type_statement, ArgumentKey, BaseType, FullType, SelectTypeColumn,
+        StatementType, Type, TypeOptions,
     };
 
     struct N<'a>(Option<&'a str>);
-    impl<'a> std::fmt::Display for N<'a> {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    impl<'a> alloc::fmt::Display for N<'a> {
+        fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
             if let Some(v) = self.0 {
                 v.fmt(f)
             } else {
@@ -148,7 +221,7 @@ mod tests {
             (t, false)
         };
         let t = match t {
-            "b" => Type::Bool,
+            "b" => BaseType::Bool.into(),
             "u8" => Type::U8,
             "u16" => Type::U16,
             "u32" => Type::U32,
@@ -159,20 +232,43 @@ mod tests {
             "i64" => Type::I64,
             "f32" => Type::F32,
             "f64" => Type::F64,
-            "text" => Type::Text,
-            "bytes" => Type::Bytes,
+            "i" => BaseType::Integer.into(),
+            "f" => BaseType::Float.into(),
+            "str" => BaseType::String.into(),
+            "bytes" => BaseType::Bytes.into(),
             _ => panic!("Unknown type {}", t),
         };
         FullType::new(t, not_null)
     }
 
-    fn check_arguments(name: &str, got: &[FullType<'_>], expected: &str, errors: &mut usize) {
+    fn check_arguments(
+        name: &str,
+        got: &[(ArgumentKey<'_>, FullType<'_>)],
+        expected: &str,
+        errors: &mut usize,
+    ) {
+        let mut got2 = Vec::new();
+        let inv = FullType::invalid();
+        for (k, v) in got {
+            match k {
+                ArgumentKey::Index(i) => {
+                    while got2.len() <= *i {
+                        got2.push(&inv);
+                    }
+                    got2[*i] = v;
+                }
+                ArgumentKey::Identifier(k) => {
+                    println!("{}: Got named argument {}", name, k);
+                    *errors += 1;
+                }
+            }
+        }
         let mut cnt = 0;
-        for (i, t) in expected.split(",").enumerate() {
+        for (i, t) in expected.split(',').enumerate() {
             let t = t.trim();
             let t = str_to_type(t);
-            if let Some(v) = got.get(i) {
-                if v != &t {
+            if let Some(v) = got2.get(i) {
+                if *v != &t {
                     println!("{}: Expected type {} for argument {} got {}", name, t, i, v);
                     *errors += 1;
                 }
@@ -191,11 +287,11 @@ mod tests {
 
     fn check_columns(name: &str, got: &[SelectTypeColumn<'_>], expected: &str, errors: &mut usize) {
         let mut cnt = 0;
-        for (i, t) in expected.split(",").enumerate() {
+        for (i, t) in expected.split(',').enumerate() {
             let t = t.trim();
             let (cname, t) = t.split_once(":").unwrap();
             let t = str_to_type(t);
-            let cname = if cname == "" { None } else { Some(cname) };
+            let cname = if cname.is_empty() { None } else { Some(cname) };
             if let Some(v) = got.get(i) {
                 if v.name != cname || v.type_ != t {
                     println!(
@@ -237,7 +333,7 @@ mod tests {
     #[test]
     fn mariadb() {
         let schema_src = "
-        
+
         DROP TABLE IF EXISTS `t1`;
         CREATE TABLE `t1` (
           `id` int(11) NOT NULL,
@@ -255,43 +351,43 @@ mod tests {
           `cf32` float,
           `cf64` double
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-        
+
         ALTER TABLE `t1`
           MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
         ";
 
-        let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
+        let options = TypeOptions::new().dialect(SQLDialect::MariaDB);
         let mut issues = Vec::new();
         let schema = parse_schemas(schema_src, &mut issues, &options);
         let mut errors = 0;
-        check_no_errors("schema", &schema_src, &issues, &mut errors);
+        check_no_errors("schema", schema_src, &issues, &mut errors);
 
         issues.clear();
-        let options = ParseOptions::new()
+        let options = TypeOptions::new()
             .dialect(SQLDialect::MariaDB)
             .arguments(SQLArguments::QuestionMark);
 
         let q1_src =
-            "SELECT `id`, `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`, 
+            "SELECT `id`, `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
             `ctext`, `cbytes`, `cf32`, `cf64` FROM `t1` WHERE ci8 IS NOT NULL
             AND `cbool`=? AND `cu8`=? AND `cu16`=? AND `cu32`=? AND `cu64`=?
             AND `ci8`=? AND `ci16`=? AND `ci32`=? AND `ci64`=?
             AND `ctext`=? AND `cbytes`=? AND `cf32`=? AND `cf64`=?";
 
         let q1 = type_statement(&schema, q1_src, &mut issues, &options);
-        check_no_errors("q1", &q1_src, &issues, &mut errors);
+        check_no_errors("q1", q1_src, &issues, &mut errors);
         if let StatementType::Select { arguments, columns } = q1 {
             check_arguments(
                 "q1",
                 &arguments,
-                "b!,u8!,u16!,u32!,u64!,i8!,i16,i32,i64,text!,bytes,f32,f64",
+                "b,i,i,i,i,i,i,i,i,str,bytes,f,f",
                 &mut errors,
             );
             check_columns(
                 "q1",
                 &columns,
                 "id:i32!,cbool:b!,cu8:u8!,cu16:u16!,cu32:u32!,cu64:u64!,
-                ci8:i8!,ci16:i16,ci32:i32,ci64:i64,ctext:text!,cbytes:bytes,cf32:f32,cf64:f64",
+                ci8:i8!,ci16:i16,ci32:i32,ci64:i64,ctext:str!,cbytes:bytes,cf32:f32,cf64:f64",
                 &mut errors,
             );
         } else {
@@ -301,11 +397,11 @@ mod tests {
 
         issues.clear();
         let q2_src =
-        "INSERT INTO `t1` (`cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`, 
+        "INSERT INTO `t1` (`cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
         `ctext`, `cbytes`, `cf32`, `cf64`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         let q2 = type_statement(&schema, q2_src, &mut issues, &options);
-        check_no_errors("q2", &q1_src, &issues, &mut errors);
+        check_no_errors("q2", q1_src, &issues, &mut errors);
         if let StatementType::Insert {
             arguments,
             yield_autoincrement,
@@ -314,7 +410,7 @@ mod tests {
             check_arguments(
                 "q1",
                 &arguments,
-                "b!,u8!,u16!,u32!,u64!,i8,i16,i32,i64,text!,bytes,f32,f64",
+                "b!,u8!,u16!,u32!,u64!,i8,i16,i32,i64,str!,bytes,f32,f64",
                 &mut errors,
             );
             if !yield_autoincrement {

@@ -10,15 +10,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_ast::{Identifier, Issue, OptSpanned, Update};
+use sql_parse::{Identifier, Issue, OptSpanned, Update};
 
-use crate::{type_expression::type_expression, type_reference::type_reference, typer::Typer};
+use crate::{
+    type_::BaseType, type_expression::type_expression, type_reference::type_reference, typer::Typer,
+};
 
 pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>) {
-    let old_reference_type = std::mem::take(&mut typer.reference_types);
+    let old_reference_type = core::mem::take(&mut typer.reference_types);
     for f in &update.flags {
         match f {
-            sql_ast::UpdateFlag::LowPriority(_) | sql_ast::UpdateFlag::Ignore(_) => (),
+            sql_parse::UpdateFlag::LowPriority(_) | sql_parse::UpdateFlag::Ignore(_) => (),
         }
     }
 
@@ -88,7 +90,7 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
 
     if let Some((where_, _)) = &update.where_ {
         let t = type_expression(typer, where_, true);
-        typer.ensure_bool(where_, &t);
+        typer.ensure_base(where_, &t, BaseType::Bool);
     }
 
     typer.reference_types = old_reference_type;
