@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -371,6 +373,10 @@ impl Parse for Query {
     }
 }
 
+
+/// Statically checked SQL query, similarly to sqlx::query!.
+///
+/// This expands to an instance of query::Map that outputs an ad-hoc anonymous struct type.
 #[proc_macro]
 pub fn query(input: TokenStream) -> TokenStream {
     let query = syn::parse_macro_input!(input as Query);
@@ -501,6 +507,9 @@ impl Parse for QueryAs {
     }
 }
 
+/// A variant of query! which takes a path to an explicitly defined struct as the output type.
+///
+/// This lets you return the struct from a function or add your own trait implementations.
 #[proc_macro]
 pub fn query_as(input: TokenStream) -> TokenStream {
     let query_as = syn::parse_macro_input!(input as QueryAs);
