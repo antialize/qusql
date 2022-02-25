@@ -1,0 +1,19 @@
+[package]
+name = "sqlx-type"
+version = "0.1.0"
+authors = ["Jakob Truelsen <antialize@gmail.com>"]
+edition = "2021"
+license = "Apache-2.0"
+keywords = [ "mysql", "sqlx", "typer" ]
+readme = "README.md"
+repository = "https://github.com/antialize/sqlx-type/"
+homepage = "https://github.com/antialize/sqlx-type/"
+description = "Typed sql macros for sqlx"
+
+[workspace]
+members = ["sqlx-type-macro", "."]
+
+[dependencies]
+sqlx = { version = "0.5", default-features = false, features = [ "mysql", "chrono", "runtime-tokio-native-tls" ]}
+sqlx-type-macro = {path = "./sqlx-type-macro"}
+chrono = "0.4"
