@@ -18,14 +18,21 @@ use alloc::{
 };
 use sql_parse::Span;
 
+
+/// Canonical base type of a type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BaseType {
+    /// There are no constraint of the value
     Any,
+    /// The value must be boolean
     Bool,
+    /// The value must be a binary blob
     Bytes,
     Date,
     DateTime,
+    /// The value must be some kind of float
     Float,
+    /// The value must be some kind of integer
     Integer,
     String,
     Time,
@@ -49,8 +56,11 @@ impl Display for BaseType {
     }
 }
 
+/// Represent the type of a value
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type<'a> {
+    // This type is used internally and should not escape to the user
+    #[doc(hidden)]
     Args(BaseType, Vec<(usize, Span)>),
     Base(BaseType),
     Enum(RefOrVal<'a, Vec<Cow<'a, str>>>),
@@ -67,6 +77,8 @@ pub enum Type<'a> {
     U32,
     U64,
     U8,
+    // This type is used internally and should not escape to the user
+    #[doc(hidden)]
     Null,
 }
 
@@ -119,7 +131,8 @@ impl<'a> Display for Type<'a> {
 }
 
 impl<'a> Type<'a> {
-    pub fn ref_clone(&'a self) -> Self {
+    /// Make a none owning clone of the type
+    pub (crate) fn ref_clone(&'a self) -> Self {
         match self {
             Type::Enum(e) => Type::Enum(e.ref_clone()),
             Type::Set(e) => Type::Set(e.ref_clone()),
@@ -127,6 +140,7 @@ impl<'a> Type<'a> {
         }
     }
 
+    /// Compute the canonical base type
     pub fn base(&self) -> BaseType {
         match self {
             Type::Args(t, _) => *t,
@@ -156,6 +170,8 @@ impl<'a> From<BaseType> for Type<'a> {
     }
 }
 
+
+/// Represent a type with not_null information
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FullType<'a> {
     pub t: Type<'a>,
@@ -163,19 +179,21 @@ pub struct FullType<'a> {
 }
 
 impl<'a> FullType<'a> {
-    pub fn ref_clone(&'a self) -> Self {
+    pub (crate) fn ref_clone(&'a self) -> Self {
         FullType {
             t: self.t.ref_clone(),
             not_null: self.not_null,
         }
     }
-    pub fn new(t: impl Into<Type<'a>>, not_null: bool) -> Self {
+
+    pub (crate) fn new(t: impl Into<Type<'a>>, not_null: bool) -> Self {
         Self {
             t: t.into(),
             not_null,
         }
     }
-    pub fn invalid() -> Self {
+
+    pub (crate) fn invalid() -> Self {
         Self {
             t: Type::Invalid,
             not_null: false,

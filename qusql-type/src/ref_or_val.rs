@@ -1,5 +1,6 @@
 use core::ops::Deref;
 
+/// Represent a reference to T or a direct T
 #[derive(Debug, Clone)]
 pub enum RefOrVal<'a, T> {
     Ref(&'a T),

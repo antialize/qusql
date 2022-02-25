@@ -11,6 +11,41 @@
 // limitations under the License.
 #![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
+
+//! Crate for typing SQL statements.
+//!
+//! ```
+//! use sql_type::{schema::parse_schemas, type_statement, TypeOptions,
+//!     SQLDialect, SQLArguments, StatementType};
+//! let schemas = "
+//!     CREATE TABLE `events` (
+//!       `id` bigint(20) NOT NULL,
+//!       `user` int(11) NOT NULL,
+//!       `message` text NOT NULL
+//!     );";
+//!
+//! let mut issues = Vec::new();
+//!
+//! // Compute terse representation of the schemas
+//! let schemas = parse_schemas(schemas,
+//!     &mut issues,
+//!     &TypeOptions::new().dialect(SQLDialect::MariaDB));
+//! assert!(issues.is_empty());
+//!
+//! let sql = "SELECT `id`, `user`, `message` FROM `events` WHERE `id` = ?";
+//! let stmt = type_statement(&schemas, sql, &mut issues,
+//!     &TypeOptions::new().dialect(SQLDialect::MariaDB).arguments(SQLArguments::QuestionMark));
+//! assert!(issues.is_empty());
+//!
+//! let stmt = match stmt {
+//!     StatementType::Select{columns, arguments} => {
+//!         assert_eq!(columns.len(), 3);
+//!         assert_eq!(arguments.len(), 1);
+//!     }
+//!     _ => panic!("Expected select statement")
+//! };
+//! ```
+
 extern crate alloc;
 
 use alloc::vec::Vec;
@@ -98,34 +133,52 @@ impl TypeOptions {
     }
 }
 
+/// Key of argument
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum ArgumentKey<'a> {
+    /// Index of unnamed argument
     Index(usize),
+    /// Name of named argument
     Identifier(&'a str),
 }
 
+/// Type information of typed statement
 #[derive(Debug, Clone)]
 pub enum StatementType<'a> {
+    /// The statement was a select statement
     Select {
+        /// The types and named of the columns return from the select
         columns: Vec<SelectTypeColumn<'a>>,
+        /// The key and type of arguments to the query
         arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
+    /// The statement is a delete statement
     Delete {
+        /// The key and type of arguments to the query
         arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
+    /// The statement is an insert statement
     Insert {
+        /// The insert happend in a table with a auto increment id row
         yield_autoincrement: bool,
+        /// The key and type of arguments to the query
         arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
+    /// The statement is a update statement
     Update {
+        /// The key and type of arguments to the query
         arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
+    /// The statement is a replace statement
     Replace {
+        /// The key and type of arguments to the query
         arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
+    /// The query was not valid, errors are preset in issues
     Invalid,
 }
 
+/// Type an sql statement with respect to a given schema
 pub fn type_statement<'a>(
     schemas: &'a Schemas<'a>,
     statement: &'a str,
