@@ -193,7 +193,8 @@ impl<'a> FullType<'a> {
         }
     }
 
-    pub (crate) fn invalid() -> Self {
+    /// Construct a new invalid type
+    pub fn invalid() -> Self {
         Self {
             t: Type::Invalid,
             not_null: false,
