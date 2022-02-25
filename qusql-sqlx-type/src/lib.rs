@@ -32,7 +32,7 @@
 //! This schema can then be used to type queries:
 //!
 //! ``` no_run
-//! use std::env, sqlx::MySqlPool, sqlx_type::query;
+//! use {std::env, sqlx::MySqlPool, sqlx_type::query};
 //!
 //! async fn test() -> Result<(), sqlx::Error> {
 //!     let pool = MySqlPool::connect(&env::var("DATABASE_URL").unwrap()).await?;
