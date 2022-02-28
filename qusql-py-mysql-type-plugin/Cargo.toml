@@ -1,0 +1,16 @@
+[package]
+name = "mysql-type-plugin"
+version = "0.1.0"
+edition = "2021"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "mysql_type_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.15.1", features = ["extension-module"] }
+sql-type = "0.1.1"
+ariadne = "0.1"
+ouroboros = "0.14.2"

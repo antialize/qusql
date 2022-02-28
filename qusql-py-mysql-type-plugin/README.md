@@ -1,0 +1,1 @@
+# py-mysql-type-plugin
