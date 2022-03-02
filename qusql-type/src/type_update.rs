@@ -13,7 +13,8 @@
 use sql_parse::{Identifier, Issue, OptSpanned, Update};
 
 use crate::{
-    type_::BaseType, type_expression::type_expression, type_reference::type_reference, typer::Typer,
+    type_::BaseType, type_expression::type_expression, type_reference::type_reference,
+    typer::Typer, Type,
 };
 
 pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>) {
@@ -43,7 +44,7 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
                     }
                 }
                 if cnt > 1 {
-                    let mut issue = Issue::err("Ambigious reference", &key.opt_span().unwrap());
+                    let mut issue = Issue::err("Ambiguous reference", &key.opt_span().unwrap());
                     for r in &typer.reference_types {
                         for c in &r.columns {
                             if c.0 == key.value {
@@ -53,7 +54,16 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
                     }
                     typer.issues.push(issue);
                 } else if let Some(t) = t {
-                    typer.ensure_type(value, &value_type, &t.1);
+                    if typer.matched_type(&value_type, &t.1).is_none() {
+                        typer.issues.push(Issue::err(
+                            alloc::format!("Got type {} expected {}", value_type, t.1),
+                            value,
+                        ));
+                    } else if let Type::Args(_, args) = &value_type.t {
+                        for (idx, _) in args {
+                            typer.constrain_arg(*idx, &t.1);
+                        }
+                    }
                 } else {
                     typer
                         .issues
@@ -73,7 +83,16 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
                     }
                 }
                 if let Some(t) = t {
-                    typer.ensure_type(value, &value_type, &t.1);
+                    if typer.matched_type(&value_type, &t.1).is_none() {
+                        typer.issues.push(Issue::err(
+                            alloc::format!("Got type {} expected {}", value_type, t.1),
+                            value,
+                        ));
+                    } else if let Type::Args(_, args) = &value_type.t {
+                        for (idx, _) in args {
+                            typer.constrain_arg(*idx, &t.1);
+                        }
+                    }
                 } else {
                     typer
                         .issues

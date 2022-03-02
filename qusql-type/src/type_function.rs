@@ -231,10 +231,50 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::String, not_null)
         }
+        Function::If => {
+            arg_cnt(typer, 3..3, args, span);
+            let mut not_null = true;
+            if let Some((e, t)) = typed.get(0) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::Bool);
+            }
+            let mut ans = FullType::invalid();
+            if let Some((e1, t1)) = typed.get(1) {
+                not_null = not_null && t1.not_null;
+                if let Some((e2, t2)) = typed.get(2) {
+                    not_null = not_null && t2.not_null;
+                    if let Some(t) = typer.matched_type(t1, t2) {
+                        ans = FullType::new(t, not_null);
+                    } else {
+                        typer.issues.push(
+                            Issue::err("Incompatible types", span)
+                                .frag(format!("Of type {}", t1.t), *e1)
+                                .frag(format!("Of type {}", t2.t), *e2),
+                        );
+                    }
+                }
+            }
+            ans
+        }
+        Function::FromUnixTime => {
+            arg_cnt(typer, 1..2, args, span);
+            let mut not_null = true;
+            if let Some((e, t)) = typed.get(0) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            if let Some((e, t)) = typed.get(1) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+                FullType::new(BaseType::String, not_null)
+            } else {
+                FullType::new(BaseType::DateTime, not_null)
+            }
+        }
         _ => {
             typer
                 .issues
-                .push(Issue::err("Tying for function not implemnted", span));
+                .push(Issue::err("Typing for function not implemented", span));
             FullType::invalid()
         }
     }

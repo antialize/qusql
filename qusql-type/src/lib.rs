@@ -58,7 +58,7 @@ mod type_binary_expression;
 mod type_delete;
 mod type_expression;
 mod type_function;
-mod type_insert;
+mod type_insert_replace;
 mod type_reference;
 mod type_select;
 mod type_statement;
@@ -69,7 +69,7 @@ mod ref_or_val;
 pub mod schema;
 pub use ref_or_val::RefOrVal;
 pub use type_::{BaseType, FullType, Type};
-
+pub use type_insert_replace::AutoIncrementId;
 pub use type_select::SelectTypeColumn;
 use typer::Typer;
 
@@ -160,7 +160,7 @@ pub enum StatementType<'a> {
     /// The statement is an insert statement
     Insert {
         /// The insert happend in a table with a auto increment id row
-        yield_autoincrement: bool,
+        yield_autoincrement: AutoIncrementId,
         /// The key and type of arguments to the query
         arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     },
@@ -201,9 +201,9 @@ pub fn type_statement<'a>(
                 arguments,
             },
             type_statement::InnerStatementType::Delete => StatementType::Delete { arguments },
-            type_statement::InnerStatementType::Insert { auto_increment } => {
+            type_statement::InnerStatementType::Insert { auto_increment_id } => {
                 StatementType::Insert {
-                    yield_autoincrement: auto_increment,
+                    yield_autoincrement: auto_increment_id,
                     arguments,
                 }
             }
@@ -230,8 +230,8 @@ mod tests {
     use sql_parse::{Issue, Level, SQLArguments, SQLDialect};
 
     use crate::{
-        schema::parse_schemas, type_statement, ArgumentKey, BaseType, FullType, SelectTypeColumn,
-        StatementType, Type, TypeOptions,
+        schema::parse_schemas, type_statement, ArgumentKey, AutoIncrementId, BaseType, FullType,
+        SelectTypeColumn, StatementType, Type, TypeOptions,
     };
 
     struct N<'a>(Option<&'a str>);
@@ -289,6 +289,7 @@ mod tests {
             "f" => BaseType::Float.into(),
             "str" => BaseType::String.into(),
             "bytes" => BaseType::Bytes.into(),
+            "dt" => BaseType::DateTime.into(),
             _ => panic!("Unknown type {}", t),
         };
         FullType::new(t, not_null)
@@ -424,70 +425,168 @@ mod tests {
             .dialect(SQLDialect::MariaDB)
             .arguments(SQLArguments::QuestionMark);
 
-        let q1_src =
-            "SELECT `id`, `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
-            `ctext`, `cbytes`, `cf32`, `cf64` FROM `t1` WHERE ci8 IS NOT NULL
-            AND `cbool`=? AND `cu8`=? AND `cu16`=? AND `cu32`=? AND `cu64`=?
-            AND `ci8`=? AND `ci16`=? AND `ci32`=? AND `ci64`=?
-            AND `ctext`=? AND `cbytes`=? AND `cf32`=? AND `cf64`=?";
-
-        let q1 = type_statement(&schema, q1_src, &mut issues, &options);
-        check_no_errors("q1", q1_src, &issues, &mut errors);
-        if let StatementType::Select { arguments, columns } = q1 {
-            check_arguments(
-                "q1",
-                &arguments,
-                "b,i,i,i,i,i,i,i,i,str,bytes,f,f",
-                &mut errors,
-            );
-            check_columns(
-                "q1",
-                &columns,
-                "id:i32!,cbool:b!,cu8:u8!,cu16:u16!,cu32:u32!,cu64:u64!,
-                ci8:i8!,ci16:i16,ci32:i32,ci64:i64,ctext:str!,cbytes:bytes,cf32:f32,cf64:f64",
-                &mut errors,
-            );
-        } else {
-            println!("q1 should be select");
-            errors += 1;
-        }
-
-        issues.clear();
-        let q2_src =
-        "INSERT INTO `t1` (`cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
-        `ctext`, `cbytes`, `cf32`, `cf64`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        let q2 = type_statement(&schema, q2_src, &mut issues, &options);
-        check_no_errors("q2", q1_src, &issues, &mut errors);
-        if let StatementType::Insert {
-            arguments,
-            yield_autoincrement,
-        } = q2
         {
-            check_arguments(
-                "q2",
-                &arguments,
-                "b!,u8!,u16!,u32!,u64!,i8,i16,i32,i64,str!,bytes,f32,f64",
-                &mut errors,
-            );
-            if !yield_autoincrement {
-                println!("q2 should yield autoincrement");
+            let name = "q1";
+            let src =
+                "SELECT `id`, `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
+                `ctext`, `cbytes`, `cf32`, `cf64` FROM `t1` WHERE ci8 IS NOT NULL
+                AND `cbool`=? AND `cu8`=? AND `cu16`=? AND `cu32`=? AND `cu64`=?
+                AND `ci8`=? AND `ci16`=? AND `ci32`=? AND `ci64`=?
+                AND `ctext`=? AND `cbytes`=? AND `cf32`=? AND `cf64`=?";
+
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(
+                    name,
+                    &arguments,
+                    "b,i,i,i,i,i,i,i,i,str,bytes,f,f",
+                    &mut errors,
+                );
+                check_columns(
+                    name,
+                    &columns,
+                    "id:i32!,cbool:b!,cu8:u8!,cu16:u16!,cu32:u32!,cu64:u64!,
+                    ci8:i8!,ci16:i16,ci32:i32,ci64:i64,ctext:str!,cbytes:bytes,cf32:f32,cf64:f64",
+                    &mut errors,
+                );
+            } else {
+                println!("{} should be select", name);
                 errors += 1;
             }
-        } else {
-            println!("q2 should be insert");
-            errors += 1;
         }
 
-        issues.clear();
-        let q3_src = "DELETE `t1` FROM `t1`, `t2` WHERE `t1`.`id` = `t2`.`t1_id` AND `t2`.`id` = ?";
-        let q3 = type_statement(&schema, q3_src, &mut issues, &options);
-        check_no_errors("q3", q1_src, &issues, &mut errors);
-        if let StatementType::Delete { arguments } = q3 {
-            check_arguments("q3", &arguments, "i", &mut errors);
-        } else {
-            println!("q3 should be delete");
-            errors += 1;
+        {
+            issues.clear();
+            let name = "q2";
+            let src =
+            "INSERT INTO `t1` (`cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
+            `ctext`, `cbytes`, `cf32`, `cf64`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Insert {
+                arguments,
+                yield_autoincrement,
+            } = q
+            {
+                check_arguments(
+                    name,
+                    &arguments,
+                    "b!,u8!,u16!,u32!,u64!,i8,i16,i32,i64,str!,bytes,f32,f64",
+                    &mut errors,
+                );
+                if yield_autoincrement != AutoIncrementId::Yes {
+                    println!("{} should yield autoincrement", name);
+                    errors += 1;
+                }
+            } else {
+                println!("{} should be insert", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q3";
+            let src =
+                "DELETE `t1` FROM `t1`, `t2` WHERE `t1`.`id` = `t2`.`t1_id` AND `t2`.`id` = ?";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Delete { arguments } = q {
+                check_arguments(name, &arguments, "i", &mut errors);
+            } else {
+                println!("{} should be delete", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q4";
+            let src = "INSERT INTO `t2` (`t1_id`) VALUES (?) ON DUPLICATE KEY UPDATE `t1_id`=?";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Insert {
+                arguments,
+                yield_autoincrement,
+            } = q
+            {
+                check_arguments(name, &arguments, "i32!,i32!", &mut errors);
+                if yield_autoincrement != AutoIncrementId::Optional {
+                    println!("{} should yield optional auto increment", name);
+                    errors += 1;
+                }
+            } else {
+                println!("{} should be insert", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q5";
+            let src = "INSERT IGNORE INTO `t2` SET `t1_id`=?";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Insert {
+                arguments,
+                yield_autoincrement,
+            } = q
+            {
+                check_arguments(name, &arguments, "i32!", &mut errors);
+                if yield_autoincrement != AutoIncrementId::Optional {
+                    println!("{} should yield optional auto increment", name);
+                    errors += 1;
+                }
+            } else {
+                println!("{} should be insert", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q6";
+            let src = "SELECT IF(`ci32` IS NULL, `cbool`, ?) AS `cc` FROM `t1`";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "b", &mut errors);
+                check_columns(name, &columns, "cc:b", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q7";
+            let src = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP()) AS `cc` FROM `t1` WHERE `id`=?";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "i", &mut errors);
+                check_columns(name, &columns, "cc:dt!", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q8";
+            let src = "REPLACE INTO `t2` SET `id` = ?, `t1_id`=?";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Replace { arguments } = q {
+                check_arguments(name, &arguments, "i32!,i32!", &mut errors);
+            } else {
+                println!("{} should be replace", name);
+                errors += 1;
+            }
         }
 
         if errors != 0 {

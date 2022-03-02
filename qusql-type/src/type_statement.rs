@@ -10,11 +10,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_parse::{Issue, Statement};
+use sql_parse::{InsertReplaceType, Issue, Statement};
 
 use crate::{
     type_delete::type_delete,
-    type_insert::{type_insert, type_replace},
+    type_insert_replace::{type_insert_replace, AutoIncrementId},
     type_select::{type_union, SelectType},
     type_update::type_update,
     typer::Typer,
@@ -23,7 +23,7 @@ use crate::{
 pub(crate) enum InnerStatementType<'a> {
     Select(SelectType<'a>),
     Delete,
-    Insert { auto_increment: bool },
+    Insert { auto_increment_id: AutoIncrementId },
     Update,
     Replace,
     Invalid,
@@ -41,18 +41,18 @@ pub(crate) fn type_statement<'a, 'b>(
             type_delete(typer, d);
             InnerStatementType::Delete
         }
-        Statement::Insert(i) => InnerStatementType::Insert {
-            auto_increment: type_insert(typer, i),
-        },
+        Statement::InsertReplace(ior) => {
+            let auto_increment_id = type_insert_replace(typer, ior);
+            match &ior.type_ {
+                InsertReplaceType::Insert(_) => InnerStatementType::Insert { auto_increment_id },
+                InsertReplaceType::Replace(_) => InnerStatementType::Replace,
+            }
+        }
         Statement::Update(u) => {
             type_update(typer, u);
             InnerStatementType::Update
         }
         Statement::Union(u) => InnerStatementType::Select(type_union(typer, u)),
-        Statement::Replace(r) => {
-            type_replace(typer, r);
-            InnerStatementType::Replace
-        }
         s => {
             typer
                 .issues
