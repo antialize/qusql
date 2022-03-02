@@ -407,6 +407,10 @@ mod tests {
 
         ALTER TABLE `t1`
           MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+        CREATE TABLE `t2` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `t1_id` int(11) NOT NULL);
         ";
 
         let options = TypeOptions::new().dialect(SQLDialect::MariaDB);
@@ -461,7 +465,7 @@ mod tests {
         } = q2
         {
             check_arguments(
-                "q1",
+                "q2",
                 &arguments,
                 "b!,u8!,u16!,u32!,u64!,i8,i16,i32,i64,str!,bytes,f32,f64",
                 &mut errors,
@@ -472,6 +476,17 @@ mod tests {
             }
         } else {
             println!("q2 should be insert");
+            errors += 1;
+        }
+
+        issues.clear();
+        let q3_src = "DELETE `t1` FROM `t1`, `t2` WHERE `t1`.`id` = `t2`.`t1_id` AND `t2`.`id` = ?";
+        let q3 = type_statement(&schema, q3_src, &mut issues, &options);
+        check_no_errors("q3", q1_src, &issues, &mut errors);
+        if let StatementType::Delete { arguments } = q3 {
+            check_arguments("q3", &arguments, "i", &mut errors);
+        } else {
+            println!("q3 should be delete");
             errors += 1;
         }
 

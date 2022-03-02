@@ -24,7 +24,6 @@ use crate::{
     Type,
 };
 
-
 /// A column in select
 #[derive(Debug, Clone)]
 pub struct SelectTypeColumn<'a> {
@@ -43,7 +42,7 @@ impl<'a> Spanned for SelectTypeColumn<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub (crate) struct SelectType<'a> {
+pub(crate) struct SelectType<'a> {
     pub columns: Vec<SelectTypeColumn<'a>>,
     pub select_span: Span,
 }

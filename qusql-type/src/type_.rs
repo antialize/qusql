@@ -18,7 +18,6 @@ use alloc::{
 };
 use sql_parse::Span;
 
-
 /// Canonical base type of a type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BaseType {
@@ -132,7 +131,7 @@ impl<'a> Display for Type<'a> {
 
 impl<'a> Type<'a> {
     /// Make a none owning clone of the type
-    pub (crate) fn ref_clone(&'a self) -> Self {
+    pub(crate) fn ref_clone(&'a self) -> Self {
         match self {
             Type::Enum(e) => Type::Enum(e.ref_clone()),
             Type::Set(e) => Type::Set(e.ref_clone()),
@@ -170,7 +169,6 @@ impl<'a> From<BaseType> for Type<'a> {
     }
 }
 
-
 /// Represent a type with not_null information
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FullType<'a> {
@@ -179,14 +177,14 @@ pub struct FullType<'a> {
 }
 
 impl<'a> FullType<'a> {
-    pub (crate) fn ref_clone(&'a self) -> Self {
+    pub(crate) fn ref_clone(&'a self) -> Self {
         FullType {
             t: self.t.ref_clone(),
             not_null: self.not_null,
         }
     }
 
-    pub (crate) fn new(t: impl Into<Type<'a>>, not_null: bool) -> Self {
+    pub(crate) fn new(t: impl Into<Type<'a>>, not_null: bool) -> Self {
         Self {
             t: t.into(),
             not_null,

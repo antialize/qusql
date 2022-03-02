@@ -55,7 +55,7 @@
 //!     -- Constraints for table `events`
 //!     ALTER TABLE `events`
 //!       ADD CONSTRAINT `event_key` FOREIGN KEY (`event_key`) REFERENCES `event_keys` (`id`);
-//! 
+//!
 //!     -- Structure for view `events_view`
 //!     DROP TABLE IF EXISTS `events_view`;
 //!     DROP VIEW IF EXISTS `events_view`;
@@ -89,7 +89,6 @@ use crate::{
 use alloc::{collections::BTreeMap, vec::Vec};
 use sql_parse::{parse_statements, DataType, Issue, Span, Spanned};
 
-
 /// A column in a schema
 #[derive(Debug)]
 pub struct Column<'a> {
@@ -100,7 +99,6 @@ pub struct Column<'a> {
     /// True if the column is auto_increment
     pub auto_increment: bool,
 }
-
 
 /// Schema representing a table or view
 #[derive(Debug)]
@@ -117,11 +115,9 @@ pub struct Schema<'a> {
 #[derive(Debug)]
 pub struct Procedure {}
 
-
 /// A function
 #[derive(Debug)]
 pub struct Functions {}
-
 
 /// A description of tables, view, procedures and function in a schemas definition file
 #[derive(Debug)]

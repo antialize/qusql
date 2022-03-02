@@ -15,6 +15,7 @@ use sql_parse::{issue_todo, Delete, Issue, OptSpanned, Spanned};
 
 use crate::{
     type_expression::type_expression,
+    type_reference::type_reference,
     typer::{ReferenceType, Typer},
 };
 
@@ -29,33 +30,60 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
         }
     }
 
-    let identifier = match delete.table.as_slice() {
-        [v] => v,
-        _ => {
-            typer.issues.push(issue_todo!(&delete
-                .table
-                .opt_span()
-                .expect("table span in type_delete")));
-            return;
+    if !delete.using.is_empty() {
+        for reference in &delete.using {
+            type_reference(typer, reference, false);
         }
-    };
-
-    if let Some(s) = typer.schemas.schemas.get(&identifier.value) {
-        let mut columns = Vec::new();
-        for (n, t) in &s.columns {
-            columns.push((*n, t.type_.ref_clone()));
+        for table in &delete.tables {
+            let identifier = match table.as_slice() {
+                [v] => v,
+                _ => {
+                    typer.issues.push(issue_todo!(&delete.tables[0]
+                        .opt_span()
+                        .expect("table span in type_delete")));
+                    typer.reference_types = old_reference_type;
+                    return;
+                }
+            };
+            if !typer.schemas.schemas.contains_key(&identifier.value) {
+                typer
+                    .issues
+                    .push(Issue::err("Unknown table or view", identifier))
+            }
         }
-        typer.reference_types.push(ReferenceType {
-            name: Some(identifier.value),
-            span: identifier.span(),
-            columns,
-        });
     } else {
-        typer
-            .issues
-            .push(Issue::err("Unknown table or view", identifier))
+        if delete.tables.len() > 1 {
+            typer.issues.push(Issue::err(
+                "Expected only one table here",
+                &delete.tables.opt_span().unwrap(),
+            ));
+        }
+        let identifier = match delete.tables[0].as_slice() {
+            [v] => v,
+            _ => {
+                typer.issues.push(issue_todo!(&delete.tables[0]
+                    .opt_span()
+                    .expect("table span in type_delete")));
+                typer.reference_types = old_reference_type;
+                return;
+            }
+        };
+        if let Some(s) = typer.schemas.schemas.get(&identifier.value) {
+            let mut columns = Vec::new();
+            for (n, t) in &s.columns {
+                columns.push((*n, t.type_.ref_clone()));
+            }
+            typer.reference_types.push(ReferenceType {
+                name: Some(identifier.value),
+                span: identifier.span(),
+                columns,
+            });
+        } else {
+            typer
+                .issues
+                .push(Issue::err("Unknown table or view", identifier));
+        }
     }
-
     if let Some((where_, _)) = &delete.where_ {
         let t = type_expression(typer, where_, false);
         typer.ensure_base(where_, &t, crate::type_::BaseType::Bool);
