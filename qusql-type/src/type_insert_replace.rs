@@ -16,7 +16,7 @@ use sql_parse::{issue_todo, InsertReplace, InsertReplaceFlag, InsertReplaceType,
 use crate::{
     type_expression::type_expression,
     type_select::type_select,
-    typer::{ReferenceType, Typer},
+    typer::{typer_stack, ReferenceType, Typer},
     Type,
 };
 
@@ -119,7 +119,12 @@ pub(crate) fn type_insert_replace<'a, 'b>(
         }
     }
 
-    let old_reference_type = core::mem::take(&mut typer.reference_types);
+    let mut guard = typer_stack(
+        typer,
+        |t| core::mem::take(&mut t.reference_types),
+        |t, v| t.reference_types = v,
+    );
+    let typer = &mut guard.typer;
 
     if let Some(s) = typer.schemas.schemas.get(t.value) {
         let mut columns = Vec::new();
@@ -219,7 +224,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
             }
         }
     }
-    typer.reference_types = old_reference_type;
+    core::mem::drop(guard);
 
     if auto_increment && matches!(ior.type_, InsertReplaceType::Insert(_)) {
         if ior

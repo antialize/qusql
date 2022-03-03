@@ -68,8 +68,9 @@ pub(crate) fn type_function<'a, 'b>(
     match func {
         Function::UnixTimestamp => {
             arg_cnt(typer, 0..1, args, span);
-            if let Some(arg) = args.get(0) {
-                typer.issues.push(issue_todo!(arg));
+            if let Some((a, t)) = typed.get(0) {
+                // TODO the argument can be both a DATE, a DATE_TIME or a TIMESTAMP
+                typer.ensure_base(*a, t, BaseType::DateTime);
             }
             FullType::new(Type::U64, true)
         }
@@ -261,7 +262,8 @@ pub(crate) fn type_function<'a, 'b>(
             let mut not_null = true;
             if let Some((e, t)) = typed.get(0) {
                 not_null = not_null && t.not_null;
-                typer.ensure_base(*e, t, BaseType::Integer);
+                // TODO float og int
+                typer.ensure_base(*e, t, BaseType::Float);
             }
             if let Some((e, t)) = typed.get(1) {
                 not_null = not_null && t.not_null;
@@ -270,6 +272,15 @@ pub(crate) fn type_function<'a, 'b>(
             } else {
                 FullType::new(BaseType::DateTime, not_null)
             }
+        }
+        Function::CharacterLength => {
+            arg_cnt(typer, 1..1, args, span);
+            let mut not_null = true;
+            if let Some((e, t)) = typed.get(0) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::Integer, not_null)
         }
         _ => {
             typer

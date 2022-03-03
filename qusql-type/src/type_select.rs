@@ -20,7 +20,7 @@ use crate::{
     type_::{BaseType, FullType},
     type_expression::type_expression,
     type_reference::type_reference,
-    typer::{ReferenceType, Typer},
+    typer::{typer_stack, ReferenceType, Typer},
     Type,
 };
 
@@ -169,7 +169,12 @@ pub(crate) fn type_select<'a, 'b>(
     select: &Select<'a>,
     warn_duplicate: bool,
 ) -> SelectType<'a> {
-    let old_reference_type = typer.reference_types.clone();
+    let mut guard = typer_stack(
+        typer,
+        |t| t.reference_types.clone(),
+        |t, v| t.reference_types = v,
+    );
+    let typer = &mut guard.typer;
 
     for flag in &select.flags {
         match &flag {
@@ -281,8 +286,6 @@ pub(crate) fn type_select<'a, 'b>(
             ));
         }
     }
-
-    typer.reference_types = old_reference_type;
 
     SelectType {
         columns: result

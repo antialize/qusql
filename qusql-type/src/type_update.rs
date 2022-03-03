@@ -13,12 +13,21 @@
 use sql_parse::{Identifier, Issue, OptSpanned, Update};
 
 use crate::{
-    type_::BaseType, type_expression::type_expression, type_reference::type_reference,
-    typer::Typer, Type,
+    type_::BaseType,
+    type_expression::type_expression,
+    type_reference::type_reference,
+    typer::{typer_stack, Typer},
+    Type,
 };
 
 pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>) {
-    let old_reference_type = core::mem::take(&mut typer.reference_types);
+    let mut guard = typer_stack(
+        typer,
+        |t| core::mem::take(&mut t.reference_types),
+        |t, v| t.reference_types = v,
+    );
+    let typer = &mut guard.typer;
+
     for f in &update.flags {
         match f {
             sql_parse::UpdateFlag::LowPriority(_) | sql_parse::UpdateFlag::Ignore(_) => (),
@@ -111,6 +120,4 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
         let t = type_expression(typer, where_, true);
         typer.ensure_base(where_, &t, BaseType::Bool);
     }
-
-    typer.reference_types = old_reference_type;
 }

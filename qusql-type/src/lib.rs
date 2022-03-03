@@ -563,7 +563,7 @@ mod tests {
         {
             issues.clear();
             let name = "q7";
-            let src = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP()) AS `cc` FROM `t1` WHERE `id`=?";
+            let src = "SELECT FROM_UNIXTIME(CAST(UNIX_TIMESTAMP() AS DOUBLE)) AS `cc` FROM `t1` WHERE `id`=?";
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, &issues, &mut errors);
             if let StatementType::Select { arguments, columns } = q {

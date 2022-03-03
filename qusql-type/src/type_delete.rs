@@ -16,11 +16,16 @@ use sql_parse::{issue_todo, Delete, Issue, OptSpanned, Spanned};
 use crate::{
     type_expression::type_expression,
     type_reference::type_reference,
-    typer::{ReferenceType, Typer},
+    typer::{typer_stack, ReferenceType, Typer},
 };
 
 pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>) {
-    let old_reference_type = core::mem::take(&mut typer.reference_types);
+    let mut guard = typer_stack(
+        typer,
+        |t| core::mem::take(&mut t.reference_types),
+        |t, v| t.reference_types = v,
+    );
+    let typer = &mut guard.typer;
 
     for flag in &delete.flags {
         match flag {
@@ -41,7 +46,6 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
                     typer.issues.push(issue_todo!(&delete.tables[0]
                         .opt_span()
                         .expect("table span in type_delete")));
-                    typer.reference_types = old_reference_type;
                     return;
                 }
             };
@@ -64,7 +68,6 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
                 typer.issues.push(issue_todo!(&delete.tables[0]
                     .opt_span()
                     .expect("table span in type_delete")));
-                typer.reference_types = old_reference_type;
                 return;
             }
         };
@@ -88,6 +91,4 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
         let t = type_expression(typer, where_, false);
         typer.ensure_base(where_, &t, crate::type_::BaseType::Bool);
     }
-
-    typer.reference_types = old_reference_type;
 }
