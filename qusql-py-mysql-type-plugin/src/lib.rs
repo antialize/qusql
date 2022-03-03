@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-use ariadne::{Report, ReportKind, Label, Source};
-use pyo3::{prelude::*};
-use sql_type::{TypeOptions, SQLDialect, SQLArguments, Issue};
+use ariadne::{Label, Report, ReportKind, Source};
 use ouroboros::self_referencing;
-
+use pyo3::prelude::*;
+use sql_type::{Issue, SQLArguments, SQLDialect, TypeOptions};
 
 #[pyclass]
 #[self_referencing]
@@ -12,21 +11,27 @@ struct Schemas {
     src: std::string::String,
     #[borrows(src)]
     #[covariant]
-    schemas: sql_type::schema::Schemas<'this>
+    schemas: sql_type::schema::Schemas<'this>,
 }
 
 fn issue_to_report(issue: Issue) -> Report<std::ops::Range<usize>> {
-    let mut builder = Report::build(match issue.level {
-        sql_type::Level::Warning => ReportKind::Warning,
-        sql_type::Level::Error => ReportKind::Error,
-    }, (), issue.span.start)
+    let mut builder = Report::build(
+        match issue.level {
+            sql_type::Level::Warning => ReportKind::Warning,
+            sql_type::Level::Error => ReportKind::Error,
+        },
+        (),
+        issue.span.start,
+    )
     .with_config(ariadne::Config::default().with_color(false))
     .with_label(
-        Label::new(issue.span).with_order(-1).with_priority(-1).with_message(issue.message));
+        Label::new(issue.span)
+            .with_order(-1)
+            .with_priority(-1)
+            .with_message(issue.message),
+    );
     for frag in issue.fragments {
-        builder = builder.with_label(
-            Label::new(frag.1).with_message(frag.0)
-        );
+        builder = builder.with_label(Label::new(frag.1).with_message(frag.0));
     }
     builder.finish()
 }
@@ -57,15 +62,21 @@ fn issues_to_string(name: &str, source: &str, issues: Vec<Issue>) -> (bool, std:
     (err, std::string::String::from_utf8(out).unwrap())
 }
 
-
 #[pyfunction]
 fn parse_schemas(name: &str, src: std::string::String) -> (Schemas, bool, std::string::String) {
     let mut issues = Vec::new();
 
-    let schemas = SchemasBuilder { src,
-        schemas_builder: |src: &std::string::String |
-            sql_type::schema::parse_schemas(src, &mut issues, &TypeOptions::new().dialect(SQLDialect::MariaDB)),
-     }.build();
+    let schemas = SchemasBuilder {
+        src,
+        schemas_builder: |src: &std::string::String| {
+            sql_type::schema::parse_schemas(
+                src,
+                &mut issues,
+                &TypeOptions::new().dialect(SQLDialect::MariaDB),
+            )
+        },
+    }
+    .build();
 
     let (err, messages) = issues_to_string(name, schemas.borrow_src(), issues);
     (schemas, err, messages)
@@ -74,7 +85,7 @@ fn parse_schemas(name: &str, src: std::string::String) -> (Schemas, bool, std::s
 #[derive(Clone, Hash, PartialEq, Eq)]
 enum ArgumentKey {
     Identifier(std::string::String),
-    Index(usize)
+    Index(usize),
 }
 
 impl IntoPy<PyObject> for ArgumentKey {
@@ -107,7 +118,7 @@ struct String {}
 #[pyclass]
 struct Enum {
     #[pyo3(get)]
-    values: Vec<std::string::String>
+    values: Vec<std::string::String>,
 }
 
 #[derive(Clone)]
@@ -118,19 +129,19 @@ enum Type {
     Bool,
     Bytes,
     String,
-    Enum(Vec<std::string::String>)
+    Enum(Vec<std::string::String>),
 }
 
 impl IntoPy<PyObject> for Type {
     fn into_py(self, py: Python) -> PyObject {
         match self {
-            Type::Any => Py::new(py, Any{}).unwrap().to_object(py),
-            Type::Integer => Py::new(py, Integer{}).unwrap().to_object(py),
-            Type::Float => Py::new(py, Float{}).unwrap().to_object(py),
-            Type::Bool => Py::new(py, Bool{}).unwrap().to_object(py),
-            Type::Bytes => Py::new(py, Bytes{}).unwrap().to_object(py),
-            Type::String => Py::new(py, String{}).unwrap().to_object(py),
-            Type::Enum(values) => Py::new(py, Enum{values}).unwrap().to_object(py),
+            Type::Any => Py::new(py, Any {}).unwrap().to_object(py),
+            Type::Integer => Py::new(py, Integer {}).unwrap().to_object(py),
+            Type::Float => Py::new(py, Float {}).unwrap().to_object(py),
+            Type::Bool => Py::new(py, Bool {}).unwrap().to_object(py),
+            Type::Bytes => Py::new(py, Bytes {}).unwrap().to_object(py),
+            Type::String => Py::new(py, String {}).unwrap().to_object(py),
+            Type::Enum(values) => Py::new(py, Enum { values }).unwrap().to_object(py),
         }
     }
 }
@@ -150,23 +161,19 @@ struct Delete {
     arguments: HashMap<ArgumentKey, (Type, bool)>,
 }
 
-
 #[pyclass]
-struct Insert { 
+struct Insert {
     #[pyo3(get)]
-    yield_autoincrement: bool,
+    yield_autoincrement: &'static str,
 
     #[pyo3(get)]
     arguments: HashMap<ArgumentKey, (Type, bool)>,
-
 }
-
 
 #[pyclass]
 struct Update {
     #[pyo3(get)]
     arguments: HashMap<ArgumentKey, (Type, bool)>,
-
 }
 
 #[pyclass]
@@ -175,10 +182,8 @@ struct Replace {
     arguments: HashMap<ArgumentKey, (Type, bool)>,
 }
 
-
 #[pyclass]
-struct Invalid {
-}
+struct Invalid {}
 
 fn map_type(t: sql_type::Type<'_>) -> Type {
     match t {
@@ -196,7 +201,7 @@ fn map_type(t: sql_type::Type<'_>) -> Type {
                 sql_type::BaseType::Time => Type::Any, //TODO
                 sql_type::BaseType::TimeStamp => Type::Any, //TODO
             }
-        },
+        }
         sql_type::Type::Enum(v) => Type::Enum(v.iter().map(|v| v.to_string()).collect()),
         sql_type::Type::F32 => Type::Float,
         sql_type::Type::F64 => Type::Float,
@@ -215,46 +220,99 @@ fn map_type(t: sql_type::Type<'_>) -> Type {
     }
 }
 
-fn map_arguments(arguments: Vec<(sql_type::ArgumentKey<'_>, sql_type::FullType<'_>)>) -> HashMap<ArgumentKey, (Type, bool)> {
-    arguments.into_iter().map(|(k,v)| {
-        let k = match k {
-            sql_type::ArgumentKey::Index(i) => ArgumentKey::Index(i),
-            sql_type::ArgumentKey::Identifier(i) => ArgumentKey::Identifier(i.to_string()),
-        };
-        (k, (map_type(v.t), v.not_null))
-    }).collect()
+fn map_arguments(
+    arguments: Vec<(sql_type::ArgumentKey<'_>, sql_type::FullType<'_>)>,
+) -> HashMap<ArgumentKey, (Type, bool)> {
+    arguments
+        .into_iter()
+        .map(|(k, v)| {
+            let k = match k {
+                sql_type::ArgumentKey::Index(i) => ArgumentKey::Index(i),
+                sql_type::ArgumentKey::Identifier(i) => ArgumentKey::Identifier(i.to_string()),
+            };
+            (k, (map_type(v.t), v.not_null))
+        })
+        .collect()
 }
 
-
 #[pyfunction]
-fn type_statement(py: Python, schemas: &Schemas, statement: &str) -> PyResult<(PyObject, bool, std::string::String)> {
+fn type_statement(
+    py: Python,
+    schemas: &Schemas,
+    statement: &str,
+) -> PyResult<(PyObject, bool, std::string::String)> {
     let mut issues = Vec::new();
 
-    let stmt = sql_type::type_statement(schemas.borrow_schemas(), statement, &mut issues,
-            &TypeOptions::new().dialect(SQLDialect::MariaDB).arguments(SQLArguments::Percent));
+    let stmt = sql_type::type_statement(
+        schemas.borrow_schemas(),
+        statement,
+        &mut issues,
+        &TypeOptions::new()
+            .dialect(SQLDialect::MariaDB)
+            .arguments(SQLArguments::Percent),
+    );
 
     let res = match stmt {
         sql_type::StatementType::Select { columns, arguments } => {
-            let columns = columns.into_iter().map(|v| {
-                (v.name.map(|v| v.to_string()), map_type(v.type_.t), v.type_.not_null)
-            }).collect();
-            Py::new(py, Select{arguments: map_arguments(arguments), columns})?.to_object(py)
-        },
-        sql_type::StatementType::Delete { arguments } => {
-            Py::new(py, Delete{arguments: map_arguments(arguments)})?.to_object(py)
-        },
-        sql_type::StatementType::Insert { yield_autoincrement, arguments } => {
-            Py::new(py, Insert{yield_autoincrement, arguments: map_arguments(arguments)})?.to_object(py)
-        },
-        sql_type::StatementType::Update { arguments } => {
-            Py::new(py, Update{arguments: map_arguments(arguments)})?.to_object(py)
-        },
-        sql_type::StatementType::Replace { arguments } => {
-            Py::new(py, Replace{arguments: map_arguments(arguments)})?.to_object(py)
-        },
-        sql_type::StatementType::Invalid => {
-            Py::new(py, Invalid{})?.to_object(py)
-        },
+            let columns = columns
+                .into_iter()
+                .map(|v| {
+                    (
+                        v.name.map(|v| v.to_string()),
+                        map_type(v.type_.t),
+                        v.type_.not_null,
+                    )
+                })
+                .collect();
+            Py::new(
+                py,
+                Select {
+                    arguments: map_arguments(arguments),
+                    columns,
+                },
+            )?
+            .to_object(py)
+        }
+        sql_type::StatementType::Delete { arguments } => Py::new(
+            py,
+            Delete {
+                arguments: map_arguments(arguments),
+            },
+        )?
+        .to_object(py),
+        sql_type::StatementType::Insert {
+            yield_autoincrement,
+            arguments,
+        } => {
+            let yield_autoincrement = match yield_autoincrement {
+                sql_type::AutoIncrementId::Yes => "yes",
+                sql_type::AutoIncrementId::No => "no",
+                sql_type::AutoIncrementId::Optional => "maybe",
+            };
+            Py::new(
+                py,
+                Insert {
+                    yield_autoincrement,
+                    arguments: map_arguments(arguments),
+                },
+            )?
+            .to_object(py)
+        }
+        sql_type::StatementType::Update { arguments } => Py::new(
+            py,
+            Update {
+                arguments: map_arguments(arguments),
+            },
+        )?
+        .to_object(py),
+        sql_type::StatementType::Replace { arguments } => Py::new(
+            py,
+            Replace {
+                arguments: map_arguments(arguments),
+            },
+        )?
+        .to_object(py),
+        sql_type::StatementType::Invalid => Py::new(py, Invalid {})?.to_object(py),
     };
 
     let (err, messages) = issues_to_string("", statement, issues);
@@ -281,4 +339,3 @@ fn mysql_type_plugin(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Schemas>()?;
     Ok(())
 }
-
