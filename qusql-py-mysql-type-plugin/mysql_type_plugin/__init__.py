@@ -77,8 +77,8 @@ def get_sql(
     sql_arg_val = args[sql_arg][0]
     sql = get_str_value(sql_arg_val)
     if sql is None:
-        if not quiet and (note := getattr(api, "note")):
-            note("Dynamic sql", sql_arg_val, code=DYNAMIC_SQL)
+        #if not quiet and (note := getattr(api, "note")):
+        #    note("Dynamic sql", sql_arg_val, code=DYNAMIC_SQL)
         return None
     return sql
 
