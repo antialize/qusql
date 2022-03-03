@@ -1,6 +1,5 @@
-from ast import List
 import re
-from typing import Any, Iterable, Iterator, Optional, Protocol, TypeVar, cast
+from typing import Any, Iterable, Iterator, Optional, Protocol, TypeVar, cast, List
 import MySQLdb
 import MySQLdb.cursors
 
@@ -30,8 +29,14 @@ class SelectResult(Protocol[T]):
 class OtherResult:
     rowcount: int
 
-class InsertResult:
+class InsertWithLastRowIdResult:
+    rowcount: int
     lastrowid: int
+
+class InsertWithOptLastRowIdResult:
+    rowcount: int
+    lastrowid: Optional[int]
+
 
 class UntypedResult:
     """
