@@ -89,6 +89,7 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
         rargs = list(reversed(args))
         flatargs = []
         def replace_arg(mo) -> str:
+            nonlocal flatargs
             while True:
                 a = rargs.pop()
                 if a is None:
@@ -98,13 +99,13 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
                     return ", ".join(['%']*len(a))
                 flatargs.append(a)
         sql = re.sub("_LIST_", replace_arg, sql)
-        while a := rargs.pop():
+        while rargs:
+            a = rargs.pop()
             if isinstance(a, list):
                 raise Exception("Number of _LIST_ arguments do not match")
             flatargs.append(a)
         c.execute(sql, flatargs)
     return cast(UntypedResult[Any], c)
-
 
 def executemany(c: CursorType, sql: str, args: Iterable[Iterable[Any]]) -> OtherResult:
     """
