@@ -105,7 +105,7 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
                 raise Exception("Number of _LIST_ arguments do not match")
             flatargs.append(a)
         c.execute(sql, flatargs)
-    return cast(UntypedResult[Any], c)
+    return cast(UntypedResult, c)
 
 def executemany(c: CursorType, sql: str, args: Iterable[Iterable[Any]]) -> OtherResult:
     """

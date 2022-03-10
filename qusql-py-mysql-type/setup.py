@@ -6,7 +6,7 @@ def readme():
 
 setup(
     name='mysql-type',
-    version='0.1.2',
+    version='0.1.3',
     packages=['mysql_type'],
     url='https://github.com/antialize/py-mysql-type',
     author='Jakob Truelsen',
