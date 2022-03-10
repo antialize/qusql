@@ -96,7 +96,7 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
                     raise Exception("Number of _LIST_ arguments do not match")
                 if isinstance(a, list):
                     flatargs += a
-                    return ", ".join(['%']*len(a))
+                    return ", ".join(['%s']*len(a))
                 flatargs.append(a)
         sql = re.sub("_LIST_", replace_arg, sql)
         while rargs:
