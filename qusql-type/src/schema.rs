@@ -92,6 +92,7 @@ use sql_parse::{parse_statements, DataType, Issue, Span, Spanned};
 /// A column in a schema
 #[derive(Debug)]
 pub struct Column<'a> {
+    pub identifier: &'a str,
     /// Span of identifier
     pub identifier_span: Span,
     /// Type of the column
@@ -105,10 +106,29 @@ pub struct Column<'a> {
 pub struct Schema<'a> {
     /// Span of identifier
     pub identifier_span: Span,
-    /// Map of columns and types
-    pub columns: BTreeMap<&'a str, Column<'a>>,
+    /// List of columns
+    pub columns: Vec<Column<'a>>,
     /// True if this is a view instead of a table
     pub view: bool,
+}
+
+impl<'a> Schema<'a> {
+    pub fn get_column(&self, identifier: &str) -> Option<&Column<'a>> {
+        for column in &self.columns {
+            if column.identifier == identifier {
+                return Some(column);
+            }
+        }
+        None
+    }
+    pub fn get_column_mut(&mut self, identifier: &str) -> Option<&mut Column<'a>> {
+        for column in &mut self.columns {
+            if column.identifier == identifier {
+                return Some(column);
+            }
+        }
+        None
+    }
 }
 
 /// A procedure
@@ -133,6 +153,7 @@ pub struct Schemas<'a> {
 
 pub(crate) fn parse_column<'a>(
     data_type: DataType<'a>,
+    identifier: &'a str,
     identifier_span: Span,
     _issues: &mut Vec<Issue>,
 ) -> Column<'a> {
@@ -205,6 +226,7 @@ pub(crate) fn parse_column<'a>(
         sql_parse::Type::VarBinary(_) => BaseType::Bytes.into(),
     };
     Column {
+        identifier,
         identifier_span,
         type_: FullType { t: type_, not_null },
         auto_increment,
@@ -272,17 +294,19 @@ pub fn parse_schemas<'a>(
                             identifier,
                             data_type,
                         } => {
-                            let column = parse_column(data_type, identifier.span.clone(), issues);
-                            match schema.columns.entry(identifier.value) {
-                                alloc::collections::btree_map::Entry::Occupied(e) => {
-                                    issues.push(
-                                        Issue::err("Column allready defined", &identifier)
-                                            .frag("Defined here", &e.get().identifier_span),
-                                    );
-                                }
-                                alloc::collections::btree_map::Entry::Vacant(e) => {
-                                    e.insert(column);
-                                }
+                            let column = parse_column(
+                                data_type,
+                                identifier.value,
+                                identifier.span.clone(),
+                                issues,
+                            );
+                            if let Some(oc) = schema.get_column(column.identifier) {
+                                issues.push(
+                                    Issue::err("Column already defined", &identifier)
+                                        .frag("Defined here", &oc.identifier_span),
+                                );
+                            } else {
+                                schema.columns.push(column);
                             }
                         }
                     }
@@ -457,7 +481,7 @@ pub fn parse_schemas<'a>(
                             definition,
                             ..
                         } => {
-                            let c = match e.columns.get_mut(col.value) {
+                            let c = match e.get_column_mut(col.value) {
                                 Some(v) => v,
                                 None => {
                                     if if_exists.is_none() {
@@ -469,7 +493,7 @@ pub fn parse_schemas<'a>(
                                     continue;
                                 }
                             };
-                            *c = parse_column(definition, col.span(), issues);
+                            *c = parse_column(definition, c.identifier, col.span(), issues);
                         }
                     }
                 }

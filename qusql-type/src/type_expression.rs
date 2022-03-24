@@ -269,7 +269,7 @@ pub(crate) fn type_expression<'a, 'b>(
             ..
         } => {
             let e = type_expression(typer, expr, false);
-            let col = parse_column(type_.clone(), as_span.clone(), typer.issues);
+            let col = parse_column(type_.clone(), "", as_span.clone(), typer.issues);
             //TODO check if it can possible be valid cast
             FullType::new(col.type_.t, e.not_null)
         }

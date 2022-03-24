@@ -73,8 +73,8 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
         };
         if let Some(s) = typer.schemas.schemas.get(&identifier.value) {
             let mut columns = Vec::new();
-            for (n, t) in &s.columns {
-                columns.push((*n, t.type_.ref_clone()));
+            for col in &s.columns {
+                columns.push((col.identifier, col.type_.ref_clone()));
             }
             typer.reference_types.push(ReferenceType {
                 name: Some(identifier.value),

@@ -37,10 +37,10 @@ pub(crate) fn type_reference<'a, 'b>(
             };
             if let Some(s) = typer.schemas.schemas.get(&identifier.value) {
                 let mut columns = Vec::new();
-                for (n, t) in &s.columns {
-                    let mut type_ = t.type_.ref_clone();
+                for c in &s.columns {
+                    let mut type_ = c.type_.ref_clone();
                     type_.not_null = type_.not_null && !force_null;
-                    columns.push((*n, type_));
+                    columns.push((c.identifier, type_));
                 }
                 let name = as_.as_ref().unwrap_or(identifier).clone();
                 for v in &typer.reference_types {

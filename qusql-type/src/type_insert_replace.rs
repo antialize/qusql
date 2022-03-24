@@ -51,7 +51,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
         let mut col_types = Vec::new();
 
         for col in columns {
-            if let Some(schema_col) = schema.columns.get(col.value) {
+            if let Some(schema_col) = schema.get_column(col.value) {
                 col_types.push((schema_col.type_.ref_clone(), col.span()));
             } else {
                 typer
@@ -61,7 +61,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
         }
         (
             Some(col_types),
-            schema.columns.iter().any(|(_, c)| c.auto_increment),
+            schema.columns.iter().any(|c| c.auto_increment),
         )
     } else {
         typer.issues.push(Issue::err("Unknown table", t));
@@ -128,8 +128,8 @@ pub(crate) fn type_insert_replace<'a, 'b>(
 
     if let Some(s) = typer.schemas.schemas.get(t.value) {
         let mut columns = Vec::new();
-        for (n, t) in &s.columns {
-            columns.push((*n, t.type_.ref_clone()));
+        for c in &s.columns {
+            columns.push((c.identifier, c.type_.ref_clone()));
         }
         for v in &typer.reference_types {
             if v.name == Some(t.value) {
