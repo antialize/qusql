@@ -15,7 +15,7 @@ use sql_parse::{issue_todo, BinaryOperator, Expression, Issue, Span};
 
 use crate::{
     type_::{BaseType, FullType},
-    type_expression::type_expression,
+    type_expression::{type_expression, ExpressionFlags},
     typer::Typer,
     Type,
 };
@@ -26,11 +26,46 @@ pub(crate) fn type_binary_expression<'a, 'b>(
     op_span: &Span,
     lhs: &Expression<'a>,
     rhs: &Expression<'a>,
-    outer_where: bool,
+    flags: ExpressionFlags,
 ) -> FullType<'a> {
-    let outer_where = matches!(op, BinaryOperator::And) && outer_where;
-    let lhs_type = type_expression(typer, lhs, outer_where);
-    let rhs_type = type_expression(typer, rhs, outer_where);
+    let flags = match op {
+        BinaryOperator::And =>
+            if flags.true_ {
+                flags.with_not_null(true)
+            } else {
+                flags
+            }
+        BinaryOperator::Or | BinaryOperator::Xor | BinaryOperator::NullSafeEq => flags.without_values(),
+        BinaryOperator::Eq |
+        BinaryOperator::GtEq |
+        BinaryOperator::Gt |
+        BinaryOperator::LtEq |
+        BinaryOperator::Lt |
+        BinaryOperator::Neq |
+        BinaryOperator::ShiftLeft |
+        BinaryOperator::ShiftRight |
+        BinaryOperator::BitAnd |
+        BinaryOperator::BitOr |
+        BinaryOperator::BitXor |
+        BinaryOperator::Add |
+        BinaryOperator::Subtract |
+        BinaryOperator::Divide |
+        BinaryOperator::Div |
+        BinaryOperator::Mod |
+        BinaryOperator::Mult |
+        BinaryOperator::Like |
+        BinaryOperator::NotLike => {
+            if flags.true_ {
+                flags.with_not_null(true).with_true(false)
+            } else {
+                flags
+            }
+        }
+    };
+
+
+    let lhs_type = type_expression(typer, lhs, flags);
+    let rhs_type = type_expression(typer, rhs, flags);
     match op {
         BinaryOperator::Or | BinaryOperator::Xor | BinaryOperator::And => {
             typer.ensure_base(lhs, &lhs_type, BaseType::Bool);

@@ -12,7 +12,7 @@
 
 use crate::{
     type_::BaseType,
-    type_expression::type_expression,
+    type_expression::{type_expression, ExpressionFlags},
     type_select::type_union_select,
     typer::{ReferenceType, Typer},
 };
@@ -102,7 +102,7 @@ pub(crate) fn type_reference<'a, 'b>(
             type_reference(typer, right, right_force_null);
             match &specification {
                 Some(sql_parse::JoinSpecification::On(e, _)) => {
-                    let t = type_expression(typer, e, false);
+                    let t = type_expression(typer, e, ExpressionFlags::default());
                     typer.ensure_base(e, &t, BaseType::Bool);
                 }
                 Some(s @ sql_parse::JoinSpecification::Using(_, _)) => {

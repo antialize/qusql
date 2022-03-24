@@ -15,7 +15,7 @@ use sql_parse::{issue_todo, Expression, Function, Issue, Span};
 
 use crate::{
     type_::{BaseType, FullType},
-    type_expression::type_expression,
+    type_expression::{type_expression, ExpressionFlags},
     typer::Typer,
     Type,
 };
@@ -60,10 +60,12 @@ pub(crate) fn type_function<'a, 'b>(
     func: &Function<'a>,
     args: &[Expression<'a>],
     span: &Span,
+    flags: ExpressionFlags
 ) -> FullType<'a> {
     let mut typed = Vec::new();
     for arg in args {
-        typed.push((arg, type_expression(typer, arg, false)));
+        // TODO we need not always disable the not null flag here
+        typed.push((arg, type_expression(typer, arg, flags.without_values())));
     }
     match func {
         Function::UnixTimestamp => {
@@ -136,6 +138,23 @@ pub(crate) fn type_function<'a, 'b>(
                 typer.ensure_base(*a, t, BaseType::String);
             }
             if let Some((a, t)) = typed.get(1) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*a, t, BaseType::Integer);
+            }
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::SubStr => {
+            arg_cnt(typer, 2..3, args, span);
+            let mut not_null = true;
+            if let Some((a, t)) = typed.get(0) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*a, t, BaseType::String);
+            }
+            if let Some((a, t)) = typed.get(1) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*a, t, BaseType::Integer);
+            }
+            if let Some((a, t)) = typed.get(2) {
                 not_null = not_null && t.not_null;
                 typer.ensure_base(*a, t, BaseType::Integer);
             }
@@ -281,6 +300,19 @@ pub(crate) fn type_function<'a, 'b>(
                 typer.ensure_base(*e, t, BaseType::String);
             }
             FullType::new(BaseType::Integer, not_null)
+        }
+        Function::Value => {
+            if !flags.in_on_duplicate_key_update {
+                typer
+                    .issues
+                    .push(Issue::err("VALUE is only allowed within ON DUPLICATE KEY UPDATE", span));
+            }
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((_, t)) = typed.get(0) {
+                t.clone()
+            } else {
+                FullType::invalid()
+            }
         }
         _ => {
             typer

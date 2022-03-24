@@ -301,6 +301,13 @@ mod tests {
         expected: &str,
         errors: &mut usize,
     ) {
+        if expected.is_empty() {
+            for (cnt, value) in got.iter().enumerate() {
+                println!("{}: Unexpected argument {} type {:?}", name, cnt, value);
+                *errors += 1;
+            }
+            return;
+        }
         let mut got2 = Vec::new();
         let inv = FullType::invalid();
         for (k, v) in got {
@@ -585,6 +592,20 @@ mod tests {
                 check_arguments(name, &arguments, "i32!,i32!", &mut errors);
             } else {
                 println!("{} should be replace", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q9";
+            let src = "INSERT INTO `t2` (`t1_id`) VALUES (32) ON DUPLICATE KEY UPDATE `t1_id` = `t1_id` + VALUES(`t1_id`)";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Insert { arguments, .. } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+            } else {
+                println!("{} should be insert", name);
                 errors += 1;
             }
         }

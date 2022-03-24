@@ -24,13 +24,52 @@ use crate::{
     Type,
 };
 
+#[derive(Clone, Copy, Default)]
+pub struct ExpressionFlags {
+    pub true_: bool,
+    pub not_null: bool,
+    pub in_on_duplicate_key_update: bool
+}
+
+impl ExpressionFlags {
+    pub fn with_true(self, true_: bool) -> Self {
+        Self {
+            true_,
+            ..self
+        }
+    }
+
+    pub fn with_not_null(self, not_null: bool) -> Self {
+        Self {
+            not_null,
+            ..self
+        }
+    }
+
+    pub fn with_in_on_duplicate_key_update(self, in_on_duplicate_key_update: bool) -> Self {
+        Self {
+            in_on_duplicate_key_update,
+            ..self
+        }
+    }
+
+    pub fn without_values(self) -> Self {
+        Self {
+            not_null: false,
+            true_: false,
+            ..self
+        }
+    }
+}
+
 fn type_unary_expression<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     op: &UnaryOperator,
     op_span: &Span,
     operand: &Expression<'a>,
+    flags: ExpressionFlags
 ) -> FullType<'a> {
-    let op_type = type_expression(typer, operand, false);
+    let op_type = type_expression(typer, operand, flags.with_true(false));
     match op {
         UnaryOperator::Binary
         | UnaryOperator::Collate
@@ -49,7 +88,8 @@ fn type_unary_expression<'a, 'b>(
 pub(crate) fn type_expression<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     expression: &Expression<'a>,
-    outer_where: bool,
+    flags: ExpressionFlags,
+
 ) -> FullType<'a> {
     match expression {
         Expression::Binary {
@@ -57,12 +97,12 @@ pub(crate) fn type_expression<'a, 'b>(
             op_span,
             lhs,
             rhs,
-        } => type_binary_expression(typer, op, op_span, lhs, rhs, outer_where),
+        } => type_binary_expression(typer, op, op_span, lhs, rhs, flags),
         Expression::Unary {
             op,
             op_span,
             operand,
-        } => type_unary_expression(typer, op, op_span, operand),
+        } => type_unary_expression(typer, op, op_span, operand, flags),
         Expression::Subquery(select) => {
             let select_type = type_select(typer, select, false);
             if let [v] = select_type.columns.as_slice() {
@@ -79,7 +119,7 @@ pub(crate) fn type_expression<'a, 'b>(
         Expression::String(_) => FullType::new(BaseType::String, true),
         Expression::Integer(_) => FullType::new(BaseType::Integer, true),
         Expression::Float(_) => FullType::new(BaseType::Float, true),
-        Expression::Function(func, args, span) => type_function(typer, func, args, span),
+        Expression::Function(func, args, span) => type_function(typer, func, args, span, flags),
         Expression::Identifier(i) => {
             let mut t = None;
             match i.as_slice() {
@@ -92,16 +132,19 @@ pub(crate) fn type_expression<'a, 'b>(
                         }
                     };
                     let mut cnt = 0;
-                    for r in &typer.reference_types {
-                        for c in &r.columns {
+                    for r in &mut typer.reference_types {
+                        for c in &mut r.columns {
                             if c.0 == col.value {
                                 cnt += 1;
+                                if flags.not_null {
+                                    c.1.not_null = true;
+                                }
                                 t = Some(c);
                             }
                         }
                     }
                     if cnt > 1 {
-                        let mut issue = Issue::err("Ambigious reference", col);
+                        let mut issue = Issue::err("Ambiguous reference", col);
                         for r in &typer.reference_types {
                             for c in &r.columns {
                                 if c.0 == col.value {
@@ -128,10 +171,13 @@ pub(crate) fn type_expression<'a, 'b>(
                             return FullType::invalid();
                         }
                     };
-                    for r in &typer.reference_types {
+                    for r in &mut typer.reference_types {
                         if r.name == Some(tbl.value) {
-                            for c in &r.columns {
+                            for c in &mut r.columns {
                                 if c.0 == col.value {
+                                    if flags.not_null {
+                                        c.1.not_null = true;
+                                    }
                                     t = Some(c);
                                 }
                             }
@@ -165,7 +211,13 @@ pub(crate) fn type_expression<'a, 'b>(
         Expression::In {
             lhs, rhs, in_span, ..
         } => {
-            let mut lhs_type = type_expression(typer, lhs, false);
+            let f2 = if flags.true_ {
+                flags.with_not_null(true).with_true(false)
+            } else {
+                flags
+            };
+
+            let mut lhs_type = type_expression(typer, lhs, f2);
             let mut not_null = lhs_type.not_null;
             // Hack to allow null arguments on the right hand side of an in expression
             // where the lhs is not null
@@ -188,7 +240,7 @@ pub(crate) fn type_expression<'a, 'b>(
                         FullType::invalid()
                     }
                 } else {
-                    type_expression(typer, rhs, false)
+                    type_expression(typer, rhs, flags.without_values())
                 };
                 not_null &= rhs_type.not_null;
                 if typer.matched_type(&lhs_type, &rhs_type).is_none() {
@@ -202,50 +254,36 @@ pub(crate) fn type_expression<'a, 'b>(
             FullType::new(BaseType::Bool, not_null)
         }
         Expression::Is(e, is, _) => {
-            let t = type_expression(typer, e, false);
-            match is {
+            let flags = match is {
                 sql_parse::Is::Null => {
-                    if t.not_null {
-                        typer.issues.push(Issue::warn("Cannot be null", e));
-                    }
-                    FullType::new(BaseType::Bool, true)
+                    flags.without_values()
                 }
                 sql_parse::Is::NotNull => {
+                    if flags.true_ {
+                        flags.with_not_null(true).with_true(false)
+                    } else {
+                        flags.with_not_null(false)
+                    }
+                }
+                sql_parse::Is::True
+                | sql_parse::Is::NotTrue
+                | sql_parse::Is::False
+                | sql_parse::Is::NotFalse
+                | sql_parse::Is::Unknown
+                | sql_parse::Is::NotUnknown => {
+                    flags.without_values()
+                }
+            };
+            let t = type_expression(typer, e, flags);
+            match is {
+                sql_parse::Is::Null=> {
                     if t.not_null {
                         typer.issues.push(Issue::warn("Cannot be null", e));
                     }
-                    if outer_where {
-                        // If were are in the outer part of a where expression possibly behind ands,
-                        // and the expression is an identifier, we can mark the columns not_null
-                        // the reference_types
-                        if let Expression::Identifier(parts) = e.as_ref() {
-                            if let Some(sql_parse::IdentifierPart::Name(n0)) = parts.get(0) {
-                                if parts.len() == 1 {
-                                    for r in &mut typer.reference_types {
-                                        for c in &mut r.columns {
-                                            if c.0 == n0.value {
-                                                c.1.not_null = true;
-                                            }
-                                        }
-                                    }
-                                } else if let Some(sql_parse::IdentifierPart::Name(n1)) =
-                                    parts.get(1)
-                                {
-                                    for r in &mut typer.reference_types {
-                                        if r.name == Some(n0.value) {
-                                            for c in &mut r.columns {
-                                                if c.0 == n1.value {
-                                                    c.1.not_null = true;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
                     FullType::new(BaseType::Bool, true)
                 }
+                sql_parse::Is::NotNull =>
+                    FullType::new(BaseType::Bool, true),
                 sql_parse::Is::True
                 | sql_parse::Is::NotTrue
                 | sql_parse::Is::False
@@ -268,7 +306,7 @@ pub(crate) fn type_expression<'a, 'b>(
             type_,
             ..
         } => {
-            let e = type_expression(typer, expr, false);
+            let e = type_expression(typer, expr, flags);
             let col = parse_column(type_.clone(), "", as_span.clone(), typer.issues);
             //TODO check if it can possible be valid cast
             FullType::new(col.type_.t, e.not_null)
@@ -279,7 +317,7 @@ pub(crate) fn type_expression<'a, 'b>(
                     resolve_kleene_identifier(typer, parts, &None, |_, _, _, _| {})
                 }
                 arg => {
-                    type_expression(typer, arg, false);
+                    type_expression(typer, arg, flags.without_values());
                 }
             }
             FullType::new(BaseType::Integer, true)

@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 use sql_parse::{issue_todo, Delete, Issue, OptSpanned, Spanned};
 
 use crate::{
-    type_expression::type_expression,
+    type_expression::{type_expression, ExpressionFlags},
     type_reference::type_reference,
     typer::{typer_stack, ReferenceType, Typer},
 };
@@ -88,7 +88,7 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
         }
     }
     if let Some((where_, _)) = &delete.where_ {
-        let t = type_expression(typer, where_, false);
+        let t = type_expression(typer, where_, ExpressionFlags::default());
         typer.ensure_base(where_, &t, crate::type_::BaseType::Bool);
     }
 }

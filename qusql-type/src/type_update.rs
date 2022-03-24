@@ -14,7 +14,7 @@ use sql_parse::{Identifier, Issue, OptSpanned, Update};
 
 use crate::{
     type_::BaseType,
-    type_expression::type_expression,
+    type_expression::{type_expression, ExpressionFlags},
     type_reference::type_reference,
     typer::{typer_stack, Typer},
     Type,
@@ -39,7 +39,7 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
     }
 
     for (key, value) in &update.set {
-        let value_type = type_expression(typer, value, false);
+        let value_type = type_expression(typer, value, ExpressionFlags::default());
         match key.as_slice() {
             [key] => {
                 let mut cnt = 0;
@@ -117,7 +117,7 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
     }
 
     if let Some((where_, _)) = &update.where_ {
-        let t = type_expression(typer, where_, true);
+        let t = type_expression(typer, where_, ExpressionFlags::default());
         typer.ensure_base(where_, &t, BaseType::Bool);
     }
 }
