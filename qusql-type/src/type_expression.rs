@@ -19,7 +19,7 @@ use crate::{
     type_::{BaseType, FullType},
     type_binary_expression::type_binary_expression,
     type_function::type_function,
-    type_select::{resolve_kleene_identifier, type_select},
+    type_select::{resolve_kleene_identifier, type_union_select},
     typer::Typer,
     Type,
 };
@@ -28,22 +28,16 @@ use crate::{
 pub struct ExpressionFlags {
     pub true_: bool,
     pub not_null: bool,
-    pub in_on_duplicate_key_update: bool
+    pub in_on_duplicate_key_update: bool,
 }
 
 impl ExpressionFlags {
     pub fn with_true(self, true_: bool) -> Self {
-        Self {
-            true_,
-            ..self
-        }
+        Self { true_, ..self }
     }
 
     pub fn with_not_null(self, not_null: bool) -> Self {
-        Self {
-            not_null,
-            ..self
-        }
+        Self { not_null, ..self }
     }
 
     pub fn with_in_on_duplicate_key_update(self, in_on_duplicate_key_update: bool) -> Self {
@@ -67,18 +61,19 @@ fn type_unary_expression<'a, 'b>(
     op: &UnaryOperator,
     op_span: &Span,
     operand: &Expression<'a>,
-    flags: ExpressionFlags
+    flags: ExpressionFlags,
 ) -> FullType<'a> {
-    let op_type = type_expression(typer, operand, flags.with_true(false));
     match op {
         UnaryOperator::Binary
         | UnaryOperator::Collate
         | UnaryOperator::LogicalNot
         | UnaryOperator::Minus => {
+            let op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Any);
             typer.issues.push(issue_todo!(op_span));
             FullType::invalid()
         }
         UnaryOperator::Not => {
+            let op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Bool);
             typer.ensure_base(operand, &op_type, BaseType::Bool);
             op_type
         }
@@ -89,7 +84,7 @@ pub(crate) fn type_expression<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     expression: &Expression<'a>,
     flags: ExpressionFlags,
-
+    context: BaseType,
 ) -> FullType<'a> {
     match expression {
         Expression::Binary {
@@ -104,7 +99,7 @@ pub(crate) fn type_expression<'a, 'b>(
             operand,
         } => type_unary_expression(typer, op, op_span, operand, flags),
         Expression::Subquery(select) => {
-            let select_type = type_select(typer, select, false);
+            let select_type = type_union_select(typer, select, false);
             if let [v] = select_type.columns.as_slice() {
                 v.type_.clone()
             } else {
@@ -205,7 +200,7 @@ pub(crate) fn type_expression<'a, 'b>(
             FullType::new(Type::Args(BaseType::Any, vec![(*idx, span.clone())]), false)
         }
         Expression::Exists(s) => {
-            type_select(typer, s, false);
+            type_union_select(typer, s, false);
             FullType::new(BaseType::Bool, true)
         }
         Expression::In {
@@ -217,14 +212,14 @@ pub(crate) fn type_expression<'a, 'b>(
                 flags
             };
 
-            let mut lhs_type = type_expression(typer, lhs, f2);
+            let mut lhs_type = type_expression(typer, lhs, f2, BaseType::Any);
             let mut not_null = lhs_type.not_null;
             // Hack to allow null arguments on the right hand side of an in expression
             // where the lhs is not null
             lhs_type.not_null = false;
             for rhs in rhs {
                 let rhs_type = if let Expression::Subquery(q) = rhs {
-                    let rhs_type = type_select(typer, q, false);
+                    let rhs_type = type_union_select(typer, q, false);
                     if rhs_type.columns.len() != 1 {
                         typer.issues.push(Issue::err(
                             format!(
@@ -240,7 +235,7 @@ pub(crate) fn type_expression<'a, 'b>(
                         FullType::invalid()
                     }
                 } else {
-                    type_expression(typer, rhs, flags.without_values())
+                    type_expression(typer, rhs, flags.without_values(), BaseType::Any)
                 };
                 not_null &= rhs_type.not_null;
                 if typer.matched_type(&lhs_type, &rhs_type).is_none() {
@@ -255,9 +250,7 @@ pub(crate) fn type_expression<'a, 'b>(
         }
         Expression::Is(e, is, _) => {
             let flags = match is {
-                sql_parse::Is::Null => {
-                    flags.without_values()
-                }
+                sql_parse::Is::Null => flags.without_values(),
                 sql_parse::Is::NotNull => {
                     if flags.true_ {
                         flags.with_not_null(true).with_true(false)
@@ -270,20 +263,17 @@ pub(crate) fn type_expression<'a, 'b>(
                 | sql_parse::Is::False
                 | sql_parse::Is::NotFalse
                 | sql_parse::Is::Unknown
-                | sql_parse::Is::NotUnknown => {
-                    flags.without_values()
-                }
+                | sql_parse::Is::NotUnknown => flags.without_values(),
             };
-            let t = type_expression(typer, e, flags);
+            let t = type_expression(typer, e, flags, BaseType::Any);
             match is {
-                sql_parse::Is::Null=> {
+                sql_parse::Is::Null => {
                     if t.not_null {
                         typer.issues.push(Issue::warn("Cannot be null", e));
                     }
                     FullType::new(BaseType::Bool, true)
                 }
-                sql_parse::Is::NotNull =>
-                    FullType::new(BaseType::Bool, true),
+                sql_parse::Is::NotNull => FullType::new(BaseType::Bool, true),
                 sql_parse::Is::True
                 | sql_parse::Is::NotTrue
                 | sql_parse::Is::False
@@ -306,8 +296,8 @@ pub(crate) fn type_expression<'a, 'b>(
             type_,
             ..
         } => {
-            let e = type_expression(typer, expr, flags);
             let col = parse_column(type_.clone(), "", as_span.clone(), typer.issues);
+            let e = type_expression(typer, expr, flags, col.type_.base());
             //TODO check if it can possible be valid cast
             FullType::new(col.type_.t, e.not_null)
         }
@@ -317,7 +307,7 @@ pub(crate) fn type_expression<'a, 'b>(
                     resolve_kleene_identifier(typer, parts, &None, |_, _, _, _| {})
                 }
                 arg => {
-                    type_expression(typer, arg, flags.without_values());
+                    type_expression(typer, arg, flags.without_values(), BaseType::Any);
                 }
             }
             FullType::new(BaseType::Integer, true)

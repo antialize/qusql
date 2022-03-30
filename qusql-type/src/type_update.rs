@@ -39,7 +39,7 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
     }
 
     for (key, value) in &update.set {
-        let value_type = type_expression(typer, value, ExpressionFlags::default());
+        let flags = ExpressionFlags::default();
         match key.as_slice() {
             [key] => {
                 let mut cnt = 0;
@@ -53,6 +53,7 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
                     }
                 }
                 if cnt > 1 {
+                    type_expression(typer, value, flags, BaseType::Any);
                     let mut issue = Issue::err("Ambiguous reference", &key.opt_span().unwrap());
                     for r in &typer.reference_types {
                         for c in &r.columns {
@@ -63,6 +64,7 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
                     }
                     typer.issues.push(issue);
                 } else if let Some(t) = t {
+                    let value_type = type_expression(typer, value, flags, t.1.base());
                     if typer.matched_type(&value_type, &t.1).is_none() {
                         typer.issues.push(Issue::err(
                             alloc::format!("Got type {} expected {}", value_type, t.1),
@@ -74,6 +76,7 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
                         }
                     }
                 } else {
+                    type_expression(typer, value, flags, BaseType::Any);
                     typer
                         .issues
                         .push(Issue::err("Unknown identifier", &key.opt_span().unwrap()));
@@ -92,6 +95,7 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
                     }
                 }
                 if let Some(t) = t {
+                    let value_type = type_expression(typer, value, flags, t.1.base());
                     if typer.matched_type(&value_type, &t.1).is_none() {
                         typer.issues.push(Issue::err(
                             alloc::format!("Got type {} expected {}", value_type, t.1),
@@ -103,12 +107,14 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
                         }
                     }
                 } else {
+                    type_expression(typer, value, flags, BaseType::Any);
                     typer
                         .issues
                         .push(Issue::err("Unknown identifier", &key.opt_span().unwrap()));
                 }
             }
             _ => {
+                type_expression(typer, value, flags, BaseType::Any);
                 typer
                     .issues
                     .push(Issue::err("Unknown identifier", &key.opt_span().unwrap()));
@@ -117,7 +123,7 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
     }
 
     if let Some((where_, _)) = &update.where_ {
-        let t = type_expression(typer, where_, ExpressionFlags::default());
+        let t = type_expression(typer, where_, ExpressionFlags::default(), BaseType::Bool);
         typer.ensure_base(where_, &t, BaseType::Bool);
     }
 }

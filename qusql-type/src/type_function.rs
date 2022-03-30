@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::{format, vec::Vec};
-use sql_parse::{issue_todo, Expression, Function, Issue, Span};
+use sql_parse::{Expression, Function, Issue, Span};
 
 use crate::{
     type_::{BaseType, FullType},
@@ -55,20 +55,109 @@ fn arg_cnt<'a, 'b>(
     typer.issues.push(issue);
 }
 
+fn typed_args<'a, 'b, 'c>(
+    typer: &mut Typer<'a, 'b>,
+    args: &'c [Expression<'a>],
+    flags: ExpressionFlags,
+) -> Vec<(&'c Expression<'a>, FullType<'a>)> {
+    let mut typed: Vec<(&'_ Expression, FullType<'a>)> = Vec::new();
+    for arg in args {
+        // TODO we need not always disable the not null flag here
+        // TODO we should not supply base type any here, this function needs to die
+        typed.push((
+            arg,
+            type_expression(typer, arg, flags.without_values(), BaseType::Any),
+        ));
+    }
+    typed
+}
+
 pub(crate) fn type_function<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     func: &Function<'a>,
     args: &[Expression<'a>],
     span: &Span,
-    flags: ExpressionFlags
+    flags: ExpressionFlags,
 ) -> FullType<'a> {
-    let mut typed = Vec::new();
-    for arg in args {
-        // TODO we need not always disable the not null flag here
-        typed.push((arg, type_expression(typer, arg, flags.without_values())));
-    }
+    let mut tf = |return_type: Type<'a>,
+                  required_args: &[BaseType],
+                  optional_args: &[BaseType]|
+     -> FullType<'a> {
+        let mut not_null = true;
+        let mut arg_iter = args.iter();
+        arg_cnt(
+            typer,
+            required_args.len()..required_args.len() + optional_args.len(),
+            args,
+            span,
+        );
+        for et in required_args {
+            if let Some(arg) = arg_iter.next() {
+                let t = type_expression(typer, arg, flags.without_values(), *et);
+                not_null = not_null && t.not_null;
+                typer.ensure_base(arg, &t, *et);
+            }
+        }
+        for et in optional_args {
+            if let Some(arg) = arg_iter.next() {
+                let t = type_expression(typer, arg, flags.without_values(), *et);
+                not_null = not_null && t.not_null;
+                typer.ensure_base(arg, &t, *et);
+            }
+        }
+        while let Some(arg) = arg_iter.next() {
+            type_expression(typer, arg, flags.without_values(), BaseType::Any);
+        }
+        FullType::new(return_type, not_null)
+    };
+
     match func {
+        Function::Rand => return tf(Type::F64, &[], &[BaseType::Integer]),
+        Function::Right | Function::Left => {
+            return tf(
+                BaseType::String.into(),
+                &[BaseType::String, BaseType::Integer],
+                &[],
+            )
+        }
+        Function::SubStr => {
+            return tf(
+                BaseType::String.into(),
+                &[BaseType::String, BaseType::Integer],
+                &[BaseType::Integer],
+            )
+        }
+        Function::FindInSet => {
+            return tf(
+                BaseType::Integer.into(),
+                &[BaseType::String, BaseType::String],
+                &[],
+            )
+        }
+        Function::SubStringIndex => {
+            return tf(
+                BaseType::String.into(),
+                &[BaseType::String, BaseType::String, BaseType::Integer],
+                &[],
+            )
+        }
+        Function::ExtractValue => {
+            return tf(
+                BaseType::String.into(),
+                &[BaseType::String, BaseType::String],
+                &[],
+            )
+        }
+        Function::Replace => {
+            return tf(
+                BaseType::String.into(),
+                &[BaseType::String, BaseType::String, BaseType::String],
+                &[],
+            )
+        }
+        Function::CharacterLength => return tf(BaseType::Integer.into(), &[BaseType::String], &[]),
         Function::UnixTimestamp => {
+            let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 0..1, args, span);
             if let Some((a, t)) = typed.get(0) {
                 // TODO the argument can be both a DATE, a DATE_TIME or a TIMESTAMP
@@ -76,14 +165,8 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(Type::U64, true)
         }
-        Function::Rand => {
-            arg_cnt(typer, 0..1, args, span);
-            if let Some(arg) = args.get(0) {
-                typer.issues.push(issue_todo!(arg));
-            }
-            FullType::new(Type::F64, true)
-        }
         Function::IfNull => {
+            let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..2, args, span);
             let t = if let Some((e, t)) = typed.get(0) {
                 if t.not_null {
@@ -101,6 +184,7 @@ pub(crate) fn type_function<'a, 'b>(
             }
         }
         Function::JsonExtract => {
+            let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..999, args, span);
             for (a, t) in &typed {
                 typer.ensure_base(*a, t, BaseType::String);
@@ -108,6 +192,7 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(Type::JSON, false)
         }
         Function::JsonValue => {
+            let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..2, args, span);
             for (a, t) in &typed {
                 typer.ensure_base(*a, t, BaseType::String);
@@ -115,6 +200,7 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(Type::JSON, false)
         }
         Function::JsonUnquote => {
+            let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
             for (a, t) in &typed {
                 typer.ensure_base(*a, t, BaseType::String);
@@ -122,6 +208,7 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(BaseType::String, false)
         }
         Function::Min | Function::Max | Function::Sum => {
+            let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
             if let Some((_, t2)) = typed.get(0) {
                 //TODO check that the type can be mined or maxed
@@ -130,62 +217,13 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::invalid()
             }
         }
-        Function::Right | Function::Left => {
-            arg_cnt(typer, 2..2, args, span);
-            let mut not_null = true;
-            if let Some((a, t)) = typed.get(0) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*a, t, BaseType::String);
-            }
-            if let Some((a, t)) = typed.get(1) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*a, t, BaseType::Integer);
-            }
-            FullType::new(BaseType::String, not_null)
-        }
-        Function::SubStr => {
-            arg_cnt(typer, 2..3, args, span);
-            let mut not_null = true;
-            if let Some((a, t)) = typed.get(0) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*a, t, BaseType::String);
-            }
-            if let Some((a, t)) = typed.get(1) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*a, t, BaseType::Integer);
-            }
-            if let Some((a, t)) = typed.get(2) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*a, t, BaseType::Integer);
-            }
-            FullType::new(BaseType::String, not_null)
-        }
-        Function::FindInSet => {
-            arg_cnt(typer, 2..2, args, span);
-            let mut not_null = true;
-            if let Some((a, t)) = typed.get(0) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*a, t, BaseType::String);
-            }
-            if let Some((a, t)) = typed.get(1) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*a, t, BaseType::String);
-            }
-            FullType::new(BaseType::Integer, not_null)
-        }
-        Function::Now => {
-            arg_cnt(typer, 0..0, args, span);
-            FullType::new(BaseType::DateTime, true)
-        }
-        Function::CurDate => {
-            arg_cnt(typer, 0..0, args, span);
-            FullType::new(BaseType::Date, true)
-        }
+        Function::Now => return tf(BaseType::DateTime.into(), &[], &[BaseType::Integer]),
+        Function::CurDate => return tf(BaseType::Date.into(), &[], &[]),
         Function::CurrentTimestamp => {
-            arg_cnt(typer, 0..0, args, span);
-            FullType::new(BaseType::TimeStamp, true)
+            return tf(BaseType::TimeStamp.into(), &[], &[BaseType::Integer])
         }
         Function::Concat => {
+            let typed = typed_args(typer, args, flags);
             let mut not_null = true;
             for (e, t) in typed {
                 typer.ensure_base(e, &t, BaseType::String);
@@ -194,6 +232,7 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(BaseType::String, not_null)
         }
         Function::Least | Function::Greatest => {
+            let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..9999, args, span);
             if let Some((a, at)) = typed.get(0) {
                 let mut not_null = true;
@@ -217,41 +256,8 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::Any, true)
         }
-        Function::SubStringIndex => {
-            arg_cnt(typer, 3..3, args, span);
-            let mut not_null = true;
-            if let Some((e, t)) = typed.get(0) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*e, t, BaseType::String);
-            }
-            if let Some((e, t)) = typed.get(1) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*e, t, BaseType::String);
-            }
-            if let Some((e, t)) = typed.get(2) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*e, t, BaseType::Integer);
-            }
-            FullType::new(BaseType::String, not_null)
-        }
-        Function::Replace => {
-            arg_cnt(typer, 3..3, args, span);
-            let mut not_null = true;
-            if let Some((e, t)) = typed.get(0) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*e, t, BaseType::String);
-            }
-            if let Some((e, t)) = typed.get(1) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*e, t, BaseType::String);
-            }
-            if let Some((e, t)) = typed.get(2) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*e, t, BaseType::String);
-            }
-            FullType::new(BaseType::String, not_null)
-        }
         Function::If => {
+            let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 3..3, args, span);
             let mut not_null = true;
             if let Some((e, t)) = typed.get(0) {
@@ -277,6 +283,7 @@ pub(crate) fn type_function<'a, 'b>(
             ans
         }
         Function::FromUnixTime => {
+            let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..2, args, span);
             let mut not_null = true;
             if let Some((e, t)) = typed.get(0) {
@@ -292,20 +299,13 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::new(BaseType::DateTime, not_null)
             }
         }
-        Function::CharacterLength => {
-            arg_cnt(typer, 1..1, args, span);
-            let mut not_null = true;
-            if let Some((e, t)) = typed.get(0) {
-                not_null = not_null && t.not_null;
-                typer.ensure_base(*e, t, BaseType::String);
-            }
-            FullType::new(BaseType::Integer, not_null)
-        }
         Function::Value => {
+            let typed = typed_args(typer, args, flags);
             if !flags.in_on_duplicate_key_update {
-                typer
-                    .issues
-                    .push(Issue::err("VALUE is only allowed within ON DUPLICATE KEY UPDATE", span));
+                typer.issues.push(Issue::err(
+                    "VALUE is only allowed within ON DUPLICATE KEY UPDATE",
+                    span,
+                ));
             }
             arg_cnt(typer, 1..1, args, span);
             if let Some((_, t)) = typed.get(0) {

@@ -88,7 +88,12 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
         }
     }
     if let Some((where_, _)) = &delete.where_ {
-        let t = type_expression(typer, where_, ExpressionFlags::default());
+        let t = type_expression(
+            typer,
+            where_,
+            ExpressionFlags::default(),
+            crate::BaseType::Bool,
+        );
         typer.ensure_base(where_, &t, crate::type_::BaseType::Bool);
     }
 }

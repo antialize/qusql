@@ -80,6 +80,7 @@ pub use sql_parse::{SQLArguments, SQLDialect};
 pub struct TypeOptions {
     parse_options: ParseOptions,
     warn_unnamed_column_in_select: bool,
+    warn_duplicate_column_in_select: bool,
 }
 
 impl TypeOptions {
@@ -128,6 +129,14 @@ impl TypeOptions {
     pub fn warn_unnamed_column_in_select(self, warn_unnamed_column_in_select: bool) -> Self {
         Self {
             warn_unnamed_column_in_select,
+            ..self
+        }
+    }
+
+    /// Should we warn about duplicate columns in selects
+    pub fn warn_duplicate_column_in_select(self, warn_duplicate_column_in_select: bool) -> Self {
+        Self {
+            warn_duplicate_column_in_select,
             ..self
         }
     }
@@ -419,6 +428,10 @@ mod tests {
         CREATE TABLE `t2` (
           `id` int(11) NOT NULL AUTO_INCREMENT,
           `t1_id` int(11) NOT NULL);
+
+        CREATE TABLE `t3` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `text` TEXT);
         ";
 
         let options = TypeOptions::new().dialect(SQLDialect::MariaDB);
@@ -450,6 +463,29 @@ mod tests {
                     "b,i,i,i,i,i,i,i,i,str,bytes,f,f",
                     &mut errors,
                 );
+                check_columns(
+                    name,
+                    &columns,
+                    "id:i32!,cbool:b!,cu8:u8!,cu16:u16!,cu32:u32!,cu64:u64!,
+                    ci8:i8!,ci16:i16!,ci32:i32!,ci64:i64!,ctext:str!,cbytes:bytes!,cf32:f32!,cf64:f64!",
+                    &mut errors,
+                );
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q1.1";
+            let src =
+                "SELECT `id`, `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
+                `ctext`, `cbytes`, `cf32`, `cf64` FROM `t1` WHERE ci8 IS NOT NULL";
+
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
                 check_columns(
                     name,
                     &columns,
@@ -606,6 +642,22 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
             } else {
                 println!("{} should be insert", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q10";
+            let src =
+                "SELECT SUBSTRING_INDEX(`text`, '/', 5) AS `k` FROM `t3` WHERE `text` LIKE '%T%'";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "k:str!", &mut errors);
+            } else {
+                println!("{} should be select", name);
                 errors += 1;
             }
         }

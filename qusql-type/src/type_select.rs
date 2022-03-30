@@ -179,8 +179,7 @@ pub(crate) fn type_select<'a, 'b>(
     for flag in &select.flags {
         match &flag {
             sql_parse::SelectFlag::All(_) => typer.issues.push(issue_todo!(flag)),
-            sql_parse::SelectFlag::Distinct(_) |
-            sql_parse::SelectFlag::DistinctRow(_) => (),
+            sql_parse::SelectFlag::Distinct(_) | sql_parse::SelectFlag::DistinctRow(_) => (),
             sql_parse::SelectFlag::StraightJoin(_) => typer.issues.push(issue_todo!(flag)),
             sql_parse::SelectFlag::HighPriority(_)
             | sql_parse::SelectFlag::SqlSmallResult(_)
@@ -198,8 +197,14 @@ pub(crate) fn type_select<'a, 'b>(
     }
 
     if let Some((where_, _)) = &select.where_ {
-        let t = type_expression(typer, where_,
-            ExpressionFlags::default().with_not_null(true).with_true(true));
+        let t = type_expression(
+            typer,
+            where_,
+            ExpressionFlags::default()
+                .with_not_null(true)
+                .with_true(true),
+            BaseType::Bool,
+        );
         typer.ensure_base(where_, &t, BaseType::Bool);
     }
 
@@ -235,7 +240,7 @@ pub(crate) fn type_select<'a, 'b>(
         if let Expression::Identifier(parts) = &e.expr {
             resolve_kleene_identifier(typer, parts, &e.as_, add_result);
         } else {
-            let type_ = type_expression(typer, &e.expr, ExpressionFlags::default());
+            let type_ = type_expression(typer, &e.expr, ExpressionFlags::default(), BaseType::Any);
             if let Some(as_) = &e.as_ {
                 add_result(Some(as_.value), type_, as_.span(), true);
             } else {
@@ -253,19 +258,19 @@ pub(crate) fn type_select<'a, 'b>(
 
     if let Some((_, group_by)) = &select.group_by {
         for e in group_by {
-            type_expression(typer, e, ExpressionFlags::default());
+            type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
         }
     }
 
     if let Some((_, order_by)) = &select.order_by {
         for (e, _) in order_by {
-            type_expression(typer, e, ExpressionFlags::default());
+            type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
         }
     }
 
     if let Some((_, offset, count)) = &select.limit {
         if let Some(offset) = offset {
-            let t = type_expression(typer, offset, ExpressionFlags::default());
+            let t = type_expression(typer, offset, ExpressionFlags::default(), BaseType::Integer);
             if typer
                 .matched_type(&t, &FullType::new(Type::U64, true))
                 .is_none()
@@ -276,7 +281,7 @@ pub(crate) fn type_select<'a, 'b>(
                 ));
             }
         }
-        let t = type_expression(typer, count, ExpressionFlags::default());
+        let t = type_expression(typer, count, ExpressionFlags::default(), BaseType::Integer);
         if typer
             .matched_type(&t, &FullType::new(Type::U64, true))
             .is_none()
@@ -298,10 +303,10 @@ pub(crate) fn type_select<'a, 'b>(
 }
 
 pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -> SelectType<'a> {
-    let mut t = type_union_select(typer, &union.left);
+    let mut t = type_union_select(typer, &union.left, true);
     let mut left = union.left.span();
     for w in &union.with {
-        let t2 = type_union_select(typer, &w.union_statement);
+        let t2 = type_union_select(typer, &w.union_statement, true);
 
         for i in 0..usize::max(t.columns.len(), t2.columns.len()) {
             if let Some(l) = t.columns.get_mut(i) {
@@ -395,13 +400,13 @@ pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -
 
     if let Some((_, order_by)) = &union.order_by {
         for (e, _) in order_by {
-            type_expression(typer, e, ExpressionFlags::default());
+            type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
         }
     }
 
     if let Some((_, offset, count)) = &union.limit {
         if let Some(offset) = offset {
-            let t = type_expression(typer, offset, ExpressionFlags::default());
+            let t = type_expression(typer, offset, ExpressionFlags::default(), BaseType::Integer);
             if typer
                 .matched_type(&t, &FullType::new(Type::U64, true))
                 .is_none()
@@ -412,7 +417,7 @@ pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -
                 ));
             }
         }
-        let t = type_expression(typer, count, ExpressionFlags::default());
+        let t = type_expression(typer, count, ExpressionFlags::default(), BaseType::Integer);
         if typer
             .matched_type(&t, &FullType::new(Type::U64, true))
             .is_none()
@@ -432,9 +437,10 @@ pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -
 pub(crate) fn type_union_select<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     statement: &Statement<'a>,
+    warn_duplicate: bool,
 ) -> SelectType<'a> {
     match statement {
-        Statement::Select(s) => type_select(typer, s, true),
+        Statement::Select(s) => type_select(typer, s, warn_duplicate),
         Statement::Union(u) => type_union(typer, u),
         s => {
             typer.issues.push(issue_ice!(s));

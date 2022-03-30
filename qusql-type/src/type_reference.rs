@@ -63,7 +63,7 @@ pub(crate) fn type_reference<'a, 'b>(
             }
         }
         sql_parse::TableReference::Query { query, as_, .. } => {
-            let select = type_union_select(typer, query);
+            let select = type_union_select(typer, query, true);
 
             let (name, span) = if let Some(as_) = as_ {
                 (Some(as_.value), as_.span.clone())
@@ -102,7 +102,7 @@ pub(crate) fn type_reference<'a, 'b>(
             type_reference(typer, right, right_force_null);
             match &specification {
                 Some(sql_parse::JoinSpecification::On(e, _)) => {
-                    let t = type_expression(typer, e, ExpressionFlags::default());
+                    let t = type_expression(typer, e, ExpressionFlags::default(), BaseType::Bool);
                     typer.ensure_base(e, &t, BaseType::Bool);
                 }
                 Some(s @ sql_parse::JoinSpecification::Using(_, _)) => {

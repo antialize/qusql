@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::format;
-use sql_parse::{issue_todo, BinaryOperator, Expression, Issue, Span};
+use sql_parse::{BinaryOperator, Expression, Issue, Span};
 
 use crate::{
     type_::{BaseType, FullType},
@@ -28,44 +28,59 @@ pub(crate) fn type_binary_expression<'a, 'b>(
     rhs: &Expression<'a>,
     flags: ExpressionFlags,
 ) -> FullType<'a> {
-    let flags = match op {
-        BinaryOperator::And =>
+    let (flags, context) = match op {
+        BinaryOperator::And => {
             if flags.true_ {
-                flags.with_not_null(true)
+                (flags.with_not_null(true), BaseType::Bool)
             } else {
-                flags
+                (flags, BaseType::Bool)
             }
-        BinaryOperator::Or | BinaryOperator::Xor | BinaryOperator::NullSafeEq => flags.without_values(),
-        BinaryOperator::Eq |
-        BinaryOperator::GtEq |
-        BinaryOperator::Gt |
-        BinaryOperator::LtEq |
-        BinaryOperator::Lt |
-        BinaryOperator::Neq |
-        BinaryOperator::ShiftLeft |
-        BinaryOperator::ShiftRight |
-        BinaryOperator::BitAnd |
-        BinaryOperator::BitOr |
-        BinaryOperator::BitXor |
-        BinaryOperator::Add |
-        BinaryOperator::Subtract |
-        BinaryOperator::Divide |
-        BinaryOperator::Div |
-        BinaryOperator::Mod |
-        BinaryOperator::Mult |
-        BinaryOperator::Like |
-        BinaryOperator::NotLike => {
+        }
+        BinaryOperator::Or | BinaryOperator::Xor => (flags.without_values(), BaseType::Bool),
+        BinaryOperator::NullSafeEq => (flags.without_values(), BaseType::Any),
+        BinaryOperator::Eq
+        | BinaryOperator::GtEq
+        | BinaryOperator::Gt
+        | BinaryOperator::LtEq
+        | BinaryOperator::Lt
+        | BinaryOperator::Neq
+        | BinaryOperator::Add
+        | BinaryOperator::Subtract
+        | BinaryOperator::Divide
+        | BinaryOperator::Div
+        | BinaryOperator::Mod
+        | BinaryOperator::Mult => {
             if flags.true_ {
-                flags.with_not_null(true).with_true(false)
+                (flags.with_not_null(true).with_true(false), BaseType::Any)
             } else {
-                flags
+                (flags, BaseType::Any)
+            }
+        }
+        BinaryOperator::Like | BinaryOperator::NotLike => {
+            if flags.true_ {
+                (flags.with_not_null(true).with_true(false), BaseType::String)
+            } else {
+                (flags, BaseType::String)
+            }
+        }
+        BinaryOperator::ShiftLeft
+        | BinaryOperator::ShiftRight
+        | BinaryOperator::BitAnd
+        | BinaryOperator::BitOr
+        | BinaryOperator::BitXor => {
+            if flags.true_ {
+                (
+                    flags.with_not_null(true).with_true(false),
+                    BaseType::Integer,
+                )
+            } else {
+                (flags, BaseType::Integer)
             }
         }
     };
 
-
-    let lhs_type = type_expression(typer, lhs, flags);
-    let rhs_type = type_expression(typer, rhs, flags);
+    let lhs_type = type_expression(typer, lhs, flags, context);
+    let rhs_type = type_expression(typer, rhs, flags, context);
     match op {
         BinaryOperator::Or | BinaryOperator::Xor | BinaryOperator::And => {
             typer.ensure_base(lhs, &lhs_type, BaseType::Bool);
@@ -94,8 +109,14 @@ pub(crate) fn type_binary_expression<'a, 'b>(
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
         }
         BinaryOperator::NullSafeEq => {
-            typer.issues.push(issue_todo!(op_span));
-            FullType::invalid()
+            if typer.matched_type(&lhs_type, &rhs_type).is_none() {
+                typer.issues.push(
+                    Issue::err("Type error in comparison", op_span)
+                        .frag(format!("Of type {}", lhs_type.t), lhs)
+                        .frag(format!("Of type {}", rhs_type.t), rhs),
+                );
+            }
+            FullType::new(BaseType::Bool, true)
         }
         BinaryOperator::ShiftLeft
         | BinaryOperator::ShiftRight

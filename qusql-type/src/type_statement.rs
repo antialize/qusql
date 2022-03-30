@@ -34,9 +34,11 @@ pub(crate) fn type_statement<'a, 'b>(
     statement: &Statement<'a>,
 ) -> InnerStatementType<'a> {
     match statement {
-        Statement::Select(s) => {
-            InnerStatementType::Select(crate::type_select::type_select(typer, s, true))
-        }
+        Statement::Select(s) => InnerStatementType::Select(crate::type_select::type_select(
+            typer,
+            s,
+            typer.options.warn_duplicate_column_in_select,
+        )),
         Statement::Delete(d) => {
             type_delete(typer, d);
             InnerStatementType::Delete

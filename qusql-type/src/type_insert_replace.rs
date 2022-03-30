@@ -17,7 +17,7 @@ use crate::{
     type_expression::{type_expression, ExpressionFlags},
     type_select::type_select,
     typer::{typer_stack, ReferenceType, Typer},
-    Type,
+    BaseType, Type,
 };
 
 /// Does the insert yield an auto increment id
@@ -71,8 +71,8 @@ pub(crate) fn type_insert_replace<'a, 'b>(
     if let Some(values) = &ior.values {
         for row in &values.1 {
             for (j, e) in row.iter().enumerate() {
-                let t = type_expression(typer, e, ExpressionFlags::default());
                 if let Some((et, ets)) = s.as_ref().and_then(|v| v.get(j)) {
+                    let t = type_expression(typer, e, ExpressionFlags::default(), et.base());
                     if typer.matched_type(&t, et).is_none() {
                         typer.issues.push(
                             Issue::err(format!("Got type {}", t.t), e)
@@ -83,6 +83,8 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                             typer.constrain_arg(*idx, et);
                         }
                     }
+                } else {
+                    type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
                 }
             }
         }
@@ -147,7 +149,6 @@ pub(crate) fn type_insert_replace<'a, 'b>(
 
     if let Some((_, set)) = &ior.set {
         for (key, _, value) in set {
-            let value_type = type_expression(typer, value, ExpressionFlags::default());
             let mut cnt = 0;
             let mut t = None;
             for r in &typer.reference_types {
@@ -159,6 +160,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                 }
             }
             if cnt > 1 {
+                type_expression(typer, value, ExpressionFlags::default(), BaseType::Any);
                 let mut issue = Issue::err("Ambiguous reference", key);
                 for r in &typer.reference_types {
                     for c in &r.columns {
@@ -169,6 +171,8 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                 }
                 typer.issues.push(issue);
             } else if let Some(t) = t {
+                let value_type =
+                    type_expression(typer, value, ExpressionFlags::default(), t.1.base());
                 if typer.matched_type(&value_type, &t.1).is_none() {
                     typer.issues.push(Issue::err(
                         format!("Got type {} expected {}", value_type, t.1),
@@ -180,6 +184,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                     }
                 }
             } else {
+                type_expression(typer, value, ExpressionFlags::default(), BaseType::Any);
                 typer.issues.push(Issue::err("Unknown identifier", key));
             }
         }
@@ -187,7 +192,6 @@ pub(crate) fn type_insert_replace<'a, 'b>(
 
     if let Some((_, update)) = &ior.on_duplicate_key_update {
         for (key, _, value) in update {
-            let value_type = type_expression(typer, value, ExpressionFlags::default().with_in_on_duplicate_key_update(true));
             let mut cnt = 0;
             let mut t = None;
             for r in &typer.reference_types {
@@ -198,7 +202,9 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                     }
                 }
             }
+            let flags = ExpressionFlags::default().with_in_on_duplicate_key_update(true);
             if cnt > 1 {
+                type_expression(typer, value, flags, BaseType::Any);
                 let mut issue = Issue::err("Ambiguous reference", key);
                 for r in &typer.reference_types {
                     for c in &r.columns {
@@ -209,6 +215,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                 }
                 typer.issues.push(issue);
             } else if let Some(t) = t {
+                let value_type = type_expression(typer, value, flags, t.1.base());
                 if typer.matched_type(&value_type, &t.1).is_none() {
                     typer.issues.push(Issue::err(
                         format!("Got type {} expected {}", value_type, t.1),
@@ -220,6 +227,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                     }
                 }
             } else {
+                type_expression(typer, value, flags, BaseType::Any);
                 typer.issues.push(Issue::err("Unknown identifier", key));
             }
         }
