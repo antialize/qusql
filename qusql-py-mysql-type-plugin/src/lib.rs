@@ -240,17 +240,21 @@ fn type_statement(
     py: Python,
     schemas: &Schemas,
     statement: &str,
+    dict_result: bool,
 ) -> PyResult<(PyObject, bool, std::string::String)> {
     let mut issues = Vec::new();
 
-    let stmt = sql_type::type_statement(
-        schemas.borrow_schemas(),
-        statement,
-        &mut issues,
-        &TypeOptions::new()
-            .dialect(SQLDialect::MariaDB)
-            .arguments(SQLArguments::Percent),
-    );
+    let mut options = TypeOptions::new()
+        .dialect(SQLDialect::MariaDB)
+        .arguments(SQLArguments::Percent);
+
+    if dict_result {
+        options = options
+            .warn_duplicate_column_in_select(true)
+            .warn_unnamed_column_in_select(true);
+    }
+
+    let stmt = sql_type::type_statement(schemas.borrow_schemas(), statement, &mut issues, &options);
 
     let res = match stmt {
         sql_type::StatementType::Select { columns, arguments } => {

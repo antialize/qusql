@@ -1,4 +1,5 @@
-from typing import Any, Callable, Final, List, Optional
+from collections import OrderedDict
+from typing import Any, Callable, Final, List, Optional, Tuple
 from mypy.plugin import (
     Plugin,
     MethodSigContext,
@@ -16,6 +17,7 @@ from mypy.types import (
     TupleType,
     is_named_instance,
     Instance,
+    TypedDictType
 )
 from mypy.nodes import StrExpr, OpExpr, Expression, Context
 from mypy.errorcodes import ErrorCode
@@ -84,13 +86,13 @@ def get_sql(
 
 
 def type_statement(
-    sql: str, api: CheckerPluginInterface, context: Context, quiet: bool = False
+    sql: str, api: CheckerPluginInterface, context: Context, dict_cursor:bool, quiet: bool = False
 ) -> Optional[Any]:
     schemas = get_schemas(api, context)
     if schemas is None:
         return None
     try:
-        a = rs.type_statement(schemas, sql)
+        a = rs.type_statement(schemas, sql, dict_cursor)
     except Exception as e:
         api.fail(f"ICE {sql} {e}", context)
         return None
@@ -152,45 +154,49 @@ class CustomPlugin(Plugin):
             return None
 
         def execute_hook(context: FunctionSigContext) -> CallableType:
-            sql = get_sql(1, context.args, context.api, quiet=True)
-            if sql is None:
+            try:
+                sql = get_sql(1, context.args, context.api, quiet=True)
+                if sql is None:
+                    return context.default_signature
+
+                sql2 = sql.replace("_LIST_", "%s, %s, %s")
+                stmt = type_statement(sql2, context.api, context.context, dict_cursor=False, quiet=True)
+                if stmt is None:
+                    return context.default_signature
+                ans = CallableType(
+                    [
+                        context.default_signature.arg_types[0],
+                        context.api.named_generic_type("str", []),
+                    ],
+                    [0, 0],
+                    ["cursor", "sql"],
+                    context.default_signature.ret_type,
+                    context.default_signature.fallback,
+                    variables=context.default_signature.variables,
+                )
+
+                at = get_argument_types(stmt, context.api, context.context)
+
+                ati = iter(at)
+                for i, a in enumerate(re.findall("(_LIST_|[%]s|[%]\()", sql)):
+                    try:
+                        if a == "_LIST_":
+                            t = context.api.named_generic_type(
+                                "typing.Sequence", [next(ati)]
+                            )
+                            next(ati)
+                            next(ati)
+                        else:
+                            t = next(ati)
+                        ans.arg_types.append(t)
+                        ans.arg_names.append(f"a{i}")
+                        ans.arg_kinds.append(0)
+                    except StopIteration:
+                        context.api.fail(f"Argument match failed {i}", context.context)
+                return ans
+            except Exception as e:
+                context.api.fail(f"ICE: {e}", context.context)
                 return context.default_signature
-
-            sql2 = sql.replace("_LIST_", "%s, %s, %s")
-            stmt = type_statement(sql2, context.api, context.context, quiet=True)
-            if stmt is None:
-                return context.default_signature
-            ans = CallableType(
-                [
-                    context.default_signature.arg_types[0],
-                    context.api.named_generic_type("str", []),
-                ],
-                [0, 0],
-                ["cursor", "sql"],
-                context.default_signature.ret_type,
-                context.default_signature.fallback,
-                variables=context.default_signature.variables,
-            )
-
-            at = get_argument_types(stmt, context.api, context.context)
-
-            ati = iter(at)
-            for i, a in enumerate(re.findall("(_LIST_|[%]s|[%]\()", sql)):
-                try:
-                    if a == "_LIST_":
-                        t = context.api.named_generic_type(
-                            "typing.Sequence", [next(ati)]
-                        )
-                        next(ati)
-                        next(ati)
-                    else:
-                        t = next(ati)
-                    ans.arg_types.append(t)
-                    ans.arg_names.append(f"a{i}")
-                    ans.arg_kinds.append(0)
-                except StopIteration:
-                    context.api.fail(f"Argument match failed {i}", context.context)
-            return ans
 
         return execute_hook
 
@@ -205,71 +211,88 @@ class CustomPlugin(Plugin):
             return None
 
         def execute_hook(context: FunctionContext) -> Type:
-            api = context.api
-            ct = context.arg_types[0][0]
-            if ct.type.has_base("MySQLdb.cursors.DictCursor"):
-                dc = True
-                context.api.fail("Dict cursors not supported", ct)
-            elif ct.type.has_base("MySQLdb.cursors.Cursor"):
+            try:
+                api = context.api
+                ct = context.arg_types[0][0]
                 dc = False
-            else:
-                context.api.fail(f"Unknown cursor {ct}", ct)
-            sql = get_sql(1, context.args, api, quiet=False)
-            if sql is None:
-                return context.default_return_type
-            sql = sql.replace("_LIST_", "%s")
-            stmt = type_statement(sql, api, context.context, quiet=False)
-            if stmt is None:
-                return context.default_return_type
-
-            if isinstance(stmt, rs.Select):
-                ts: List[Type] = []
-                for (name, type_, not_null) in stmt.columns:
-                    t: Type
-                    if isinstance(type_, rs.Integer):
-                        t = api.named_generic_type("int", [])
-                    elif isinstance(type_, rs.Float):
-                        t = api.named_generic_type("float", [])
-                    elif isinstance(type_, rs.String):
-                        t = api.named_generic_type("str", [])
-                    elif isinstance(type_, rs.Bool):
-                        t = api.named_generic_type("int", [])  # TODO literal 0,1
-                    elif isinstance(type_, rs.Enum):
-                        t = api.named_generic_type(
-                            "str", []
-                        )  # TODO literal with values
-                    elif isinstance(type_, rs.Bytes):
-                        t = api.named_generic_type("bytes", [])
-                    elif isinstance(type_, rs.Any):
-                        t = AnyType(TypeOfAny.special_form)
+                try:
+                    if ct.type.has_base("MySQLdb.cursors.DictCursor"):
+                        dc = True
+                    elif ct.type.has_base("MySQLdb.cursors.Cursor"):
+                        pass
                     else:
-                        api.fail(f"Unknown type {type_}", context.context)
-                    if not not_null:
-                        t = UnionType((t, NoneType()))
-                    ts.append(t)
-                if sr := self.lookup_fully_qualified("mysql_type.SelectResult"):
-                    return Instance(
-                        sr.node,  # type: ignore
-                        [TupleType(ts, api.named_generic_type("tuple", []))],
-                    )
-                else:
-                    context.api.fail(f"Could not find mysql_type.SelectResult", ct)
+                        context.api.fail(f"Unknown cursor {ct}", context.context)
+                except AttributeError:
+                    context.api.fail(f"Unknown cursor {ct}", context.context)
 
-            elif isinstance(stmt, rs.Insert):
-                if stmt.yield_autoincrement == "yes":
-                    if ir := self.lookup_fully_qualified(
-                        "mysql_type.InsertWithLastRowIdResult"
-                    ):
-                        return Instance(ir.node, [])  # type: ignore
-                elif stmt.yield_autoincrement == "maybe":
-                    if ir := self.lookup_fully_qualified(
-                        "mysql_type.InsertWithOptLastRowIdResult"
-                    ):
-                        return Instance(ir.node, [])  # type: ignore
-            if other := self.lookup_fully_qualified("mysql_type.OtherResult"):
-                return Instance(other.node, [])  # type: ignore
-            return NoneType()
+                sql = get_sql(1, context.args, api, quiet=False)
+                if sql is None:
+                    return context.default_return_type
+                sql = sql.replace("_LIST_", "%s")
+                stmt = type_statement(sql, api, context.context, dict_cursor=dc,quiet=False)
+                if stmt is None:
+                    return context.default_return_type
 
+                if isinstance(stmt, rs.Select):
+                    ntp: List[Tuple[str, Type]] = []
+                    for (name, type_, not_null) in stmt.columns:
+                        t: Type
+                        if isinstance(type_, rs.Integer):
+                            t = api.named_generic_type("int", [])
+                        elif isinstance(type_, rs.Float):
+                            t = api.named_generic_type("float", [])
+                        elif isinstance(type_, rs.String):
+                            t = api.named_generic_type("str", [])
+                        elif isinstance(type_, rs.Bool):
+                            t = api.named_generic_type("int", [])  # TODO literal 0,1
+                        elif isinstance(type_, rs.Enum):
+                            t = api.named_generic_type(
+                                "str", []
+                            )  # TODO literal with values
+                        elif isinstance(type_, rs.Bytes):
+                            t = api.named_generic_type("bytes", [])
+                        elif isinstance(type_, rs.Any):
+                            t = AnyType(TypeOfAny.special_form)
+                        else:
+                            api.fail(f"Unknown type {type_}", context.context)
+                        if not not_null:
+                            t = UnionType((t, NoneType()))
+                        ntp.append((name, t))
+                    if sr := self.lookup_fully_qualified("mysql_type.SelectResult"):
+                        if dc:
+                            return Instance(
+                                sr.node, # type: ignore
+                                [TypedDictType(
+                                    OrderedDict(ntp),
+                                    set([n for (n,_) in ntp]),
+                                    api.named_generic_type("dict", [])
+                                )]
+                            )
+                        else:
+                            return Instance(
+                                sr.node, # type: ignore
+                                [TupleType([t for (_,t) in ntp], api.named_generic_type("tuple", []))],
+                            )
+                    else:
+                        context.api.fail(f"Could not find mysql_type.SelectResult", ct)
+
+                elif isinstance(stmt, rs.Insert):
+                    if stmt.yield_autoincrement == "yes":
+                        if ir := self.lookup_fully_qualified(
+                            "mysql_type.InsertWithLastRowIdResult"
+                        ):
+                            return Instance(ir.node, [])  # type: ignore
+                    elif stmt.yield_autoincrement == "maybe":
+                        if ir := self.lookup_fully_qualified(
+                            "mysql_type.InsertWithOptLastRowIdResult"
+                        ):
+                            return Instance(ir.node, [])  # type: ignore
+                if other := self.lookup_fully_qualified("mysql_type.OtherResult"):
+                    return Instance(other.node, [])  # type: ignore
+                return NoneType()
+            except Exception as e:
+                context.api.fail(f"ICE: {e}", context.context)
+                return context.default_return_type
         return execute_hook
 
     def get_method_signature_hook(
@@ -289,33 +312,37 @@ class CustomPlugin(Plugin):
             return None
 
         def execute_hook(context: MethodSigContext) -> CallableType:
-            sql = get_sql(1, context.args, context.api, quiet=False)
-            if sql is None:
-                return context.default_signature
-            stmt = type_statement(sql, context.api, context.context)
-            if stmt is None:
-                return context.default_signature
-            ans = CallableType(
-                [
-                    context.api.named_generic_type("str", []),
-                    AnyType(TypeOfAny.special_form),
-                ],
-                [0, 1],
-                ["sql", "arguments"],
-                context.default_signature.ret_type,
-                context.default_signature.fallback,
-            )
-            ts = get_argument_types(stmt, context.api, context.context)
-            if many:
-                ans.arg_types[1] = context.api.named_generic_type(
-                    "list", [TupleType(ts, context.api.named_generic_type("tuple", []))]
+            try:
+                sql = get_sql(1, context.args, context.api, quiet=False)
+                if sql is None:
+                    return context.default_signature
+                stmt = type_statement(sql, context.api, context.context)
+                if stmt is None:
+                    return context.default_signature
+                ans = CallableType(
+                    [
+                        context.api.named_generic_type("str", []),
+                        AnyType(TypeOfAny.special_form),
+                    ],
+                    [0, 1],
+                    ["sql", "arguments"],
+                    context.default_signature.ret_type,
+                    context.default_signature.fallback,
                 )
-            else:
-                ans.arg_types[1] = TupleType(
-                    ts, context.api.named_generic_type("tuple", [])
-                )
-            if note := getattr(context.api, "note"):
-                note("Use db_execute instead", context.context, code=USE_DB_EXECUTE)
+                ts = get_argument_types(stmt, context.api, context.context)
+                if many:
+                    ans.arg_types[1] = context.api.named_generic_type(
+                        "list", [TupleType(ts, context.api.named_generic_type("tuple", []))]
+                    )
+                else:
+                    ans.arg_types[1] = TupleType(
+                        ts, context.api.named_generic_type("tuple", [])
+                    )
+                if note := getattr(context.api, "note"):
+                    note("Use db_execute instead", context.context, code=USE_DB_EXECUTE)
+            except Exception as e:
+                context.api.fail(f"ICE: {e}", context.context)
+                return context.default_signature
             return ans
 
         return execute_hook
