@@ -79,8 +79,8 @@ def get_sql(
     sql_arg_val = args[sql_arg][0]
     sql = get_str_value(sql_arg_val)
     if sql is None:
-        #if not quiet and (note := getattr(api, "note")):
-        #    note("Dynamic sql", sql_arg_val, code=DYNAMIC_SQL)
+        if not quiet and (note := getattr(api, "note")):
+            note("Dynamic sql", sql_arg_val, code=DYNAMIC_SQL)
         return None
     return sql
 
@@ -313,7 +313,7 @@ class CustomPlugin(Plugin):
 
         def execute_hook(context: MethodSigContext) -> CallableType:
             try:
-                sql = get_sql(1, context.args, context.api, quiet=False)
+                sql = get_sql(1, context.args, context.api, quiet=True)
                 if sql is None:
                     return context.default_signature
                 stmt = type_statement(sql, context.api, context.context)
