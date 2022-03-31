@@ -662,6 +662,17 @@ mod tests {
             }
         }
 
+        {
+            issues.clear();
+            let name = "q11";
+            let src = "SELECT * FROM `t1`, `t2` LEFT JOIN `t3` ON `t3`.`id` = `t1`.`id`";
+            type_statement(&schema, src, &mut issues, &options);
+            if !issues.iter().any(|i| i.level == Level::Error) {
+                println!("{} should be an error", name);
+                errors += 1;
+            }
+        }
+        
         if errors != 0 {
             panic!("{} errors in test", errors);
         }

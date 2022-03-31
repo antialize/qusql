@@ -24,6 +24,7 @@ pub(crate) fn type_reference<'a, 'b>(
     reference: &TableReference<'a>,
     force_null: bool,
 ) {
+    let mut given_refs = core::mem::take(&mut typer.reference_types);
     match reference {
         sql_parse::TableReference::Table {
             identifier, as_, ..
@@ -32,6 +33,7 @@ pub(crate) fn type_reference<'a, 'b>(
                 [v] => v,
                 _ => {
                     typer.issues.push(issue_todo!(reference));
+                    typer.reference_types = given_refs;
                     return;
                 }
             };
@@ -68,7 +70,10 @@ pub(crate) fn type_reference<'a, 'b>(
             let (name, span) = if let Some(as_) = as_ {
                 (Some(as_.value), as_.span.clone())
             } else {
-                (None, select.columns.opt_span().expect("columns span"))
+                (
+                    None,
+                    select.columns.opt_span().unwrap_or_else(|| query.span()),
+                )
             };
 
             typer.reference_types.push(ReferenceType {
@@ -112,4 +117,7 @@ pub(crate) fn type_reference<'a, 'b>(
             }
         }
     }
+
+    core::mem::swap(&mut typer.reference_types, &mut given_refs);
+    typer.reference_types.extend(given_refs);
 }
