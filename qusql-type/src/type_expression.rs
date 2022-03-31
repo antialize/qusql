@@ -101,7 +101,9 @@ pub(crate) fn type_expression<'a, 'b>(
         Expression::Subquery(select) => {
             let select_type = type_union_select(typer, select, false);
             if let [v] = select_type.columns.as_slice() {
-                v.type_.clone()
+                let mut r = v.type_.clone();
+                r.not_null = false;
+                r
             } else {
                 typer
                     .issues
