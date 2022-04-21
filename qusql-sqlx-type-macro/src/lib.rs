@@ -469,6 +469,69 @@ pub fn query(input: TokenStream) -> TokenStream {
     }
 }
 
+
+fn construct_row2(
+    _errors: &mut Vec<proc_macro2::TokenStream>,
+    columns: &[SelectTypeColumn],
+) -> Vec<proc_macro2::TokenStream> {
+    let mut row_construct = Vec::new();
+    for (i, c) in columns.iter().enumerate() {
+        let mut t = match c.type_.t {
+            sql_type::Type::U8 => quote! {u8},
+            sql_type::Type::I8 => quote! {i8},
+            sql_type::Type::U16 => quote! {u16},
+            sql_type::Type::I16 => quote! {i16},
+            sql_type::Type::U32 => quote! {u32},
+            sql_type::Type::I32 => quote! {i32},
+            sql_type::Type::U64 => quote! {u64},
+            sql_type::Type::I64 => quote! {i64},
+            sql_type::Type::Base(sql_type::BaseType::Any) => todo!("from_any"),
+            sql_type::Type::Base(sql_type::BaseType::Bool) => quote! {bool},
+            sql_type::Type::Base(sql_type::BaseType::Bytes) => quote! {Vec<u8>},
+            sql_type::Type::Base(sql_type::BaseType::Date) => quote! {chrono::NaiveDate},
+            sql_type::Type::Base(sql_type::BaseType::DateTime) => quote! {chrono::NaiveDateTime},
+            sql_type::Type::Base(sql_type::BaseType::Float) => quote! {f64},
+            sql_type::Type::Base(sql_type::BaseType::Integer) => quote! {i64},
+            sql_type::Type::Base(sql_type::BaseType::String) => quote! {String},
+            sql_type::Type::Base(sql_type::BaseType::Time) => todo!("from_time"),
+            sql_type::Type::Base(sql_type::BaseType::TimeStamp) => {
+                quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
+            }
+            sql_type::Type::Null => todo!("from_null"),
+            sql_type::Type::Invalid => quote! {i64},
+            sql_type::Type::Enum(_) => quote! {String},
+            sql_type::Type::Set(_) => quote! {String},
+            sql_type::Type::Args(_, _) => todo!("from_args"),
+            sql_type::Type::F32 => quote! {f32},
+            sql_type::Type::F64 => quote! {f64},
+            sql_type::Type::JSON => quote! {String},
+        };
+        let name = match c.name {
+            Some(v) => v,
+            None => continue,
+        };
+
+        let ident = String::from("r#") + name;
+        let ident: Ident = if let Ok(ident) = syn::parse_str(&ident) {
+            ident
+        } else {
+            // TODO error
+            //errors.push(syn::Error::new(span, String::from_utf8(out).unwrap()).to_compile_error().into());
+            continue;
+        };
+
+        if !c.type_.not_null {
+            t = quote! {Option<#t>};
+        }
+        row_construct.push(quote! {
+            #ident: sqlx_type::arg_out::<#t, #i, _>(sqlx::Row::get(&row, #i))
+        });
+    }
+    row_construct
+}
+
+
+
 struct QueryAs {
     as_: Ident,
     query: String,
@@ -525,7 +588,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
         sql_type::StatementType::Select { columns, arguments } => {
             let args_tokens =
                 quote_args(&mut errors, query_as.last_span, &query_as.args, arguments);
-            let (_, row_construct) = construct_row(&mut errors, columns);
+            let row_construct = construct_row2(&mut errors, columns);
             let q = query_as.query;
             let row = query_as.as_;
             let s = quote! { {
