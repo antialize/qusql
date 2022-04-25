@@ -17,7 +17,8 @@ from mypy.types import (
     TupleType,
     is_named_instance,
     Instance,
-    TypedDictType
+    TypedDictType,
+    ARG_POS
 )
 from mypy.nodes import StrExpr, OpExpr, Expression, Context
 from mypy.errorcodes import ErrorCode
@@ -168,7 +169,7 @@ class CustomPlugin(Plugin):
                         context.default_signature.arg_types[0],
                         context.api.named_generic_type("str", []),
                     ],
-                    [0, 0],
+                    [ARG_POS, ARG_POS],
                     ["cursor", "sql"],
                     context.default_signature.ret_type,
                     context.default_signature.fallback,
@@ -190,7 +191,7 @@ class CustomPlugin(Plugin):
                             t = next(ati)
                         ans.arg_types.append(t)
                         ans.arg_names.append(f"a{i}")
-                        ans.arg_kinds.append(0)
+                        ans.arg_kinds.append(ARG_POS)
                     except StopIteration:
                         context.api.fail(f"Argument match failed {i}", context.context)
                 return ans
@@ -324,7 +325,7 @@ class CustomPlugin(Plugin):
                         context.api.named_generic_type("str", []),
                         AnyType(TypeOfAny.special_form),
                     ],
-                    [0, 1],
+                    [ARG_POS, ARG_POS],
                     ["sql", "arguments"],
                     context.default_signature.ret_type,
                     context.default_signature.fallback,
