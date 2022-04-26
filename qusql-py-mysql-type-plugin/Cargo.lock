@@ -259,9 +259,9 @@ checksum = "3a21d227deaba01c48dbf6ab2dfdb8609bb767d495a8eb85e3e42bfa9281613a"
 
 [[package]]
 name = "sql-type"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3967f7049a40375104d8140cf8db9ea8c180bdcb3d0660a9013ff3e95c4f6474"
+checksum = "ca8ebf2114470c67cab7537196c44692e87eb9ca79d01e643e90d4e3f90901ca"
 dependencies = [
  "sql-parse",
 ]
