@@ -299,6 +299,7 @@ mod tests {
             "str" => BaseType::String.into(),
             "bytes" => BaseType::Bytes.into(),
             "dt" => BaseType::DateTime.into(),
+            "json" => Type::JSON,
             _ => panic!("Unknown type {}", t),
         };
         FullType::new(t, not_null)
@@ -673,6 +674,22 @@ mod tests {
             }
         }
         
+        {
+            issues.clear();
+            let name = "q11";
+            let src =
+                "SELECT JSON_REPLACE('{ \"A\": 1, \"B\": [2, 3]}', '$.B[1]', 4, '$.C[3]', 3) AS `k` FROM `t3`";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "k:json", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
         if errors != 0 {
             panic!("{} errors in test", errors);
         }

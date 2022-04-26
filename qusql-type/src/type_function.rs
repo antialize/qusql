@@ -199,6 +199,16 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(Type::JSON, false)
         }
+        Function::JsonReplace => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..999, args, span);
+            for (i, (a, t)) in typed.iter().enumerate() {
+                if i == 0 || i % 2 == 1 {
+                    typer.ensure_base(*a, t, BaseType::String);
+                }
+            }
+            FullType::new(Type::JSON, false)
+        }
         Function::JsonUnquote => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
