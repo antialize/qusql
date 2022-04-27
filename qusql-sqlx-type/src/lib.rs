@@ -141,6 +141,6 @@ arg_io!(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>);
 #[doc(hidden)]
 pub fn check_arg<T, T2: ArgIn<T>>(_: &T2) {}
 
-pub fn arg_out<T, const IDX: usize, T2: ArgOut<T, IDX>>(v: T2) -> T2 {
+pub fn arg_out<T, T2: ArgOut<T, IDX>, const IDX: usize>(v: T2) -> T2 {
     v
 }
