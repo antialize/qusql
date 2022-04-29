@@ -524,7 +524,7 @@ fn construct_row2(
             t = quote! {Option<#t>};
         }
         row_construct.push(quote! {
-            #ident: sqlx_type::arg_out::<#t, _, #i(sqlx::Row::get(&row, #i))
+            #ident: sqlx_type::arg_out::<#t, _, #i>(sqlx::Row::get(&row, #i))
         });
     }
     row_construct
