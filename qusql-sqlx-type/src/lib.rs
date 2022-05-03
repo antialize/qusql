@@ -141,6 +141,30 @@ arg_io!(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>);
 #[doc(hidden)]
 pub fn check_arg<T, T2: ArgIn<T>>(_: &T2) {}
 
+#[doc(hidden)]
+pub fn check_arg_list_hack<T, T2: ArgIn<T>>(_: &[T2]) {}
+
+#[doc(hidden)]
 pub fn arg_out<T, T2: ArgOut<T, IDX>, const IDX: usize>(v: T2) -> T2 {
     v
+}
+
+#[doc(hidden)]
+pub fn convert_list_query(query: &str, list_sizes: &[usize]) -> String {
+    let mut query_iter = query.split("_LIST_");
+    let mut query = query_iter.next().expect("None empty query").to_string();
+    for size in list_sizes {
+        for i in 0..*size {
+            if i == 0 {
+                query.push('?');
+            } else {
+                query.push_str(", ?");
+            }
+        }
+        query.push_str(query_iter.next().expect("More _LIST_ in query"));
+    }
+    if query_iter.next().is_some() {
+        panic!("Too many _LIST_ in query");
+    }
+    query
 }

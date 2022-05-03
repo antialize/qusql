@@ -149,10 +149,11 @@ static SCHEMAS: Lazy<Schemas> = Lazy::new(|| {
 
 fn quote_args(
     errors: &mut Vec<proc_macro2::TokenStream>,
+    query: &str,
     last_span: Span,
     args: &[Expr],
     arguments: &[(sql_type::ArgumentKey<'_>, sql_type::FullType)],
-) -> proc_macro2::TokenStream {
+) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
     let mut at = Vec::new();
     let inv = sql_type::FullType::invalid();
     for (k, v) in arguments {
@@ -192,13 +193,11 @@ fn quote_args(
         .map(|i| format_ident!("arg{}", i))
         .collect::<Vec<_>>();
 
-    let arg_name = &arg_names;
-
-    // let arg_bindings = quote! {
-    //     #(let #arg_name = &(#args);)*
-    // };
-
     let mut arg_bindings = Vec::new();
+    let mut arg_add = Vec::new();
+
+    let mut list_lengths = Vec::new();
+
     for ((qa, ta), name) in args.iter().zip(at).zip(&arg_names) {
         let mut t = match ta.t {
             sql_type::Type::U8 => quote! {u8},
@@ -232,30 +231,58 @@ fn quote_args(
             t = quote! {Option<#t>}
         }
         let span = qa.span();
-        arg_bindings.push(quote_spanned! {span=>
-            let #name = &(#qa);
-            if false {
-                sqlx_type::check_arg::<#t, _>(#name);
-                ::std::panic!();
-            }
-        });
+        if ta.list_hack {
+            list_lengths.push(quote!(#name.len()));
+            arg_bindings.push(quote_spanned! {span=>
+                let #name = &(#qa);
+                args_count += #name.len();
+                for v in #name.iter() {
+                    size_hints += ::sqlx::encode::Encode::<sqlx::mysql::MySql>::size_hint(v);
+                }
+                if false {
+                    sqlx_type::check_arg_list_hack::<#t, _>(#name);
+                    ::std::panic!();
+                }
+            });
+            arg_add.push(quote!(
+                for v in #name.iter() {
+                    query_args.add(v);
+                }
+            ));
+        } else {
+            arg_bindings.push(quote_spanned! {span=>
+                let #name = &(#qa);
+                args_count += 1;
+                size_hints += ::sqlx::encode::Encode::<sqlx::mysql::MySql>::size_hint(#name);
+                if false {
+                    sqlx_type::check_arg::<#t, _>(#name);
+                    ::std::panic!();
+                }
+            });
+            arg_add.push(
+                quote!(query_args.add(#name);)
+            );
+        }
     }
 
-    //let #name = sqlx_type::type_arg::<#t, _>(&(#qa));
+    let query = if list_lengths.is_empty() {
+        quote!(#query)
+    } else {
+        quote!(
+            &sqlx_type::convert_list_query(#query, &[#(#list_lengths),*])
+        )
+    };
 
-    let args_count = args.len();
-
-    quote! {
+    (quote! {
+        let mut size_hints = 0;
+        let mut args_count = 0;
         #(#arg_bindings)*
 
         let mut query_args = <sqlx::mysql::MySql as ::sqlx::database::HasArguments>::Arguments::default();
-        query_args.reserve(
-            #args_count,
-            0 #(+ ::sqlx::encode::Encode::<sqlx::mysql::MySql>::size_hint(#arg_name))*
-        );
+        query_args.reserve(args_count, size_hints);
 
-        #(query_args.add(#arg_name);)*
-    }
+        #(#arg_add)*
+    }, query)
 }
 
 fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_macro2::TokenStream> {
@@ -391,9 +418,8 @@ pub fn query(input: TokenStream) -> TokenStream {
     let mut errors = issues_to_errors(issues, &query.query, query.query_span);
     match &stmt {
         sql_type::StatementType::Select { columns, arguments } => {
-            let args_tokens = quote_args(&mut errors, query.last_span, &query.args, arguments);
+            let (args_tokens, q) = quote_args(&mut errors, &query.query, query.last_span, &query.args, arguments);
             let (row_members, row_construct) = construct_row(&mut errors, columns);
-            let q = query.query;
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 let _ = std::include_bytes!(#sp);
@@ -412,8 +438,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             s.into()
         }
         sql_type::StatementType::Delete { arguments } => {
-            let args_tokens = quote_args(&mut errors, query.last_span, &query.args, arguments);
-            let q = query.query;
+            let (args_tokens, q) = quote_args(&mut errors, &query.query, query.last_span, &query.args, arguments);
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
@@ -424,8 +449,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             s.into()
         }
         sql_type::StatementType::Insert { arguments, .. } => {
-            let args_tokens = quote_args(&mut errors, query.last_span, &query.args, arguments);
-            let q = query.query;
+            let (args_tokens, q) = quote_args(&mut errors, &query.query, query.last_span, &query.args, arguments);
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
@@ -436,8 +460,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             s.into()
         }
         sql_type::StatementType::Update { arguments } => {
-            let args_tokens = quote_args(&mut errors, query.last_span, &query.args, arguments);
-            let q = query.query;
+            let (args_tokens, q) = quote_args(&mut errors, &query.query, query.last_span, &query.args, arguments);
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
@@ -448,8 +471,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             s.into()
         }
         sql_type::StatementType::Replace { arguments } => {
-            let args_tokens = quote_args(&mut errors, query.last_span, &query.args, arguments);
-            let q = query.query;
+            let (args_tokens, q) = quote_args(&mut errors, &query.query, query.last_span, &query.args, arguments);
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
@@ -579,17 +601,18 @@ pub fn query_as(input: TokenStream) -> TokenStream {
     let schemas = SCHEMAS.deref();
     let options = TypeOptions::new()
         .dialect(SQLDialect::MariaDB)
-        .arguments(SQLArguments::QuestionMark);
+        .arguments(SQLArguments::QuestionMark)
+        .list_hack(true);
     let mut issues = Vec::new();
     let stmt = type_statement(schemas, &query_as.query, &mut issues, &options);
 
     let mut errors = issues_to_errors(issues, &query_as.query, query_as.query_span);
     match &stmt {
         sql_type::StatementType::Select { columns, arguments } => {
-            let args_tokens =
-                quote_args(&mut errors, query_as.last_span, &query_as.args, arguments);
+            let (args_tokens, q) =
+                quote_args(&mut errors, &query_as.query, query_as.last_span, &query_as.args, arguments);
+
             let row_construct = construct_row2(&mut errors, columns);
-            let q = query_as.query;
             let row = query_as.as_;
             let s = quote! { {
                 use ::sqlx::Arguments as _;
