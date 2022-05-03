@@ -224,6 +224,10 @@ pub(crate) fn parse_column<'a>(
         sql_parse::Type::Blob(_) => BaseType::Bytes.into(),
         sql_parse::Type::LongBlob(_) => BaseType::Bytes.into(),
         sql_parse::Type::VarBinary(_) => BaseType::Bytes.into(),
+        sql_parse::Type::Boolean => BaseType::Bool.into(),
+        sql_parse::Type::Integer(_) => BaseType::Integer.into(),
+        sql_parse::Type::Float8 => BaseType::Float.into(),
+        sql_parse::Type::Numeric(_, _, _) => todo!(),
     };
     Column {
         identifier,
@@ -494,6 +498,18 @@ pub fn parse_schemas<'a>(
                                 }
                             };
                             *c = parse_column(definition, c.identifier, col.span(), issues);
+                        }
+                        sql_parse::AlterSpecification::AddColumn {
+                            identifier,
+                            data_type,
+                            ..
+                        } => {
+                            e.columns.push(parse_column(
+                                data_type,
+                                identifier.as_str(),
+                                identifier.span(),
+                                issues,
+                            ));
                         }
                     }
                 }
