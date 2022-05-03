@@ -121,6 +121,12 @@ struct Enum {
     values: Vec<std::string::String>,
 }
 
+#[pyclass]
+struct List {
+    #[pyo3(get)]
+    r#type: PyObject,
+}
+
 #[derive(Clone)]
 enum Type {
     Any,
@@ -130,6 +136,7 @@ enum Type {
     Bytes,
     String,
     Enum(Vec<std::string::String>),
+    List(Box<Type>)
 }
 
 impl IntoPy<PyObject> for Type {
@@ -142,6 +149,7 @@ impl IntoPy<PyObject> for Type {
             Type::Bytes => Py::new(py, Bytes {}).unwrap().to_object(py),
             Type::String => Py::new(py, String {}).unwrap().to_object(py),
             Type::Enum(values) => Py::new(py, Enum { values }).unwrap().to_object(py),
+            Type::List(r#type) => Py::new(py,List{r#type: r#type.into_py(py)}).unwrap().to_object(py),
         }
     }
 }
@@ -185,8 +193,8 @@ struct Replace {
 #[pyclass]
 struct Invalid {}
 
-fn map_type(t: sql_type::Type<'_>) -> Type {
-    match t {
+fn map_type(t: &sql_type::FullType<'_>) -> Type {
+    let b = match &t.t {
         sql_type::Type::Args(_, _) => Type::Any,
         sql_type::Type::Base(v) => {
             match v {
@@ -217,6 +225,11 @@ fn map_type(t: sql_type::Type<'_>) -> Type {
         sql_type::Type::U64 => Type::Integer,
         sql_type::Type::U8 => Type::Integer,
         sql_type::Type::Null => Type::Any,
+    };
+    if t.list_hack {
+        Type::List(Box::new(b))
+    } else {
+        b
     }
 }
 
@@ -230,7 +243,7 @@ fn map_arguments(
                 sql_type::ArgumentKey::Index(i) => ArgumentKey::Index(i),
                 sql_type::ArgumentKey::Identifier(i) => ArgumentKey::Identifier(i.to_string()),
             };
-            (k, (map_type(v.t), v.not_null))
+            (k, (map_type(&v), v.not_null))
         })
         .collect()
 }
@@ -246,7 +259,8 @@ fn type_statement(
 
     let mut options = TypeOptions::new()
         .dialect(SQLDialect::MariaDB)
-        .arguments(SQLArguments::Percent);
+        .arguments(SQLArguments::Percent)
+        .list_hack(true);
 
     if dict_result {
         options = options
@@ -263,7 +277,7 @@ fn type_statement(
                 .map(|v| {
                     (
                         v.name.map(|v| v.to_string()),
-                        map_type(v.type_.t),
+                        map_type(&v.type_),
                         v.type_.not_null,
                     )
                 })
@@ -340,6 +354,7 @@ fn mysql_type_plugin(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Bytes>()?;
     m.add_class::<String>()?;
     m.add_class::<Enum>()?;
+    m.add_class::<List>()?;
     m.add_class::<Schemas>()?;
     Ok(())
 }

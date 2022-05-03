@@ -109,6 +109,31 @@ def type_statement(
             note(message, context)
     return stmt
 
+def map_type(v: Any, not_null: bool, api: CheckerPluginInterface, context: Context) -> Type:
+    t: Type = AnyType(TypeOfAny.special_form)
+    if isinstance(v, rs.Integer):
+        t = api.named_generic_type("int", [])
+    elif isinstance(v, rs.Float):
+        t = api.named_generic_type("float", [])
+    elif isinstance(v, rs.String):
+        t = api.named_generic_type("str", [])
+    elif isinstance(v, rs.Bool):
+        t = api.named_generic_type("bool", [])
+    elif isinstance(v, rs.Bytes):
+        t = api.named_generic_type("bytes", [])
+    elif isinstance(v, rs.Enum):
+        t = api.named_generic_type("str", [])  # TODO literal with values
+    elif isinstance(v, rs.List):
+        return api.named_generic_type(
+            "typing.Sequence", [map_type(v.type, not_null, api, context)]
+        )
+    elif isinstance(v, rs.Any):
+        t = AnyType(TypeOfAny.special_form)
+    else:
+        api.fail(f"Unknown type {v}", context)
+    if not not_null:
+        t = UnionType((t, NoneType()))
+    return t
 
 def get_argument_types(
     stmt: Any, api: CheckerPluginInterface, context: Context
@@ -120,26 +145,7 @@ def get_argument_types(
                 continue
             while len(ts) <= k:
                 ts.append(AnyType(TypeOfAny.special_form))
-            t: Type = AnyType(TypeOfAny.special_form)
-            if isinstance(v, rs.Integer):
-                t = api.named_generic_type("int", [])
-            elif isinstance(v, rs.Float):
-                t = api.named_generic_type("float", [])
-            elif isinstance(v, rs.String):
-                t = api.named_generic_type("str", [])
-            elif isinstance(v, rs.Bool):
-                t = api.named_generic_type("bool", [])
-            elif isinstance(v, rs.Bytes):
-                t = api.named_generic_type("bytes", [])
-            elif isinstance(v, rs.Enum):
-                t = api.named_generic_type("str", [])  # TODO literal with values
-            elif isinstance(v, rs.Any):
-                t = AnyType(TypeOfAny.special_form)
-            else:
-                api.fail(f"Unknown type {v}", context)
-            if not not_null:
-                t = UnionType((t, NoneType()))
-            ts[k] = t
+            ts[k] = map_type(v, not_null, api, context)
     return ts
 
 
@@ -160,8 +166,7 @@ class CustomPlugin(Plugin):
                 if sql is None:
                     return context.default_signature
 
-                sql2 = sql.replace("_LIST_", "%s, %s, %s")
-                stmt = type_statement(sql2, context.api, context.context, dict_cursor=False, quiet=True)
+                stmt = type_statement(sql, context.api, context.context, dict_cursor=False, quiet=True)
                 if stmt is None:
                     return context.default_signature
                 ans = CallableType(
@@ -177,23 +182,10 @@ class CustomPlugin(Plugin):
                 )
 
                 at = get_argument_types(stmt, context.api, context.context)
-
-                ati = iter(at)
-                for i, a in enumerate(re.findall("(_LIST_|[%]s|[%]\()", sql)):
-                    try:
-                        if a == "_LIST_":
-                            t = context.api.named_generic_type(
-                                "typing.Sequence", [next(ati)]
-                            )
-                            next(ati)
-                            next(ati)
-                        else:
-                            t = next(ati)
-                        ans.arg_types.append(t)
-                        ans.arg_names.append(f"a{i}")
-                        ans.arg_kinds.append(ARG_POS)
-                    except StopIteration:
-                        context.api.fail(f"Argument match failed {i}", context.context)
+                for i, t in enumerate(at):
+                    ans.arg_types.append(t)
+                    ans.arg_names.append(f"a{i}")
+                    ans.arg_kinds.append(ARG_POS)
                 return ans
             except Exception as e:
                 context.api.fail(f"ICE: {e}", context.context)
@@ -229,7 +221,6 @@ class CustomPlugin(Plugin):
                 sql = get_sql(1, context.args, api, quiet=False)
                 if sql is None:
                     return context.default_return_type
-                sql = sql.replace("_LIST_", "%s")
                 stmt = type_statement(sql, api, context.context, dict_cursor=dc,quiet=False)
                 if stmt is None:
                     return context.default_return_type
@@ -237,27 +228,7 @@ class CustomPlugin(Plugin):
                 if isinstance(stmt, rs.Select):
                     ntp: List[Tuple[str, Type]] = []
                     for (name, type_, not_null) in stmt.columns:
-                        t: Type
-                        if isinstance(type_, rs.Integer):
-                            t = api.named_generic_type("int", [])
-                        elif isinstance(type_, rs.Float):
-                            t = api.named_generic_type("float", [])
-                        elif isinstance(type_, rs.String):
-                            t = api.named_generic_type("str", [])
-                        elif isinstance(type_, rs.Bool):
-                            t = api.named_generic_type("int", [])  # TODO literal 0,1
-                        elif isinstance(type_, rs.Enum):
-                            t = api.named_generic_type(
-                                "str", []
-                            )  # TODO literal with values
-                        elif isinstance(type_, rs.Bytes):
-                            t = api.named_generic_type("bytes", [])
-                        elif isinstance(type_, rs.Any):
-                            t = AnyType(TypeOfAny.special_form)
-                        else:
-                            api.fail(f"Unknown type {type_}", context.context)
-                        if not not_null:
-                            t = UnionType((t, NoneType()))
+                        t = map_type(type_, not_null, api, context.context)
                         ntp.append((name, t))
                     if sr := self.lookup_fully_qualified("mysql_type.SelectResult"):
                         if dc:
