@@ -55,12 +55,18 @@ impl Display for BaseType {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ArgType {
+    Normal,
+    ListHack,
+}
+
 /// Represent the type of a value
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type<'a> {
     // This type is used internally and should not escape to the user
     #[doc(hidden)]
-    Args(BaseType, Vec<(usize, Span)>),
+    Args(BaseType, Vec<(usize, ArgType, Span)>),
     Base(BaseType),
     Enum(RefOrVal<'a, Vec<Cow<'a, str>>>),
     F32,
@@ -86,7 +92,7 @@ impl<'a> Display for Type<'a> {
         match self {
             Type::Args(t, a) => {
                 write!(f, "args({}", t)?;
-                for (a, _) in a {
+                for (a, _, _) in a {
                     write!(f, ", {}", a)?;
                 }
                 f.write_char(')')
@@ -174,6 +180,7 @@ impl<'a> From<BaseType> for Type<'a> {
 pub struct FullType<'a> {
     pub t: Type<'a>,
     pub not_null: bool,
+    pub list_hack: bool,
 }
 
 impl<'a> FullType<'a> {
@@ -181,6 +188,7 @@ impl<'a> FullType<'a> {
         FullType {
             t: self.t.ref_clone(),
             not_null: self.not_null,
+            list_hack: self.list_hack,
         }
     }
 
@@ -188,6 +196,7 @@ impl<'a> FullType<'a> {
         Self {
             t: t.into(),
             not_null,
+            list_hack: false,
         }
     }
 
@@ -196,6 +205,7 @@ impl<'a> FullType<'a> {
         Self {
             t: Type::Invalid,
             not_null: false,
+            list_hack: false,
         }
     }
 }
@@ -211,10 +221,12 @@ impl<'a> core::ops::Deref for FullType<'a> {
 impl<'a> Display for FullType<'a> {
     fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
         self.t.fmt(f)?;
-        if self.not_null {
-            f.write_str(" not null")
-        } else {
-            Ok(())
+        if self.list_hack {
+            f.write_str(" list_hack")?;
         }
+        if self.not_null {
+            f.write_str(" not null")?;
+        }
+        Ok(())
     }
 }

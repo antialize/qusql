@@ -232,7 +232,11 @@ pub(crate) fn parse_column<'a>(
     Column {
         identifier,
         identifier_span,
-        type_: FullType { t: type_, not_null },
+        type_: FullType {
+            t: type_,
+            not_null,
+            list_hack: false,
+        },
         auto_increment,
     }
 }

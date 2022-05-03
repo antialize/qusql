@@ -16,7 +16,7 @@ use sql_parse::{issue_todo, Expression, Issue, Span, UnaryOperator};
 
 use crate::{
     schema::parse_column,
-    type_::{BaseType, FullType},
+    type_::{ArgType, BaseType, FullType},
     type_binary_expression::type_binary_expression,
     type_function::type_function,
     type_select::{resolve_kleene_identifier, type_union_select},
@@ -111,6 +111,12 @@ pub(crate) fn type_expression<'a, 'b>(
                 FullType::invalid()
             }
         }
+        Expression::ListHack(v) => {
+            typer
+                .issues
+                .push(Issue::err("_LIST_ only allowed in IN ()", v));
+            FullType::invalid()
+        }
         Expression::Null(_) => FullType::new(Type::Null, false),
         Expression::Bool(_, _) => FullType::new(BaseType::Bool, true),
         Expression::String(_) => FullType::new(BaseType::String, true),
@@ -198,9 +204,10 @@ pub(crate) fn type_expression<'a, 'b>(
                 Some((_, type_)) => type_.clone(),
             }
         }
-        Expression::Arg((idx, span)) => {
-            FullType::new(Type::Args(BaseType::Any, vec![(*idx, span.clone())]), false)
-        }
+        Expression::Arg((idx, span)) => FullType::new(
+            Type::Args(BaseType::Any, vec![(*idx, ArgType::Normal, span.clone())]),
+            false,
+        ),
         Expression::Exists(s) => {
             type_union_select(typer, s, false);
             FullType::new(BaseType::Bool, true)
@@ -220,24 +227,29 @@ pub(crate) fn type_expression<'a, 'b>(
             // where the lhs is not null
             lhs_type.not_null = false;
             for rhs in rhs {
-                let rhs_type = if let Expression::Subquery(q) = rhs {
-                    let rhs_type = type_union_select(typer, q, false);
-                    if rhs_type.columns.len() != 1 {
-                        typer.issues.push(Issue::err(
-                            format!(
-                                "Subquery in IN should yield one column but gave {}",
-                                rhs_type.columns.len()
-                            ),
-                            q,
-                        ))
+                let rhs_type = match rhs {
+                    Expression::Subquery(q) => {
+                        let rhs_type = type_union_select(typer, q, false);
+                        if rhs_type.columns.len() != 1 {
+                            typer.issues.push(Issue::err(
+                                format!(
+                                    "Subquery in IN should yield one column but gave {}",
+                                    rhs_type.columns.len()
+                                ),
+                                q,
+                            ))
+                        }
+                        if let Some(c) = rhs_type.columns.get(0) {
+                            c.type_.clone()
+                        } else {
+                            FullType::invalid()
+                        }
                     }
-                    if let Some(c) = rhs_type.columns.get(0) {
-                        c.type_.clone()
-                    } else {
-                        FullType::invalid()
-                    }
-                } else {
-                    type_expression(typer, rhs, flags.without_values(), BaseType::Any)
+                    Expression::ListHack((idx, span)) => FullType::new(
+                        Type::Args(BaseType::Any, vec![(*idx, ArgType::ListHack, span.clone())]),
+                        false,
+                    ),
+                    _ => type_expression(typer, rhs, flags.without_values(), BaseType::Any),
                 };
                 not_null &= rhs_type.not_null;
                 if typer.matched_type(&lhs_type, &rhs_type).is_none() {

@@ -79,8 +79,8 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                                 .frag(format!("Expected {}", et.t), ets),
                         );
                     } else if let Type::Args(_, args) = &t.t {
-                        for (idx, _) in args {
-                            typer.constrain_arg(*idx, et);
+                        for (idx, arg_type, _) in args {
+                            typer.constrain_arg(*idx, arg_type, et);
                         }
                     }
                 } else {
@@ -179,8 +179,8 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                         value,
                     ));
                 } else if let Type::Args(_, args) = &value_type.t {
-                    for (idx, _) in args {
-                        typer.constrain_arg(*idx, &t.1);
+                    for (idx, arg_type, _) in args {
+                        typer.constrain_arg(*idx, arg_type, &t.1);
                     }
                 }
             } else {
@@ -222,8 +222,8 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                         value,
                     ));
                 } else if let Type::Args(_, args) = &value_type.t {
-                    for (idx, _) in args {
-                        typer.constrain_arg(*idx, &t.1);
+                    for (idx, arg_type, _) in args {
+                        typer.constrain_arg(*idx, arg_type, &t.1);
                     }
                 }
             } else {

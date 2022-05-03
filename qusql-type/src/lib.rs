@@ -140,6 +140,14 @@ impl TypeOptions {
             ..self
         }
     }
+
+    /// Parse _LIST_ as special expression and type as a list of items
+    pub fn list_hack(self, list_hack: bool) -> Self {
+        Self {
+            parse_options: self.parse_options.list_hack(list_hack),
+            ..self
+        }
+    }
 }
 
 /// Key of argument
@@ -282,6 +290,11 @@ mod tests {
         } else {
             (t, false)
         };
+        let (t, list_hack) = if let Some(v) = t.strip_suffix("[]") {
+            (v, true)
+        } else {
+            (t, false)
+        };
         let t = match t {
             "b" => BaseType::Bool.into(),
             "u8" => Type::U8,
@@ -302,7 +315,11 @@ mod tests {
             "json" => Type::JSON,
             _ => panic!("Unknown type {}", t),
         };
-        FullType::new(t, not_null)
+        let mut t = FullType::new(t, not_null);
+        if list_hack {
+            t.list_hack = true;
+        }
+        t
     }
 
     fn check_arguments(
@@ -673,10 +690,10 @@ mod tests {
                 errors += 1;
             }
         }
-        
+
         {
             issues.clear();
-            let name = "q11";
+            let name = "q12";
             let src =
                 "SELECT JSON_REPLACE('{ \"A\": 1, \"B\": [2, 3]}', '$.B[1]', 4, '$.C[3]', 3) AS `k` FROM `t3`";
             let q = type_statement(&schema, src, &mut issues, &options);
@@ -684,6 +701,22 @@ mod tests {
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:json", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            let options = options.list_hack(true);
+            issues.clear();
+            let name = "q13";
+            let src = "SELECT `id` FROM `t1` WHERE `id` IN (_LIST_)";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "i[]", &mut errors);
+                check_columns(name, &columns, "id:i32!", &mut errors);
             } else {
                 println!("{} should be select", name);
                 errors += 1;

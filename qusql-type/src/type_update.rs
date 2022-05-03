@@ -71,8 +71,8 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
                             value,
                         ));
                     } else if let Type::Args(_, args) = &value_type.t {
-                        for (idx, _) in args {
-                            typer.constrain_arg(*idx, &t.1);
+                        for (idx, arg_type, _) in args {
+                            typer.constrain_arg(*idx, arg_type, &t.1);
                         }
                     }
                 } else {
@@ -102,8 +102,8 @@ pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>
                             value,
                         ));
                     } else if let Type::Args(_, args) = &value_type.t {
-                        for (idx, _) in args {
-                            typer.constrain_arg(*idx, &t.1);
+                        for (idx, arg_type, _) in args {
+                            typer.constrain_arg(*idx, arg_type, &t.1);
                         }
                     }
                 } else {

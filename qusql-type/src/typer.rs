@@ -12,7 +12,7 @@
 
 use crate::{
     schema::Schemas,
-    type_::{BaseType, FullType},
+    type_::{ArgType, BaseType, FullType},
     ArgumentKey, Type, TypeOptions,
 };
 use alloc::format;
@@ -35,7 +35,8 @@ pub(crate) struct Typer<'a, 'b> {
 }
 
 impl<'a, 'b> Typer<'a, 'b> {
-    pub(crate) fn constrain_arg(&mut self, idx: usize, t: &FullType<'a>) {
+    pub(crate) fn constrain_arg(&mut self, idx: usize, arg_type: &ArgType, t: &FullType<'a>) {
+        // TODO Use arg_type
         let ot = match self
             .arg_types
             .iter_mut()
@@ -50,6 +51,9 @@ impl<'a, 'b> Typer<'a, 'b> {
         };
         if t.base() != BaseType::Any || ot.base() == BaseType::Any {
             *ot = t.clone();
+        }
+        if matches!(arg_type, ArgType::ListHack) {
+            ot.list_hack = true;
         }
     }
 
@@ -78,8 +82,8 @@ impl<'a, 'b> Typer<'a, 'b> {
 
         for t in &[t1, t2] {
             if let Type::Args(_, a) = t {
-                for (idx, _) in a {
-                    self.constrain_arg(*idx, &FullType::new(t1b, false));
+                for (idx, arg_type, _) in a {
+                    self.constrain_arg(*idx, arg_type, &FullType::new(t1b, false));
                 }
             }
         }
