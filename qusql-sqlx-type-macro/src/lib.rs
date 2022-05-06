@@ -259,9 +259,7 @@ fn quote_args(
                     ::std::panic!();
                 }
             });
-            arg_add.push(
-                quote!(query_args.add(#name);)
-            );
+            arg_add.push(quote!(query_args.add(#name);));
         }
     }
 
@@ -273,16 +271,19 @@ fn quote_args(
         )
     };
 
-    (quote! {
-        let mut size_hints = 0;
-        let mut args_count = 0;
-        #(#arg_bindings)*
+    (
+        quote! {
+            let mut size_hints = 0;
+            let mut args_count = 0;
+            #(#arg_bindings)*
 
-        let mut query_args = <sqlx::mysql::MySql as ::sqlx::database::HasArguments>::Arguments::default();
-        query_args.reserve(args_count, size_hints);
+            let mut query_args = <sqlx::mysql::MySql as ::sqlx::database::HasArguments>::Arguments::default();
+            query_args.reserve(args_count, size_hints);
 
-        #(#arg_add)*
-    }, query)
+            #(#arg_add)*
+        },
+        query,
+    )
 }
 
 fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_macro2::TokenStream> {
@@ -400,7 +401,6 @@ impl Parse for Query {
     }
 }
 
-
 /// Statically checked SQL query, similarly to sqlx::query!.
 ///
 /// This expands to an instance of query::Map that outputs an ad-hoc anonymous struct type.
@@ -410,7 +410,8 @@ pub fn query(input: TokenStream) -> TokenStream {
     let schemas = SCHEMAS.deref();
     let options = TypeOptions::new()
         .dialect(SQLDialect::MariaDB)
-        .arguments(SQLArguments::QuestionMark);
+        .arguments(SQLArguments::QuestionMark)
+        .list_hack(true);
     let mut issues = Vec::new();
     let stmt = type_statement(schemas, &query.query, &mut issues, &options);
     let sp = SCHEMA_PATH.as_path().to_str().unwrap();
@@ -418,7 +419,13 @@ pub fn query(input: TokenStream) -> TokenStream {
     let mut errors = issues_to_errors(issues, &query.query, query.query_span);
     match &stmt {
         sql_type::StatementType::Select { columns, arguments } => {
-            let (args_tokens, q) = quote_args(&mut errors, &query.query, query.last_span, &query.args, arguments);
+            let (args_tokens, q) = quote_args(
+                &mut errors,
+                &query.query,
+                query.last_span,
+                &query.args,
+                arguments,
+            );
             let (row_members, row_construct) = construct_row(&mut errors, columns);
             let s = quote! { {
                 use ::sqlx::Arguments as _;
@@ -438,7 +445,13 @@ pub fn query(input: TokenStream) -> TokenStream {
             s.into()
         }
         sql_type::StatementType::Delete { arguments } => {
-            let (args_tokens, q) = quote_args(&mut errors, &query.query, query.last_span, &query.args, arguments);
+            let (args_tokens, q) = quote_args(
+                &mut errors,
+                &query.query,
+                query.last_span,
+                &query.args,
+                arguments,
+            );
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
@@ -449,7 +462,13 @@ pub fn query(input: TokenStream) -> TokenStream {
             s.into()
         }
         sql_type::StatementType::Insert { arguments, .. } => {
-            let (args_tokens, q) = quote_args(&mut errors, &query.query, query.last_span, &query.args, arguments);
+            let (args_tokens, q) = quote_args(
+                &mut errors,
+                &query.query,
+                query.last_span,
+                &query.args,
+                arguments,
+            );
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
@@ -460,7 +479,13 @@ pub fn query(input: TokenStream) -> TokenStream {
             s.into()
         }
         sql_type::StatementType::Update { arguments } => {
-            let (args_tokens, q) = quote_args(&mut errors, &query.query, query.last_span, &query.args, arguments);
+            let (args_tokens, q) = quote_args(
+                &mut errors,
+                &query.query,
+                query.last_span,
+                &query.args,
+                arguments,
+            );
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
@@ -471,7 +496,13 @@ pub fn query(input: TokenStream) -> TokenStream {
             s.into()
         }
         sql_type::StatementType::Replace { arguments } => {
-            let (args_tokens, q) = quote_args(&mut errors, &query.query, query.last_span, &query.args, arguments);
+            let (args_tokens, q) = quote_args(
+                &mut errors,
+                &query.query,
+                query.last_span,
+                &query.args,
+                arguments,
+            );
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
@@ -490,7 +521,6 @@ pub fn query(input: TokenStream) -> TokenStream {
         }
     }
 }
-
 
 fn construct_row2(
     _errors: &mut Vec<proc_macro2::TokenStream>,
@@ -552,8 +582,6 @@ fn construct_row2(
     row_construct
 }
 
-
-
 struct QueryAs {
     as_: Ident,
     query: String,
@@ -609,8 +637,13 @@ pub fn query_as(input: TokenStream) -> TokenStream {
     let mut errors = issues_to_errors(issues, &query_as.query, query_as.query_span);
     match &stmt {
         sql_type::StatementType::Select { columns, arguments } => {
-            let (args_tokens, q) =
-                quote_args(&mut errors, &query_as.query, query_as.last_span, &query_as.args, arguments);
+            let (args_tokens, q) = quote_args(
+                &mut errors,
+                &query_as.query,
+                query_as.last_span,
+                &query_as.args,
+                arguments,
+            );
 
             let row_construct = construct_row2(&mut errors, columns);
             let row = query_as.as_;

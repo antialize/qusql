@@ -154,11 +154,15 @@ pub fn convert_list_query(query: &str, list_sizes: &[usize]) -> String {
     let mut query_iter = query.split("_LIST_");
     let mut query = query_iter.next().expect("None empty query").to_string();
     for size in list_sizes {
-        for i in 0..*size {
-            if i == 0 {
-                query.push('?');
-            } else {
-                query.push_str(", ?");
+        if *size == 0 {
+            query.push_str("NULL");
+        } else {
+            for i in 0..*size {
+                if i == 0 {
+                    query.push('?');
+                } else {
+                    query.push_str(", ?");
+                }
             }
         }
         query.push_str(query_iter.next().expect("More _LIST_ in query"));
@@ -167,4 +171,19 @@ pub fn convert_list_query(query: &str, list_sizes: &[usize]) -> String {
         panic!("Too many _LIST_ in query");
     }
     query
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_convert_list_query() {
+        // This assert would fire and test will fail.
+        // Please note, that private functions can be tested too!
+        assert_eq!(
+            &convert_list_query("FOO (_LIST_) X _LIST_ O _LIST_ BAR (_LIST_)", &[0, 1, 2, 3]),
+            "FOO (NULL) X ? O ?, ? BAR (?, ?, ?)"
+        );
+    }
 }
