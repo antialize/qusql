@@ -708,7 +708,7 @@ mod tests {
         }
 
         {
-            let options = options.list_hack(true);
+            let options = options.clone().list_hack(true);
             issues.clear();
             let name = "q13";
             let src = "SELECT `id` FROM `t1` WHERE `id` IN (_LIST_)";
@@ -717,6 +717,21 @@ mod tests {
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "i[]", &mut errors);
                 check_columns(name, &columns, "id:i32!", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q14";
+            let src = "SELECT CAST(NULL AS CHAR) AS `id`";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "id:str", &mut errors);
             } else {
                 println!("{} should be select", name);
                 errors += 1;

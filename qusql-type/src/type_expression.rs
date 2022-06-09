@@ -311,6 +311,39 @@ pub(crate) fn type_expression<'a, 'b>(
             ..
         } => {
             let col = parse_column(type_.clone(), "", as_span.clone(), typer.issues);
+            match type_.type_ {
+                sql_parse::Type::Char(_)
+                | sql_parse::Type::Date
+                | sql_parse::Type::DateTime(_)
+                | sql_parse::Type::Double(_)
+                | sql_parse::Type::Float(_)
+                | sql_parse::Type::Integer(_)
+                | sql_parse::Type::Time(_) => {}
+                sql_parse::Type::Boolean
+                | sql_parse::Type::TinyInt(_)
+                | sql_parse::Type::SmallInt(_)
+                | sql_parse::Type::Int(_)
+                | sql_parse::Type::BigInt(_)
+                | sql_parse::Type::VarChar(_)
+                | sql_parse::Type::TinyText(_)
+                | sql_parse::Type::MediumText(_)
+                | sql_parse::Type::Text(_)
+                | sql_parse::Type::LongText(_)
+                | sql_parse::Type::Enum(_)
+                | sql_parse::Type::Set(_)
+                | sql_parse::Type::Float8
+                | sql_parse::Type::Numeric(_, _, _)
+                | sql_parse::Type::Timestamp(_)
+                | sql_parse::Type::TinyBlob(_)
+                | sql_parse::Type::MediumBlob(_)
+                | sql_parse::Type::Blob(_)
+                | sql_parse::Type::LongBlob(_)
+                | sql_parse::Type::VarBinary(_) => {
+                    typer
+                        .issues
+                        .push(Issue::err("Type now allow in cast", type_));
+                }
+            };
             let e = type_expression(typer, expr, flags, col.type_.base());
             //TODO check if it can possible be valid cast
             FullType::new(col.type_.t, e.not_null)

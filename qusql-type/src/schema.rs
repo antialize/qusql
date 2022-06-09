@@ -202,6 +202,7 @@ pub(crate) fn parse_column<'a>(
                 Type::I64
             }
         }
+        sql_parse::Type::Char(_) => BaseType::String.into(),
         sql_parse::Type::VarChar(_) => BaseType::String.into(),
         sql_parse::Type::TinyText(_) => BaseType::String.into(),
         sql_parse::Type::MediumText(_) => BaseType::String.into(),
