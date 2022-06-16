@@ -461,7 +461,11 @@ pub fn query(input: TokenStream) -> TokenStream {
             };
             s.into()
         }
-        sql_type::StatementType::Insert { arguments, .. } => {
+        sql_type::StatementType::Insert {
+            arguments,
+            returning,
+            ..
+        } => {
             let (args_tokens, q) = quote_args(
                 &mut errors,
                 &query.query,
@@ -469,12 +473,32 @@ pub fn query(input: TokenStream) -> TokenStream {
                 &query.args,
                 arguments,
             );
-            let s = quote! { {
-                use ::sqlx::Arguments as _;
-                #(#errors; )*
-                #args_tokens
-                sqlx::query_with(#q, query_args)
-            }
+            let s = match returning.as_ref() {
+                Some(returning) => {
+                    let (row_members, row_construct) = construct_row(&mut errors, returning);
+                    quote! { {
+                        use ::sqlx::Arguments as _;
+                        let _ = std::include_bytes!(#sp);
+                        #(#errors; )*
+                        #args_tokens
+
+                        struct Row {
+                            #(#row_members),*
+                        };
+                        sqlx::query_with(#q, query_args).map(|row|
+                            Row{
+                                #(#row_construct),*
+                            }
+                        )
+                    }}
+                }
+                None => quote! { {
+                    use ::sqlx::Arguments as _;
+                    #(#errors; )*
+                    #args_tokens
+                    sqlx::query_with(#q, query_args)
+                }
+                },
             };
             s.into()
         }
@@ -495,7 +519,10 @@ pub fn query(input: TokenStream) -> TokenStream {
             };
             s.into()
         }
-        sql_type::StatementType::Replace { arguments } => {
+        sql_type::StatementType::Replace {
+            arguments,
+            returning,
+        } => {
             let (args_tokens, q) = quote_args(
                 &mut errors,
                 &query.query,
@@ -503,12 +530,32 @@ pub fn query(input: TokenStream) -> TokenStream {
                 &query.args,
                 arguments,
             );
-            let s = quote! { {
-                use ::sqlx::Arguments as _;
-                #(#errors; )*
-                #args_tokens
-                sqlx::query_with(#q, query_args)
-            }
+            let s = match returning.as_ref() {
+                Some(returning) => {
+                    let (row_members, row_construct) = construct_row(&mut errors, returning);
+                    quote! { {
+                        use ::sqlx::Arguments as _;
+                        let _ = std::include_bytes!(#sp);
+                        #(#errors; )*
+                        #args_tokens
+
+                        struct Row {
+                            #(#row_members),*
+                        };
+                        sqlx::query_with(#q, query_args).map(|row|
+                            Row{
+                                #(#row_construct),*
+                            }
+                        )
+                    }}
+                }
+                None => quote! { {
+                    use ::sqlx::Arguments as _;
+                    #(#errors; )*
+                    #args_tokens
+                    sqlx::query_with(#q, query_args)
+                }
+                },
             };
             s.into()
         }
@@ -671,16 +718,48 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             }}
             .into()
         }
-        sql_type::StatementType::Insert { .. } => {
+        sql_type::StatementType::Insert {
+            returning: None, ..
+        } => {
             errors.push(
-                syn::Error::new(query_as.query_span, "INSERT not support in query_as")
-                    .to_compile_error(),
+                syn::Error::new(
+                    query_as.query_span,
+                    "INSERT without RETURNING not support in query_as",
+                )
+                .to_compile_error(),
             );
             quote! { {
                 #(#errors; )*
                 todo!("insert")
             }}
             .into()
+        }
+        sql_type::StatementType::Insert {
+            arguments,
+            returning: Some(returning),
+            ..
+        } => {
+            let (args_tokens, q) = quote_args(
+                &mut errors,
+                &query_as.query,
+                query_as.last_span,
+                &query_as.args,
+                arguments,
+            );
+
+            let row_construct = construct_row2(&mut errors, returning);
+            let row = query_as.as_;
+            let s = quote! { {
+                use ::sqlx::Arguments as _;
+                #(#errors; )*
+                #args_tokens
+                sqlx::query_with(#q, query_args).map(|row|
+                    #row{
+                        #(#row_construct),*
+                    }
+                )
+            }};
+            s.into()
         }
         sql_type::StatementType::Update { .. } => {
             errors.push(
@@ -693,16 +772,48 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             }}
             .into()
         }
-        sql_type::StatementType::Replace { .. } => {
+        sql_type::StatementType::Replace {
+            returning: None, ..
+        } => {
             errors.push(
-                syn::Error::new(query_as.query_span, "REPLACE not support in query_as")
-                    .to_compile_error(),
+                syn::Error::new(
+                    query_as.query_span,
+                    "REPLACE without RETURNING not support in query_as",
+                )
+                .to_compile_error(),
             );
             quote! { {
                 #(#errors; )*
                 todo!("replace")
             }}
             .into()
+        }
+        sql_type::StatementType::Replace {
+            arguments,
+            returning: Some(returning),
+            ..
+        } => {
+            let (args_tokens, q) = quote_args(
+                &mut errors,
+                &query_as.query,
+                query_as.last_span,
+                &query_as.args,
+                arguments,
+            );
+
+            let row_construct = construct_row2(&mut errors, returning);
+            let row = query_as.as_;
+            let s = quote! { {
+                use ::sqlx::Arguments as _;
+                #(#errors; )*
+                #args_tokens
+                sqlx::query_with(#q, query_args).map(|row|
+                    #row{
+                        #(#row_construct),*
+                    }
+                )
+            }};
+            s.into()
         }
         sql_type::StatementType::Invalid => quote! { {
             #(#errors; )*;
