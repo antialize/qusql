@@ -434,6 +434,7 @@ mod tests {
           `ci16` smallint,
           `ci32` int,
           `ci64` bigint,
+          `cbin` binary(16),
           `ctext` varchar(100) NOT NULL,
           `cbytes` blob,
           `cf32` float,
@@ -498,7 +499,7 @@ mod tests {
             let name = "q1.1";
             let src =
                 "SELECT `id`, `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
-                `ctext`, `cbytes`, `cf32`, `cf64` FROM `t1` WHERE ci8 IS NOT NULL";
+                `ctext`, `cbytes`, `cf32`, `cf64`, `cbin` FROM `t1` WHERE ci8 IS NOT NULL";
 
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, &issues, &mut errors);
@@ -508,7 +509,7 @@ mod tests {
                     name,
                     &columns,
                     "id:i32!,cbool:b!,cu8:u8!,cu16:u16!,cu32:u32!,cu64:u64!,
-                    ci8:i8!,ci16:i16,ci32:i32,ci64:i64,ctext:str!,cbytes:bytes,cf32:f32,cf64:f64",
+                    ci8:i8!,ci16:i16,ci32:i32,ci64:i64,ctext:str!,cbytes:bytes,cf32:f32,cf64:f64,cbin:bytes",
                     &mut errors,
                 );
             } else {

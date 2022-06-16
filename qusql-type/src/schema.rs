@@ -225,6 +225,7 @@ pub(crate) fn parse_column<'a>(
         sql_parse::Type::Blob(_) => BaseType::Bytes.into(),
         sql_parse::Type::LongBlob(_) => BaseType::Bytes.into(),
         sql_parse::Type::VarBinary(_) => BaseType::Bytes.into(),
+        sql_parse::Type::Binary(_) => BaseType::Bytes.into(),
         sql_parse::Type::Boolean => BaseType::Bool.into(),
         sql_parse::Type::Integer(_) => BaseType::Integer.into(),
         sql_parse::Type::Float8 => BaseType::Float.into(),

@@ -318,6 +318,7 @@ pub(crate) fn type_expression<'a, 'b>(
                 | sql_parse::Type::Double(_)
                 | sql_parse::Type::Float(_)
                 | sql_parse::Type::Integer(_)
+                | sql_parse::Type::Binary(_)
                 | sql_parse::Type::Time(_) => {}
                 sql_parse::Type::Boolean
                 | sql_parse::Type::TinyInt(_)
