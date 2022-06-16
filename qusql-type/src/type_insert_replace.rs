@@ -15,9 +15,9 @@ use sql_parse::{issue_todo, InsertReplace, InsertReplaceFlag, InsertReplaceType,
 
 use crate::{
     type_expression::{type_expression, ExpressionFlags},
-    type_select::type_select,
+    type_select::{type_select, type_select_exprs, SelectType},
     typer::{typer_stack, ReferenceType, Typer},
-    BaseType, Type,
+    BaseType, SelectTypeColumn, Type,
 };
 
 /// Does the insert yield an auto increment id
@@ -31,7 +31,7 @@ pub enum AutoIncrementId {
 pub(crate) fn type_insert_replace<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     ior: &InsertReplace<'a>,
-) -> AutoIncrementId {
+) -> (AutoIncrementId, Option<SelectType<'a>>) {
     let table = &ior.table;
     let columns = &ior.columns;
 
@@ -232,9 +232,24 @@ pub(crate) fn type_insert_replace<'a, 'b>(
             }
         }
     }
+
+    let returning_select = match &ior.returning {
+        Some((returning_span, returning_exprs)) => {
+            let columns = type_select_exprs(typer, returning_exprs, true)
+                .into_iter()
+                .map(|(name, type_, span)| SelectTypeColumn { name, type_, span })
+                .collect();
+            Some(SelectType {
+                columns,
+                select_span: returning_span.join_span(returning_exprs),
+            })
+        }
+        None => None,
+    };
+
     core::mem::drop(guard);
 
-    if auto_increment && matches!(ior.type_, InsertReplaceType::Insert(_)) {
+    let auto_increment_id = if auto_increment && matches!(ior.type_, InsertReplaceType::Insert(_)) {
         if ior
             .flags
             .iter()
@@ -247,5 +262,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
         }
     } else {
         AutoIncrementId::No
-    }
+    };
+
+    (auto_increment_id, returning_select)
 }

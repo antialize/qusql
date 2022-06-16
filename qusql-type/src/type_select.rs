@@ -12,8 +12,8 @@
 
 use alloc::{format, vec::Vec};
 use sql_parse::{
-    issue_ice, issue_todo, Expression, Identifier, IdentifierPart, Issue, OptSpanned, Select, Span,
-    Spanned, Statement, Union,
+    issue_ice, issue_todo, Expression, Identifier, IdentifierPart, Issue, OptSpanned, Select,
+    SelectExpr, Span, Spanned, Statement, Union,
 };
 
 use crate::{
@@ -208,53 +208,7 @@ pub(crate) fn type_select<'a, 'b>(
         typer.ensure_base(where_, &t, BaseType::Bool);
     }
 
-    let mut result: Vec<(Option<&'a str>, FullType<'a>, Span)> = Vec::new();
-    let mut select_refence = ReferenceType {
-        name: None,
-        span: select.select_exprs.opt_span().expect("select_exprs span"),
-        columns: Vec::new(),
-    };
-
-    let mut add_result_issues = Vec::new();
-
-    for e in &select.select_exprs {
-        let mut add_result = |name: Option<&'a str>, type_: FullType<'a>, span: Span, as_: bool| {
-            if let Some(name) = name {
-                if as_ {
-                    select_refence.columns.push((name, type_.clone()));
-                }
-                for (on, _, os) in &result {
-                    if Some(name) == *on && warn_duplicate {
-                        add_result_issues.push(
-                            Issue::warn(
-                                format!("Multiple columns with the name '{}'", name),
-                                &span,
-                            )
-                            .frag("Also defined here", os),
-                        );
-                    }
-                }
-            }
-            result.push((name, type_, span));
-        };
-        if let Expression::Identifier(parts) = &e.expr {
-            resolve_kleene_identifier(typer, parts, &e.as_, add_result);
-        } else {
-            let type_ = type_expression(typer, &e.expr, ExpressionFlags::default(), BaseType::Any);
-            if let Some(as_) = &e.as_ {
-                add_result(Some(as_.value), type_, as_.span(), true);
-            } else {
-                if typer.options.warn_unnamed_column_in_select {
-                    typer
-                        .issues
-                        .push(Issue::warn("Unnamed column in select", e));
-                }
-                add_result(None, type_, 0..0, false);
-            };
-        }
-    }
-    typer.issues.extend(add_result_issues.into_iter());
-    typer.reference_types.push(select_refence);
+    let result = type_select_exprs(typer, &select.select_exprs, warn_duplicate);
 
     if let Some((_, group_by)) = &select.group_by {
         for e in group_by {
@@ -300,6 +254,62 @@ pub(crate) fn type_select<'a, 'b>(
             .collect(),
         select_span: select.span(),
     }
+}
+
+pub(crate) fn type_select_exprs<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
+    select_exprs: &[SelectExpr<'a>],
+    warn_duplicate: bool,
+) -> Vec<(Option<&'a str>, FullType<'a>, Span)> {
+    let mut result = Vec::new();
+    let mut select_reference = ReferenceType {
+        name: None,
+        span: select_exprs.opt_span().expect("select_exprs span"),
+        columns: Vec::new(),
+    };
+
+    let mut add_result_issues = Vec::new();
+
+    for e in select_exprs {
+        let mut add_result = |name: Option<&'a str>, type_: FullType<'a>, span: Span, as_: bool| {
+            if let Some(name) = name {
+                if as_ {
+                    select_reference.columns.push((name, type_.clone()));
+                }
+                for (on, _, os) in &result {
+                    if Some(name) == *on && warn_duplicate {
+                        add_result_issues.push(
+                            Issue::warn(
+                                format!("Multiple columns with the name '{}'", name),
+                                &span,
+                            )
+                            .frag("Also defined here", os),
+                        );
+                    }
+                }
+            }
+            result.push((name, type_, span));
+        };
+        if let Expression::Identifier(parts) = &e.expr {
+            resolve_kleene_identifier(typer, parts, &e.as_, add_result);
+        } else {
+            let type_ = type_expression(typer, &e.expr, ExpressionFlags::default(), BaseType::Any);
+            if let Some(as_) = &e.as_ {
+                add_result(Some(as_.value), type_, as_.span(), true);
+            } else {
+                if typer.options.warn_unnamed_column_in_select {
+                    typer
+                        .issues
+                        .push(Issue::warn("Unnamed column in select", e));
+                }
+                add_result(None, type_, 0..0, false);
+            };
+        }
+    }
+    typer.issues.extend(add_result_issues.into_iter());
+    typer.reference_types.push(select_reference);
+
+    result
 }
 
 pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -> SelectType<'a> {

@@ -180,6 +180,8 @@ pub enum StatementType<'a> {
         yield_autoincrement: AutoIncrementId,
         /// The key and type of arguments to the query
         arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
+        /// If present, the types and names of the columns returned from the insert
+        returning: Option<Vec<SelectTypeColumn<'a>>>,
     },
     /// The statement is a update statement
     Update {
@@ -190,6 +192,8 @@ pub enum StatementType<'a> {
     Replace {
         /// The key and type of arguments to the query
         arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
+        /// If present, the types and names of the columns returned from the replace
+        returning: Option<Vec<SelectTypeColumn<'a>>>,
     },
     /// The query was not valid, errors are preset in issues
     Invalid,
@@ -218,14 +222,19 @@ pub fn type_statement<'a>(
                 arguments,
             },
             type_statement::InnerStatementType::Delete => StatementType::Delete { arguments },
-            type_statement::InnerStatementType::Insert { auto_increment_id } => {
-                StatementType::Insert {
-                    yield_autoincrement: auto_increment_id,
-                    arguments,
-                }
-            }
+            type_statement::InnerStatementType::Insert {
+                auto_increment_id,
+                returning,
+            } => StatementType::Insert {
+                yield_autoincrement: auto_increment_id,
+                arguments,
+                returning: returning.map(|r| r.columns),
+            },
             type_statement::InnerStatementType::Update => StatementType::Update { arguments },
-            type_statement::InnerStatementType::Replace => StatementType::Replace { arguments },
+            type_statement::InnerStatementType::Replace { returning } => StatementType::Replace {
+                arguments,
+                returning: returning.map(|r| r.columns),
+            },
             type_statement::InnerStatementType::Invalid => StatementType::Invalid,
         }
     } else {
@@ -530,6 +539,7 @@ mod tests {
             if let StatementType::Insert {
                 arguments,
                 yield_autoincrement,
+                returning,
             } = q
             {
                 check_arguments(
@@ -540,6 +550,10 @@ mod tests {
                 );
                 if yield_autoincrement != AutoIncrementId::Yes {
                     println!("{} should yield autoincrement", name);
+                    errors += 1;
+                }
+                if returning.is_some() {
+                    println!("{} should not return columns", name);
                     errors += 1;
                 }
             } else {
@@ -572,11 +586,16 @@ mod tests {
             if let StatementType::Insert {
                 arguments,
                 yield_autoincrement,
+                returning,
             } = q
             {
                 check_arguments(name, &arguments, "i32!,i32!", &mut errors);
                 if yield_autoincrement != AutoIncrementId::Optional {
                     println!("{} should yield optional auto increment", name);
+                    errors += 1;
+                }
+                if returning.is_some() {
+                    println!("{} should not return columns", name);
                     errors += 1;
                 }
             } else {
@@ -594,11 +613,16 @@ mod tests {
             if let StatementType::Insert {
                 arguments,
                 yield_autoincrement,
+                returning,
             } = q
             {
                 check_arguments(name, &arguments, "i32!", &mut errors);
                 if yield_autoincrement != AutoIncrementId::Optional {
                     println!("{} should yield optional auto increment", name);
+                    errors += 1;
+                }
+                if returning.is_some() {
+                    println!("{} should not return columns", name);
                     errors += 1;
                 }
             } else {
@@ -643,8 +667,16 @@ mod tests {
             let src = "REPLACE INTO `t2` SET `id` = ?, `t1_id`=?";
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, &issues, &mut errors);
-            if let StatementType::Replace { arguments } = q {
+            if let StatementType::Replace {
+                arguments,
+                returning,
+            } = q
+            {
                 check_arguments(name, &arguments, "i32!,i32!", &mut errors);
+                if returning.is_some() {
+                    println!("{} should not return columns", name);
+                    errors += 1;
+                }
             } else {
                 println!("{} should be replace", name);
                 errors += 1;
@@ -735,6 +767,73 @@ mod tests {
                 check_columns(name, &columns, "id:str", &mut errors);
             } else {
                 println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q15";
+            let src =
+				"INSERT INTO `t1` (`cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
+            `ctext`, `cbytes`, `cf32`, `cf64`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 RETURNING `id`, `cbool`, `cu8`, `ctext`, `cf64`";
+
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Insert {
+                arguments,
+                yield_autoincrement,
+                returning,
+            } = q
+            {
+                check_arguments(
+                    name,
+                    &arguments,
+                    "b!,u8!,u16!,u32!,u64!,i8,i16,i32,i64,str!,bytes,f32,f64",
+                    &mut errors,
+                );
+                if yield_autoincrement != AutoIncrementId::Yes {
+                    println!("{} should yield autoincrement", name);
+                    errors += 1;
+                }
+                if let Some(returning) = returning {
+                    check_columns(
+                        name,
+                        &returning,
+                        "id:i32!,cbool:b!,cu8:u8!,ctext:str!,cf64:f64",
+                        &mut errors,
+                    );
+                } else {
+                    println!("{} should return columns", name);
+                    errors += 1;
+                }
+            } else {
+                println!("{} should be insert", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q16";
+            let src = "REPLACE INTO `t2` SET `id` = ?, `t1_id`=? RETURNING `id`";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Replace {
+                arguments,
+                returning,
+            } = q
+            {
+                check_arguments(name, &arguments, "i32!,i32!", &mut errors);
+                if let Some(returning) = returning {
+                    check_columns(name, &returning, "id:i32!", &mut errors);
+                } else {
+                    println!("{} should return columns", name);
+                    errors += 1;
+                }
+            } else {
+                println!("{} should be replace", name);
                 errors += 1;
             }
         }
