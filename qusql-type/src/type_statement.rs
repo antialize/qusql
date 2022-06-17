@@ -23,9 +23,14 @@ use crate::{
 pub(crate) enum InnerStatementType<'a> {
     Select(SelectType<'a>),
     Delete,
-    Insert { auto_increment_id: AutoIncrementId },
+    Insert {
+        auto_increment_id: AutoIncrementId,
+        returning: Option<SelectType<'a>>,
+    },
     Update,
-    Replace,
+    Replace {
+        returning: Option<SelectType<'a>>,
+    },
     Invalid,
 }
 
@@ -44,10 +49,13 @@ pub(crate) fn type_statement<'a, 'b>(
             InnerStatementType::Delete
         }
         Statement::InsertReplace(ior) => {
-            let auto_increment_id = type_insert_replace(typer, ior);
+            let (auto_increment_id, returning) = type_insert_replace(typer, ior);
             match &ior.type_ {
-                InsertReplaceType::Insert(_) => InnerStatementType::Insert { auto_increment_id },
-                InsertReplaceType::Replace(_) => InnerStatementType::Replace,
+                InsertReplaceType::Insert(_) => InnerStatementType::Insert {
+                    auto_increment_id,
+                    returning,
+                },
+                InsertReplaceType::Replace(_) => InnerStatementType::Replace { returning },
             }
         }
         Statement::Update(u) => {
