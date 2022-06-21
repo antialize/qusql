@@ -316,14 +316,15 @@ pub(crate) fn type_expression<'a, 'b>(
                 | sql_parse::Type::Date
                 | sql_parse::Type::DateTime(_)
                 | sql_parse::Type::Double(_)
+                | sql_parse::Type::Float8
                 | sql_parse::Type::Float(_)
                 | sql_parse::Type::Integer(_)
+                | sql_parse::Type::Int(_)
                 | sql_parse::Type::Binary(_)
                 | sql_parse::Type::Time(_) => {}
                 sql_parse::Type::Boolean
                 | sql_parse::Type::TinyInt(_)
                 | sql_parse::Type::SmallInt(_)
-                | sql_parse::Type::Int(_)
                 | sql_parse::Type::BigInt(_)
                 | sql_parse::Type::VarChar(_)
                 | sql_parse::Type::TinyText(_)
@@ -332,7 +333,6 @@ pub(crate) fn type_expression<'a, 'b>(
                 | sql_parse::Type::LongText(_)
                 | sql_parse::Type::Enum(_)
                 | sql_parse::Type::Set(_)
-                | sql_parse::Type::Float8
                 | sql_parse::Type::Numeric(_, _, _)
                 | sql_parse::Type::Timestamp(_)
                 | sql_parse::Type::TinyBlob(_)
