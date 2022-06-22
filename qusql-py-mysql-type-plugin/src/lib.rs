@@ -136,7 +136,7 @@ enum Type {
     Bytes,
     String,
     Enum(Vec<std::string::String>),
-    List(Box<Type>)
+    List(Box<Type>),
 }
 
 impl IntoPy<PyObject> for Type {
@@ -149,7 +149,14 @@ impl IntoPy<PyObject> for Type {
             Type::Bytes => Py::new(py, Bytes {}).unwrap().to_object(py),
             Type::String => Py::new(py, String {}).unwrap().to_object(py),
             Type::Enum(values) => Py::new(py, Enum { values }).unwrap().to_object(py),
-            Type::List(r#type) => Py::new(py,List{r#type: r#type.into_py(py)}).unwrap().to_object(py),
+            Type::List(r#type) => Py::new(
+                py,
+                List {
+                    r#type: r#type.into_py(py),
+                },
+            )
+            .unwrap()
+            .to_object(py),
         }
     }
 }
@@ -301,7 +308,15 @@ fn type_statement(
         sql_type::StatementType::Insert {
             yield_autoincrement,
             arguments,
+            returning,
         } => {
+            if returning.is_some() {
+                // TODO: Implement RETURNING support
+                issues.push(Issue::err(
+                    "support for RETURNING is not implemented yet",
+                    &(0..statement.len()),
+                ));
+            }
             let yield_autoincrement = match yield_autoincrement {
                 sql_type::AutoIncrementId::Yes => "yes",
                 sql_type::AutoIncrementId::No => "no",
@@ -323,13 +338,25 @@ fn type_statement(
             },
         )?
         .to_object(py),
-        sql_type::StatementType::Replace { arguments } => Py::new(
-            py,
-            Replace {
-                arguments: map_arguments(arguments),
-            },
-        )?
-        .to_object(py),
+        sql_type::StatementType::Replace {
+            arguments,
+            returning,
+        } => {
+            if returning.is_some() {
+                // TODO: Implement RETURNING support
+                issues.push(Issue::err(
+                    "support for RETURNING is not implemented yet",
+                    &(0..statement.len()),
+                ));
+            }
+            Py::new(
+                py,
+                Replace {
+                    arguments: map_arguments(arguments),
+                },
+            )?
+            .to_object(py)
+        }
         sql_type::StatementType::Invalid => Py::new(py, Invalid {})?.to_object(py),
     };
 
