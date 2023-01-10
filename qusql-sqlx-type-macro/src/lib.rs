@@ -126,8 +126,18 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
     }
 }
 
-static SCHEMAS: Lazy<Schemas> = Lazy::new(|| {
-    let options = TypeOptions::new().dialect(SQLDialect::MariaDB);
+static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
+    let dialect = if let Some(first_line) = SCHEMA_SRC.as_str().lines().next() {
+        if first_line.contains("sql-product: postgres") {
+            SQLDialect::PostgreSQL
+        } else {
+            SQLDialect::MariaDB
+        }
+    } else {
+        SQLDialect::MariaDB
+    };
+
+    let options = TypeOptions::new().dialect(dialect.clone());
     let mut issues = Vec::new();
     let schemas = parse_schemas(SCHEMA_SRC.as_str(), &mut issues, &options);
     if !issues.is_empty() {
@@ -144,7 +154,7 @@ static SCHEMAS: Lazy<Schemas> = Lazy::new(|| {
             panic!("Errors processing sqlx-type-schema.sql");
         }
     }
-    schemas
+    (schemas, dialect)
 });
 
 fn quote_args(
@@ -153,7 +163,13 @@ fn quote_args(
     last_span: Span,
     args: &[Expr],
     arguments: &[(sql_type::ArgumentKey<'_>, sql_type::FullType)],
+    dialect: &SQLDialect,
 ) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+    let cls = match dialect {
+        SQLDialect::MariaDB => quote!(sqlx::mysql::MySql),
+        SQLDialect::PostgreSQL => quote!(sqlx::postgres::Postgres),
+    };
+
     let mut at = Vec::new();
     let inv = sql_type::FullType::invalid();
     for (k, v) in arguments {
@@ -237,7 +253,7 @@ fn quote_args(
                 let #name = &(#qa);
                 args_count += #name.len();
                 for v in #name.iter() {
-                    size_hints += ::sqlx::encode::Encode::<sqlx::mysql::MySql>::size_hint(v);
+                    size_hints += ::sqlx::encode::Encode::<#cls>::size_hint(v);
                 }
                 if false {
                     sqlx_type::check_arg_list_hack::<#t, _>(#name);
@@ -253,7 +269,7 @@ fn quote_args(
             arg_bindings.push(quote_spanned! {span=>
                 let #name = &(#qa);
                 args_count += 1;
-                size_hints += ::sqlx::encode::Encode::<sqlx::mysql::MySql>::size_hint(#name);
+                size_hints += ::sqlx::encode::Encode::<#cls>::size_hint(#name);
                 if false {
                     sqlx_type::check_arg::<#t, _>(#name);
                     ::std::panic!();
@@ -277,7 +293,7 @@ fn quote_args(
             let mut args_count = 0;
             #(#arg_bindings)*
 
-            let mut query_args = <sqlx::mysql::MySql as ::sqlx::database::HasArguments>::Arguments::default();
+            let mut query_args = <#cls as ::sqlx::database::HasArguments>::Arguments::default();
             query_args.reserve(args_count, size_hints);
 
             #(#arg_add)*
@@ -407,9 +423,9 @@ impl Parse for Query {
 #[proc_macro]
 pub fn query(input: TokenStream) -> TokenStream {
     let query = syn::parse_macro_input!(input as Query);
-    let schemas = SCHEMAS.deref();
+    let (schemas, dialect) = SCHEMAS.deref();
     let options = TypeOptions::new()
-        .dialect(SQLDialect::MariaDB)
+        .dialect(dialect.clone())
         .arguments(SQLArguments::QuestionMark)
         .list_hack(true);
     let mut issues = Vec::new();
@@ -425,6 +441,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                 query.last_span,
                 &query.args,
                 arguments,
+                dialect,
             );
             let (row_members, row_construct) = construct_row(&mut errors, columns);
             let s = quote! { {
@@ -451,6 +468,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                 query.last_span,
                 &query.args,
                 arguments,
+                dialect,
             );
             let s = quote! { {
                 use ::sqlx::Arguments as _;
@@ -472,6 +490,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                 query.last_span,
                 &query.args,
                 arguments,
+                dialect,
             );
             let s = match returning.as_ref() {
                 Some(returning) => {
@@ -509,6 +528,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                 query.last_span,
                 &query.args,
                 arguments,
+                dialect,
             );
             let s = quote! { {
                 use ::sqlx::Arguments as _;
@@ -529,6 +549,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                 query.last_span,
                 &query.args,
                 arguments,
+                dialect,
             );
             let s = match returning.as_ref() {
                 Some(returning) => {
@@ -673,9 +694,9 @@ impl Parse for QueryAs {
 #[proc_macro]
 pub fn query_as(input: TokenStream) -> TokenStream {
     let query_as = syn::parse_macro_input!(input as QueryAs);
-    let schemas = SCHEMAS.deref();
+    let (schemas, dialect) = SCHEMAS.deref();
     let options = TypeOptions::new()
-        .dialect(SQLDialect::MariaDB)
+        .dialect(dialect.clone())
         .arguments(SQLArguments::QuestionMark)
         .list_hack(true);
     let mut issues = Vec::new();
@@ -690,6 +711,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 query_as.last_span,
                 &query_as.args,
                 arguments,
+                dialect,
             );
 
             let row_construct = construct_row2(&mut errors, columns);
@@ -745,6 +767,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 query_as.last_span,
                 &query_as.args,
                 arguments,
+                dialect,
             );
 
             let row_construct = construct_row2(&mut errors, returning);
@@ -799,6 +822,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 query_as.last_span,
                 &query_as.args,
                 arguments,
+                dialect,
             );
 
             let row_construct = construct_row2(&mut errors, returning);
