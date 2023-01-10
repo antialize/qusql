@@ -230,6 +230,11 @@ pub(crate) fn parse_column<'a>(
         sql_parse::Type::Integer(_) => BaseType::Integer.into(),
         sql_parse::Type::Float8 => BaseType::Float.into(),
         sql_parse::Type::Numeric(_, _, _) => todo!(),
+        sql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
+        sql_parse::Type::Json => BaseType::String.into(),
+        sql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
+        sql_parse::Type::Bytea => BaseType::Bytes.into(),
+        sql_parse::Type::Named(_) => BaseType::String.into(), // TODO lookup name??
     };
     Column {
         identifier,
@@ -319,6 +324,7 @@ pub fn parse_schemas<'a>(
                                 schema.columns.push(column);
                             }
                         }
+                        sql_parse::CreateDefinition::ConstraintDefinition { .. } => {}
                     }
                 }
                 match schemas.schemas.entry(t.identifier.value) {
@@ -517,8 +523,12 @@ pub fn parse_schemas<'a>(
                                 issues,
                             ));
                         }
+                        sql_parse::AlterSpecification::OwnerTo { .. } => {}
                     }
                 }
+            }
+            sql_parse::Statement::Do(_) => {
+                //todo!()
             }
             // sql_parse::Statement::Block(_) => todo!(),
             // sql_parse::Statement::If(_) => todo!(),
@@ -526,6 +536,9 @@ pub fn parse_schemas<'a>(
             // sql_parse::Statement::Union(_) => todo!(),
             // sql_parse::Statement::Replace(_) => todo!(),
             // sql_parse::Statement::Case(_) => todo!(),
+            sql_parse::Statement::CreateIndex(_) => (),
+            sql_parse::Statement::Commit(_) => (),
+            sql_parse::Statement::Begin(_) => (),
             s => issues.push(Issue::err("Unsupported statement in schema definition", &s)),
         }
     }

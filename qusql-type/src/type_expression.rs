@@ -84,7 +84,7 @@ pub(crate) fn type_expression<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     expression: &Expression<'a>,
     flags: ExpressionFlags,
-    context: BaseType,
+    _context: BaseType,
 ) -> FullType<'a> {
     match expression {
         Expression::Binary {
@@ -321,6 +321,7 @@ pub(crate) fn type_expression<'a, 'b>(
                 | sql_parse::Type::Integer(_)
                 | sql_parse::Type::Int(_)
                 | sql_parse::Type::Binary(_)
+                | sql_parse::Type::Timestamptz
                 | sql_parse::Type::Time(_) => {}
                 sql_parse::Type::Boolean
                 | sql_parse::Type::TinyInt(_)
@@ -339,6 +340,10 @@ pub(crate) fn type_expression<'a, 'b>(
                 | sql_parse::Type::MediumBlob(_)
                 | sql_parse::Type::Blob(_)
                 | sql_parse::Type::LongBlob(_)
+                | sql_parse::Type::Json
+                | sql_parse::Type::Bit(_, _)
+                | sql_parse::Type::Bytea
+                | sql_parse::Type::Named(_) // TODO lookup name
                 | sql_parse::Type::VarBinary(_) => {
                     typer
                         .issues
