@@ -222,6 +222,18 @@ pub(crate) fn type_select<'a, 'b>(
         }
     }
 
+    if let Some((having, _)) = &select.having {
+        let t = type_expression(
+            typer,
+            having,
+            ExpressionFlags::default()
+                .with_not_null(true)
+                .with_true(true),
+            BaseType::Bool,
+        );
+        typer.ensure_base(having, &t, BaseType::Bool);
+    }
+
     if let Some((_, offset, count)) = &select.limit {
         if let Some(offset) = offset {
             let t = type_expression(typer, offset, ExpressionFlags::default(), BaseType::Integer);
