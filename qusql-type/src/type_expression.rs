@@ -263,23 +263,24 @@ pub(crate) fn type_expression<'a, 'b>(
             FullType::new(BaseType::Bool, not_null)
         }
         Expression::Is(e, is, _) => {
-            let flags = match is {
-                sql_parse::Is::Null => flags.without_values(),
+            let (flags, base_type) = match is {
+                sql_parse::Is::Null => (flags.without_values(), BaseType::Any),
                 sql_parse::Is::NotNull => {
                     if flags.true_ {
-                        flags.with_not_null(true).with_true(false)
+                        (flags.with_not_null(true).with_true(false), BaseType::Any)
                     } else {
-                        flags.with_not_null(false)
+                        (flags.with_not_null(false), BaseType::Any)
                     }
                 }
                 sql_parse::Is::True
                 | sql_parse::Is::NotTrue
                 | sql_parse::Is::False
-                | sql_parse::Is::NotFalse
-                | sql_parse::Is::Unknown
-                | sql_parse::Is::NotUnknown => flags.without_values(),
+                | sql_parse::Is::NotFalse => (flags.without_values(), BaseType::Bool),
+                sql_parse::Is::Unknown | sql_parse::Is::NotUnknown => {
+                    (flags.without_values(), BaseType::Any)
+                }
             };
-            let t = type_expression(typer, e, flags, BaseType::Any);
+            let t = type_expression(typer, e, flags, base_type);
             match is {
                 sql_parse::Is::Null => {
                     if t.not_null {
@@ -287,13 +288,12 @@ pub(crate) fn type_expression<'a, 'b>(
                     }
                     FullType::new(BaseType::Bool, true)
                 }
-                sql_parse::Is::NotNull => FullType::new(BaseType::Bool, true),
-                sql_parse::Is::True
+                sql_parse::Is::NotNull
+                | sql_parse::Is::True
                 | sql_parse::Is::NotTrue
                 | sql_parse::Is::False
-                | sql_parse::Is::NotFalse
-                | sql_parse::Is::Unknown
-                | sql_parse::Is::NotUnknown => {
+                | sql_parse::Is::NotFalse => FullType::new(BaseType::Bool, true),
+                sql_parse::Is::Unknown | sql_parse::Is::NotUnknown => {
                     typer.issues.push(issue_todo!(expression));
                     FullType::invalid()
                 }
