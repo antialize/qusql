@@ -842,4 +842,75 @@ mod tests {
             panic!("{} errors in test", errors);
         }
     }
+
+    #[test]
+    fn postgresql() {
+        let schema_src = "
+        BEGIN;
+
+        DO $$ BEGIN
+            CREATE TYPE my_enum AS ENUM (
+            'V1',
+            'V2',
+            'V3'
+        );
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+
+        CREATE TABLE IF NOT EXISTS t1 (
+            id bigint NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+            path text NOT NULL UNIQUE,
+            v my_enum NOT NULL,
+            time timestamptz NOT NULL DEFAULT now(),
+            old_id bigint,
+            CONSTRAINT t1__old
+            FOREIGN KEY(old_id) 
+            REFERENCES t1(id)
+            ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS t2 (
+            id bigint NOT NULL PRIMARY KEY
+        );
+
+        COMMIT;
+        ";
+
+        let options = TypeOptions::new().dialect(SQLDialect::PostgreSQL);
+        let mut issues = Vec::new();
+        let schema = parse_schemas(schema_src, &mut issues, &options);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, &issues, &mut errors);
+
+        issues.clear();
+        let options = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+
+        {
+            let name = "q1";
+            let src =
+                "INSERT INTO t2 (id) SELECT id FROM t1 WHERE path=$1 ON CONFLICT (id) DO NOTHING RETURNING id";
+
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Insert {
+                arguments,
+                returning,
+                ..
+            } = q
+            {
+                check_arguments(name, &arguments, "str", &mut errors);
+                check_columns(name, &returning.expect("Returning"), "id:i64!", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        if errors != 0 {
+            panic!("{} errors in test", errors);
+        }
+    }
 }

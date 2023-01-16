@@ -233,6 +233,79 @@ pub(crate) fn type_insert_replace<'a, 'b>(
         }
     }
 
+    if let Some(on_conflict) = &ior.on_conflict {
+        match &on_conflict.target {
+            sql_parse::OnConflictTarget::Column { name } => {
+                let mut t = None;
+                for r in &typer.reference_types {
+                    for c in &r.columns {
+                        if c.0 == name.value {
+                            t = Some(c.clone());
+                        }
+                    }
+                }
+                if t.is_none() {
+                    typer.issues.push(Issue::err("Unknown identifier", name));
+                }
+                //TODO check if there is a unique constraint on column
+            }
+            sql_parse::OnConflictTarget::OnConstraint {
+                on_constraint_span, ..
+            } => {
+                typer.issues.push(issue_todo!(on_constraint_span));
+            }
+        }
+
+        match &on_conflict.action {
+            sql_parse::OnConflictAction::DoNothing(_) => (),
+            sql_parse::OnConflictAction::DoUpdateSet { sets, where_, .. } => {
+                for (key, value) in sets {
+                    let mut cnt = 0;
+                    let mut t = None;
+                    for r in &typer.reference_types {
+                        for c in &r.columns {
+                            if c.0 == key.value {
+                                cnt += 1;
+                                t = Some(c.clone());
+                            }
+                        }
+                    }
+                    let flags = ExpressionFlags::default().with_in_on_duplicate_key_update(true);
+                    if cnt > 1 {
+                        type_expression(typer, value, flags, BaseType::Any);
+                        let mut issue = Issue::err("Ambiguous reference", key);
+                        for r in &typer.reference_types {
+                            for c in &r.columns {
+                                if c.0 == key.value {
+                                    issue = issue.frag("Defined here", &r.span);
+                                }
+                            }
+                        }
+                        typer.issues.push(issue);
+                    } else if let Some(t) = t {
+                        let value_type = type_expression(typer, value, flags, t.1.base());
+                        if typer.matched_type(&value_type, &t.1).is_none() {
+                            typer.issues.push(Issue::err(
+                                format!("Got type {} expected {}", value_type, t.1),
+                                value,
+                            ));
+                        } else if let Type::Args(_, args) = &value_type.t {
+                            for (idx, arg_type, _) in args {
+                                typer.constrain_arg(*idx, arg_type, &t.1);
+                            }
+                        }
+                    } else {
+                        type_expression(typer, value, flags, BaseType::Any);
+                        typer.issues.push(Issue::err("Unknown identifier", key));
+                    }
+                }
+                if let Some((_, where_)) = where_ {
+                    type_expression(typer, where_, ExpressionFlags::default(), BaseType::Bool);
+                }
+            }
+        }
+    }
+
     let returning_select = match &ior.returning {
         Some((returning_span, returning_exprs)) => {
             let columns = type_select_exprs(typer, returning_exprs, true)
