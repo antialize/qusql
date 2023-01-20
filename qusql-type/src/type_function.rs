@@ -157,13 +157,15 @@ pub(crate) fn type_function<'a, 'b>(
         }
         Function::CharacterLength => return tf(BaseType::Integer.into(), &[BaseType::String], &[]),
         Function::UnixTimestamp => {
+            let mut not_null = true;
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 0..1, args, span);
             if let Some((a, t)) = typed.get(0) {
+                not_null = not_null && t.not_null;
                 // TODO the argument can be both a DATE, a DATE_TIME or a TIMESTAMP
                 typer.ensure_base(*a, t, BaseType::DateTime);
             }
-            FullType::new(Type::U64, true)
+            FullType::new(Type::I64, not_null)
         }
         Function::IfNull => {
             let typed = typed_args(typer, args, flags);

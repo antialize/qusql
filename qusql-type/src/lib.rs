@@ -460,6 +460,10 @@ mod tests {
         CREATE TABLE `t3` (
             `id` int(11) NOT NULL AUTO_INCREMENT,
             `text` TEXT);
+
+        CREATE TABLE `t4` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `dt` datetime NOT NULL);
         ";
 
         let options = TypeOptions::new().dialect(SQLDialect::MariaDB);
@@ -832,6 +836,25 @@ mod tests {
                     println!("{} should return columns", name);
                     errors += 1;
                 }
+            } else {
+                println!("{} should be replace", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q17";
+            let src = "SELECT dt, UNIX_TIMESTAMP(dt) AS t FROM t4";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select {
+                arguments,
+                columns,
+            } = q
+            {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "dt:dt!,t:i64!", &mut errors);
             } else {
                 println!("{} should be replace", name);
                 errors += 1;
