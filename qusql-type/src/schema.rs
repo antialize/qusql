@@ -296,6 +296,9 @@ pub fn parse_schemas<'a>(
                         sql_parse::CreateOption::Temporary(s) => {
                             issues.push(Issue::err("Not supported", &s))
                         }
+                        sql_parse::CreateOption::Unique(s) => {
+                            issues.push(Issue::err("Not supported", &s))
+                        }
                         sql_parse::CreateOption::Algorithm(_, _) => {}
                         sql_parse::CreateOption::Definer { .. } => {}
                         sql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
@@ -356,6 +359,9 @@ pub fn parse_schemas<'a>(
                             replace = true;
                         }
                         sql_parse::CreateOption::Temporary(s) => {
+                            issues.push(Issue::err("Not supported", &s))
+                        }
+                        sql_parse::CreateOption::Unique(s) => {
                             issues.push(Issue::err("Not supported", &s))
                         }
                         sql_parse::CreateOption::Algorithm(_, _) => {}

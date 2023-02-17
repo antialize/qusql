@@ -254,6 +254,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
             } => {
                 typer.issues.push(issue_todo!(on_constraint_span));
             }
+            sql_parse::OnConflictTarget::None => (),
         }
 
         match &on_conflict.action {
