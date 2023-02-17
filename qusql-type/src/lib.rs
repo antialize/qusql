@@ -848,11 +848,7 @@ mod tests {
             let src = "SELECT dt, UNIX_TIMESTAMP(dt) AS t FROM t4";
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, &issues, &mut errors);
-            if let StatementType::Select {
-                arguments,
-                columns,
-            } = q
-            {
+            if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "dt:dt!,t:i64!", &mut errors);
             } else {
