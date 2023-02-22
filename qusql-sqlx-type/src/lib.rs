@@ -133,6 +133,7 @@ arg_io!(&str, std::borrow::Cow<'_, str>);
 
 arg_io!(&[u8], &[u8]);
 arg_io!(&[u8], Vec<u8>);
+arg_io!(Vec<u8>, Vec<u8>);
 
 arg_io!(Timestamp, chrono::NaiveDateTime);
 arg_io!(DateTime, chrono::NaiveDateTime);
