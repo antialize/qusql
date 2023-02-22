@@ -426,12 +426,10 @@ pub fn query(input: TokenStream) -> TokenStream {
     let (schemas, dialect) = SCHEMAS.deref();
     let options = TypeOptions::new()
         .dialect(dialect.clone())
-        .arguments(
-            match &dialect {
-                SQLDialect::MariaDB => SQLArguments::QuestionMark,
-                SQLDialect::PostgreSQL => SQLArguments::Dollar
-            }
-        )
+        .arguments(match &dialect {
+            SQLDialect::MariaDB => SQLArguments::QuestionMark,
+            SQLDialect::PostgreSQL => SQLArguments::Dollar,
+        })
         .list_hack(true);
     let mut issues = Vec::new();
     let stmt = type_statement(schemas, &query.query, &mut issues, &options);
@@ -702,7 +700,10 @@ pub fn query_as(input: TokenStream) -> TokenStream {
     let (schemas, dialect) = SCHEMAS.deref();
     let options = TypeOptions::new()
         .dialect(dialect.clone())
-        .arguments(SQLArguments::QuestionMark)
+        .arguments(match &dialect {
+            SQLDialect::MariaDB => SQLArguments::QuestionMark,
+            SQLDialect::PostgreSQL => SQLArguments::Dollar,
+        })
         .list_hack(true);
     let mut issues = Vec::new();
     let stmt = type_statement(schemas, &query_as.query, &mut issues, &options);
