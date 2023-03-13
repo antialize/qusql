@@ -17,7 +17,7 @@ use crate::{
 };
 use alloc::format;
 use alloc::vec::Vec;
-use sql_parse::{Issue, Span, Spanned};
+use sql_parse::{Issue, SQLDialect, Span, Spanned};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ReferenceType<'a> {
@@ -35,6 +35,10 @@ pub(crate) struct Typer<'a, 'b> {
 }
 
 impl<'a, 'b> Typer<'a, 'b> {
+    pub(crate) fn dialect(&self) -> SQLDialect {
+        self.options.parse_options.get_dialect()
+    }
+
     pub(crate) fn constrain_arg(&mut self, idx: usize, arg_type: &ArgType, t: &FullType<'a>) {
         // TODO Use arg_type
         let ot = match self
