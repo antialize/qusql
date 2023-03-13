@@ -223,8 +223,11 @@ pub(crate) fn type_function<'a, 'b>(
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
             if let Some((_, t2)) = typed.get(0) {
-                //TODO check that the type can be mined or maxed
-                t2.clone()
+                // TODO check that the type can be mined or maxed
+                // Result can be null if there are no rows to aggregate over
+                let mut v = t2.clone();
+                v.not_null = false;
+                v
             } else {
                 FullType::invalid()
             }
