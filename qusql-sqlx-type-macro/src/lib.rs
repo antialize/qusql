@@ -63,7 +63,7 @@ static SCHEMA_SRC: Lazy<String> =
         ),
     });
 
-fn issue_to_report(issue: Issue) -> Report<std::ops::Range<usize>> {
+fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
     let mut builder = Report::build(
         match issue.level {
             sql_type::Level::Warning => ReportKind::Warning,
@@ -85,7 +85,7 @@ fn issue_to_report(issue: Issue) -> Report<std::ops::Range<usize>> {
     builder.finish()
 }
 
-fn issue_to_report_color(issue: Issue) -> Report<std::ops::Range<usize>> {
+fn issue_to_report_color(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
     let mut builder = Report::build(
         match issue.level {
             sql_type::Level::Warning => ReportKind::Warning,
