@@ -35,7 +35,9 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
         }
     }
 
-    if !delete.using.is_empty() {
+    if !delete.using.is_empty() && typer.dialect().is_maria() {
+        // For maria tables must be mentioned in the using clause
+        // while for postgresql they should be disjoint
         for reference in &delete.using {
             type_reference(typer, reference, false);
         }
@@ -85,6 +87,9 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
             typer
                 .issues
                 .push(Issue::err("Unknown table or view", identifier));
+        }
+        for reference in &delete.using {
+            type_reference(typer, reference, false);
         }
     }
     if let Some((where_, _)) = &delete.where_ {
