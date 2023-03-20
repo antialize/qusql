@@ -542,7 +542,24 @@ pub fn parse_schemas<'a>(
             // sql_parse::Statement::Union(_) => todo!(),
             // sql_parse::Statement::Replace(_) => todo!(),
             // sql_parse::Statement::Case(_) => todo!(),
-            sql_parse::Statement::CreateIndex(_) => (),
+            sql_parse::Statement::CreateIndex(ci) => {
+                if let Some(table) = schemas.schemas.get(ci.table_name.as_str()) {
+                    for col in &ci.column_names {
+                        if table.get_column(col).is_none() {
+                            issues.push(
+                                Issue::err("No such column in table", col)
+                                    .frag("Table defined here", &table.identifier_span),
+                            );
+                        }
+                    }
+
+                    // TODO type where_
+                } else {
+                    issues.push(
+                        Issue::err("No such table", &ci.table_name)
+                    );
+                }
+            }
             sql_parse::Statement::Commit(_) => (),
             sql_parse::Statement::Begin(_) => (),
             s => issues.push(Issue::err("Unsupported statement in schema definition", &s)),
