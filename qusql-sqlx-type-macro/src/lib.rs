@@ -27,8 +27,8 @@ static SCHEMA_PATH: Lazy<PathBuf> = Lazy::new(|| {
         let cargo = std::env::var("CARGO").expect("`CARGO` must be set");
         schema_path.pop();
 
-        let output = Command::new(&cargo)
-            .args(&["metadata", "--format-version=1"])
+        let output = Command::new(cargo)
+            .args(["metadata", "--format-version=1"])
             .current_dir(&schema_path)
             .env_remove("__CARGO_FIX_PLZ")
             .output()
