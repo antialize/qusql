@@ -114,20 +114,14 @@ pub struct Schema<'a> {
 
 impl<'a> Schema<'a> {
     pub fn get_column(&self, identifier: &str) -> Option<&Column<'a>> {
-        for column in &self.columns {
-            if column.identifier == identifier {
-                return Some(column);
-            }
-        }
-        None
+        self.columns
+            .iter()
+            .find(|&column| column.identifier == identifier)
     }
     pub fn get_column_mut(&mut self, identifier: &str) -> Option<&mut Column<'a>> {
-        for column in &mut self.columns {
-            if column.identifier == identifier {
-                return Some(column);
-            }
-        }
-        None
+        self.columns
+            .iter_mut()
+            .find(|column| column.identifier == identifier)
     }
 }
 
@@ -555,9 +549,7 @@ pub fn parse_schemas<'a>(
 
                     // TODO type where_
                 } else {
-                    issues.push(
-                        Issue::err("No such table", &ci.table_name)
-                    );
+                    issues.push(Issue::err("No such table", &ci.table_name));
                 }
             }
             sql_parse::Statement::Commit(_) => (),

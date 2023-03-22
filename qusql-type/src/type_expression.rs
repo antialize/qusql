@@ -68,7 +68,7 @@ fn type_unary_expression<'a, 'b>(
         | UnaryOperator::Collate
         | UnaryOperator::LogicalNot
         | UnaryOperator::Minus => {
-            let op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Any);
+            let _op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Any);
             typer.issues.push(issue_todo!(op_span));
             FullType::invalid()
         }

@@ -129,12 +129,12 @@ impl<'a, 'b> Typer<'a, 'b> {
     }
 }
 
-pub(crate) struct TyperStack<'a, 'b, 'c, V, D: FnOnce(&mut Typer<'a, 'b>, V) -> ()> {
+pub(crate) struct TyperStack<'a, 'b, 'c, V, D: FnOnce(&mut Typer<'a, 'b>, V)> {
     pub(crate) typer: &'c mut Typer<'a, 'b>,
     value_drop: Option<(V, D)>,
 }
 
-impl<'a, 'b, 'c, V, D: FnOnce(&mut Typer<'a, 'b>, V) -> ()> Drop for TyperStack<'a, 'b, 'c, V, D> {
+impl<'a, 'b, 'c, V, D: FnOnce(&mut Typer<'a, 'b>, V)> Drop for TyperStack<'a, 'b, 'c, V, D> {
     fn drop(&mut self) {
         if let Some((v, d)) = self.value_drop.take() {
             (d)(self.typer, v)
@@ -148,7 +148,7 @@ pub(crate) fn typer_stack<
     'c,
     V,
     C: FnOnce(&mut Typer<'a, 'b>) -> V,
-    D: FnOnce(&mut Typer<'a, 'b>, V) -> (),
+    D: FnOnce(&mut Typer<'a, 'b>, V),
 >(
     typer: &'c mut Typer<'a, 'b>,
     c: C,

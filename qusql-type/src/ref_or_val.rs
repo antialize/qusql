@@ -20,7 +20,7 @@ impl<'a, T> Deref for RefOrVal<'a, T> {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            RefOrVal::Ref(v) => *v,
+            RefOrVal::Ref(v) => v,
             RefOrVal::Val(v) => v,
         }
     }

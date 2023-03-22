@@ -105,56 +105,44 @@ pub(crate) fn type_function<'a, 'b>(
                 typer.ensure_base(arg, &t, *et);
             }
         }
-        while let Some(arg) = arg_iter.next() {
+        for arg in arg_iter {
             type_expression(typer, arg, flags.without_values(), BaseType::Any);
         }
         FullType::new(return_type, not_null)
     };
 
     match func {
-        Function::Rand => return tf(Type::F64, &[], &[BaseType::Integer]),
-        Function::Right | Function::Left => {
-            return tf(
-                BaseType::String.into(),
-                &[BaseType::String, BaseType::Integer],
-                &[],
-            )
-        }
-        Function::SubStr => {
-            return tf(
-                BaseType::String.into(),
-                &[BaseType::String, BaseType::Integer],
-                &[BaseType::Integer],
-            )
-        }
-        Function::FindInSet => {
-            return tf(
-                BaseType::Integer.into(),
-                &[BaseType::String, BaseType::String],
-                &[],
-            )
-        }
-        Function::SubStringIndex => {
-            return tf(
-                BaseType::String.into(),
-                &[BaseType::String, BaseType::String, BaseType::Integer],
-                &[],
-            )
-        }
-        Function::ExtractValue => {
-            return tf(
-                BaseType::String.into(),
-                &[BaseType::String, BaseType::String],
-                &[],
-            )
-        }
-        Function::Replace => {
-            return tf(
-                BaseType::String.into(),
-                &[BaseType::String, BaseType::String, BaseType::String],
-                &[],
-            )
-        }
+        Function::Rand => tf(Type::F64, &[], &[BaseType::Integer]),
+        Function::Right | Function::Left => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::Integer],
+            &[],
+        ),
+        Function::SubStr => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::Integer],
+            &[BaseType::Integer],
+        ),
+        Function::FindInSet => tf(
+            BaseType::Integer.into(),
+            &[BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::SubStringIndex => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::String, BaseType::Integer],
+            &[],
+        ),
+        Function::ExtractValue => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::Replace => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::String, BaseType::String],
+            &[],
+        ),
         Function::CharacterLength => return tf(BaseType::Integer.into(), &[BaseType::String], &[]),
         Function::UnixTimestamp => {
             let mut not_null = true;
