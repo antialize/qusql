@@ -12,7 +12,7 @@
 
 use alloc::{format, string::ToString, vec};
 use core::ops::Deref;
-use sql_parse::{issue_todo, Expression, Issue, Span, UnaryOperator};
+use sql_parse::{issue_todo, Expression, Issue, Span, UnaryOperator, Variable};
 
 use crate::{
     schema::parse_column,
@@ -372,6 +372,19 @@ pub(crate) fn type_expression<'a, 'b>(
         Expression::GroupConcat { expr, .. } => {
             type_expression(typer, expr, flags.without_values(), BaseType::Any);
             FullType::new(BaseType::String, true)
+        }
+        Expression::Variable { variable, variable_span, .. } => {
+            match variable {
+                Variable::TimeZone => {
+                    FullType::new(BaseType::String, true)
+                }
+                Variable::Other(_) => {
+                    typer
+                        .issues
+                        .push(Issue::err("Unknown variable", variable_span));
+                    FullType::new(BaseType::Any, false)
+                }
+            }
         }
     }
 }
