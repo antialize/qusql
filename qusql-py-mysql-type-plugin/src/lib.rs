@@ -14,7 +14,7 @@ struct Schemas {
     schemas: sql_type::schema::Schemas<'this>,
 }
 
-fn issue_to_report(issue: Issue) -> Report<std::ops::Range<usize>> {
+fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
     let mut builder = Report::build(
         match issue.level {
             sql_type::Level::Warning => ReportKind::Warning,
