@@ -238,7 +238,8 @@ pub(crate) fn type_function<'a, 'b>(
         Function::Concat => {
             let typed = typed_args(typer, args, flags);
             let mut not_null = true;
-            for (_, t) in typed {
+            for (a, t) in &typed {
+                typer.ensure_base(*a, t, BaseType::Any);
                 not_null = not_null && t.not_null;
             }
             FullType::new(BaseType::String, not_null)
@@ -311,7 +312,13 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::new(BaseType::DateTime, not_null)
             }
         }
-        Function::DateFormat => return tf(BaseType::String.into(), &[BaseType::DateTime, BaseType::String], &[BaseType::String]),
+        Function::DateFormat => {
+            return tf(
+                BaseType::String.into(),
+                &[BaseType::DateTime, BaseType::String],
+                &[BaseType::String],
+            )
+        }
         Function::Value => {
             let typed = typed_args(typer, args, flags);
             if !flags.in_on_duplicate_key_update {

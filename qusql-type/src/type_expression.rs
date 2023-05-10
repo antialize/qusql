@@ -373,18 +373,18 @@ pub(crate) fn type_expression<'a, 'b>(
             type_expression(typer, expr, flags.without_values(), BaseType::Any);
             FullType::new(BaseType::String, true)
         }
-        Expression::Variable { variable, variable_span, .. } => {
-            match variable {
-                Variable::TimeZone => {
-                    FullType::new(BaseType::String, true)
-                }
-                Variable::Other(_) => {
-                    typer
-                        .issues
-                        .push(Issue::err("Unknown variable", variable_span));
-                    FullType::new(BaseType::Any, false)
-                }
+        Expression::Variable {
+            variable,
+            variable_span,
+            ..
+        } => match variable {
+            Variable::TimeZone => FullType::new(BaseType::String, true),
+            Variable::Other(_) => {
+                typer
+                    .issues
+                    .push(Issue::err("Unknown variable", variable_span));
+                FullType::new(BaseType::Any, false)
             }
-        }
+        },
     }
 }

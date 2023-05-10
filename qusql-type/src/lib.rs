@@ -322,6 +322,7 @@ mod tests {
             "bytes" => BaseType::Bytes.into(),
             "dt" => BaseType::DateTime.into(),
             "json" => Type::JSON,
+            "any" => BaseType::Any.into(),
             _ => panic!("Unknown type {}", t),
         };
         let mut t = FullType::new(t, not_null);
@@ -852,7 +853,22 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "dt:dt!,t:i64!", &mut errors);
             } else {
-                println!("{} should be replace", name);
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q17";
+            let src = "SELECT CONCAT(?, \"hat\") AS c";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "any", &mut errors);
+                check_columns(name, &columns, "c:str", &mut errors);
+            } else {
+                println!("{} should be selsect", name);
                 errors += 1;
             }
         }
