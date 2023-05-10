@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "mysql-type-plugin"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "ariadne",
  "ouroboros",
@@ -260,15 +260,15 @@ checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 
 [[package]]
 name = "sql-parse"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed9bce9bac54894274fa31d9a19e7ffdbda1eb8eaa9747bb5b98899f464e8900"
+checksum = "89577b1f097df88c43adfb5172601056376ac2f85a3b76a8666d443bc7db3e24"
 
 [[package]]
 name = "sql-type"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b796d0d77084e70ec76b6e2973db2a2631c59cad1e1c2cea7ca74f2a6ee22f5"
+checksum = "230342f7c742e23a8e70ef0ef7344d26042f06b1da549015867b689d465f0a56"
 dependencies = [
  "sql-parse",
 ]
