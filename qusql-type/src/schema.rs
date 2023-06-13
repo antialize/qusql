@@ -223,12 +223,14 @@ pub(crate) fn parse_column<'a>(
         sql_parse::Type::Boolean => BaseType::Bool.into(),
         sql_parse::Type::Integer(_) => BaseType::Integer.into(),
         sql_parse::Type::Float8 => BaseType::Float.into(),
-        sql_parse::Type::Numeric(_, _, _) => todo!(),
+        sql_parse::Type::Numeric(_, _, _) => todo!("Numeric"),
         sql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
         sql_parse::Type::Json => BaseType::String.into(),
         sql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
         sql_parse::Type::Bytea => BaseType::Bytes.into(),
         sql_parse::Type::Named(_) => BaseType::String.into(), // TODO lookup name??
+        sql_parse::Type::Inet4 => BaseType::String.into(),
+        sql_parse::Type::Inet6 => BaseType::String.into(),
     };
     Column {
         identifier,

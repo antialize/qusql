@@ -123,6 +123,12 @@ pub(crate) fn type_expression<'a, 'b>(
         Expression::Integer(_) => FullType::new(BaseType::Integer, true),
         Expression::Float(_) => FullType::new(BaseType::Float, true),
         Expression::Function(func, args, span) => type_function(typer, func, args, span, flags),
+        Expression::WindowFunction { function, args, function_span, over_span: _, window_spec } => {
+            for (e, _) in &window_spec.order_by.1 {
+                type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
+            }
+            type_function(typer, function, args, function_span, flags)
+        }
         Expression::Identifier(i) => {
             let mut t = None;
             match i.as_slice() {
@@ -315,6 +321,8 @@ pub(crate) fn type_expression<'a, 'b>(
                 match type_.type_ {
                     sql_parse::Type::Char(_)
                     | sql_parse::Type::Date
+                    | sql_parse::Type::Inet4
+                    | sql_parse::Type::Inet6
                     | sql_parse::Type::DateTime(_)
                     | sql_parse::Type::Double(_)
                     | sql_parse::Type::Float8

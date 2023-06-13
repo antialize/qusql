@@ -873,6 +873,21 @@ mod tests {
             }
         }
 
+        {
+            issues.clear();
+            let name = "q18";
+            let src = "SELECT CAST(\"::0\" AS INET6) AS `id`";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "id:str!", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
         if errors != 0 {
             panic!("{} errors in test", errors);
         }

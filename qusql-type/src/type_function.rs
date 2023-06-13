@@ -173,6 +173,20 @@ pub(crate) fn type_function<'a, 'b>(
                 t.clone()
             }
         }
+        Function::Lead | Function::Lag => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            if let Some((a, t)) = typed.get(1) {
+                typer.ensure_base(*a, t, BaseType::Integer);
+            }
+            if let Some((_, t)) = typed.get(0) {
+                let mut t = t.clone();
+                t.not_null = false;
+                t
+            } else {
+                FullType::invalid()
+            }
+        }
         Function::JsonExtract => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..999, args, span);
