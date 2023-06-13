@@ -235,7 +235,7 @@ fn quote_args(
             sql_type::Type::Base(sql_type::BaseType::Time) => todo!("time"),
             sql_type::Type::Base(sql_type::BaseType::TimeStamp) => quote! {sqlx_type::Timestamp},
             sql_type::Type::Null => todo!("null"),
-            sql_type::Type::Invalid => todo!("invalid"),
+            sql_type::Type::Invalid => quote! {std::convert::Infallible},
             sql_type::Type::Enum(_) => quote! {&str},
             sql_type::Type::Set(_) => quote! {&str},
             sql_type::Type::Args(_, _) => todo!("args"),
