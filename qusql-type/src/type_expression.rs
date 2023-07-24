@@ -123,7 +123,13 @@ pub(crate) fn type_expression<'a, 'b>(
         Expression::Integer(_) => FullType::new(BaseType::Integer, true),
         Expression::Float(_) => FullType::new(BaseType::Float, true),
         Expression::Function(func, args, span) => type_function(typer, func, args, span, flags),
-        Expression::WindowFunction { function, args, function_span, over_span: _, window_spec } => {
+        Expression::WindowFunction {
+            function,
+            args,
+            function_span,
+            over_span: _,
+            window_spec,
+        } => {
             for (e, _) in &window_spec.order_by.1 {
                 type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
             }

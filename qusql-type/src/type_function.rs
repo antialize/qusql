@@ -348,6 +348,27 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::invalid()
             }
         }
+        Function::Length => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let mut not_null = true;
+            for (_, t) in &typed {
+                not_null = not_null && t.not_null;
+                if typer
+                    .matched_type(t, &FullType::new(BaseType::String, false))
+                    .is_none()
+                    && typer
+                        .matched_type(t, &FullType::new(BaseType::Bytes, false))
+                        .is_none()
+                {
+                    typer.issues.push(Issue::err(
+                        format!("Expected type Bytes or String got {}", t),
+                        span,
+                    ));
+                }
+            }
+            FullType::new(Type::I64, not_null)
+        }
         _ => {
             typer
                 .issues
