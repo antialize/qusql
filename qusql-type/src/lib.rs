@@ -888,6 +888,36 @@ mod tests {
             }
         }
 
+        {
+            issues.clear();
+            let name = "q18";
+            let src = "SELECT SUBSTRING(`cbytes`, 1, 5) AS `k` FROM `t1`";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "k:bytes", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q19";
+            let src = "SELECT SUBSTRING(`ctext`, 1, 5) AS `k` FROM `t1`";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "k:str!", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
         if errors != 0 {
             panic!("{} errors in test", errors);
         }

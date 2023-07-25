@@ -118,11 +118,36 @@ pub(crate) fn type_function<'a, 'b>(
             &[BaseType::String, BaseType::Integer],
             &[],
         ),
-        Function::SubStr => tf(
-            BaseType::String.into(),
-            &[BaseType::String, BaseType::Integer],
-            &[BaseType::Integer],
-        ),
+        Function::SubStr => {
+            arg_cnt(typer, 2..3, args, span);
+
+            let mut return_type = if let Some(arg) = args.get(0) {
+                let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
+                if !matches!(t.base(), BaseType::Any | BaseType::String | BaseType::Bytes) {
+                    typer.issues.push(Issue::err(
+                        format!("Expected type String or Bytes got {}", t),
+                        arg,
+                    ));
+                }
+                t
+            } else {
+                FullType::invalid()
+            };
+
+            if let Some(arg) = args.get(1) {
+                let t = type_expression(typer, arg, flags.without_values(), BaseType::Integer);
+                return_type.not_null = return_type.not_null && t.not_null;
+                typer.ensure_base(arg, &t, BaseType::Integer);
+            };
+
+            if let Some(arg) = args.get(2) {
+                let t = type_expression(typer, arg, flags.without_values(), BaseType::Integer);
+                return_type.not_null = return_type.not_null && t.not_null;
+                typer.ensure_base(arg, &t, BaseType::Integer);
+            };
+
+            return_type
+        }
         Function::FindInSet => tf(
             BaseType::Integer.into(),
             &[BaseType::String, BaseType::String],
