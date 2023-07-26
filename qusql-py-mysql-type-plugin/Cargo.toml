@@ -1,6 +1,6 @@
 [package]
 name = "mysql-type-plugin"
-version = "0.1.17"
+version = "0.1.18"
 edition = "2021"
 
 
@@ -10,7 +10,7 @@ name = "mysql_type_plugin"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.18", features = ["extension-module"] }
-sql-type = "0.15.0"
-ariadne = "0.2"
-ouroboros = "0.15.0"
+pyo3 = { version = "0.19", features = ["extension-module"] }
+sql-type = "0.15.2"
+ariadne = "0.3"
+ouroboros = "0.17"
