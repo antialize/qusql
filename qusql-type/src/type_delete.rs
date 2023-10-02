@@ -11,12 +11,12 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use sql_parse::{issue_todo, Delete, Issue, OptSpanned, Spanned};
+use sql_parse::{Delete, Issue, OptSpanned, Spanned};
 
 use crate::{
     type_expression::{type_expression, ExpressionFlags},
     type_reference::type_reference,
-    typer::{typer_stack, ReferenceType, Typer},
+    typer::{typer_stack, ReferenceType, Typer, unqualified_name},
 };
 
 pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>) {
@@ -42,15 +42,7 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
             type_reference(typer, reference, false);
         }
         for table in &delete.tables {
-            let identifier = match table.as_slice() {
-                [v] => v,
-                _ => {
-                    typer.issues.push(issue_todo!(&delete.tables[0]
-                        .opt_span()
-                        .expect("table span in type_delete")));
-                    return;
-                }
-            };
+            let identifier = unqualified_name(&mut typer.issues, table);
             if !typer.schemas.schemas.contains_key(&identifier.value) {
                 typer
                     .issues
@@ -64,15 +56,7 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
                 &delete.tables.opt_span().unwrap(),
             ));
         }
-        let identifier = match delete.tables[0].as_slice() {
-            [v] => v,
-            _ => {
-                typer.issues.push(issue_todo!(&delete.tables[0]
-                    .opt_span()
-                    .expect("table span in type_delete")));
-                return;
-            }
-        };
+        let identifier = unqualified_name(&mut typer.issues, &delete.tables[0]);
         if let Some(s) = typer.schemas.schemas.get(&identifier.value) {
             let mut columns = Vec::new();
             for col in &s.columns {

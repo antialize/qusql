@@ -17,7 +17,7 @@ use crate::{
 };
 use alloc::format;
 use alloc::vec::Vec;
-use sql_parse::{Issue, SQLDialect, Span, Spanned};
+use sql_parse::{Issue, SQLDialect, Span, Spanned, QualifiedName, Identifier, OptSpanned};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ReferenceType<'a> {
@@ -159,4 +159,14 @@ pub(crate) fn typer_stack<
         typer,
         value_drop: Some((v, d)),
     }
+}
+
+pub (crate) fn unqualified_name<'a, 'b>(issues: &mut Vec<Issue>, name: &'a QualifiedName<'b>) -> &'a Identifier<'b> {
+    if !name.prefix.is_empty() {
+        issues.push(Issue::err(
+            "Expected unqualified name",
+            &name.prefix.opt_span().unwrap(),
+        ));
+    }
+    &name.identifier
 }

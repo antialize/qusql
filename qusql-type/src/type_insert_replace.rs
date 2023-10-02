@@ -16,7 +16,7 @@ use sql_parse::{issue_todo, InsertReplace, InsertReplaceFlag, InsertReplaceType,
 use crate::{
     type_expression::{type_expression, ExpressionFlags},
     type_select::{type_select, type_select_exprs, SelectType},
-    typer::{typer_stack, ReferenceType, Typer},
+    typer::{typer_stack, ReferenceType, Typer, unqualified_name},
     BaseType, SelectTypeColumn, Type,
 };
 
@@ -32,21 +32,14 @@ pub(crate) fn type_insert_replace<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     ior: &InsertReplace<'a>,
 ) -> (AutoIncrementId, Option<SelectType<'a>>) {
-    let table = &ior.table;
+    let table = unqualified_name(&mut typer.issues, &ior.table) ;
     let columns = &ior.columns;
 
-    if let Some(v) = table.get(1..) {
-        for t in v {
-            typer.issues.push(issue_todo!(t));
-        }
-    }
-
-    let t = &table[0];
-    let (s, auto_increment) = if let Some(schema) = typer.schemas.schemas.get(t.value) {
+    let (s, auto_increment) = if let Some(schema) = typer.schemas.schemas.get(table.value) {
         if schema.view {
             typer
                 .issues
-                .push(Issue::err("Inserts into views not yet implemented", t));
+                .push(Issue::err("Inserts into views not yet implemented", table));
         }
         let mut col_types = Vec::new();
 
@@ -64,7 +57,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
             schema.columns.iter().any(|c| c.auto_increment),
         )
     } else {
-        typer.issues.push(Issue::err("Unknown table", t));
+        typer.issues.push(Issue::err("Unknown table", table));
         (None, false)
     };
 
@@ -128,21 +121,21 @@ pub(crate) fn type_insert_replace<'a, 'b>(
     );
     let typer = &mut guard.typer;
 
-    if let Some(s) = typer.schemas.schemas.get(t.value) {
+    if let Some(s) = typer.schemas.schemas.get(table.value) {
         let mut columns = Vec::new();
         for c in &s.columns {
             columns.push((c.identifier, c.type_.ref_clone()));
         }
         for v in &typer.reference_types {
-            if v.name == Some(t.value) {
+            if v.name == Some(table.value) {
                 typer.issues.push(
-                    Issue::err("Duplicate definitions", t).frag("Already defined here", &v.span),
+                    Issue::err("Duplicate definitions", table).frag("Already defined here", &v.span),
                 );
             }
         }
         typer.reference_types.push(ReferenceType {
-            name: Some(t.value),
-            span: t.span(),
+            name: Some(table.value),
+            span: table.span(),
             columns,
         });
     }
