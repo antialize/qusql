@@ -241,9 +241,10 @@ class CustomPlugin(Plugin):
                                 )]
                             )
                         else:
+                            ts = [t for (_,t) in ntp]
                             return Instance(
                                 sr.node, # type: ignore
-                                [TupleType([t for (_,t) in ntp], api.named_generic_type("tuple", []))],
+                                [TupleType(ts, api.named_generic_type("tuple", ts))],
                             )
                     else:
                         context.api.fail(f"Could not find mysql_type.SelectResult", ct)
@@ -304,11 +305,11 @@ class CustomPlugin(Plugin):
                 ts = get_argument_types(stmt, context.api, context.context)
                 if many:
                     ans.arg_types[1] = context.api.named_generic_type(
-                        "list", [TupleType(ts, context.api.named_generic_type("tuple", []))]
+                        "list", [TupleType(ts, context.api.named_generic_type("tuple", ts))]
                     )
                 else:
                     ans.arg_types[1] = TupleType(
-                        ts, context.api.named_generic_type("tuple", [])
+                        ts, context.api.named_generic_type("tuple", ts)
                     )
                 if note := getattr(context.api, "note"):
                     note("Use db_execute instead", context.context, code=USE_DB_EXECUTE)

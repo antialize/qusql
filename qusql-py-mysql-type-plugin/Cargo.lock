@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "mysql-type-plugin"
-version = "0.1.18"
+version = "0.1.19"
 dependencies = [
  "ariadne",
  "ouroboros",
