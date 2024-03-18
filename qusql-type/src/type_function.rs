@@ -256,6 +256,30 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::String, false)
         }
+        Function::JsonQuery => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            for (a, t) in &typed {
+                typer.ensure_base(*a, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonRemove => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..999, args, span);
+            for (a, t) in &typed {
+                typer.ensure_base(*a, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonContainsPath => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..999, args, span);
+            for (a, t) in &typed {
+                typer.ensure_base(*a, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
         Function::Min | Function::Max | Function::Sum => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
