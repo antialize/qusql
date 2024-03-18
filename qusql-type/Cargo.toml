@@ -1,6 +1,6 @@
 [package]
 name = "sql-type"
-version = "0.15.3"
+version = "0.15.4"
 edition = "2021"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 keywords = [ "mysql", "postgesql", "sql", "typer" ]
