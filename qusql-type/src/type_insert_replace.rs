@@ -11,7 +11,10 @@
 // limitations under the License.
 
 use alloc::{format, vec::Vec};
-use sql_parse::{issue_todo, InsertReplace, InsertReplaceFlag, InsertReplaceType, Issue, Spanned};
+use sql_parse::{
+    issue_todo, InsertReplace, InsertReplaceFlag, InsertReplaceSetPair, InsertReplaceType, Issue,
+    Spanned,
+};
 
 use crate::{
     type_expression::{type_expression, ExpressionFlags},
@@ -32,7 +35,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     ior: &InsertReplace<'a>,
 ) -> (AutoIncrementId, Option<SelectType<'a>>) {
-    let table = unqualified_name(&mut typer.issues, &ior.table) ;
+    let table = unqualified_name(&mut typer.issues, &ior.table);
     let columns = &ior.columns;
 
     let (s, auto_increment) = if let Some(schema) = typer.schemas.schemas.get(table.value) {
@@ -140,13 +143,13 @@ pub(crate) fn type_insert_replace<'a, 'b>(
         });
     }
 
-    if let Some((_, set)) = &ior.set {
-        for (key, _, value) in set {
+    if let Some(set) = &ior.set {
+        for InsertReplaceSetPair { column, value, .. } in &set.pairs {
             let mut cnt = 0;
             let mut t = None;
             for r in &typer.reference_types {
                 for c in &r.columns {
-                    if c.0 == key.value {
+                    if c.0 == column.value {
                         cnt += 1;
                         t = Some(c.clone());
                     }
@@ -154,10 +157,10 @@ pub(crate) fn type_insert_replace<'a, 'b>(
             }
             if cnt > 1 {
                 type_expression(typer, value, ExpressionFlags::default(), BaseType::Any);
-                let mut issue = Issue::err("Ambiguous reference", key);
+                let mut issue = Issue::err("Ambiguous reference", column);
                 for r in &typer.reference_types {
                     for c in &r.columns {
-                        if c.0 == key.value {
+                        if c.0 == column.value {
                             issue = issue.frag("Defined here", &r.span);
                         }
                     }
@@ -178,18 +181,18 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                 }
             } else {
                 type_expression(typer, value, ExpressionFlags::default(), BaseType::Any);
-                typer.issues.push(Issue::err("Unknown identifier", key));
+                typer.issues.push(Issue::err("Unknown identifier", column));
             }
         }
     }
 
-    if let Some((_, update)) = &ior.on_duplicate_key_update {
-        for (key, _, value) in update {
+    if let Some(up) = &ior.on_duplicate_key_update {
+        for InsertReplaceSetPair { value, column, .. } in &up.pairs {
             let mut cnt = 0;
             let mut t = None;
             for r in &typer.reference_types {
                 for c in &r.columns {
-                    if c.0 == key.value {
+                    if c.0 == column.value {
                         cnt += 1;
                         t = Some(c.clone());
                     }
@@ -198,10 +201,10 @@ pub(crate) fn type_insert_replace<'a, 'b>(
             let flags = ExpressionFlags::default().with_in_on_duplicate_key_update(true);
             if cnt > 1 {
                 type_expression(typer, value, flags, BaseType::Any);
-                let mut issue = Issue::err("Ambiguous reference", key);
+                let mut issue = Issue::err("Ambiguous reference", column);
                 for r in &typer.reference_types {
                     for c in &r.columns {
-                        if c.0 == key.value {
+                        if c.0 == column.value {
                             issue = issue.frag("Defined here", &r.span);
                         }
                     }
@@ -221,7 +224,7 @@ pub(crate) fn type_insert_replace<'a, 'b>(
                 }
             } else {
                 type_expression(typer, value, flags, BaseType::Any);
-                typer.issues.push(Issue::err("Unknown identifier", key));
+                typer.issues.push(Issue::err("Unknown identifier", column));
             }
         }
     }

@@ -348,7 +348,7 @@ pub fn parse_schemas<'a>(
                 let mut replace = false;
                 let schema = Schema {
                     view: true,
-                    identifier_span: v.name.span.clone(),
+                    identifier_span: v.name.span(),
                     columns: Default::default(),
                 };
                 for o in v.create_options {
@@ -369,7 +369,10 @@ pub fn parse_schemas<'a>(
                     }
                 }
                 // TODO typecheck view query to find schema
-                match schemas.schemas.entry(v.name.value) {
+                match schemas
+                    .schemas
+                    .entry(unqualified_name(issues, &v.name).as_str())
+                {
                     alloc::collections::btree_map::Entry::Occupied(mut e) => {
                         if replace {
                             e.insert(schema);
@@ -393,7 +396,7 @@ pub fn parse_schemas<'a>(
             // sql_parse::Statement::Update(_) => todo!(),
             sql_parse::Statement::DropTable(t) => {
                 for i in t.tables {
-                    match schemas.schemas.entry(i.value) {
+                    match schemas.schemas.entry(unqualified_name(issues, &i).as_str()) {
                         alloc::collections::btree_map::Entry::Occupied(e) => {
                             if e.get().view {
                                 issues.push(
@@ -416,7 +419,10 @@ pub fn parse_schemas<'a>(
                 }
             }
             sql_parse::Statement::DropFunction(f) => {
-                match schemas.functions.entry(f.function.value) {
+                match schemas
+                    .functions
+                    .entry(unqualified_name(issues, &f.function).as_str())
+                {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         e.remove();
                     }
@@ -431,7 +437,10 @@ pub fn parse_schemas<'a>(
                 }
             }
             sql_parse::Statement::DropProcedure(p) => {
-                match schemas.procedures.entry(p.procedure.value) {
+                match schemas
+                    .procedures
+                    .entry(unqualified_name(issues, &p.procedure).as_str())
+                {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         e.remove();
                     }
@@ -451,7 +460,10 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::DropTrigger(_) => {}
             sql_parse::Statement::DropView(v) => {
                 for i in v.views {
-                    match schemas.schemas.entry(i.value) {
+                    match schemas
+                        .schemas
+                        .entry(&unqualified_name(issues, &i).as_str())
+                    {
                         alloc::collections::btree_map::Entry::Occupied(e) => {
                             if !e.get().view {
                                 issues.push(
@@ -475,7 +487,10 @@ pub fn parse_schemas<'a>(
             }
             sql_parse::Statement::Set(_) => {}
             sql_parse::Statement::AlterTable(a) => {
-                let e = match schemas.schemas.entry(&unqualified_name(issues, &a.table).value) {
+                let e = match schemas
+                    .schemas
+                    .entry(&unqualified_name(issues, &a.table).value)
+                {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         let e = e.into_mut();
                         if e.view {
@@ -541,7 +556,10 @@ pub fn parse_schemas<'a>(
             // sql_parse::Statement::Replace(_) => todo!(),
             // sql_parse::Statement::Case(_) => todo!(),
             sql_parse::Statement::CreateIndex(ci) => {
-                if let Some(table) = schemas.schemas.get(ci.table_name.as_str()) {
+                if let Some(table) = schemas
+                    .schemas
+                    .get(unqualified_name(issues, &ci.table_name).as_str())
+                {
                     for col in &ci.column_names {
                         if table.get_column(col).is_none() {
                             issues.push(
