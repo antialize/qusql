@@ -280,6 +280,19 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(Type::JSON, false)
         }
+        Function::JsonOverlaps => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            for (a, t) in &typed {
+                typer.ensure_base(*a, t, BaseType::String);
+            }
+            if let (Some(t0), Some(t1)) = (typed.get(0), typed.get(1)) {
+                let not_null = t0.1.not_null && t1.1.not_null;
+                FullType::new(Type::Base(BaseType::Bool), not_null)
+            } else {
+                FullType::invalid()
+            }
+        }
         Function::Min | Function::Max | Function::Sum => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
