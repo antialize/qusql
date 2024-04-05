@@ -19,7 +19,7 @@ use sql_parse::{
 use crate::{
     type_expression::{type_expression, ExpressionFlags},
     type_select::{type_select, type_select_exprs, SelectType},
-    typer::{typer_stack, ReferenceType, Typer, unqualified_name},
+    typer::{typer_stack, unqualified_name, ReferenceType, Typer},
     BaseType, SelectTypeColumn, Type,
 };
 
@@ -132,7 +132,8 @@ pub(crate) fn type_insert_replace<'a, 'b>(
         for v in &typer.reference_types {
             if v.name == Some(table.value) {
                 typer.issues.push(
-                    Issue::err("Duplicate definitions", table).frag("Already defined here", &v.span),
+                    Issue::err("Duplicate definitions", table)
+                        .frag("Already defined here", &v.span),
                 );
             }
         }

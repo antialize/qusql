@@ -14,7 +14,7 @@ use crate::{
     type_::BaseType,
     type_expression::{type_expression, ExpressionFlags},
     type_select::type_union_select,
-    typer::{ReferenceType, Typer, unqualified_name},
+    typer::{unqualified_name, ReferenceType, Typer},
 };
 use alloc::vec::Vec;
 use sql_parse::{issue_todo, Issue, OptSpanned, Spanned, TableReference};
@@ -30,11 +30,10 @@ pub(crate) fn type_reference<'a, 'b>(
             identifier, as_, ..
         } => {
             let identifier = unqualified_name(&mut typer.issues, identifier);
-
-            if let Some(s) = typer.schemas.schemas.get(&identifier.value) {
+            if let Some(s) = typer.get_schema(&identifier.value) {
                 let mut columns = Vec::new();
                 for c in &s.columns {
-                    let mut type_ = c.type_.ref_clone();
+                    let mut type_ = c.type_.clone();
                     type_.not_null = type_.not_null && !force_null;
                     columns.push((c.identifier, type_));
                 }

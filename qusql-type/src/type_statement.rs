@@ -10,9 +10,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_parse::{InsertReplaceType, Issue, Statement};
+use sql_parse::{InsertReplaceType, Issue, Statement, WithBlock};
+
+use alloc::vec::Vec;
 
 use crate::{
+    schema::{Column, Schema},
     type_delete::type_delete,
     type_insert_replace::{type_insert_replace, AutoIncrementId},
     type_select::{type_union, SelectType},
@@ -22,7 +25,9 @@ use crate::{
 
 pub(crate) enum InnerStatementType<'a> {
     Select(SelectType<'a>),
-    Delete,
+    Delete {
+        returning: Option<SelectType<'a>>,
+    },
     Insert {
         auto_increment_id: AutoIncrementId,
         returning: Option<SelectType<'a>>,
@@ -34,7 +39,50 @@ pub(crate) enum InnerStatementType<'a> {
     Invalid,
 }
 
-pub(crate) fn type_statement<'a, 'b>(
+fn type_with_query<'b, 'a>(
+    typer: &mut Typer<'a, 'b>,
+    with_blocks: &[WithBlock<'a>],
+    inner: &Statement<'a>,
+) -> InnerStatementType<'a> {
+    if let Some((block, rem_blocks)) = with_blocks.split_first() {
+        let r = type_statement(typer, &block.statement);
+        let s = match r {
+            InnerStatementType::Select(v) => Some(v),
+            InnerStatementType::Delete { returning } => returning,
+            InnerStatementType::Insert { returning, .. } => returning,
+            _ => None,
+        };
+        if let Some(s) = s {
+            let mut columns = Vec::new();
+            for c in s.columns {
+                if let Some(name) = c.name {
+                    columns.push(Column {
+                        identifier: name,
+                        identifier_span: c.span,
+                        type_: c.type_,
+                        auto_increment: false,
+                    });
+                }
+            }
+            let schema: Schema<'a> = Schema {
+                identifier_span: block.identifier.span.clone(),
+                columns,
+                view: true,
+            };
+
+            let mut schemas = typer.with_schemas.clone();
+            schemas.insert(block.identifier.as_str(), &schema);
+            let mut typer = typer.with_schemas(schemas);
+            type_with_query(&mut typer, rem_blocks, inner)
+        } else {
+            type_with_query(typer, rem_blocks, inner)
+        }
+    } else {
+        type_statement(typer, inner)
+    }
+}
+
+pub(crate) fn type_statement<'b, 'a>(
     typer: &mut Typer<'a, 'b>,
     statement: &Statement<'a>,
 ) -> InnerStatementType<'a> {
@@ -45,8 +93,8 @@ pub(crate) fn type_statement<'a, 'b>(
             typer.options.warn_duplicate_column_in_select,
         )),
         Statement::Delete(d) => {
-            type_delete(typer, d);
-            InnerStatementType::Delete
+            let returning = type_delete(typer, d);
+            InnerStatementType::Delete { returning }
         }
         Statement::InsertReplace(ior) => {
             let (auto_increment_id, returning) = type_insert_replace(typer, ior);
@@ -63,6 +111,7 @@ pub(crate) fn type_statement<'a, 'b>(
             InnerStatementType::Update
         }
         Statement::Union(u) => InnerStatementType::Select(type_union(typer, u)),
+        Statement::WithQuery(w) => type_with_query(typer, &w.with_blocks, &w.statement),
         s => {
             typer
                 .issues

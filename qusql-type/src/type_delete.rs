@@ -16,10 +16,15 @@ use sql_parse::{Delete, Issue, OptSpanned, Spanned};
 use crate::{
     type_expression::{type_expression, ExpressionFlags},
     type_reference::type_reference,
-    typer::{typer_stack, ReferenceType, Typer, unqualified_name},
+    type_select::{type_select_exprs, SelectType},
+    typer::{typer_stack, unqualified_name, ReferenceType, Typer},
+    SelectTypeColumn,
 };
 
-pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>) {
+pub(crate) fn type_delete<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
+    delete: &Delete<'a>,
+) -> Option<SelectType<'a>> {
     let mut guard = typer_stack(
         typer,
         |t| core::mem::take(&mut t.reference_types),
@@ -43,7 +48,7 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
         }
         for table in &delete.tables {
             let identifier = unqualified_name(&mut typer.issues, table);
-            if !typer.schemas.schemas.contains_key(&identifier.value) {
+            if typer.get_schema(&identifier.value).is_none() {
                 typer
                     .issues
                     .push(Issue::err("Unknown table or view", identifier))
@@ -57,10 +62,10 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
             ));
         }
         let identifier = unqualified_name(&mut typer.issues, &delete.tables[0]);
-        if let Some(s) = typer.schemas.schemas.get(&identifier.value) {
+        if let Some(s) = typer.get_schema(&identifier.value) {
             let mut columns = Vec::new();
             for col in &s.columns {
-                columns.push((col.identifier, col.type_.ref_clone()));
+                columns.push((col.identifier, col.type_.clone()));
             }
             typer.reference_types.push(ReferenceType {
                 name: Some(identifier.value),
@@ -68,9 +73,7 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
                 columns,
             });
         } else {
-            typer
-                .issues
-                .push(Issue::err("Unknown table or view", identifier));
+            typer.issues.push(Issue::err("", identifier));
         }
         for reference in &delete.using {
             type_reference(typer, reference, false);
@@ -84,5 +87,19 @@ pub(crate) fn type_delete<'a, 'b>(typer: &mut Typer<'a, 'b>, delete: &Delete<'a>
             crate::BaseType::Bool,
         );
         typer.ensure_base(where_, &t, crate::type_::BaseType::Bool);
+    }
+
+    match &delete.returning {
+        Some((returning_span, returning_exprs)) => {
+            let columns = type_select_exprs(typer, returning_exprs, true)
+                .into_iter()
+                .map(|(name, type_, span)| SelectTypeColumn { name, type_, span })
+                .collect();
+            Some(SelectType {
+                columns,
+                select_span: returning_span.join_span(returning_exprs),
+            })
+        }
+        None => None,
     }
 }

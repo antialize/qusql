@@ -84,7 +84,8 @@
 
 use crate::{
     type_::{BaseType, FullType},
-    RefOrVal, Type, TypeOptions, typer::unqualified_name,
+    typer::unqualified_name,
+    RefOrVal, Type, TypeOptions,
 };
 use alloc::{collections::BTreeMap, vec::Vec};
 use sql_parse::{parse_statements, DataType, Issue, Span, Spanned};
@@ -279,7 +280,7 @@ pub fn parse_schemas<'a>(
                 let mut replace = false;
 
                 let id = unqualified_name(issues, &t.identifier);
-            
+
                 let mut schema = Schema {
                     view: false,
                     identifier_span: id.span.clone(),

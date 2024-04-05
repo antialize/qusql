@@ -11,13 +11,13 @@
 // limitations under the License.
 
 use crate::{
-    schema::Schemas,
+    schema::{Schema, Schemas},
     type_::{ArgType, BaseType, FullType},
     ArgumentKey, Type, TypeOptions,
 };
-use alloc::format;
 use alloc::vec::Vec;
-use sql_parse::{Issue, SQLDialect, Span, Spanned, QualifiedName, Identifier, OptSpanned};
+use alloc::{collections::BTreeMap, format};
+use sql_parse::{Identifier, Issue, OptSpanned, QualifiedName, SQLDialect, Span, Spanned};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ReferenceType<'a> {
@@ -29,12 +29,30 @@ pub(crate) struct ReferenceType<'a> {
 pub(crate) struct Typer<'a, 'b> {
     pub(crate) issues: &'b mut Vec<Issue>,
     pub(crate) schemas: &'a Schemas<'a>,
+    pub(crate) with_schemas: BTreeMap<&'a str, &'b Schema<'a>>,
     pub(crate) reference_types: Vec<ReferenceType<'a>>,
     pub(crate) arg_types: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     pub(crate) options: &'b TypeOptions,
 }
 
 impl<'a, 'b> Typer<'a, 'b> {
+    pub(crate) fn with_schemas<'c>(
+        &'c mut self,
+        schemas: BTreeMap<&'a str, &'c Schema<'a>>,
+    ) -> Typer<'a, 'c>
+    where
+        'b: 'c,
+    {
+        Typer::<'a, 'c> {
+            issues: self.issues,
+            schemas: self.schemas,
+            with_schemas: schemas,
+            reference_types: self.reference_types.clone(),
+            arg_types: self.arg_types.clone(),
+            options: self.options,
+        }
+    }
+
     pub(crate) fn dialect(&self) -> SQLDialect {
         self.options.parse_options.get_dialect()
     }
@@ -127,6 +145,14 @@ impl<'a, 'b> Typer<'a, 'b> {
     ) {
         self.ensure_type(span, given, &FullType::new(expected, false));
     }
+
+    pub(crate) fn get_schema(&self, name: &str) -> Option<&'b Schema<'a>> {
+        if let Some(schema) = self.with_schemas.get(name) {
+            Some(schema)
+        } else {
+            self.schemas.schemas.get(name)
+        }
+    }
 }
 
 pub(crate) struct TyperStack<'a, 'b, 'c, V, D: FnOnce(&mut Typer<'a, 'b>, V)> {
@@ -161,7 +187,10 @@ pub(crate) fn typer_stack<
     }
 }
 
-pub (crate) fn unqualified_name<'a, 'b>(issues: &mut Vec<Issue>, name: &'a QualifiedName<'b>) -> &'a Identifier<'b> {
+pub(crate) fn unqualified_name<'a, 'b>(
+    issues: &mut Vec<Issue>,
+    name: &'a QualifiedName<'b>,
+) -> &'a Identifier<'b> {
     if !name.prefix.is_empty() {
         issues.push(Issue::err(
             "Expected unqualified name",
