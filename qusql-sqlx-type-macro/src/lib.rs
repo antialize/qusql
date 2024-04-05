@@ -322,7 +322,6 @@ fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_ma
 }
 
 fn construct_row(
-    _errors: &mut Vec<proc_macro2::TokenStream>,
     columns: &[SelectTypeColumn],
 ) -> (Vec<proc_macro2::TokenStream>, Vec<proc_macro2::TokenStream>) {
     let mut row_members = Vec::new();
@@ -446,7 +445,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                 arguments,
                 dialect,
             );
-            let (row_members, row_construct) = construct_row(&mut errors, columns);
+            let (row_members, row_construct) = construct_row(columns);
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 let _ = std::include_bytes!(#sp);
@@ -464,7 +463,10 @@ pub fn query(input: TokenStream) -> TokenStream {
             }};
             s.into()
         }
-        sql_type::StatementType::Delete { arguments } => {
+        sql_type::StatementType::Delete {
+            arguments,
+            returning,
+        } => {
             let (args_tokens, q) = quote_args(
                 &mut errors,
                 &query.query,
@@ -473,12 +475,32 @@ pub fn query(input: TokenStream) -> TokenStream {
                 arguments,
                 dialect,
             );
-            let s = quote! { {
-                use ::sqlx::Arguments as _;
-                #(#errors; )*
-                #args_tokens
-                sqlx::query_with(#q, query_args)
-            }
+            let s = match returning.as_ref() {
+                Some(returning) => {
+                    let (row_members, row_construct) = construct_row(returning);
+                    quote! { {
+                        use ::sqlx::Arguments as _;
+                        let _ = std::include_bytes!(#sp);
+                        #(#errors; )*
+                        #args_tokens
+
+                        struct Row {
+                            #(#row_members),*
+                        };
+                        sqlx::query_with(#q, query_args).map(|row|
+                            Row{
+                                #(#row_construct),*
+                            }
+                        )
+                    }}
+                }
+                None => quote! { {
+                    use ::sqlx::Arguments as _;
+                    #(#errors; )*
+                    #args_tokens
+                    sqlx::query_with(#q, query_args)
+                }
+                },
             };
             s.into()
         }
@@ -497,7 +519,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             );
             let s = match returning.as_ref() {
                 Some(returning) => {
-                    let (row_members, row_construct) = construct_row(&mut errors, returning);
+                    let (row_members, row_construct) = construct_row(returning);
                     quote! { {
                         use ::sqlx::Arguments as _;
                         let _ = std::include_bytes!(#sp);
@@ -556,7 +578,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             );
             let s = match returning.as_ref() {
                 Some(returning) => {
-                    let (row_members, row_construct) = construct_row(&mut errors, returning);
+                    let (row_members, row_construct) = construct_row(returning);
                     quote! { {
                         use ::sqlx::Arguments as _;
                         let _ = std::include_bytes!(#sp);
@@ -593,10 +615,7 @@ pub fn query(input: TokenStream) -> TokenStream {
     }
 }
 
-fn construct_row2(
-    _errors: &mut Vec<proc_macro2::TokenStream>,
-    columns: &[SelectTypeColumn],
-) -> Vec<proc_macro2::TokenStream> {
+fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream> {
     let mut row_construct = Vec::new();
     for (i, c) in columns.iter().enumerate() {
         let mut t = match c.type_.t {
@@ -720,7 +739,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 dialect,
             );
 
-            let row_construct = construct_row2(&mut errors, columns);
+            let row_construct = construct_row2(columns);
             let row = query_as.as_;
             let s = quote! { {
                 use ::sqlx::Arguments as _;
@@ -776,7 +795,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 dialect,
             );
 
-            let row_construct = construct_row2(&mut errors, returning);
+            let row_construct = construct_row2(returning);
             let row = query_as.as_;
             let s = quote! { {
                 use ::sqlx::Arguments as _;
@@ -831,7 +850,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 dialect,
             );
 
-            let row_construct = construct_row2(&mut errors, returning);
+            let row_construct = construct_row2(returning);
             let row = query_as.as_;
             let s = quote! { {
                 use ::sqlx::Arguments as _;
