@@ -20,8 +20,8 @@ use crate::{
     Type,
 };
 
-pub(crate) fn type_binary_expression<'a, 'b>(
-    typer: &mut Typer<'a, 'b>,
+pub(crate) fn type_binary_expression<'a>(
+    typer: &mut Typer<'a, '_>,
     op: &BinaryOperator,
     op_span: &Span,
     lhs: &Expression<'a>,

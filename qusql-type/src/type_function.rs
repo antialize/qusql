@@ -20,8 +20,8 @@ use crate::{
     Type,
 };
 
-fn arg_cnt<'a, 'b>(
-    typer: &mut Typer<'a, 'b>,
+fn arg_cnt<'a>(
+    typer: &mut Typer<'a, '_>,
     rng: core::ops::Range<usize>,
     args: &[Expression<'a>],
     span: &Span,
@@ -121,7 +121,7 @@ pub(crate) fn type_function<'a, 'b>(
         Function::SubStr => {
             arg_cnt(typer, 2..3, args, span);
 
-            let mut return_type = if let Some(arg) = args.get(0) {
+            let mut return_type = if let Some(arg) = args.first() {
                 let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
                 if !matches!(t.base(), BaseType::Any | BaseType::String | BaseType::Bytes) {
                     typer.issues.push(Issue::err(
@@ -168,12 +168,12 @@ pub(crate) fn type_function<'a, 'b>(
             &[BaseType::String, BaseType::String, BaseType::String],
             &[],
         ),
-        Function::CharacterLength => return tf(BaseType::Integer.into(), &[BaseType::String], &[]),
+        Function::CharacterLength => tf(BaseType::Integer.into(), &[BaseType::String], &[]),
         Function::UnixTimestamp => {
             let mut not_null = true;
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 0..1, args, span);
-            if let Some((a, t)) = typed.get(0) {
+            if let Some((a, t)) = typed.first() {
                 not_null = not_null && t.not_null;
                 // TODO the argument can be both a DATE, a DATE_TIME or a TIMESTAMP
                 typer.ensure_base(*a, t, BaseType::DateTime);
@@ -183,7 +183,7 @@ pub(crate) fn type_function<'a, 'b>(
         Function::IfNull => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..2, args, span);
-            let t = if let Some((e, t)) = typed.get(0) {
+            let t = if let Some((e, t)) = typed.first() {
                 if t.not_null {
                     typer.issues.push(Issue::warn("Cannot be null", *e));
                 }
@@ -204,7 +204,7 @@ pub(crate) fn type_function<'a, 'b>(
             if let Some((a, t)) = typed.get(1) {
                 typer.ensure_base(*a, t, BaseType::Integer);
             }
-            if let Some((_, t)) = typed.get(0) {
+            if let Some((_, t)) = typed.first() {
                 let mut t = t.clone();
                 t.not_null = false;
                 t
@@ -286,7 +286,7 @@ pub(crate) fn type_function<'a, 'b>(
             for (a, t) in &typed {
                 typer.ensure_base(*a, t, BaseType::String);
             }
-            if let (Some(t0), Some(t1)) = (typed.get(0), typed.get(1)) {
+            if let (Some(t0), Some(t1)) = (typed.first(), typed.get(1)) {
                 let not_null = t0.1.not_null && t1.1.not_null;
                 FullType::new(Type::Base(BaseType::Bool), not_null)
             } else {
@@ -296,7 +296,7 @@ pub(crate) fn type_function<'a, 'b>(
         Function::Min | Function::Max | Function::Sum => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
-            if let Some((_, t2)) = typed.get(0) {
+            if let Some((_, t2)) = typed.first() {
                 // TODO check that the type can be mined or maxed
                 // Result can be null if there are no rows to aggregate over
                 let mut v = t2.clone();
@@ -306,11 +306,9 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::invalid()
             }
         }
-        Function::Now => return tf(BaseType::DateTime.into(), &[], &[BaseType::Integer]),
-        Function::CurDate => return tf(BaseType::Date.into(), &[], &[]),
-        Function::CurrentTimestamp => {
-            return tf(BaseType::TimeStamp.into(), &[], &[BaseType::Integer])
-        }
+        Function::Now => tf(BaseType::DateTime.into(), &[], &[BaseType::Integer]),
+        Function::CurDate => tf(BaseType::Date.into(), &[], &[]),
+        Function::CurrentTimestamp => tf(BaseType::TimeStamp.into(), &[], &[BaseType::Integer]),
         Function::Concat => {
             let typed = typed_args(typer, args, flags);
             let mut not_null = true;
@@ -323,7 +321,7 @@ pub(crate) fn type_function<'a, 'b>(
         Function::Least | Function::Greatest => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..9999, args, span);
-            if let Some((a, at)) = typed.get(0) {
+            if let Some((a, at)) = typed.first() {
                 let mut not_null = true;
                 let mut t = at.t.clone();
                 for (b, bt) in &typed[1..] {
@@ -349,7 +347,7 @@ pub(crate) fn type_function<'a, 'b>(
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 3..3, args, span);
             let mut not_null = true;
-            if let Some((e, t)) = typed.get(0) {
+            if let Some((e, t)) = typed.first() {
                 not_null = not_null && t.not_null;
                 typer.ensure_base(*e, t, BaseType::Bool);
             }
@@ -375,7 +373,7 @@ pub(crate) fn type_function<'a, 'b>(
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..2, args, span);
             let mut not_null = true;
-            if let Some((e, t)) = typed.get(0) {
+            if let Some((e, t)) = typed.first() {
                 not_null = not_null && t.not_null;
                 // TODO float og int
                 typer.ensure_base(*e, t, BaseType::Float);
@@ -388,13 +386,11 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::new(BaseType::DateTime, not_null)
             }
         }
-        Function::DateFormat => {
-            return tf(
-                BaseType::String.into(),
-                &[BaseType::DateTime, BaseType::String],
-                &[BaseType::String],
-            )
-        }
+        Function::DateFormat => tf(
+            BaseType::String.into(),
+            &[BaseType::DateTime, BaseType::String],
+            &[BaseType::String],
+        ),
         Function::Value => {
             let typed = typed_args(typer, args, flags);
             if !flags.in_on_duplicate_key_update {
@@ -404,7 +400,7 @@ pub(crate) fn type_function<'a, 'b>(
                 ));
             }
             arg_cnt(typer, 1..1, args, span);
-            if let Some((_, t)) = typed.get(0) {
+            if let Some((_, t)) = typed.first() {
                 t.clone()
             } else {
                 FullType::invalid()

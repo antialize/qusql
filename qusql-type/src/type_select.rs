@@ -164,8 +164,8 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
     }
 }
 
-pub(crate) fn type_select<'a, 'b>(
-    typer: &mut Typer<'a, 'b>,
+pub(crate) fn type_select<'a>(
+    typer: &mut Typer<'a, '_>,
     select: &Select<'a>,
     warn_duplicate: bool,
 ) -> SelectType<'a> {
@@ -318,13 +318,13 @@ pub(crate) fn type_select_exprs<'a, 'b>(
             };
         }
     }
-    typer.issues.extend(add_result_issues.into_iter());
+    typer.issues.extend(add_result_issues);
     typer.reference_types.push(select_reference);
 
     result
 }
 
-pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -> SelectType<'a> {
+pub(crate) fn type_union<'a>(typer: &mut Typer<'a, '_>, union: &Union<'a>) -> SelectType<'a> {
     let mut t = type_union_select(typer, &union.left, true);
     let mut left = union.left.span();
     for w in &union.with {
@@ -456,8 +456,8 @@ pub(crate) fn type_union<'a, 'b>(typer: &mut Typer<'a, 'b>, union: &Union<'a>) -
     t
 }
 
-pub(crate) fn type_union_select<'a, 'b>(
-    typer: &mut Typer<'a, 'b>,
+pub(crate) fn type_union_select<'a>(
+    typer: &mut Typer<'a, '_>,
     statement: &Statement<'a>,
     warn_duplicate: bool,
 ) -> SelectType<'a> {

@@ -84,7 +84,8 @@
 
 use crate::{
     type_::{BaseType, FullType},
-    RefOrVal, Type, TypeOptions, typer::unqualified_name,
+    typer::unqualified_name,
+    RefOrVal, Type, TypeOptions,
 };
 use alloc::{collections::BTreeMap, vec::Vec};
 use sql_parse::{parse_statements, DataType, Issue, Span, Spanned};
@@ -279,7 +280,7 @@ pub fn parse_schemas<'a>(
                 let mut replace = false;
 
                 let id = unqualified_name(issues, &t.identifier);
-            
+
                 let mut schema = Schema {
                     view: false,
                     identifier_span: id.span.clone(),
@@ -460,10 +461,7 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::DropTrigger(_) => {}
             sql_parse::Statement::DropView(v) => {
                 for i in v.views {
-                    match schemas
-                        .schemas
-                        .entry(&unqualified_name(issues, &i).as_str())
-                    {
+                    match schemas.schemas.entry(unqualified_name(issues, &i).as_str()) {
                         alloc::collections::btree_map::Entry::Occupied(e) => {
                             if !e.get().view {
                                 issues.push(
@@ -489,7 +487,7 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::AlterTable(a) => {
                 let e = match schemas
                     .schemas
-                    .entry(&unqualified_name(issues, &a.table).value)
+                    .entry(unqualified_name(issues, &a.table).value)
                 {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         let e = e.into_mut();

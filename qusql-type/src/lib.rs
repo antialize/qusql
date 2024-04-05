@@ -173,6 +173,8 @@ pub enum StatementType<'a> {
     Delete {
         /// The key and type of arguments to the query
         arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
+        /// If present, the types and names of the columns returned from the delete
+        returning: Option<Vec<SelectTypeColumn<'a>>>,
     },
     /// The statement is an insert statement
     Insert {
@@ -213,6 +215,7 @@ pub fn type_statement<'a>(
             reference_types: Vec::new(),
             arg_types: Default::default(),
             options,
+            with_schemas: Default::default(),
         };
         let t = type_statement::type_statement(&mut typer, &stmt);
         let arguments = typer.arg_types;
@@ -221,7 +224,10 @@ pub fn type_statement<'a>(
                 columns: s.columns,
                 arguments,
             },
-            type_statement::InnerStatementType::Delete => StatementType::Delete { arguments },
+            type_statement::InnerStatementType::Delete { returning } => StatementType::Delete {
+                arguments,
+                returning: returning.map(|r| r.columns),
+            },
             type_statement::InnerStatementType::Insert {
                 auto_increment_id,
                 returning,
@@ -574,7 +580,7 @@ mod tests {
                 "DELETE `t1` FROM `t1`, `t2` WHERE `t1`.`id` = `t2`.`t1_id` AND `t2`.`id` = ?";
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, &issues, &mut errors);
-            if let StatementType::Delete { arguments } = q {
+            if let StatementType::Delete { arguments, .. } = q {
                 check_arguments(name, &arguments, "i", &mut errors);
             } else {
                 println!("{} should be delete", name);
@@ -1061,6 +1067,22 @@ mod tests {
                 check_columns(name, &returning.expect("Returning"), "id:i64!", &mut errors);
             } else {
                 println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q2";
+            let src =
+                "WITH hat AS (DELETE FROM t1 WHERE old_id=42 RETURNING id) INSERT INTO t2 (id) SELECT id FROM hat";
+
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+
+            if let StatementType::Insert { arguments, .. } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+            } else {
+                println!("{} should be select {q:?}", name);
                 errors += 1;
             }
         }

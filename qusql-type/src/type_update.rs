@@ -20,7 +20,7 @@ use crate::{
     Type,
 };
 
-pub(crate) fn type_update<'a, 'b>(typer: &mut Typer<'a, 'b>, update: &Update<'a>) {
+pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
     let mut guard = typer_stack(
         typer,
         |t| core::mem::take(&mut t.reference_types),
