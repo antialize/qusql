@@ -19,8 +19,8 @@ use crate::{
 use alloc::vec::Vec;
 use sql_parse::{issue_todo, Issue, OptSpanned, Spanned, TableReference};
 
-pub(crate) fn type_reference<'a, 'b>(
-    typer: &mut Typer<'a, 'b>,
+pub(crate) fn type_reference<'a>(
+    typer: &mut Typer<'a, '_>,
     reference: &TableReference<'a>,
     force_null: bool,
 ) {
@@ -29,8 +29,8 @@ pub(crate) fn type_reference<'a, 'b>(
         sql_parse::TableReference::Table {
             identifier, as_, ..
         } => {
-            let identifier = unqualified_name(&mut typer.issues, identifier);
-            if let Some(s) = typer.get_schema(&identifier.value) {
+            let identifier = unqualified_name(typer.issues, identifier);
+            if let Some(s) = typer.get_schema(identifier.value) {
                 let mut columns = Vec::new();
                 for c in &s.columns {
                     let mut type_ = c.type_.clone();

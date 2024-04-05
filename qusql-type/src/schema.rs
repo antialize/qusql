@@ -461,10 +461,7 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::DropTrigger(_) => {}
             sql_parse::Statement::DropView(v) => {
                 for i in v.views {
-                    match schemas
-                        .schemas
-                        .entry(&unqualified_name(issues, &i).as_str())
-                    {
+                    match schemas.schemas.entry(unqualified_name(issues, &i).as_str()) {
                         alloc::collections::btree_map::Entry::Occupied(e) => {
                             if !e.get().view {
                                 issues.push(
@@ -490,7 +487,7 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::AlterTable(a) => {
                 let e = match schemas
                     .schemas
-                    .entry(&unqualified_name(issues, &a.table).value)
+                    .entry(unqualified_name(issues, &a.table).value)
                 {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         let e = e.into_mut();

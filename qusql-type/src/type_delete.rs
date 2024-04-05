@@ -21,8 +21,8 @@ use crate::{
     SelectTypeColumn,
 };
 
-pub(crate) fn type_delete<'a, 'b>(
-    typer: &mut Typer<'a, 'b>,
+pub(crate) fn type_delete<'a>(
+    typer: &mut Typer<'a, '_>,
     delete: &Delete<'a>,
 ) -> Option<SelectType<'a>> {
     let mut guard = typer_stack(
@@ -47,8 +47,8 @@ pub(crate) fn type_delete<'a, 'b>(
             type_reference(typer, reference, false);
         }
         for table in &delete.tables {
-            let identifier = unqualified_name(&mut typer.issues, table);
-            if typer.get_schema(&identifier.value).is_none() {
+            let identifier = unqualified_name(typer.issues, table);
+            if typer.get_schema(identifier.value).is_none() {
                 typer
                     .issues
                     .push(Issue::err("Unknown table or view", identifier))
@@ -61,8 +61,8 @@ pub(crate) fn type_delete<'a, 'b>(
                 &delete.tables.opt_span().unwrap(),
             ));
         }
-        let identifier = unqualified_name(&mut typer.issues, &delete.tables[0]);
-        if let Some(s) = typer.get_schema(&identifier.value) {
+        let identifier = unqualified_name(typer.issues, &delete.tables[0]);
+        if let Some(s) = typer.get_schema(identifier.value) {
             let mut columns = Vec::new();
             for col in &s.columns {
                 columns.push((col.identifier, col.type_.clone()));

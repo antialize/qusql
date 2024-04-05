@@ -39,8 +39,8 @@ pub(crate) enum InnerStatementType<'a> {
     Invalid,
 }
 
-fn type_with_query<'b, 'a>(
-    typer: &mut Typer<'a, 'b>,
+fn type_with_query<'a>(
+    typer: &mut Typer<'a, '_>,
     with_blocks: &[WithBlock<'a>],
     inner: &Statement<'a>,
 ) -> InnerStatementType<'a> {
@@ -82,8 +82,8 @@ fn type_with_query<'b, 'a>(
     }
 }
 
-pub(crate) fn type_statement<'b, 'a>(
-    typer: &mut Typer<'a, 'b>,
+pub(crate) fn type_statement<'a>(
+    typer: &mut Typer<'a, '_>,
     statement: &Statement<'a>,
 ) -> InnerStatementType<'a> {
     match statement {

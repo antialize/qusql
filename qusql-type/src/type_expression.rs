@@ -56,8 +56,8 @@ impl ExpressionFlags {
     }
 }
 
-fn type_unary_expression<'a, 'b>(
-    typer: &mut Typer<'a, 'b>,
+fn type_unary_expression<'a>(
+    typer: &mut Typer<'a, '_>,
     op: &UnaryOperator,
     op_span: &Span,
     operand: &Expression<'a>,
@@ -80,8 +80,8 @@ fn type_unary_expression<'a, 'b>(
     }
 }
 
-pub(crate) fn type_expression<'a, 'b>(
-    typer: &mut Typer<'a, 'b>,
+pub(crate) fn type_expression<'a>(
+    typer: &mut Typer<'a, '_>,
     expression: &Expression<'a>,
     flags: ExpressionFlags,
     _context: BaseType,
@@ -251,7 +251,7 @@ pub(crate) fn type_expression<'a, 'b>(
                                 q,
                             ))
                         }
-                        if let Some(c) = rhs_type.columns.get(0) {
+                        if let Some(c) = rhs_type.columns.first() {
                             c.type_.clone()
                         } else {
                             FullType::invalid()

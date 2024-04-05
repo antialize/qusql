@@ -31,11 +31,11 @@ pub enum AutoIncrementId {
     Optional,
 }
 
-pub(crate) fn type_insert_replace<'a, 'b>(
-    typer: &mut Typer<'a, 'b>,
+pub(crate) fn type_insert_replace<'a>(
+    typer: &mut Typer<'a, '_>,
     ior: &InsertReplace<'a>,
 ) -> (AutoIncrementId, Option<SelectType<'a>>) {
-    let table = unqualified_name(&mut typer.issues, &ior.table);
+    let table = unqualified_name(typer.issues, &ior.table);
     let columns = &ior.columns;
 
     let (s, auto_increment) = if let Some(schema) = typer.schemas.schemas.get(table.value) {
