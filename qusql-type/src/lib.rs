@@ -1000,6 +1000,38 @@ mod tests {
             }
         }
 
+        {
+            issues.clear();
+            let name = "q24";
+            let src =
+                "SELECT JSON_CONTAINS('{\"A\": 0, \"B\": [\"x\", \"y\"]}', '\"x\"', '$.B') AS `k` FROM `t3`";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "k:b!", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q25";
+            let src =
+                "SELECT JSON_CONTAINS('{\"A\": 0, \"B\": [\"x\", \"y\"]}', NULL, '$.A') AS `k` FROM `t3`";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "k:b", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
         if errors != 0 {
             panic!("{} errors in test", errors);
         }
