@@ -298,13 +298,22 @@ fn type_statement(
             )?
             .to_object(py)
         }
-        sql_type::StatementType::Delete { arguments } => Py::new(
-            py,
-            Delete {
-                arguments: map_arguments(arguments),
-            },
-        )?
-        .to_object(py),
+        sql_type::StatementType::Delete { arguments, returning } => {
+            if returning.is_some() {
+                // TODO: Implement RETURNING support
+                issues.push(Issue::err(
+                    "support for RETURNING is not implemented yet",
+                    &(0..statement.len()),
+                ));
+            }
+            Py::new(
+                py,
+                Delete {
+                    arguments: map_arguments(arguments),
+                },
+            )?
+            .to_object(py)
+        },
         sql_type::StatementType::Insert {
             yield_autoincrement,
             arguments,
