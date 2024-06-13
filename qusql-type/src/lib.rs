@@ -460,6 +460,10 @@ mod tests {
         ALTER TABLE `t1`
           MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
+        DROP INDEX IF EXISTS `hat` ON `t1`;
+
+        CREATE INDEX `hat2` ON `t1` (`id`, `cf64`);
+
         CREATE TABLE `t2` (
           `id` int(11) NOT NULL AUTO_INCREMENT,
           `t1_id` int(11) NOT NULL);
@@ -1032,6 +1036,32 @@ mod tests {
             }
         }
 
+        {
+            issues.clear();
+            let name = "q26";
+            let src = "SELECT `id` FROM `t1` FORCE INDEX (`hat`)";
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_empty() {
+                println!("{} should fail", name);
+                errors += 1;
+            }
+        }
+
+        {
+            issues.clear();
+            let name = "q27";
+            let src = "SELECT `id` FROM `t1` USE INDEX (`hat2`)";
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, &issues, &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "id:i32!", &mut errors);
+            } else {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
         if errors != 0 {
             panic!("{} errors in test", errors);
         }
@@ -1067,6 +1097,10 @@ mod tests {
         CREATE TABLE IF NOT EXISTS t2 (
             id bigint NOT NULL PRIMARY KEY
         );
+
+        DROP INDEX IF EXISTS t2_index;
+
+        CREATE INDEX t2_index2 ON t2 (id);
 
         COMMIT;
         ";
