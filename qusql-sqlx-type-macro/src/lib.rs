@@ -114,15 +114,17 @@ fn issue_to_report_color(issue: Issue) -> Report<'static, std::ops::Range<usize>
     builder.finish()
 }
 
-struct NamedSource<'a>(&'a str, Source);
+struct NamedSource<'a>(&'a str, Source<&'a str>);
 
 impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
-    fn fetch(&mut self, _: &()) -> Result<&Source, Box<dyn std::fmt::Debug + '_>> {
-        Ok(&self.1)
-    }
+    type Storage = &'a str;
 
     fn display<'b>(&self, _: &'b ()) -> Option<Box<dyn std::fmt::Display + 'b>> {
         Some(Box::new(self.0.to_string()))
+    }
+
+    fn fetch(&mut self, _: &()) -> Result<&Source<Self::Storage>, Box<dyn std::fmt::Debug + '_>> {
+        Ok(&self.1)
     }
 }
 
