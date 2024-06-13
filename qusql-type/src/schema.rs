@@ -144,6 +144,8 @@ pub struct Schemas<'a> {
     pub procedures: BTreeMap<&'a str, Procedure>,
     /// Map from name to function
     pub functions: BTreeMap<&'a str, Functions>,
+    /// Map from (table, index) to location
+    pub indices: BTreeMap<(Option<&'a str>, &'a str), Span>,
 }
 
 pub(crate) fn parse_column<'a>(
@@ -272,6 +274,7 @@ pub fn parse_schemas<'a>(
         schemas: Default::default(),
         procedures: Default::default(),
         functions: Default::default(),
+        indices: Default::default(),
     };
 
     for statement in statements {
@@ -554,10 +557,9 @@ pub fn parse_schemas<'a>(
             // sql_parse::Statement::Replace(_) => todo!(),
             // sql_parse::Statement::Case(_) => todo!(),
             sql_parse::Statement::CreateIndex(ci) => {
-                if let Some(table) = schemas
-                    .schemas
-                    .get(unqualified_name(issues, &ci.table_name).as_str())
-                {
+                let t = unqualified_name(issues, &ci.table_name).as_str();
+
+                if let Some(table) = schemas.schemas.get(t) {
                     for col in &ci.column_names {
                         if table.get_column(col).is_none() {
                             issues.push(
@@ -566,10 +568,31 @@ pub fn parse_schemas<'a>(
                             );
                         }
                     }
-
                     // TODO type where_
                 } else {
                     issues.push(Issue::err("No such table", &ci.table_name));
+                }
+
+                let ident = if options.parse_options.get_dialect().is_postgresql() {
+                    (None, ci.index_name.as_str())
+                } else {
+                    (Some(t), ci.index_name.as_str())
+                };
+
+                if let Some(old) = schemas.indices.insert(ident, ci.span()) {
+                    if ci.if_not_exists.is_none() {
+                        issues.push(
+                            Issue::err("Multiple indeces with the same identifier", &ci)
+                                .frag("Already defined here", &old),
+                        );
+                    }
+                }
+            }
+            sql_parse::Statement::DropIndex(ci) => {
+                let t = ci.on.as_ref().map(|(_, t)| t.identifier.as_str());
+                let i = ci.index_name.as_str();
+                if schemas.indices.remove(&(t, i)).is_none() && ci.if_exists.is_none() {
+                    issues.push(Issue::err("No such index", &ci));
                 }
             }
             sql_parse::Statement::Commit(_) => (),

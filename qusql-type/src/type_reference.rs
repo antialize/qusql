@@ -27,7 +27,10 @@ pub(crate) fn type_reference<'a>(
     let mut given_refs = core::mem::take(&mut typer.reference_types);
     match reference {
         sql_parse::TableReference::Table {
-            identifier, as_, ..
+            identifier,
+            as_,
+            index_hints,
+            ..
         } => {
             let identifier = unqualified_name(typer.issues, identifier);
             if let Some(s) = typer.get_schema(identifier.value) {
@@ -42,10 +45,24 @@ pub(crate) fn type_reference<'a>(
                     if v.name == Some(name.value) {
                         typer.issues.push(
                             Issue::err("Duplicate definitions", &name)
-                                .frag("Allready defined here", &v.span),
+                                .frag("Already defined here", &v.span),
                         );
                     }
                 }
+                for index_hint in index_hints {
+                    if matches!(index_hint.type_, sql_parse::IndexHintType::Index(_)) {
+                        for index in &index_hint.index_list {
+                            if !typer
+                                .schemas
+                                .indices
+                                .contains_key(&(Some(identifier), index.as_str()))
+                            {
+                                typer.issues.push(Issue::err("Unknown index", index));
+                            }
+                        }
+                    }
+                }
+
                 typer.reference_types.push(ReferenceType {
                     name: Some(name.value),
                     span: name.span(),
