@@ -264,7 +264,7 @@ fn quote_args(
             });
             arg_add.push(quote!(
                 for v in #name.iter() {
-                    query_args.add(v);
+                    e = e.and_then(|()| query_args.add(v));
                 }
             ));
         } else {
@@ -277,7 +277,7 @@ fn quote_args(
                     ::std::panic!();
                 }
             });
-            arg_add.push(quote!(query_args.add(#name);));
+            arg_add.push(quote!(e = e.and_then(|()| query_args.add(#name));));
         }
     }
 
@@ -295,10 +295,11 @@ fn quote_args(
             let mut args_count = 0;
             #(#arg_bindings)*
 
-            let mut query_args = <#cls as ::sqlx::database::HasArguments>::Arguments::default();
+            let mut query_args = <#cls as ::sqlx::database::Database>::Arguments::default();
             query_args.reserve(args_count, size_hints);
-
+            let mut e = Ok(());
             #(#arg_add)*
+            let query_args = e.and_then(|()| Ok(query_args));
         },
         query,
     )
@@ -452,12 +453,12 @@ pub fn query(input: TokenStream) -> TokenStream {
                 use ::sqlx::Arguments as _;
                 let _ = std::include_bytes!(#sp);
                 #(#errors; )*
-                #args_tokens
+                #args_tokens;
 
                 struct Row {
                     #(#row_members),*
                 };
-                sqlx::query_with(#q, query_args).map(|row|
+                sqlx::__query_with_result(#q, query_args).map(|row|
                     Row{
                         #(#row_construct),*
                     }
@@ -489,7 +490,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                         struct Row {
                             #(#row_members),*
                         };
-                        sqlx::query_with(#q, query_args).map(|row|
+                        sqlx::__query_with_result(#q, query_args).map(|row|
                             Row{
                                 #(#row_construct),*
                             }
@@ -500,7 +501,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                     use ::sqlx::Arguments as _;
                     #(#errors; )*
                     #args_tokens
-                    sqlx::query_with(#q, query_args)
+                    sqlx::__query_with_result(#q, query_args)
                 }
                 },
             };
@@ -531,7 +532,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                         struct Row {
                             #(#row_members),*
                         };
-                        sqlx::query_with(#q, query_args).map(|row|
+                        sqlx::__query_with_result(#q, query_args).map(|row|
                             Row{
                                 #(#row_construct),*
                             }
@@ -542,7 +543,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                     use ::sqlx::Arguments as _;
                     #(#errors; )*
                     #args_tokens
-                    sqlx::query_with(#q, query_args)
+                    sqlx::__query_with_result(#q, query_args)
                 }
                 },
             };
@@ -561,7 +562,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
                 #args_tokens
-                sqlx::query_with(#q, query_args)
+                sqlx::__query_with_result(#q, query_args)
             }
             };
             s.into()
@@ -590,7 +591,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                         struct Row {
                             #(#row_members),*
                         };
-                        sqlx::query_with(#q, query_args).map(|row|
+                        sqlx::__query_with_result(#q, query_args).map(|row|
                             Row{
                                 #(#row_construct),*
                             }
@@ -601,7 +602,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                     use ::sqlx::Arguments as _;
                     #(#errors; )*
                     #args_tokens
-                    sqlx::query_with(#q, query_args)
+                    sqlx::__query_with_result(#q, query_args)
                 }
                 },
             };
@@ -747,7 +748,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
                 #args_tokens
-                sqlx::query_with(#q, query_args).map(|row|
+                sqlx::__query_with_result(#q, query_args).map(|row|
                     #row{
                         #(#row_construct),*
                     }
@@ -803,7 +804,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
                 #args_tokens
-                sqlx::query_with(#q, query_args).map(|row|
+                sqlx::__query_with_result(#q, query_args).map(|row|
                     #row{
                         #(#row_construct),*
                     }
@@ -858,7 +859,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 use ::sqlx::Arguments as _;
                 #(#errors; )*
                 #args_tokens
-                sqlx::query_with(#q, query_args).map(|row|
+                sqlx::__query_with_result(#q, query_args).map(|row|
                     #row{
                         #(#row_construct),*
                     }
