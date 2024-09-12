@@ -36,10 +36,12 @@ fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
     builder.finish()
 }
 
-struct NamedSource<'a>(&'a str, Source);
+struct NamedSource<'a>(&'a str, Source<&'a str>);
 
 impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
-    fn fetch(&mut self, _: &()) -> Result<&Source, Box<dyn std::fmt::Debug + '_>> {
+    type Storage = &'a str;
+
+    fn fetch(&mut self, _: &()) -> Result<&Source<Self::Storage>, Box<dyn std::fmt::Debug + '_>> {
         Ok(&self.1)
     }
 
@@ -374,7 +376,7 @@ fn type_statement(
 }
 
 #[pymodule]
-fn mysql_type_plugin(_py: Python, m: &PyModule) -> PyResult<()> {
+fn mysql_type_plugin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_schemas, m)?)?;
     m.add_function(wrap_pyfunction!(type_statement, m)?)?;
     m.add_class::<Select>()?;
