@@ -61,6 +61,7 @@ fn type_with_query<'a>(
                         identifier_span: c.span,
                         type_: c.type_,
                         auto_increment: false,
+                        as_: None,
                     });
                 }
             }

@@ -454,7 +454,13 @@ mod tests {
           `ctext` varchar(100) NOT NULL,
           `cbytes` blob,
           `cf32` float,
-          `cf64` double
+          `cf64` double,
+          `cu8_plus_one` tinyint UNSIGNED GENERATED ALWAYS AS (
+            `cu8` + 1
+           ) STORED,
+          `status` varchar(10) GENERATED ALWAYS AS (case when `cu8` <> 0 and `cu16` = 0 then 'a' when
+            `cbool` then 'b' when `ci32` = 42 then 'd' when `cu64` = 43 then 'x' when
+            `ci64` = 12 then 'y' else 'z' end) VIRTUAL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
         ALTER TABLE `t1`
@@ -491,7 +497,7 @@ mod tests {
         {
             let name = "q1";
             let src =
-                "SELECT `id`, `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
+                "SELECT `id`, `cbool`, `cu8`, `cu8_plus_one`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
                 `ctext`, `cbytes`, `cf32`, `cf64` FROM `t1` WHERE ci8 IS NOT NULL
                 AND `cbool`=? AND `cu8`=? AND `cu16`=? AND `cu32`=? AND `cu64`=?
                 AND `ci8`=? AND `ci16`=? AND `ci32`=? AND `ci64`=?
@@ -509,7 +515,7 @@ mod tests {
                 check_columns(
                     name,
                     &columns,
-                    "id:i32!,cbool:b!,cu8:u8!,cu16:u16!,cu32:u32!,cu64:u64!,
+                    "id:i32!,cbool:b!,cu8:u8!,cu8_plus_one:u8!,cu16:u16!,cu32:u32!,cu64:u64!,
                     ci8:i8!,ci16:i16!,ci32:i32!,ci64:i64!,ctext:str!,cbytes:bytes!,cf32:f32!,cf64:f64!",
                     &mut errors,
                 );

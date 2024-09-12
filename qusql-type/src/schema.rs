@@ -88,7 +88,7 @@ use crate::{
     RefOrVal, Type, TypeOptions,
 };
 use alloc::{collections::BTreeMap, vec::Vec};
-use sql_parse::{parse_statements, DataType, Issue, Span, Spanned};
+use sql_parse::{parse_statements, DataType, Expression, Issue, Span, Spanned};
 
 /// A column in a schema
 #[derive(Debug)]
@@ -100,6 +100,7 @@ pub struct Column<'a> {
     pub type_: FullType<'a>,
     /// True if the column is auto_increment
     pub auto_increment: bool,
+    pub as_: Option<alloc::boxed::Box<Expression<'a>>>,
 }
 
 /// Schema representing a table or view
@@ -135,7 +136,7 @@ pub struct Procedure {}
 pub struct Functions {}
 
 /// A description of tables, view, procedures and function in a schemas definition file
-#[derive(Debug)]
+#[derive(Debug, Default)]
 
 pub struct Schemas<'a> {
     /// Map from name to Tables or views
@@ -157,14 +158,15 @@ pub(crate) fn parse_column<'a>(
     let mut not_null = false;
     let mut unsigned = false;
     let mut auto_increment = false;
+    let mut _as = None;
     for p in data_type.properties {
         match p {
             sql_parse::DataTypeProperty::Signed(_) => unsigned = false,
             sql_parse::DataTypeProperty::Unsigned(_) => unsigned = true,
             sql_parse::DataTypeProperty::Null(_) => not_null = false,
             sql_parse::DataTypeProperty::NotNull(_) => not_null = true,
-
             sql_parse::DataTypeProperty::AutoIncrement(_) => auto_increment = true,
+            sql_parse::DataTypeProperty::As((_, e)) => _as = Some(e),
             _ => {} // TODO default,
         }
     }
@@ -235,6 +237,7 @@ pub(crate) fn parse_column<'a>(
         sql_parse::Type::Inet4 => BaseType::String.into(),
         sql_parse::Type::Inet6 => BaseType::String.into(),
     };
+
     Column {
         identifier,
         identifier_span,
@@ -244,6 +247,7 @@ pub(crate) fn parse_column<'a>(
             list_hack: false,
         },
         auto_increment,
+        as_: _as,
     }
 }
 
@@ -598,6 +602,47 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::Commit(_) => (),
             sql_parse::Statement::Begin(_) => (),
             s => issues.push(Issue::err("Unsupported statement in schema definition", &s)),
+        }
+    }
+
+    let dummy_schemas = Schemas::default();
+
+    let mut typer = crate::typer::Typer {
+        schemas: &dummy_schemas,
+        issues,
+        reference_types: Vec::new(),
+        arg_types: Default::default(),
+        options,
+        with_schemas: Default::default(),
+    };
+
+    // Compute nullity of generated columns
+    for (name, schema) in &mut schemas.schemas {
+        if schema.columns.iter().all(|v| v.as_.is_none()) {
+            continue;
+        }
+        typer.reference_types.clear();
+        let mut columns = Vec::new();
+        for c in &schema.columns {
+            let mut type_ = c.type_.clone();
+            type_.not_null = type_.not_null;
+            columns.push((c.identifier, type_));
+        }
+        typer.reference_types.push(crate::typer::ReferenceType {
+            name: Some(name),
+            span: schema.identifier_span.clone(),
+            columns,
+        });
+        for c in &mut schema.columns {
+            if let Some(as_) = &c.as_ {
+                let full_type = crate::type_expression::type_expression(
+                    &mut typer,
+                    as_,
+                    crate::type_expression::ExpressionFlags::default(),
+                    BaseType::Any,
+                );
+                c.type_.not_null = full_type.not_null;
+            }
         }
     }
     schemas
