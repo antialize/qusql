@@ -2,6 +2,6 @@
 
 To test locally, run e.g.:
 ```sh
-python -m pip wheel -e .
-pip install --user --force-reinstall *.whl
+python3 -m pip wheel -e .
+pip install --user --force-reinstall *.whl --break-system-packages
 ```
