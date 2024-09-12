@@ -457,7 +457,10 @@ mod tests {
           `cf64` double,
           `cu8_plus_one` tinyint UNSIGNED GENERATED ALWAYS AS (
             `cu8` + 1
-           ) STORED
+           ) STORED,
+          `status` varchar(10) GENERATED ALWAYS AS (case when `cu8` <> 0 and `cu16` = 0 then 'a' when
+            `cbool` then 'b' when `ci32` = 42 then 'd' when `cu64` = 43 then 'x' when
+            `ci64` = 12 then 'y' else 'z' end) VIRTUAL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
         ALTER TABLE `t1`

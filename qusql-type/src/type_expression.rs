@@ -312,9 +312,37 @@ pub(crate) fn type_expression<'a>(
             }
         }
         Expression::Invalid(_) => FullType::invalid(),
-        Expression::Case { .. } => {
-            typer.issues.push(issue_todo!(expression));
-            FullType::invalid()
+        Expression::Case { value, whens, else_, ..  } => {
+            if value.is_some(){
+                typer.issues.push(issue_todo!(expression));
+                FullType::invalid()
+            } else {
+                let not_null = true;
+                let mut t: Option<Type> = None;
+                for when in whens {
+                    let op_type = type_expression(typer, &when.when, flags, BaseType::Bool);
+                    typer.ensure_base(&when.when, &op_type, BaseType::Bool);
+                    let t2 = type_expression(typer, &when.then, flags, BaseType::Any);
+                    if let Some(t1) = t {
+                        t = typer.matched_type(&t1, &t2.t)
+                    } else {
+                        t = Some(t2.t);
+                    }
+                }
+                if let Some((_, else_)) = else_ {
+                    let t2 = type_expression(typer, else_, flags, BaseType::Any);
+                    if let Some(t1) = t {
+                        t = typer.matched_type(&t1, &t2.t)
+                    } else {
+                        t = Some(t2.t);
+                    }
+                }
+                if let Some(t) = t {
+                    FullType::new(t, not_null)
+                } else {
+                    FullType::invalid()
+                }
+            }
         }
         Expression::Cast {
             expr,
