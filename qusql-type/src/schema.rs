@@ -526,7 +526,45 @@ pub fn parse_schemas<'a>(
                 };
                 for s in a.alter_specifications {
                     match s {
-                        sql_parse::AlterSpecification::AddIndex { .. } => {}
+                        sql_parse::AlterSpecification::AddIndex {
+                            if_not_exists,
+                            name,
+                            cols,
+                            ..
+                        } => {
+                            for col in &cols {
+                                if e.get_column(&col.name).is_none() {
+                                    issues
+                                        .err("No such column in table", col)
+                                        .frag("Table defined here", &a.table);
+                                }
+                            }
+
+                            if let Some(name) = &name {
+                                let ident = if options.parse_options.get_dialect().is_postgresql() {
+                                    IndexKey {
+                                        table: None,
+                                        index: name.clone(),
+                                    }
+                                } else {
+                                    IndexKey {
+                                        table: Some(unqualified_name(issues, &a.table).clone()),
+                                        index: name.clone(),
+                                    }
+                                };
+
+                                if let Some(old) = schemas.indices.insert(ident, name.span()) {
+                                    if if_not_exists.is_none() {
+                                        issues
+                                            .err(
+                                                "Multiple indeces with the same identifier",
+                                                &name.span(),
+                                            )
+                                            .frag("Already defined here", &old);
+                                    }
+                                }
+                            }
+                        }
                         sql_parse::AlterSpecification::AddForeignKey { .. } => {}
                         sql_parse::AlterSpecification::Modify {
                             if_exists,

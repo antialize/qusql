@@ -52,7 +52,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use schema::Schemas;
 use sql_parse::{parse_statement, ParseOptions};
-pub use sql_parse::{Issue, Level, Issues, Fragment};
+pub use sql_parse::{Fragment, Issue, Issues, Level};
 
 mod type_;
 mod type_binary_expression;
