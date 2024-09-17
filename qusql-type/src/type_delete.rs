@@ -49,17 +49,15 @@ pub(crate) fn type_delete<'a>(
         for table in &delete.tables {
             let identifier = unqualified_name(typer.issues, table);
             if typer.get_schema(identifier.value).is_none() {
-                typer
-                    .issues
-                    .push(Issue::err("Unknown table or view", identifier))
+                typer.err("Unknown table or view", identifier);
             }
         }
     } else {
         if delete.tables.len() > 1 {
-            typer.issues.push(Issue::err(
+            typer.err(
                 "Expected only one table here",
                 &delete.tables.opt_span().unwrap(),
-            ));
+            );
         }
         let identifier = unqualified_name(typer.issues, &delete.tables[0]);
         if let Some(s) = typer.get_schema(identifier.value) {
@@ -73,7 +71,7 @@ pub(crate) fn type_delete<'a>(
                 columns,
             });
         } else {
-            typer.issues.push(Issue::err("", identifier));
+            typer.err("", identifier);
         }
         for reference in &delete.using {
             type_reference(typer, reference, false);

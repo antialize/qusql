@@ -40,9 +40,7 @@ pub(crate) fn type_insert_replace<'a>(
 
     let (s, auto_increment) = if let Some(schema) = typer.schemas.schemas.get(table.value) {
         if schema.view {
-            typer
-                .issues
-                .push(Issue::err("Inserts into views not yet implemented", table));
+            typer.err("Inserts into views not yet implemented", table);
         }
         let mut col_types = Vec::new();
 
@@ -50,9 +48,7 @@ pub(crate) fn type_insert_replace<'a>(
             if let Some(schema_col) = schema.get_column(col.value) {
                 col_types.push((schema_col.type_.ref_clone(), col.span()));
             } else {
-                typer
-                    .issues
-                    .push(Issue::err("No such column in schema", col));
+                typer.err("No such column in schema", col);
             }
         }
         (
@@ -60,7 +56,7 @@ pub(crate) fn type_insert_replace<'a>(
             schema.columns.iter().any(|c| c.auto_increment),
         )
     } else {
-        typer.issues.push(Issue::err("Unknown table", table));
+        typer.err("Unknown table", table);
         (None, false)
     };
 
@@ -70,10 +66,9 @@ pub(crate) fn type_insert_replace<'a>(
                 if let Some((et, ets)) = s.as_ref().and_then(|v| v.get(j)) {
                     let t = type_expression(typer, e, ExpressionFlags::default(), et.base());
                     if typer.matched_type(&t, et).is_none() {
-                        typer.issues.push(
-                            Issue::err(format!("Got type {}", t.t), e)
-                                .frag(format!("Expected {}", et.t), ets),
-                        );
+                        typer
+                            .err(format!("Got type {}", t.t), e)
+                            .frag(format!("Expected {}", et.t), ets);
                     } else if let Type::Args(_, args) = &t.t {
                         for (idx, arg_type, _) in args {
                             typer.constrain_arg(*idx, arg_type, et);
@@ -93,21 +88,16 @@ pub(crate) fn type_insert_replace<'a>(
                 match (s.get(i), select.columns.get(i)) {
                     (Some((et, ets)), Some(t)) => {
                         if typer.matched_type(&t.type_, et).is_none() {
-                            typer.issues.push(
-                                Issue::err(format!("Got type {}", t.type_.t), &t.span)
-                                    .frag(format!("Expected {}", et.t), ets),
-                            );
+                            typer
+                                .err(format!("Got type {}", t.type_.t), &t.span)
+                                .frag(format!("Expected {}", et.t), ets);
                         }
                     }
                     (None, Some(t)) => {
-                        typer
-                            .issues
-                            .push(Issue::err("Column in select not in insert", &t.span));
+                        typer.err("Column in select not in insert", &t.span);
                     }
                     (Some((_, ets)), None) => {
-                        typer
-                            .issues
-                            .push(Issue::err("Missing column in select", ets));
+                        typer.err("Missing column in select", ets);
                     }
                     (None, None) => {
                         panic!("ICE")
@@ -131,10 +121,10 @@ pub(crate) fn type_insert_replace<'a>(
         }
         for v in &typer.reference_types {
             if v.name == Some(table.value) {
-                typer.issues.push(
-                    Issue::err("Duplicate definitions", table)
-                        .frag("Already defined here", &v.span),
-                );
+                typer
+                    .issues
+                    .err("Duplicate definitions", table)
+                    .frag("Already defined here", &v.span);
             }
         }
         typer.reference_types.push(ReferenceType {
@@ -158,23 +148,19 @@ pub(crate) fn type_insert_replace<'a>(
             }
             if cnt > 1 {
                 type_expression(typer, value, ExpressionFlags::default(), BaseType::Any);
-                let mut issue = Issue::err("Ambiguous reference", column);
+                let mut issue = typer.issues.err("Ambiguous reference", column);
                 for r in &typer.reference_types {
                     for c in &r.columns {
                         if c.0 == column.value {
-                            issue = issue.frag("Defined here", &r.span);
+                            issue.frag("Defined here", &r.span);
                         }
                     }
                 }
-                typer.issues.push(issue);
             } else if let Some(t) = t {
                 let value_type =
                     type_expression(typer, value, ExpressionFlags::default(), t.1.base());
                 if typer.matched_type(&value_type, &t.1).is_none() {
-                    typer.issues.push(Issue::err(
-                        format!("Got type {} expected {}", value_type, t.1),
-                        value,
-                    ));
+                    typer.err(format!("Got type {} expected {}", value_type, t.1), value);
                 } else if let Type::Args(_, args) = &value_type.t {
                     for (idx, arg_type, _) in args {
                         typer.constrain_arg(*idx, arg_type, &t.1);
@@ -182,7 +168,7 @@ pub(crate) fn type_insert_replace<'a>(
                 }
             } else {
                 type_expression(typer, value, ExpressionFlags::default(), BaseType::Any);
-                typer.issues.push(Issue::err("Unknown identifier", column));
+                typer.err("Unknown identifier", column);
             }
         }
     }
@@ -202,22 +188,18 @@ pub(crate) fn type_insert_replace<'a>(
             let flags = ExpressionFlags::default().with_in_on_duplicate_key_update(true);
             if cnt > 1 {
                 type_expression(typer, value, flags, BaseType::Any);
-                let mut issue = Issue::err("Ambiguous reference", column);
+                let mut issue = typer.issues.err("Ambiguous reference", column);
                 for r in &typer.reference_types {
                     for c in &r.columns {
                         if c.0 == column.value {
-                            issue = issue.frag("Defined here", &r.span);
+                            issue.frag("Defined here", &r.span);
                         }
                     }
                 }
-                typer.issues.push(issue);
             } else if let Some(t) = t {
                 let value_type = type_expression(typer, value, flags, t.1.base());
                 if typer.matched_type(&value_type, &t.1).is_none() {
-                    typer.issues.push(Issue::err(
-                        format!("Got type {} expected {}", value_type, t.1),
-                        value,
-                    ));
+                    typer.err(format!("Got type {} expected {}", value_type, t.1), value);
                 } else if let Type::Args(_, args) = &value_type.t {
                     for (idx, arg_type, _) in args {
                         typer.constrain_arg(*idx, arg_type, &t.1);
@@ -225,7 +207,7 @@ pub(crate) fn type_insert_replace<'a>(
                 }
             } else {
                 type_expression(typer, value, flags, BaseType::Any);
-                typer.issues.push(Issue::err("Unknown identifier", column));
+                typer.err("Unknown identifier", column);
             }
         }
     }
@@ -242,14 +224,14 @@ pub(crate) fn type_insert_replace<'a>(
                     }
                 }
                 if t.is_none() {
-                    typer.issues.push(Issue::err("Unknown identifier", name));
+                    typer.err("Unknown identifier", name);
                 }
                 //TODO check if there is a unique constraint on column
             }
             sql_parse::OnConflictTarget::OnConstraint {
                 on_constraint_span, ..
             } => {
-                typer.issues.push(issue_todo!(on_constraint_span));
+                issue_todo!(typer.issues, on_constraint_span);
             }
             sql_parse::OnConflictTarget::None => (),
         }
@@ -271,22 +253,18 @@ pub(crate) fn type_insert_replace<'a>(
                     let flags = ExpressionFlags::default().with_in_on_duplicate_key_update(true);
                     if cnt > 1 {
                         type_expression(typer, value, flags, BaseType::Any);
-                        let mut issue = Issue::err("Ambiguous reference", key);
+                        let mut issue = typer.issues.err("Ambiguous reference", key);
                         for r in &typer.reference_types {
                             for c in &r.columns {
                                 if c.0 == key.value {
-                                    issue = issue.frag("Defined here", &r.span);
+                                    issue.frag("Defined here", &r.span);
                                 }
                             }
                         }
-                        typer.issues.push(issue);
                     } else if let Some(t) = t {
                         let value_type = type_expression(typer, value, flags, t.1.base());
                         if typer.matched_type(&value_type, &t.1).is_none() {
-                            typer.issues.push(Issue::err(
-                                format!("Got type {} expected {}", value_type, t.1),
-                                value,
-                            ));
+                            typer.err(format!("Got type {} expected {}", value_type, t.1), value);
                         } else if let Type::Args(_, args) = &value_type.t {
                             for (idx, arg_type, _) in args {
                                 typer.constrain_arg(*idx, arg_type, &t.1);
@@ -294,7 +272,7 @@ pub(crate) fn type_insert_replace<'a>(
                         }
                     } else {
                         type_expression(typer, value, flags, BaseType::Any);
-                        typer.issues.push(Issue::err("Unknown identifier", key));
+                        typer.err("Unknown identifier", key);
                     }
                 }
                 if let Some((_, where_)) = where_ {

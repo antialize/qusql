@@ -69,7 +69,7 @@ fn type_unary_expression<'a>(
         | UnaryOperator::LogicalNot
         | UnaryOperator::Minus => {
             let _op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Any);
-            typer.issues.push(issue_todo!(op_span));
+            issue_todo!(typer.issues, op_span);
             FullType::invalid()
         }
         UnaryOperator::Not => {
@@ -105,16 +105,12 @@ pub(crate) fn type_expression<'a>(
                 r.not_null = false;
                 r
             } else {
-                typer
-                    .issues
-                    .push(Issue::err("Subquery should yield one column", select));
+                typer.err("Subquery should yield one column", select);
                 FullType::invalid()
             }
         }
         Expression::ListHack(v) => {
-            typer
-                .issues
-                .push(Issue::err("_LIST_ only allowed in IN ()", v));
+            typer.err("_LIST_ only allowed in IN ()", v);
             FullType::invalid()
         }
         Expression::Null(_) => FullType::new(Type::Null, false),
@@ -142,7 +138,7 @@ pub(crate) fn type_expression<'a>(
                     let col = match part {
                         sql_parse::IdentifierPart::Name(n) => n,
                         sql_parse::IdentifierPart::Star(v) => {
-                            typer.issues.push(Issue::err("Not supported here", v));
+                            typer.err("Not supported here", v);
                             return FullType::invalid();
                         }
                     };
@@ -159,15 +155,14 @@ pub(crate) fn type_expression<'a>(
                         }
                     }
                     if cnt > 1 {
-                        let mut issue = Issue::err("Ambiguous reference", col);
+                        let mut issue = typer.issues.err("Ambiguous reference", col);
                         for r in &typer.reference_types {
                             for c in &r.columns {
-                                if c.0 == col.value {
-                                    issue = issue.frag("Defined here", &r.span);
+                                if c.0 == *col {
+                                    issue.frag("Defined here", &r.span);
                                 }
                             }
                         }
-                        typer.issues.push(issue);
                         return FullType::invalid();
                     }
                 }
@@ -175,14 +170,14 @@ pub(crate) fn type_expression<'a>(
                     let tbl = match p1 {
                         sql_parse::IdentifierPart::Name(n) => n,
                         sql_parse::IdentifierPart::Star(v) => {
-                            typer.issues.push(Issue::err("Not supported here", v));
+                            typer.err("Not supported here", v);
                             return FullType::invalid();
                         }
                     };
                     let col = match p2 {
                         sql_parse::IdentifierPart::Name(n) => n,
                         sql_parse::IdentifierPart::Star(v) => {
-                            typer.issues.push(Issue::err("Not supported here", v));
+                            typer.err("Not supported here", v);
                             return FullType::invalid();
                         }
                     };
@@ -200,17 +195,13 @@ pub(crate) fn type_expression<'a>(
                     }
                 }
                 _ => {
-                    typer
-                        .issues
-                        .push(Issue::err("Bad identifier length", expression));
+                    typer.err("Bad identifier length", expression);
                     return FullType::invalid();
                 }
             }
             match t {
                 None => {
-                    typer
-                        .issues
-                        .push(Issue::err("Unknown identifier", expression));
+                    typer.err("Unknown identifier", expression);
                     FullType::invalid()
                 }
                 Some((_, type_)) => type_.clone(),
@@ -243,13 +234,13 @@ pub(crate) fn type_expression<'a>(
                     Expression::Subquery(q) => {
                         let rhs_type = type_union_select(typer, q, false);
                         if rhs_type.columns.len() != 1 {
-                            typer.issues.push(Issue::err(
+                            typer.err(
                                 format!(
                                     "Subquery in IN should yield one column but gave {}",
                                     rhs_type.columns.len()
                                 ),
                                 q,
-                            ))
+                            );
                         }
                         if let Some(c) = rhs_type.columns.first() {
                             c.type_.clone()
@@ -265,11 +256,10 @@ pub(crate) fn type_expression<'a>(
                 };
                 not_null &= rhs_type.not_null;
                 if typer.matched_type(&lhs_type, &rhs_type).is_none() {
-                    typer.issues.push(
-                        Issue::err("Incompatible types", in_span)
-                            .frag(lhs_type.t.to_string(), lhs)
-                            .frag(rhs_type.to_string(), rhs),
-                    );
+                    typer
+                        .err("Incompatible types", in_span)
+                        .frag(lhs_type.t.to_string(), lhs)
+                        .frag(rhs_type.to_string(), rhs);
                 }
             }
             FullType::new(BaseType::Bool, not_null)
@@ -296,7 +286,7 @@ pub(crate) fn type_expression<'a>(
             match is {
                 sql_parse::Is::Null => {
                     if t.not_null {
-                        typer.issues.push(Issue::warn("Cannot be null", e));
+                        typer.warn("Cannot be null", e);
                     }
                     FullType::new(BaseType::Bool, true)
                 }
@@ -306,7 +296,7 @@ pub(crate) fn type_expression<'a>(
                 | sql_parse::Is::False
                 | sql_parse::Is::NotFalse => FullType::new(BaseType::Bool, true),
                 sql_parse::Is::Unknown | sql_parse::Is::NotUnknown => {
-                    typer.issues.push(issue_todo!(expression));
+                    issue_todo!(typer.issues, expression);
                     FullType::invalid()
                 }
             }
@@ -319,7 +309,7 @@ pub(crate) fn type_expression<'a>(
             ..
         } => {
             if value.is_some() {
-                typer.issues.push(issue_todo!(expression));
+                issue_todo!(typer.issues, expression);
                 FullType::invalid()
             } else {
                 let not_null = true;
@@ -394,8 +384,7 @@ pub(crate) fn type_expression<'a>(
                     | sql_parse::Type::Named(_) // TODO lookup name
                     | sql_parse::Type::VarBinary(_) => {
                         typer
-                            .issues
-                            .push(Issue::err("Type not allow in cast", type_));
+                            .err("Type not allow in cast", type_);
                     }
                 };
             } else {
@@ -408,7 +397,7 @@ pub(crate) fn type_expression<'a>(
         Expression::Count { expr, .. } => {
             match expr.deref() {
                 Expression::Identifier(parts) => {
-                    resolve_kleene_identifier(typer, parts, &None, |_, _, _, _| {})
+                    resolve_kleene_identifier(typer, parts, &None, |_, _, _, _, _| {})
                 }
                 arg => {
                     type_expression(typer, arg, flags.without_values(), BaseType::Any);
@@ -427,9 +416,7 @@ pub(crate) fn type_expression<'a>(
         } => match variable {
             Variable::TimeZone => FullType::new(BaseType::String, true),
             Variable::Other(_) => {
-                typer
-                    .issues
-                    .push(Issue::err("Unknown variable", variable_span));
+                typer.err("Unknown variable", variable_span);
                 FullType::new(BaseType::Any, false)
             }
         },

@@ -43,10 +43,10 @@ pub(crate) fn type_reference<'a>(
                 let name = as_.as_ref().unwrap_or(identifier).clone();
                 for v in &typer.reference_types {
                     if v.name == Some(name.value) {
-                        typer.issues.push(
-                            Issue::err("Duplicate definitions", &name)
-                                .frag("Already defined here", &v.span),
-                        );
+                        typer
+                            .issues
+                            .err("Duplicate definitions", &name)
+                            .frag("Already defined here", &v.span);
                     }
                 }
                 for index_hint in index_hints {
@@ -57,7 +57,7 @@ pub(crate) fn type_reference<'a>(
                                 .indices
                                 .contains_key(&(Some(identifier), index.as_str()))
                             {
-                                typer.issues.push(Issue::err("Unknown index", index));
+                                typer.err("Unknown index", index);
                             }
                         }
                     }
@@ -69,9 +69,7 @@ pub(crate) fn type_reference<'a>(
                     columns,
                 });
             } else {
-                typer
-                    .issues
-                    .push(Issue::err("Unknown table or view", identifier))
+                typer.issues.err("Unknown table or view", identifier);
             }
         }
         sql_parse::TableReference::Query { query, as_, .. } => {
@@ -109,7 +107,7 @@ pub(crate) fn type_reference<'a>(
                 | sql_parse::JoinType::Cross(_)
                 | sql_parse::JoinType::Normal(_) => (force_null, force_null),
                 _ => {
-                    typer.issues.push(issue_todo!(join));
+                    issue_todo!(typer.issues, join);
                     (force_null, force_null)
                 }
             };
@@ -121,7 +119,7 @@ pub(crate) fn type_reference<'a>(
                     typer.ensure_base(e, &t, BaseType::Bool);
                 }
                 Some(s @ sql_parse::JoinSpecification::Using(_, _)) => {
-                    typer.issues.push(issue_todo!(s));
+                    issue_todo!(typer.issues, s);
                 }
                 None => (),
             }

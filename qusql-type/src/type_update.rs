@@ -54,22 +54,23 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
                 }
                 if cnt > 1 {
                     type_expression(typer, value, flags, BaseType::Any);
-                    let mut issue = Issue::err("Ambiguous reference", &key.opt_span().unwrap());
+                    let mut issue = typer
+                        .issues
+                        .err("Ambiguous reference", &key.opt_span().unwrap());
                     for r in &typer.reference_types {
                         for c in &r.columns {
                             if c.0 == key.value {
-                                issue = issue.frag("Defined here", &r.span);
+                                issue.frag("Defined here", &r.span);
                             }
                         }
                     }
-                    typer.issues.push(issue);
                 } else if let Some(t) = t {
                     let value_type = type_expression(typer, value, flags, t.1.base());
                     if typer.matched_type(&value_type, &t.1).is_none() {
-                        typer.issues.push(Issue::err(
+                        typer.err(
                             alloc::format!("Got type {} expected {}", value_type, t.1),
                             value,
-                        ));
+                        );
                     } else if let Type::Args(_, args) = &value_type.t {
                         for (idx, arg_type, _) in args {
                             typer.constrain_arg(*idx, arg_type, &t.1);
@@ -79,7 +80,7 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
                     type_expression(typer, value, flags, BaseType::Any);
                     typer
                         .issues
-                        .push(Issue::err("Unknown identifier", &key.opt_span().unwrap()));
+                        .err("Unknown identifier", &key.opt_span().unwrap());
                 }
             }
             [Identifier { value: table, .. }, Identifier { value: column, .. }] => {
@@ -97,10 +98,10 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
                 if let Some(t) = t {
                     let value_type = type_expression(typer, value, flags, t.1.base());
                     if typer.matched_type(&value_type, &t.1).is_none() {
-                        typer.issues.push(Issue::err(
+                        typer.err(
                             alloc::format!("Got type {} expected {}", value_type, t.1),
                             value,
-                        ));
+                        );
                     } else if let Type::Args(_, args) = &value_type.t {
                         for (idx, arg_type, _) in args {
                             typer.constrain_arg(*idx, arg_type, &t.1);
@@ -110,14 +111,14 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
                     type_expression(typer, value, flags, BaseType::Any);
                     typer
                         .issues
-                        .push(Issue::err("Unknown identifier", &key.opt_span().unwrap()));
+                        .err("Unknown identifier", &key.opt_span().unwrap());
                 }
             }
             _ => {
                 type_expression(typer, value, flags, BaseType::Any);
                 typer
                     .issues
-                    .push(Issue::err("Unknown identifier", &key.opt_span().unwrap()));
+                    .err("Unknown identifier", &key.opt_span().unwrap());
             }
         }
     }

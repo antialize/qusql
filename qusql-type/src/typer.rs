@@ -27,7 +27,7 @@ pub(crate) struct ReferenceType<'a> {
 }
 
 pub(crate) struct Typer<'a, 'b> {
-    pub(crate) issues: &'b mut Vec<Issue>,
+    pub(crate) issues: &'b mut Issues<'a>,
     pub(crate) schemas: &'a Schemas<'a>,
     pub(crate) with_schemas: BTreeMap<&'a str, &'b Schema<'a>>,
     pub(crate) reference_types: Vec<ReferenceType<'a>>,
@@ -130,10 +130,10 @@ impl<'a, 'b> Typer<'a, 'b> {
         expected: &FullType<'a>,
     ) {
         if self.matched_type(given, expected).is_none() {
-            self.issues.push(Issue::err(
+            self.issues.err(
                 format!("Expected type {} got {}", expected.t, given.t),
                 span,
-            ));
+            );
         }
     }
 
@@ -152,6 +152,22 @@ impl<'a, 'b> Typer<'a, 'b> {
         } else {
             self.schemas.schemas.get(name)
         }
+    }
+
+    pub(crate) fn err(
+        &mut self,
+        message: impl Into<Cow<'static, str>>,
+        span: &impl Spanned,
+    ) -> IssueHandle<'a, '_> {
+        self.issues.err(message, span)
+    }
+
+    pub(crate) fn warn(
+        &mut self,
+        message: impl Into<Cow<'static, str>>,
+        span: &impl Spanned,
+    ) -> IssueHandle<'a, '_> {
+        self.issues.warn(message, span)
     }
 }
 
@@ -187,15 +203,15 @@ pub(crate) fn typer_stack<
     }
 }
 
-pub(crate) fn unqualified_name<'a, 'b>(
-    issues: &mut Vec<Issue>,
-    name: &'a QualifiedName<'b>,
-) -> &'a Identifier<'b> {
+pub(crate) fn unqualified_name<'b, 'c>(
+    issues: &mut Issues<'_>,
+    name: &'c QualifiedName<'b>,
+) -> &'c Identifier<'b> {
     if !name.prefix.is_empty() {
-        issues.push(Issue::err(
+        issues.err(
             "Expected unqualified name",
             &name.prefix.opt_span().unwrap(),
-        ));
+        );
     }
     &name.identifier
 }

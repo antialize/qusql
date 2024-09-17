@@ -114,9 +114,7 @@ pub(crate) fn type_statement<'a>(
         Statement::Union(u) => InnerStatementType::Select(type_union(typer, u)),
         Statement::WithQuery(w) => type_with_query(typer, &w.with_blocks, &w.statement),
         s => {
-            typer
-                .issues
-                .push(Issue::err("Cannot type statement of this type", s));
+            typer.issues.err("Cannot type statement of this type", s);
             InnerStatementType::Invalid
         }
     }
