@@ -84,6 +84,7 @@
 
 use crate::{
     type_::{BaseType, FullType},
+    type_statement,
     typer::unqualified_name,
     Type, TypeOptions,
 };
@@ -344,7 +345,7 @@ pub fn parse_schemas<'a>(
             }
             sql_parse::Statement::CreateView(v) => {
                 let mut replace = false;
-                let schema = Schema {
+                let mut schema = Schema {
                     view: true,
                     identifier_span: v.name.span(),
                     columns: Default::default(),
@@ -366,7 +367,38 @@ pub fn parse_schemas<'a>(
                         sql_parse::CreateOption::SqlSecurityUser(_, _) => {}
                     }
                 }
-                // TODO typecheck view query to find schema
+
+                {
+                    let mut typer: crate::typer::Typer<'a, '_> = crate::typer::Typer {
+                        schemas: &schemas,
+                        issues,
+                        reference_types: Vec::new(),
+                        arg_types: Default::default(),
+                        options,
+                        with_schemas: Default::default(),
+                    };
+
+                    let t = type_statement::type_statement(&mut typer, &v.select);
+                    let s = if let type_statement::InnerStatementType::Select(s) = t {
+                        s
+                    } else {
+                        issues.err("Not supported", &v.select.span());
+                        continue;
+                    };
+
+                    for column in s.columns {
+                        //let column: crate::SelectTypeColumn<'a> = column;
+                        let name = column.name.unwrap();
+
+                        schema.columns.push(Column {
+                            identifier: name,
+                            type_: column.type_,
+                            auto_increment: false,
+                            as_: None,
+                        });
+                    }
+                }
+
                 match schemas
                     .schemas
                     .entry(unqualified_name(issues, &v.name).clone())
@@ -582,6 +614,7 @@ pub fn parse_schemas<'a>(
             }
             sql_parse::Statement::Commit(_) => (),
             sql_parse::Statement::Begin(_) => (),
+            sql_parse::Statement::CreateFunction(_) => (),
             s => {
                 issues.err(
                     alloc::format!("Unsupported statement {:?} in schema definition", s),
