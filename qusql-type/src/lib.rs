@@ -16,7 +16,7 @@
 //!
 //! ```
 //! use sql_type::{schema::parse_schemas, type_statement, TypeOptions,
-//!     SQLDialect, SQLArguments, StatementType};
+//!     SQLDialect, SQLArguments, StatementType, Issues};
 //! let schemas = "
 //!     CREATE TABLE `events` (
 //!       `id` bigint(20) NOT NULL,
@@ -24,18 +24,19 @@
 //!       `message` text NOT NULL
 //!     );";
 //!
-//! let mut issues = Vec::new();
+//! let mut issues = Issues::new(schemas);
 //!
 //! // Compute terse representation of the schemas
 //! let schemas = parse_schemas(schemas,
 //!     &mut issues,
 //!     &TypeOptions::new().dialect(SQLDialect::MariaDB));
-//! assert!(issues.is_empty());
+//! assert!(issues.is_ok());
 //!
 //! let sql = "SELECT `id`, `user`, `message` FROM `events` WHERE `id` = ?";
+//! let mut issues = Issues::new(sql);
 //! let stmt = type_statement(&schemas, sql, &mut issues,
 //!     &TypeOptions::new().dialect(SQLDialect::MariaDB).arguments(SQLArguments::QuestionMark));
-//! assert!(issues.is_empty());
+//! assert!(issues.is_ok());
 //!
 //! let stmt = match stmt {
 //!     StatementType::Select{columns, arguments} => {
@@ -51,7 +52,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use schema::Schemas;
 use sql_parse::{parse_statement, ParseOptions};
-pub use sql_parse::{Issue, Level};
+pub use sql_parse::{Fragment, Issue, Issues, Level};
 
 mod type_;
 mod type_binary_expression;
@@ -65,9 +66,7 @@ mod type_statement;
 mod type_update;
 mod typer;
 
-mod ref_or_val;
 pub mod schema;
-pub use ref_or_val::RefOrVal;
 pub use type_::{BaseType, FullType, Type};
 pub use type_insert_replace::AutoIncrementId;
 pub use type_select::SelectTypeColumn;
@@ -205,7 +204,7 @@ pub enum StatementType<'a> {
 pub fn type_statement<'a>(
     schemas: &'a Schemas<'a>,
     statement: &'a str,
-    issues: &mut Vec<Issue>,
+    issues: &mut Issues<'a>,
     options: &TypeOptions,
 ) -> StatementType<'a> {
     if let Some(stmt) = parse_statement(statement, issues, &options.parse_options) {
@@ -259,7 +258,7 @@ mod tests {
             termcolor::{ColorChoice, StandardStream},
         },
     };
-    use sql_parse::{Issue, Level, SQLArguments, SQLDialect};
+    use sql_parse::{Identifier, Issue, Issues, Level, SQLArguments, SQLDialect};
 
     use crate::{
         schema::parse_schemas, type_statement, ArgumentKey, AutoIncrementId, BaseType, FullType,
@@ -277,6 +276,17 @@ mod tests {
         }
     }
 
+    struct N2<'a>(Option<Identifier<'a>>);
+    impl<'a> alloc::fmt::Display for N2<'a> {
+        fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+            if let Some(v) = &self.0 {
+                v.fmt(f)
+            } else {
+                f.write_str("None")
+            }
+        }
+    }
+
     fn check_no_errors(name: &str, src: &str, issues: &[Issue], errors: &mut usize) {
         let mut files = SimpleFiles::new();
         let file_id = files.add(name, &src);
@@ -284,8 +294,11 @@ mod tests {
         let config = codespan_reporting::term::Config::default();
         for issue in issues {
             let mut labels = vec![Label::primary(file_id, issue.span.clone())];
-            for (message, span) in &issue.fragments {
-                labels.push(Label::secondary(file_id, span.clone()).with_message(message));
+            for fragment in &issue.fragments {
+                labels.push(
+                    Label::secondary(file_id, fragment.span.clone())
+                        .with_message(fragment.message.to_string()),
+                );
             }
             let d = match issue.level {
                 Level::Error => {
@@ -294,7 +307,9 @@ mod tests {
                 }
                 Level::Warning => Diagnostic::warning(),
             };
-            let d = d.with_message(&issue.message).with_labels(labels);
+            let d = d
+                .with_message(issue.message.to_string())
+                .with_labels(labels);
             term::emit(&mut writer.lock(), &config, &files, &d).unwrap();
         }
     }
@@ -397,14 +412,14 @@ mod tests {
             let t = str_to_type(t);
             let cname = if cname.is_empty() { None } else { Some(cname) };
             if let Some(v) = got.get(i) {
-                if v.name != cname || v.type_ != t {
+                if v.name.as_deref() != cname || v.type_ != t {
                     println!(
                         "{}: Expected column {} with name {} of type {} got {} of type {}",
                         name,
                         i,
                         N(cname),
                         t,
-                        N(v.name),
+                        N2(v.name.clone()),
                         v.type_
                     );
                     *errors += 1;
@@ -426,7 +441,7 @@ mod tests {
                 "{}: Unexpected column {} with name {} of type {}",
                 name,
                 cnt,
-                N(got[cnt].name),
+                N2(got[cnt].name.clone()),
                 got[cnt].type_
             );
             cnt += 1;
@@ -484,12 +499,11 @@ mod tests {
         ";
 
         let options = TypeOptions::new().dialect(SQLDialect::MariaDB);
-        let mut issues = Vec::new();
+        let mut issues = Issues::new(schema_src);
         let schema = parse_schemas(schema_src, &mut issues, &options);
         let mut errors = 0;
-        check_no_errors("schema", schema_src, &issues, &mut errors);
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
 
-        issues.clear();
         let options = TypeOptions::new()
             .dialect(SQLDialect::MariaDB)
             .arguments(SQLArguments::QuestionMark);
@@ -503,8 +517,9 @@ mod tests {
                 AND `ci8`=? AND `ci16`=? AND `ci32`=? AND `ci64`=?
                 AND `ctext`=? AND `cbytes`=? AND `cf32`=? AND `cf64`=?";
 
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(
                     name,
@@ -531,8 +546,9 @@ mod tests {
                 "SELECT `id`, `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
                 `ctext`, `cbytes`, `cf32`, `cf64`, `cbin` FROM `t1` WHERE ci8 IS NOT NULL";
 
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(
@@ -549,14 +565,14 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q2";
             let src =
             "INSERT INTO `t1` (`cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
             `ctext`, `cbytes`, `cf32`, `cf64`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Insert {
                 arguments,
                 yield_autoincrement,
@@ -584,12 +600,12 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q3";
             let src =
                 "DELETE `t1` FROM `t1`, `t2` WHERE `t1`.`id` = `t2`.`t1_id` AND `t2`.`id` = ?";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Delete { arguments, .. } = q {
                 check_arguments(name, &arguments, "i", &mut errors);
             } else {
@@ -599,11 +615,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q4";
             let src = "INSERT INTO `t2` (`t1_id`) VALUES (?) ON DUPLICATE KEY UPDATE `t1_id`=?";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Insert {
                 arguments,
                 yield_autoincrement,
@@ -626,11 +642,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q5";
             let src = "INSERT IGNORE INTO `t2` SET `t1_id`=?";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Insert {
                 arguments,
                 yield_autoincrement,
@@ -653,11 +669,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q6";
             let src = "SELECT IF(`ci32` IS NULL, `cbool`, ?) AS `cc` FROM `t1`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "b", &mut errors);
                 check_columns(name, &columns, "cc:b", &mut errors);
@@ -668,11 +684,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q7";
             let src = "SELECT FROM_UNIXTIME(CAST(UNIX_TIMESTAMP() AS DOUBLE)) AS `cc` FROM `t1` WHERE `id`=?";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "i", &mut errors);
                 check_columns(name, &columns, "cc:dt!", &mut errors);
@@ -683,11 +699,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q8";
             let src = "REPLACE INTO `t2` SET `id` = ?, `t1_id`=?";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Replace {
                 arguments,
                 returning,
@@ -705,11 +721,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q9";
             let src = "INSERT INTO `t2` (`t1_id`) VALUES (32) ON DUPLICATE KEY UPDATE `t1_id` = `t1_id` + VALUES(`t1_id`)";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Insert { arguments, .. } = q {
                 check_arguments(name, &arguments, "", &mut errors);
             } else {
@@ -719,12 +735,12 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q10";
             let src =
                 "SELECT SUBSTRING_INDEX(`text`, '/', 5) AS `k` FROM `t3` WHERE `text` LIKE '%T%'";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:str!", &mut errors);
@@ -735,23 +751,23 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q11";
             let src = "SELECT * FROM `t1`, `t2` LEFT JOIN `t3` ON `t3`.`id` = `t1`.`id`";
+            let mut issues: Issues<'_> = Issues::new(src);
             type_statement(&schema, src, &mut issues, &options);
-            if !issues.iter().any(|i| i.level == Level::Error) {
+            if !issues.get().iter().any(|i| i.level == Level::Error) {
                 println!("{} should be an error", name);
                 errors += 1;
             }
         }
 
         {
-            issues.clear();
             let name = "q12";
             let src =
                 "SELECT JSON_REPLACE('{ \"A\": 1, \"B\": [2, 3]}', '$.B[1]', 4, '$.C[3]', 3) AS `k` FROM `t3`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:json", &mut errors);
@@ -763,11 +779,11 @@ mod tests {
 
         {
             let options = options.clone().list_hack(true);
-            issues.clear();
             let name = "q13";
             let src = "SELECT `id` FROM `t1` WHERE `id` IN (_LIST_)";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "i[]", &mut errors);
                 check_columns(name, &columns, "id:i32!", &mut errors);
@@ -778,11 +794,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q14";
             let src = "SELECT CAST(NULL AS CHAR) AS `id`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "id:str", &mut errors);
@@ -793,15 +809,14 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q15";
             let src =
 				"INSERT INTO `t1` (`cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ci8`, `ci16`, `ci32`, `ci64`,
             `ctext`, `cbytes`, `cf32`, `cf64`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  RETURNING `id`, `cbool`, `cu8`, `ctext`, `cf64`";
-
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Insert {
                 arguments,
                 yield_autoincrement,
@@ -836,11 +851,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q16";
             let src = "REPLACE INTO `t2` SET `id` = ?, `t1_id`=? RETURNING `id`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Replace {
                 arguments,
                 returning,
@@ -860,11 +875,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q17";
             let src = "SELECT dt, UNIX_TIMESTAMP(dt) AS t FROM t4";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "dt:dt!,t:i64!", &mut errors);
@@ -875,11 +890,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q17";
             let src = "SELECT CONCAT(?, \"hat\") AS c";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "any", &mut errors);
                 check_columns(name, &columns, "c:str", &mut errors);
@@ -890,11 +905,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q18";
             let src = "SELECT CAST(\"::0\" AS INET6) AS `id`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "id:str!", &mut errors);
@@ -905,11 +920,11 @@ mod tests {
         }
 
         {
-            issues.clear();
-            let name = "q18";
+            let name: &str = "q18";
             let src = "SELECT SUBSTRING(`cbytes`, 1, 5) AS `k` FROM `t1`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:bytes", &mut errors);
@@ -920,11 +935,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q19";
             let src = "SELECT SUBSTRING(`ctext`, 1, 5) AS `k` FROM `t1`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:str!", &mut errors);
@@ -935,11 +950,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q19";
             let src = "SELECT SUBSTRING(`ctext`, 1, 5) AS `k` FROM `t1`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:str!", &mut errors);
@@ -950,11 +965,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q20";
             let src = "SELECT JSON_QUERY('{ \"A\": 1, \"B\": [2, 3]}', '$.B[1]') AS `k` FROM `t3`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:json", &mut errors);
@@ -965,12 +980,12 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q21";
             let src =
                 "SELECT JSON_REMOVE('{ \"A\": 1, \"B\": [2, 3]}', '$.B[1]', '$.C[3]') AS `k` FROM `t3`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:json", &mut errors);
@@ -981,11 +996,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q22";
             let src = "SELECT JSON_OVERLAPS('false', 'false') AS `k` FROM `t3`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:b!", &mut errors);
@@ -996,11 +1011,11 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q23";
             let src = "SELECT JSON_OVERLAPS('false', NULL) AS `k` FROM `t3`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:b", &mut errors);
@@ -1011,12 +1026,12 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q24";
             let src =
                 "SELECT JSON_CONTAINS('{\"A\": 0, \"B\": [\"x\", \"y\"]}', '\"x\"', '$.B') AS `k` FROM `t3`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:b!", &mut errors);
@@ -1027,12 +1042,12 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q25";
             let src =
                 "SELECT JSON_CONTAINS('{\"A\": 0, \"B\": [\"x\", \"y\"]}', NULL, '$.A') AS `k` FROM `t3`";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:b", &mut errors);
@@ -1043,22 +1058,22 @@ mod tests {
         }
 
         {
-            issues.clear();
             let name = "q26";
             let src = "SELECT `id` FROM `t1` FORCE INDEX (`hat`)";
+            let mut issues: Issues<'_> = Issues::new(src);
             type_statement(&schema, src, &mut issues, &options);
-            if issues.is_empty() {
+            if issues.is_ok() {
                 println!("{} should fail", name);
                 errors += 1;
             }
         }
 
         {
-            issues.clear();
             let name = "q27";
             let src = "SELECT `id` FROM `t1` USE INDEX (`hat2`)";
+            let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "id:i32!", &mut errors);
@@ -1112,12 +1127,11 @@ mod tests {
         ";
 
         let options = TypeOptions::new().dialect(SQLDialect::PostgreSQL);
-        let mut issues = Vec::new();
+        let mut issues = Issues::new(schema_src);
         let schema = parse_schemas(schema_src, &mut issues, &options);
         let mut errors = 0;
-        check_no_errors("schema", schema_src, &issues, &mut errors);
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
 
-        issues.clear();
         let options = TypeOptions::new()
             .dialect(SQLDialect::PostgreSQL)
             .arguments(SQLArguments::Dollar);
@@ -1126,9 +1140,9 @@ mod tests {
             let name = "q1";
             let src =
                 "INSERT INTO t2 (id) SELECT id FROM t1 WHERE path=$1 ON CONFLICT (id) DO NOTHING RETURNING id";
-
+            let mut issues = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Insert {
                 arguments,
                 returning,
@@ -1147,9 +1161,9 @@ mod tests {
             let name = "q2";
             let src =
                 "WITH hat AS (DELETE FROM t1 WHERE old_id=42 RETURNING id) INSERT INTO t2 (id) SELECT id FROM hat";
-
+            let mut issues = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
-            check_no_errors(name, src, &issues, &mut errors);
+            check_no_errors(name, src, issues.get(), &mut errors);
 
             if let StatementType::Insert { arguments, .. } = q {
                 check_arguments(name, &arguments, "", &mut errors);

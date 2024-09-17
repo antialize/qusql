@@ -14,7 +14,7 @@
 //! for typing statements.
 //!
 //! ```
-//! use sql_type::{schema::parse_schemas, TypeOptions, SQLDialect};
+//! use sql_type::{schema::parse_schemas, TypeOptions, SQLDialect, Issues};
 //! let schemas = "
 //!     -- Table structure for table `events`
 //!     DROP TABLE IF EXISTS `events`;
@@ -70,12 +70,12 @@
 //!         WHERE `events`.`event_key` = `event_keys`.`id`;
 //!     ";
 //!
-//! let mut issues = Vec::new();
+//! let mut issues = Issues::new(schemas);
 //! let schemas = parse_schemas(schemas,
 //!     &mut issues,
 //!     &TypeOptions::new().dialect(SQLDialect::MariaDB));
 //!
-//! assert!(issues.is_empty());
+//! assert!(issues.is_ok());
 //!
 //! for (name, schema) in schemas.schemas {
 //!     println!("{name}: {schema:?}")
@@ -84,18 +84,17 @@
 
 use crate::{
     type_::{BaseType, FullType},
+    type_statement,
     typer::unqualified_name,
-    RefOrVal, Type, TypeOptions,
+    Type, TypeOptions,
 };
-use alloc::{collections::BTreeMap, vec::Vec};
-use sql_parse::{parse_statements, DataType, Expression, Issue, Span, Spanned};
+use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
+use sql_parse::{parse_statements, DataType, Expression, Identifier, Issues, Span, Spanned};
 
 /// A column in a schema
 #[derive(Debug)]
 pub struct Column<'a> {
-    pub identifier: &'a str,
-    /// Span of identifier
-    pub identifier_span: Span,
+    pub identifier: Identifier<'a>,
     /// Type of the column
     pub type_: FullType<'a>,
     /// True if the column is auto_increment
@@ -118,12 +117,12 @@ impl<'a> Schema<'a> {
     pub fn get_column(&self, identifier: &str) -> Option<&Column<'a>> {
         self.columns
             .iter()
-            .find(|&column| column.identifier == identifier)
+            .find(|&column| column.identifier.value == identifier)
     }
     pub fn get_column_mut(&mut self, identifier: &str) -> Option<&mut Column<'a>> {
         self.columns
             .iter_mut()
-            .find(|column| column.identifier == identifier)
+            .find(|column| column.identifier.value == identifier)
     }
 }
 
@@ -135,25 +134,29 @@ pub struct Procedure {}
 #[derive(Debug)]
 pub struct Functions {}
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct IndexKey<'a> {
+    pub table: Option<Identifier<'a>>,
+    pub index: Identifier<'a>,
+}
+
 /// A description of tables, view, procedures and function in a schemas definition file
 #[derive(Debug, Default)]
-
 pub struct Schemas<'a> {
     /// Map from name to Tables or views
-    pub schemas: BTreeMap<&'a str, Schema<'a>>,
+    pub schemas: BTreeMap<Identifier<'a>, Schema<'a>>,
     /// Map from name to procedure
-    pub procedures: BTreeMap<&'a str, Procedure>,
+    pub procedures: BTreeMap<Identifier<'a>, Procedure>,
     /// Map from name to function
-    pub functions: BTreeMap<&'a str, Functions>,
+    pub functions: BTreeMap<Identifier<'a>, Functions>,
     /// Map from (table, index) to location
-    pub indices: BTreeMap<(Option<&'a str>, &'a str), Span>,
+    pub indices: BTreeMap<IndexKey<'a>, Span>,
 }
 
 pub(crate) fn parse_column<'a>(
     data_type: DataType<'a>,
-    identifier: &'a str,
-    identifier_span: Span,
-    _issues: &mut Vec<Issue>,
+    identifier: Identifier<'a>,
+    _issues: &mut Issues<'a>,
 ) -> Column<'a> {
     let mut not_null = false;
     let mut unsigned = false;
@@ -207,12 +210,8 @@ pub(crate) fn parse_column<'a>(
         sql_parse::Type::MediumText(_) => BaseType::String.into(),
         sql_parse::Type::Text(_) => BaseType::String.into(),
         sql_parse::Type::LongText(_) => BaseType::String.into(),
-        sql_parse::Type::Enum(e) => {
-            Type::Enum(RefOrVal::Val(e.into_iter().map(|s| s.value).collect()))
-        }
-        sql_parse::Type::Set(s) => {
-            Type::Set(RefOrVal::Val(s.into_iter().map(|s| s.value).collect()))
-        }
+        sql_parse::Type::Enum(e) => Type::Enum(Arc::new(e.into_iter().map(|s| s.value).collect())),
+        sql_parse::Type::Set(s) => Type::Set(Arc::new(s.into_iter().map(|s| s.value).collect())),
         sql_parse::Type::Float(_) => Type::F32,
         sql_parse::Type::Double(_) => Type::F64,
         sql_parse::Type::DateTime(_) => BaseType::DateTime.into(),
@@ -240,7 +239,6 @@ pub(crate) fn parse_column<'a>(
 
     Column {
         identifier,
-        identifier_span,
         type_: FullType {
             t: type_,
             not_null,
@@ -269,7 +267,7 @@ pub(crate) fn parse_column<'a>(
 /// - Alter table
 pub fn parse_schemas<'a>(
     src: &'a str,
-    issues: &mut Vec<Issue>,
+    issues: &mut Issues<'a>,
     options: &TypeOptions,
 ) -> Schemas<'a> {
     let statements = parse_statements(src, issues, &options.parse_options);
@@ -300,10 +298,10 @@ pub fn parse_schemas<'a>(
                             replace = true;
                         }
                         sql_parse::CreateOption::Temporary(s) => {
-                            issues.push(Issue::err("Not supported", &s))
+                            issues.err("Not supported", &s);
                         }
                         sql_parse::CreateOption::Unique(s) => {
-                            issues.push(Issue::err("Not supported", &s))
+                            issues.err("Not supported", &s);
                         }
                         sql_parse::CreateOption::Algorithm(_, _) => {}
                         sql_parse::CreateOption::Definer { .. } => {}
@@ -318,17 +316,11 @@ pub fn parse_schemas<'a>(
                             identifier,
                             data_type,
                         } => {
-                            let column = parse_column(
-                                data_type,
-                                identifier.value,
-                                identifier.span.clone(),
-                                issues,
-                            );
-                            if let Some(oc) = schema.get_column(column.identifier) {
-                                issues.push(
-                                    Issue::err("Column already defined", &identifier)
-                                        .frag("Defined here", &oc.identifier_span),
-                                );
+                            let column = parse_column(data_type, identifier.clone(), issues);
+                            if let Some(oc) = schema.get_column(column.identifier.value) {
+                                issues
+                                    .err("Column already defined", &identifier)
+                                    .frag("Defined here", &oc.identifier);
                             } else {
                                 schema.columns.push(column);
                             }
@@ -336,15 +328,14 @@ pub fn parse_schemas<'a>(
                         sql_parse::CreateDefinition::ConstraintDefinition { .. } => {}
                     }
                 }
-                match schemas.schemas.entry(id.value) {
+                match schemas.schemas.entry(id.clone()) {
                     alloc::collections::btree_map::Entry::Occupied(mut e) => {
                         if replace {
                             e.insert(schema);
                         } else if t.if_not_exists.is_none() {
-                            issues.push(
-                                Issue::err("Table already defined", &t.identifier)
-                                    .frag("Defined here", &e.get().identifier_span),
-                            );
+                            issues
+                                .err("Table already defined", &t.identifier)
+                                .frag("Defined here", &e.get().identifier_span);
                         }
                     }
                     alloc::collections::btree_map::Entry::Vacant(e) => {
@@ -354,7 +345,7 @@ pub fn parse_schemas<'a>(
             }
             sql_parse::Statement::CreateView(v) => {
                 let mut replace = false;
-                let schema = Schema {
+                let mut schema = Schema {
                     view: true,
                     identifier_span: v.name.span(),
                     columns: Default::default(),
@@ -365,10 +356,10 @@ pub fn parse_schemas<'a>(
                             replace = true;
                         }
                         sql_parse::CreateOption::Temporary(s) => {
-                            issues.push(Issue::err("Not supported", &s))
+                            issues.err("Not supported", &s);
                         }
                         sql_parse::CreateOption::Unique(s) => {
-                            issues.push(Issue::err("Not supported", &s))
+                            issues.err("Not supported", &s);
                         }
                         sql_parse::CreateOption::Algorithm(_, _) => {}
                         sql_parse::CreateOption::Definer { .. } => {}
@@ -376,19 +367,49 @@ pub fn parse_schemas<'a>(
                         sql_parse::CreateOption::SqlSecurityUser(_, _) => {}
                     }
                 }
-                // TODO typecheck view query to find schema
+
+                {
+                    let mut typer: crate::typer::Typer<'a, '_> = crate::typer::Typer {
+                        schemas: &schemas,
+                        issues,
+                        reference_types: Vec::new(),
+                        arg_types: Default::default(),
+                        options,
+                        with_schemas: Default::default(),
+                    };
+
+                    let t = type_statement::type_statement(&mut typer, &v.select);
+                    let s = if let type_statement::InnerStatementType::Select(s) = t {
+                        s
+                    } else {
+                        issues.err("Not supported", &v.select.span());
+                        continue;
+                    };
+
+                    for column in s.columns {
+                        //let column: crate::SelectTypeColumn<'a> = column;
+                        let name = column.name.unwrap();
+
+                        schema.columns.push(Column {
+                            identifier: name,
+                            type_: column.type_,
+                            auto_increment: false,
+                            as_: None,
+                        });
+                    }
+                }
+
                 match schemas
                     .schemas
-                    .entry(unqualified_name(issues, &v.name).as_str())
+                    .entry(unqualified_name(issues, &v.name).clone())
                 {
                     alloc::collections::btree_map::Entry::Occupied(mut e) => {
                         if replace {
                             e.insert(schema);
                         } else if v.if_not_exists.is_none() {
-                            issues.push(
-                                Issue::err("View already defined", &v.name)
-                                    .frag("Defined here", &e.get().identifier_span),
-                            );
+                            issues
+                                .err("View already defined", &v.name)
+                                .frag("Defined here", &e.get().identifier_span);
                         }
                     }
                     alloc::collections::btree_map::Entry::Vacant(e) => {
@@ -404,23 +425,19 @@ pub fn parse_schemas<'a>(
             // sql_parse::Statement::Update(_) => todo!(),
             sql_parse::Statement::DropTable(t) => {
                 for i in t.tables {
-                    match schemas.schemas.entry(unqualified_name(issues, &i).as_str()) {
+                    match schemas.schemas.entry(unqualified_name(issues, &i).clone()) {
                         alloc::collections::btree_map::Entry::Occupied(e) => {
                             if e.get().view {
-                                issues.push(
-                                    Issue::err("Name defines a view not a table", &i)
-                                        .frag("View defined here", &e.get().identifier_span),
-                                )
+                                issues
+                                    .err("Name defines a view not a table", &i)
+                                    .frag("View defined here", &e.get().identifier_span);
                             } else {
                                 e.remove();
                             }
                         }
                         alloc::collections::btree_map::Entry::Vacant(_) => {
                             if t.if_exists.is_none() {
-                                issues.push(Issue::err(
-                                    "A table with this name does not exist to drop",
-                                    &i,
-                                ));
+                                issues.err("A table with this name does not exist to drop", &i);
                             }
                         }
                     }
@@ -429,17 +446,17 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::DropFunction(f) => {
                 match schemas
                     .functions
-                    .entry(unqualified_name(issues, &f.function).as_str())
+                    .entry(unqualified_name(issues, &f.function).clone())
                 {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         e.remove();
                     }
                     alloc::collections::btree_map::Entry::Vacant(_) => {
                         if f.if_exists.is_none() {
-                            issues.push(Issue::err(
+                            issues.err(
                                 "A function with this name does not exist to drop",
                                 &f.function,
-                            ));
+                            );
                         }
                     }
                 }
@@ -447,17 +464,17 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::DropProcedure(p) => {
                 match schemas
                     .procedures
-                    .entry(unqualified_name(issues, &p.procedure).as_str())
+                    .entry(unqualified_name(issues, &p.procedure).clone())
                 {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         e.remove();
                     }
                     alloc::collections::btree_map::Entry::Vacant(_) => {
                         if p.if_exists.is_none() {
-                            issues.push(Issue::err(
+                            issues.err(
                                 "A procedure with this name does not exist to drop",
                                 &p.procedure,
-                            ));
+                            );
                         }
                     }
                 }
@@ -468,23 +485,19 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::DropTrigger(_) => {}
             sql_parse::Statement::DropView(v) => {
                 for i in v.views {
-                    match schemas.schemas.entry(unqualified_name(issues, &i).as_str()) {
+                    match schemas.schemas.entry(unqualified_name(issues, &i).clone()) {
                         alloc::collections::btree_map::Entry::Occupied(e) => {
                             if !e.get().view {
-                                issues.push(
-                                    Issue::err("Name defines a table not a view", &i)
-                                        .frag("Table defined here", &e.get().identifier_span),
-                                );
+                                issues
+                                    .err("Name defines a table not a view", &i)
+                                    .frag("Table defined here", &e.get().identifier_span);
                             } else {
                                 e.remove();
                             }
                         }
                         alloc::collections::btree_map::Entry::Vacant(_) => {
                             if v.if_exists.is_none() {
-                                issues.push(Issue::err(
-                                    "A view with this name does not exist to drop",
-                                    &i,
-                                ));
+                                issues.err("A view with this name does not exist to drop", &i);
                             }
                         }
                     }
@@ -494,26 +507,64 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::AlterTable(a) => {
                 let e = match schemas
                     .schemas
-                    .entry(unqualified_name(issues, &a.table).value)
+                    .entry(unqualified_name(issues, &a.table).clone())
                 {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         let e = e.into_mut();
                         if e.view {
-                            issues.push(Issue::err("Cannot alter view", &a.table));
+                            issues.err("Cannot alter view", &a.table);
                             continue;
                         }
                         e
                     }
                     alloc::collections::btree_map::Entry::Vacant(_) => {
                         if a.if_exists.is_none() {
-                            issues.push(Issue::err("Table not found", &a.table));
+                            issues.err("Table not found", &a.table);
                         }
                         continue;
                     }
                 };
                 for s in a.alter_specifications {
                     match s {
-                        sql_parse::AlterSpecification::AddIndex { .. } => {}
+                        sql_parse::AlterSpecification::AddIndex {
+                            if_not_exists,
+                            name,
+                            cols,
+                            ..
+                        } => {
+                            for col in &cols {
+                                if e.get_column(&col.name).is_none() {
+                                    issues
+                                        .err("No such column in table", col)
+                                        .frag("Table defined here", &a.table);
+                                }
+                            }
+
+                            if let Some(name) = &name {
+                                let ident = if options.parse_options.get_dialect().is_postgresql() {
+                                    IndexKey {
+                                        table: None,
+                                        index: name.clone(),
+                                    }
+                                } else {
+                                    IndexKey {
+                                        table: Some(unqualified_name(issues, &a.table).clone()),
+                                        index: name.clone(),
+                                    }
+                                };
+
+                                if let Some(old) = schemas.indices.insert(ident, name.span()) {
+                                    if if_not_exists.is_none() {
+                                        issues
+                                            .err(
+                                                "Multiple indeces with the same identifier",
+                                                &name.span(),
+                                            )
+                                            .frag("Already defined here", &old);
+                                    }
+                                }
+                            }
+                        }
                         sql_parse::AlterSpecification::AddForeignKey { .. } => {}
                         sql_parse::AlterSpecification::Modify {
                             if_exists,
@@ -525,27 +576,21 @@ pub fn parse_schemas<'a>(
                                 Some(v) => v,
                                 None => {
                                     if if_exists.is_none() {
-                                        issues.push(
-                                            Issue::err("No such column in table", &col)
-                                                .frag("Table defined here", &e.identifier_span),
-                                        );
+                                        issues
+                                            .err("No such column in table", &col)
+                                            .frag("Table defined here", &e.identifier_span);
                                     }
                                     continue;
                                 }
                             };
-                            *c = parse_column(definition, c.identifier, col.span(), issues);
+                            *c = parse_column(definition, c.identifier.clone(), issues);
                         }
                         sql_parse::AlterSpecification::AddColumn {
                             identifier,
                             data_type,
                             ..
                         } => {
-                            e.columns.push(parse_column(
-                                data_type,
-                                identifier.as_str(),
-                                identifier.span(),
-                                issues,
-                            ));
+                            e.columns.push(parse_column(data_type, identifier, issues));
                         }
                         sql_parse::AlterSpecification::OwnerTo { .. } => {}
                     }
@@ -561,47 +606,59 @@ pub fn parse_schemas<'a>(
             // sql_parse::Statement::Replace(_) => todo!(),
             // sql_parse::Statement::Case(_) => todo!(),
             sql_parse::Statement::CreateIndex(ci) => {
-                let t = unqualified_name(issues, &ci.table_name).as_str();
+                let t = unqualified_name(issues, &ci.table_name);
 
                 if let Some(table) = schemas.schemas.get(t) {
                     for col in &ci.column_names {
                         if table.get_column(col).is_none() {
-                            issues.push(
-                                Issue::err("No such column in table", col)
-                                    .frag("Table defined here", &table.identifier_span),
-                            );
+                            issues
+                                .err("No such column in table", col)
+                                .frag("Table defined here", &table.identifier_span);
                         }
                     }
                     // TODO type where_
                 } else {
-                    issues.push(Issue::err("No such table", &ci.table_name));
+                    issues.err("No such table", &ci.table_name);
                 }
 
                 let ident = if options.parse_options.get_dialect().is_postgresql() {
-                    (None, ci.index_name.as_str())
+                    IndexKey {
+                        table: None,
+                        index: ci.index_name.clone(),
+                    }
                 } else {
-                    (Some(t), ci.index_name.as_str())
+                    IndexKey {
+                        table: Some(t.clone()),
+                        index: ci.index_name.clone(),
+                    }
                 };
 
                 if let Some(old) = schemas.indices.insert(ident, ci.span()) {
                     if ci.if_not_exists.is_none() {
-                        issues.push(
-                            Issue::err("Multiple indeces with the same identifier", &ci)
-                                .frag("Already defined here", &old),
-                        );
+                        issues
+                            .err("Multiple indeces with the same identifier", &ci)
+                            .frag("Already defined here", &old);
                     }
                 }
             }
             sql_parse::Statement::DropIndex(ci) => {
-                let t = ci.on.as_ref().map(|(_, t)| t.identifier.as_str());
-                let i = ci.index_name.as_str();
-                if schemas.indices.remove(&(t, i)).is_none() && ci.if_exists.is_none() {
-                    issues.push(Issue::err("No such index", &ci));
+                let key = IndexKey {
+                    table: ci.on.as_ref().map(|(_, t)| t.identifier.clone()),
+                    index: ci.index_name.clone(),
+                };
+                if schemas.indices.remove(&key).is_none() && ci.if_exists.is_none() {
+                    issues.err("No such index", &ci);
                 }
             }
             sql_parse::Statement::Commit(_) => (),
             sql_parse::Statement::Begin(_) => (),
-            s => issues.push(Issue::err("Unsupported statement in schema definition", &s)),
+            sql_parse::Statement::CreateFunction(_) => (),
+            s => {
+                issues.err(
+                    alloc::format!("Unsupported statement {:?} in schema definition", s),
+                    &s,
+                );
+            }
         }
     }
 
@@ -624,12 +681,10 @@ pub fn parse_schemas<'a>(
         typer.reference_types.clear();
         let mut columns = Vec::new();
         for c in &schema.columns {
-            let mut type_ = c.type_.clone();
-            type_.not_null = type_.not_null;
-            columns.push((c.identifier, type_));
+            columns.push((c.identifier.clone(), c.type_.clone()));
         }
         typer.reference_types.push(crate::typer::ReferenceType {
-            name: Some(name),
+            name: Some(name.clone()),
             span: schema.identifier_span.clone(),
             columns,
         });

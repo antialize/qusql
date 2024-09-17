@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::format;
-use sql_parse::{BinaryOperator, Expression, Issue, Span};
+use sql_parse::{BinaryOperator, Expression, Span};
 
 use crate::{
     type_::{BaseType, FullType},
@@ -94,27 +94,25 @@ pub(crate) fn type_binary_expression<'a>(
         | BinaryOperator::LtEq
         | BinaryOperator::Lt => {
             if lhs_type.t == Type::Null {
-                typer.issues.push(Issue::warn("Comparison with null", lhs));
+                typer.warn("Comparison with null", lhs);
             }
             if rhs_type.t == Type::Null {
-                typer.issues.push(Issue::warn("Comparison with null", rhs));
+                typer.warn("Comparison with null", rhs);
             }
             if typer.matched_type(&lhs_type, &rhs_type).is_none() {
-                typer.issues.push(
-                    Issue::err("Type error in comparison", op_span)
-                        .frag(format!("Of type {}", lhs_type.t), lhs)
-                        .frag(format!("Of type {}", rhs_type.t), rhs),
-                );
+                typer
+                    .err("Type error in comparison", op_span)
+                    .frag(format!("Of type {}", lhs_type.t), lhs)
+                    .frag(format!("Of type {}", rhs_type.t), rhs);
             }
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
         }
         BinaryOperator::NullSafeEq => {
             if typer.matched_type(&lhs_type, &rhs_type).is_none() {
-                typer.issues.push(
-                    Issue::err("Type error in comparison", op_span)
-                        .frag(format!("Of type {}", lhs_type.t), lhs)
-                        .frag(format!("Of type {}", rhs_type.t), rhs),
-                );
+                typer
+                    .err("Type error in comparison", op_span)
+                    .frag(format!("Of type {}", lhs_type.t), lhs)
+                    .frag(format!("Of type {}", rhs_type.t), rhs);
             }
             FullType::new(BaseType::Bool, true)
         }
@@ -139,20 +137,18 @@ pub(crate) fn type_binary_expression<'a>(
                         FullType::new(t, lhs_type.not_null && rhs_type.not_null)
                     }
                     _ => {
-                        typer.issues.push(
-                            Issue::err("Type error in addition/subtraction", op_span)
-                                .frag(format!("type {}", lhs_type.t), lhs)
-                                .frag(format!("type {}", rhs_type.t), rhs),
-                        );
+                        typer
+                            .err("Type error in addition/subtraction", op_span)
+                            .frag(format!("type {}", lhs_type.t), lhs)
+                            .frag(format!("type {}", rhs_type.t), rhs);
                         FullType::invalid()
                     }
                 }
             } else {
-                typer.issues.push(
-                    Issue::err("Type error in addition/subtraction", op_span)
-                        .frag(format!("type {}", lhs_type.t), lhs)
-                        .frag(format!("type {}", rhs_type.t), rhs),
-                );
+                typer
+                    .err("Type error in addition/subtraction", op_span)
+                    .frag(format!("type {}", lhs_type.t), lhs)
+                    .frag(format!("type {}", rhs_type.t), rhs);
                 FullType::invalid()
             }
         }

@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::{format, vec::Vec};
-use sql_parse::{Expression, Function, Issue, Span};
+use sql_parse::{Expression, Function, Span};
 
 use crate::{
     type_::{BaseType, FullType},
@@ -31,12 +31,12 @@ fn arg_cnt<'a>(
     }
 
     let mut issue = if rng.is_empty() {
-        Issue::err(
+        typer.err(
             format!("Expected {} arguments got {}", rng.start, args.len()),
             span,
         )
     } else {
-        Issue::err(
+        typer.err(
             format!(
                 "Expected between {} and {} arguments got {}",
                 rng.start,
@@ -49,10 +49,9 @@ fn arg_cnt<'a>(
 
     if let Some(args) = args.get(rng.end..) {
         for (cnt, arg) in args.iter().enumerate() {
-            issue = issue.frag(format!("Argument {}", rng.end + cnt), arg);
+            issue.frag(format!("Argument {}", rng.end + cnt), arg);
         }
     }
-    typer.issues.push(issue);
 }
 
 fn typed_args<'a, 'b, 'c>(
@@ -124,10 +123,7 @@ pub(crate) fn type_function<'a, 'b>(
             let mut return_type = if let Some(arg) = args.first() {
                 let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
                 if !matches!(t.base(), BaseType::Any | BaseType::String | BaseType::Bytes) {
-                    typer.issues.push(Issue::err(
-                        format!("Expected type String or Bytes got {}", t),
-                        arg,
-                    ));
+                    typer.err(format!("Expected type String or Bytes got {}", t), arg);
                 }
                 t
             } else {
@@ -185,7 +181,7 @@ pub(crate) fn type_function<'a, 'b>(
             arg_cnt(typer, 2..2, args, span);
             let t = if let Some((e, t)) = typed.first() {
                 if t.not_null {
-                    typer.issues.push(Issue::warn("Cannot be null", *e));
+                    typer.warn("Cannot be null", *e);
                 }
                 t.clone()
             } else {
@@ -278,7 +274,7 @@ pub(crate) fn type_function<'a, 'b>(
             for (a, t) in &typed {
                 typer.ensure_base(*a, t, BaseType::String);
             }
-            if let (Some(t0), Some(t1), t2) = (typed.get(0), typed.get(1), typed.get(2)) {
+            if let (Some(t0), Some(t1), t2) = (typed.first(), typed.get(1), typed.get(2)) {
                 let not_null =
                     t0.1.not_null && t1.1.not_null && t2.map(|t| t.1.not_null).unwrap_or(true);
                 FullType::new(Type::Base(BaseType::Bool), not_null)
@@ -346,11 +342,10 @@ pub(crate) fn type_function<'a, 'b>(
                     if let Some(tt) = typer.matched_type(&bt.t, &t) {
                         t = tt;
                     } else {
-                        typer.issues.push(
-                            Issue::err("None matching input types", span)
-                                .frag(format!("Type {}", at.t), *a)
-                                .frag(format!("Type {}", bt.t), *b),
-                        );
+                        typer
+                            .err("None matching input types", span)
+                            .frag(format!("Type {}", at.t), *a)
+                            .frag(format!("Type {}", bt.t), *b);
                     }
                 }
                 FullType::new(t, true);
@@ -373,11 +368,10 @@ pub(crate) fn type_function<'a, 'b>(
                     if let Some(t) = typer.matched_type(t1, t2) {
                         ans = FullType::new(t, not_null);
                     } else {
-                        typer.issues.push(
-                            Issue::err("Incompatible types", span)
-                                .frag(format!("Of type {}", t1.t), *e1)
-                                .frag(format!("Of type {}", t2.t), *e2),
-                        );
+                        typer
+                            .err("Incompatible types", span)
+                            .frag(format!("Of type {}", t1.t), *e1)
+                            .frag(format!("Of type {}", t2.t), *e2);
                     }
                 }
             }
@@ -408,10 +402,7 @@ pub(crate) fn type_function<'a, 'b>(
         Function::Value => {
             let typed = typed_args(typer, args, flags);
             if !flags.in_on_duplicate_key_update {
-                typer.issues.push(Issue::err(
-                    "VALUE is only allowed within ON DUPLICATE KEY UPDATE",
-                    span,
-                ));
+                typer.err("VALUE is only allowed within ON DUPLICATE KEY UPDATE", span);
             }
             arg_cnt(typer, 1..1, args, span);
             if let Some((_, t)) = typed.first() {
@@ -433,18 +424,13 @@ pub(crate) fn type_function<'a, 'b>(
                         .matched_type(t, &FullType::new(BaseType::Bytes, false))
                         .is_none()
                 {
-                    typer.issues.push(Issue::err(
-                        format!("Expected type Bytes or String got {}", t),
-                        span,
-                    ));
+                    typer.err(format!("Expected type Bytes or String got {}", t), span);
                 }
             }
             FullType::new(Type::I64, not_null)
         }
         _ => {
-            typer
-                .issues
-                .push(Issue::err("Typing for function not implemented", span));
+            typer.err("Typing for function not implemented", span);
             FullType::invalid()
         }
     }

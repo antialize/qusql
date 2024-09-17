@@ -10,25 +10,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::borrow::Cow;
+
 use crate::{
     schema::{Schema, Schemas},
     type_::{ArgType, BaseType, FullType},
     ArgumentKey, Type, TypeOptions,
 };
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use alloc::{collections::BTreeMap, format};
-use sql_parse::{Identifier, Issue, OptSpanned, QualifiedName, SQLDialect, Span, Spanned};
+use sql_parse::{
+    Identifier, IssueHandle, Issues, OptSpanned, QualifiedName, SQLDialect, Span, Spanned,
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ReferenceType<'a> {
-    pub(crate) name: Option<&'a str>,
+    pub(crate) name: Option<Identifier<'a>>,
     pub(crate) span: Span,
-    pub(crate) columns: Vec<(&'a str, FullType<'a>)>,
+    pub(crate) columns: Vec<(Identifier<'a>, FullType<'a>)>,
 }
 
 pub(crate) struct Typer<'a, 'b> {
-    pub(crate) issues: &'b mut Vec<Issue>,
-    pub(crate) schemas: &'a Schemas<'a>,
+    pub(crate) issues: &'b mut Issues<'a>,
+    pub(crate) schemas: &'b Schemas<'a>,
     pub(crate) with_schemas: BTreeMap<&'a str, &'b Schema<'a>>,
     pub(crate) reference_types: Vec<ReferenceType<'a>>,
     pub(crate) arg_types: Vec<(ArgumentKey<'a>, FullType<'a>)>,
@@ -104,7 +109,7 @@ impl<'a, 'b> Typer<'a, 'b> {
 
         for t in &[t1, t2] {
             if let Type::Args(_, a) = t {
-                for (idx, arg_type, _) in a {
+                for (idx, arg_type, _) in a.iter() {
                     self.constrain_arg(*idx, arg_type, &FullType::new(t1b, false));
                 }
             }
@@ -117,7 +122,7 @@ impl<'a, 'b> Typer<'a, 'b> {
                 }
             }
             if !args.is_empty() {
-                return Some(Type::Args(t1b, args));
+                return Some(Type::Args(t1b, Arc::new(args)));
             }
         }
         Some(t1b.into())
@@ -130,10 +135,10 @@ impl<'a, 'b> Typer<'a, 'b> {
         expected: &FullType<'a>,
     ) {
         if self.matched_type(given, expected).is_none() {
-            self.issues.push(Issue::err(
+            self.issues.err(
                 format!("Expected type {} got {}", expected.t, given.t),
                 span,
-            ));
+            );
         }
     }
 
@@ -152,6 +157,22 @@ impl<'a, 'b> Typer<'a, 'b> {
         } else {
             self.schemas.schemas.get(name)
         }
+    }
+
+    pub(crate) fn err(
+        &mut self,
+        message: impl Into<Cow<'static, str>>,
+        span: &impl Spanned,
+    ) -> IssueHandle<'a, '_> {
+        self.issues.err(message, span)
+    }
+
+    pub(crate) fn warn(
+        &mut self,
+        message: impl Into<Cow<'static, str>>,
+        span: &impl Spanned,
+    ) -> IssueHandle<'a, '_> {
+        self.issues.warn(message, span)
     }
 }
 
@@ -187,15 +208,15 @@ pub(crate) fn typer_stack<
     }
 }
 
-pub(crate) fn unqualified_name<'a, 'b>(
-    issues: &mut Vec<Issue>,
-    name: &'a QualifiedName<'b>,
-) -> &'a Identifier<'b> {
+pub(crate) fn unqualified_name<'b, 'c>(
+    issues: &mut Issues<'_>,
+    name: &'c QualifiedName<'b>,
+) -> &'c Identifier<'b> {
     if !name.prefix.is_empty() {
-        issues.push(Issue::err(
+        issues.err(
             "Expected unqualified name",
             &name.prefix.opt_span().unwrap(),
-        ));
+        );
     }
     &name.identifier
 }

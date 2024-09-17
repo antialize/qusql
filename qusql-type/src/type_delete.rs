@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use sql_parse::{Delete, Issue, OptSpanned, Spanned};
+use sql_parse::{Delete, OptSpanned, Spanned};
 
 use crate::{
     type_expression::{type_expression, ExpressionFlags},
@@ -49,31 +49,29 @@ pub(crate) fn type_delete<'a>(
         for table in &delete.tables {
             let identifier = unqualified_name(typer.issues, table);
             if typer.get_schema(identifier.value).is_none() {
-                typer
-                    .issues
-                    .push(Issue::err("Unknown table or view", identifier))
+                typer.err("Unknown table or view", identifier);
             }
         }
     } else {
         if delete.tables.len() > 1 {
-            typer.issues.push(Issue::err(
+            typer.err(
                 "Expected only one table here",
                 &delete.tables.opt_span().unwrap(),
-            ));
+            );
         }
         let identifier = unqualified_name(typer.issues, &delete.tables[0]);
         if let Some(s) = typer.get_schema(identifier.value) {
             let mut columns = Vec::new();
             for col in &s.columns {
-                columns.push((col.identifier, col.type_.clone()));
+                columns.push((col.identifier.clone(), col.type_.clone()));
             }
             typer.reference_types.push(ReferenceType {
-                name: Some(identifier.value),
+                name: Some(identifier.clone()),
                 span: identifier.span(),
                 columns,
             });
         } else {
-            typer.issues.push(Issue::err("", identifier));
+            typer.err("", identifier);
         }
         for reference in &delete.using {
             type_reference(typer, reference, false);

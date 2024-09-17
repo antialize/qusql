@@ -11,13 +11,14 @@
 // limitations under the License.
 
 use crate::{
+    schema::IndexKey,
     type_::BaseType,
     type_expression::{type_expression, ExpressionFlags},
     type_select::type_union_select,
     typer::{unqualified_name, ReferenceType, Typer},
 };
 use alloc::vec::Vec;
-use sql_parse::{issue_todo, Issue, OptSpanned, Spanned, TableReference};
+use sql_parse::{issue_todo, OptSpanned, Spanned, TableReference};
 
 pub(crate) fn type_reference<'a>(
     typer: &mut Typer<'a, '_>,
@@ -38,61 +39,55 @@ pub(crate) fn type_reference<'a>(
                 for c in &s.columns {
                     let mut type_ = c.type_.clone();
                     type_.not_null = type_.not_null && !force_null;
-                    columns.push((c.identifier, type_));
+                    columns.push((c.identifier.clone(), type_));
                 }
                 let name = as_.as_ref().unwrap_or(identifier).clone();
                 for v in &typer.reference_types {
-                    if v.name == Some(name.value) {
-                        typer.issues.push(
-                            Issue::err("Duplicate definitions", &name)
-                                .frag("Already defined here", &v.span),
-                        );
+                    if v.name == Some(name.clone()) {
+                        typer
+                            .issues
+                            .err("Duplicate definitions", &name)
+                            .frag("Already defined here", &v.span);
                     }
                 }
                 for index_hint in index_hints {
                     if matches!(index_hint.type_, sql_parse::IndexHintType::Index(_)) {
                         for index in &index_hint.index_list {
-                            if !typer
-                                .schemas
-                                .indices
-                                .contains_key(&(Some(identifier), index.as_str()))
-                            {
-                                typer.issues.push(Issue::err("Unknown index", index));
+                            if !typer.schemas.indices.contains_key(&IndexKey {
+                                table: Some(identifier.clone()),
+                                index: index.clone(),
+                            }) {
+                                typer.err("Unknown index", index);
                             }
                         }
                     }
                 }
 
                 typer.reference_types.push(ReferenceType {
-                    name: Some(name.value),
+                    name: Some(name.clone()),
                     span: name.span(),
                     columns,
                 });
             } else {
-                typer
-                    .issues
-                    .push(Issue::err("Unknown table or view", identifier))
+                typer.issues.err("Unknown table or view", identifier);
             }
         }
         sql_parse::TableReference::Query { query, as_, .. } => {
             let select = type_union_select(typer, query, true);
 
-            let (name, span) = if let Some(as_) = as_ {
-                (Some(as_.value), as_.span.clone())
+            let span = if let Some(as_) = as_ {
+                as_.span.clone()
             } else {
-                (
-                    None,
-                    select.columns.opt_span().unwrap_or_else(|| query.span()),
-                )
+                select.columns.opt_span().unwrap_or_else(|| query.span())
             };
 
             typer.reference_types.push(ReferenceType {
-                name,
+                name: as_.clone(),
                 span,
                 columns: select
                     .columns
                     .iter()
-                    .filter_map(|v| v.name.map(|name| (name, v.type_.clone())))
+                    .filter_map(|v| v.name.as_ref().map(|name| (name.clone(), v.type_.clone())))
                     .collect(),
             });
         }
@@ -109,7 +104,7 @@ pub(crate) fn type_reference<'a>(
                 | sql_parse::JoinType::Cross(_)
                 | sql_parse::JoinType::Normal(_) => (force_null, force_null),
                 _ => {
-                    typer.issues.push(issue_todo!(join));
+                    issue_todo!(typer.issues, join);
                     (force_null, force_null)
                 }
             };
@@ -121,7 +116,7 @@ pub(crate) fn type_reference<'a>(
                     typer.ensure_base(e, &t, BaseType::Bool);
                 }
                 Some(s @ sql_parse::JoinSpecification::Using(_, _)) => {
-                    typer.issues.push(issue_todo!(s));
+                    issue_todo!(typer.issues, s);
                 }
                 None => (),
             }
