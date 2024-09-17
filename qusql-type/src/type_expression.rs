@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::{format, sync::Arc, string::ToString, vec};
+use alloc::{format, string::ToString, sync::Arc, vec};
 use core::ops::Deref;
 use sql_parse::{issue_todo, Expression, Identifier, Span, UnaryOperator, Variable};
 
@@ -68,9 +68,26 @@ fn type_unary_expression<'a>(
         | UnaryOperator::Collate
         | UnaryOperator::LogicalNot
         | UnaryOperator::Minus => {
-            let _op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Any);
-            issue_todo!(typer.issues, op_span);
-            FullType::invalid()
+            let op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Any);
+            let t = match &op_type.t {
+                Type::Args(..) | Type::Base(..) | Type::Enum(..) | Type::JSON | Type::Set(..) => {
+                    typer.err(format!("Expected numeric type got {}", op_type.t), op_span);
+                    Type::Invalid
+                }
+                Type::F32
+                | Type::F64
+                | Type::I16
+                | Type::I32
+                | Type::I64
+                | Type::I8
+                | Type::Invalid => op_type.t,
+                Type::U16 => Type::I16,
+                Type::U32 => Type::I32,
+                Type::U64 => Type::I64,
+                Type::U8 => Type::I8,
+                Type::Null => Type::Null,
+            };
+            FullType::new(t, op_type.not_null)
         }
         UnaryOperator::Not => {
             let op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Bool);
