@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_parse::{InsertReplaceType, Issue, Statement, WithBlock};
+use sql_parse::{InsertReplaceType, Statement, WithBlock};
 
 use alloc::vec::Vec;
 
@@ -55,10 +55,9 @@ fn type_with_query<'a>(
         if let Some(s) = s {
             let mut columns = Vec::new();
             for c in s.columns {
-                if let Some(name) = c.name {
+                if let Some(name) = &c.name {
                     columns.push(Column {
-                        identifier: name,
-                        identifier_span: c.span,
+                        identifier: name.clone(),
                         type_: c.type_,
                         auto_increment: false,
                         as_: None,

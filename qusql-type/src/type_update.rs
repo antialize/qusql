@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_parse::{Identifier, Issue, OptSpanned, Update};
+use sql_parse::{OptSpanned, Update};
 
 use crate::{
     type_::BaseType,
@@ -46,7 +46,7 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
                 let mut t = None;
                 for r in &typer.reference_types {
                     for c in &r.columns {
-                        if c.0 == key.value {
+                        if c.0 == *key {
                             cnt += 1;
                             t = Some(c.clone());
                         }
@@ -59,7 +59,7 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
                         .err("Ambiguous reference", &key.opt_span().unwrap());
                     for r in &typer.reference_types {
                         for c in &r.columns {
-                            if c.0 == key.value {
+                            if c.0 == *key {
                                 issue.frag("Defined here", &r.span);
                             }
                         }
@@ -83,14 +83,14 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
                         .err("Unknown identifier", &key.opt_span().unwrap());
                 }
             }
-            [Identifier { value: table, .. }, Identifier { value: column, .. }] => {
+            [table, column] => {
                 let mut t = None;
                 for r in &typer.reference_types {
-                    if r.name != Some(*table) {
+                    if r.name != Some(table.clone()) {
                         continue;
                     }
                     for c in &r.columns {
-                        if c.0 == *column {
+                        if c.0 == column.clone() {
                             t = Some(c.clone());
                         }
                     }
@@ -103,7 +103,7 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
                             value,
                         );
                     } else if let Type::Args(_, args) = &value_type.t {
-                        for (idx, arg_type, _) in args {
+                        for (idx, arg_type, _) in args.iter() {
                             typer.constrain_arg(*idx, arg_type, &t.1);
                         }
                     }

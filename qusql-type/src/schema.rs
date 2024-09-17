@@ -85,17 +85,15 @@
 use crate::{
     type_::{BaseType, FullType},
     typer::unqualified_name,
-    RefOrVal, Type, TypeOptions,
+    Type, TypeOptions,
 };
-use alloc::{collections::BTreeMap, vec::Vec};
-use sql_parse::{parse_statements, DataType, Expression, Issue, Span, Spanned};
+use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
+use sql_parse::{parse_statements, DataType, Expression, Identifier, Issues, Span, Spanned};
 
 /// A column in a schema
 #[derive(Debug)]
 pub struct Column<'a> {
-    pub identifier: &'a str,
-    /// Span of identifier
-    pub identifier_span: Span,
+    pub identifier: Identifier<'a>,
     /// Type of the column
     pub type_: FullType<'a>,
     /// True if the column is auto_increment
@@ -118,12 +116,12 @@ impl<'a> Schema<'a> {
     pub fn get_column(&self, identifier: &str) -> Option<&Column<'a>> {
         self.columns
             .iter()
-            .find(|&column| column.identifier == identifier)
+            .find(|&column| column.identifier.value == identifier)
     }
     pub fn get_column_mut(&mut self, identifier: &str) -> Option<&mut Column<'a>> {
         self.columns
             .iter_mut()
-            .find(|column| column.identifier == identifier)
+            .find(|column| column.identifier.value == identifier)
     }
 }
 
@@ -135,25 +133,29 @@ pub struct Procedure {}
 #[derive(Debug)]
 pub struct Functions {}
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct IndexKey<'a> {
+    pub table: Option<Identifier<'a>>,
+    pub index: Identifier<'a>,
+}
+
 /// A description of tables, view, procedures and function in a schemas definition file
 #[derive(Debug, Default)]
-
 pub struct Schemas<'a> {
     /// Map from name to Tables or views
-    pub schemas: BTreeMap<&'a str, Schema<'a>>,
+    pub schemas: BTreeMap<Identifier<'a>, Schema<'a>>,
     /// Map from name to procedure
-    pub procedures: BTreeMap<&'a str, Procedure>,
+    pub procedures: BTreeMap<Identifier<'a>, Procedure>,
     /// Map from name to function
-    pub functions: BTreeMap<&'a str, Functions>,
+    pub functions: BTreeMap<Identifier<'a>, Functions>,
     /// Map from (table, index) to location
-    pub indices: BTreeMap<(Option<&'a str>, &'a str), Span>,
+    pub indices: BTreeMap<IndexKey<'a>, Span>,
 }
 
 pub(crate) fn parse_column<'a>(
     data_type: DataType<'a>,
-    identifier: &'a str,
-    identifier_span: Span,
-    _issues: &mut Vec<Issue>,
+    identifier: Identifier<'a>,
+    _issues: &mut Issues<'a>,
 ) -> Column<'a> {
     let mut not_null = false;
     let mut unsigned = false;
@@ -236,7 +238,6 @@ pub(crate) fn parse_column<'a>(
 
     Column {
         identifier,
-        identifier_span,
         type_: FullType {
             t: type_,
             not_null,
@@ -314,12 +315,7 @@ pub fn parse_schemas<'a>(
                             identifier,
                             data_type,
                         } => {
-                            let column = parse_column(
-                                data_type,
-                                identifier.value,
-                                identifier.span.clone(),
-                                issues,
-                            );
+                            let column = parse_column(data_type, identifier.clone(), issues);
                             if let Some(oc) = schema.get_column(column.identifier.value) {
                                 issues
                                     .err("Column already defined", &identifier)
@@ -331,7 +327,7 @@ pub fn parse_schemas<'a>(
                         sql_parse::CreateDefinition::ConstraintDefinition { .. } => {}
                     }
                 }
-                match schemas.schemas.entry(id.value) {
+                match schemas.schemas.entry(id.clone()) {
                     alloc::collections::btree_map::Entry::Occupied(mut e) => {
                         if replace {
                             e.insert(schema);
@@ -373,7 +369,7 @@ pub fn parse_schemas<'a>(
                 // TODO typecheck view query to find schema
                 match schemas
                     .schemas
-                    .entry(unqualified_name(issues, &v.name).as_str())
+                    .entry(unqualified_name(issues, &v.name).clone())
                 {
                     alloc::collections::btree_map::Entry::Occupied(mut e) => {
                         if replace {
@@ -397,7 +393,7 @@ pub fn parse_schemas<'a>(
             // sql_parse::Statement::Update(_) => todo!(),
             sql_parse::Statement::DropTable(t) => {
                 for i in t.tables {
-                    match schemas.schemas.entry(unqualified_name(issues, &i).as_str()) {
+                    match schemas.schemas.entry(unqualified_name(issues, &i).clone()) {
                         alloc::collections::btree_map::Entry::Occupied(e) => {
                             if e.get().view {
                                 issues
@@ -418,7 +414,7 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::DropFunction(f) => {
                 match schemas
                     .functions
-                    .entry(unqualified_name(issues, &f.function).as_str())
+                    .entry(unqualified_name(issues, &f.function).clone())
                 {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         e.remove();
@@ -436,7 +432,7 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::DropProcedure(p) => {
                 match schemas
                     .procedures
-                    .entry(unqualified_name(issues, &p.procedure).as_str())
+                    .entry(unqualified_name(issues, &p.procedure).clone())
                 {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         e.remove();
@@ -457,7 +453,7 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::DropTrigger(_) => {}
             sql_parse::Statement::DropView(v) => {
                 for i in v.views {
-                    match schemas.schemas.entry(unqualified_name(issues, &i).as_str()) {
+                    match schemas.schemas.entry(unqualified_name(issues, &i).clone()) {
                         alloc::collections::btree_map::Entry::Occupied(e) => {
                             if !e.get().view {
                                 issues
@@ -479,7 +475,7 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::AlterTable(a) => {
                 let e = match schemas
                     .schemas
-                    .entry(unqualified_name(issues, &a.table).value)
+                    .entry(unqualified_name(issues, &a.table).clone())
                 {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         let e = e.into_mut();
@@ -517,19 +513,14 @@ pub fn parse_schemas<'a>(
                                     continue;
                                 }
                             };
-                            *c = parse_column(definition, c.identifier, col.span(), issues);
+                            *c = parse_column(definition, c.identifier.clone(), issues);
                         }
                         sql_parse::AlterSpecification::AddColumn {
                             identifier,
                             data_type,
                             ..
                         } => {
-                            e.columns.push(parse_column(
-                                data_type,
-                                identifier.as_str(),
-                                identifier.span(),
-                                issues,
-                            ));
+                            e.columns.push(parse_column(data_type, identifier, issues));
                         }
                         sql_parse::AlterSpecification::OwnerTo { .. } => {}
                     }
@@ -545,7 +536,7 @@ pub fn parse_schemas<'a>(
             // sql_parse::Statement::Replace(_) => todo!(),
             // sql_parse::Statement::Case(_) => todo!(),
             sql_parse::Statement::CreateIndex(ci) => {
-                let t = unqualified_name(issues, &ci.table_name).as_str();
+                let t = unqualified_name(issues, &ci.table_name);
 
                 if let Some(table) = schemas.schemas.get(t) {
                     for col in &ci.column_names {
@@ -561,9 +552,15 @@ pub fn parse_schemas<'a>(
                 }
 
                 let ident = if options.parse_options.get_dialect().is_postgresql() {
-                    (None, ci.index_name.as_str())
+                    IndexKey {
+                        table: None,
+                        index: ci.index_name.clone(),
+                    }
                 } else {
-                    (Some(t), ci.index_name.as_str())
+                    IndexKey {
+                        table: Some(t.clone()),
+                        index: ci.index_name.clone(),
+                    }
                 };
 
                 if let Some(old) = schemas.indices.insert(ident, ci.span()) {
@@ -575,9 +572,11 @@ pub fn parse_schemas<'a>(
                 }
             }
             sql_parse::Statement::DropIndex(ci) => {
-                let t = ci.on.as_ref().map(|(_, t)| t.identifier.as_str());
-                let i = ci.index_name.as_str();
-                if schemas.indices.remove(&(t, i)).is_none() && ci.if_exists.is_none() {
+                let key = IndexKey {
+                    table: ci.on.as_ref().map(|(_, t)| t.identifier.clone()),
+                    index: ci.index_name.clone(),
+                };
+                if schemas.indices.remove(&key).is_none() && ci.if_exists.is_none() {
                     issues.err("No such index", &ci);
                 }
             }
@@ -611,12 +610,10 @@ pub fn parse_schemas<'a>(
         typer.reference_types.clear();
         let mut columns = Vec::new();
         for c in &schema.columns {
-            let mut type_ = c.type_.clone();
-            type_.not_null = type_.not_null;
-            columns.push((c.identifier, type_));
+            columns.push((c.identifier.clone(), c.type_.clone()));
         }
         typer.reference_types.push(crate::typer::ReferenceType {
-            name: Some(name),
+            name: Some(name.clone()),
             span: schema.identifier_span.clone(),
             columns,
         });

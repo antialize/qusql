@@ -10,9 +10,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::{format, string::ToString, vec};
+use alloc::{format, sync::Arc, string::ToString, vec};
 use core::ops::Deref;
-use sql_parse::{issue_todo, Expression, Issue, Span, UnaryOperator, Variable};
+use sql_parse::{issue_todo, Expression, Identifier, Span, UnaryOperator, Variable};
 
 use crate::{
     schema::parse_column,
@@ -145,7 +145,7 @@ pub(crate) fn type_expression<'a>(
                     let mut cnt = 0;
                     for r in &mut typer.reference_types {
                         for c in &mut r.columns {
-                            if c.0 == col.value {
+                            if c.0 == *col {
                                 cnt += 1;
                                 if flags.not_null {
                                     c.1.not_null = true;
@@ -182,9 +182,9 @@ pub(crate) fn type_expression<'a>(
                         }
                     };
                     for r in &mut typer.reference_types {
-                        if r.name == Some(tbl.value) {
+                        if r.name == Some(tbl.clone()) {
                             for c in &mut r.columns {
-                                if c.0 == col.value {
+                                if c.0 == *col {
                                     if flags.not_null {
                                         c.1.not_null = true;
                                     }
@@ -351,7 +351,11 @@ pub(crate) fn type_expression<'a>(
             type_,
             ..
         } => {
-            let col = parse_column(type_.clone(), "", as_span.clone(), typer.issues);
+            let col = parse_column(
+                type_.clone(),
+                Identifier::new("", as_span.clone()),
+                typer.issues,
+            );
             if typer.dialect().is_maria() {
                 match type_.type_ {
                     sql_parse::Type::Char(_)

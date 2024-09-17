@@ -51,8 +51,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use schema::Schemas;
-use sql_parse::{parse_statement, Issues, ParseOptions};
-pub use sql_parse::{Issue, Level};
+use sql_parse::{parse_statement, ParseOptions};
+pub use sql_parse::{Issue, Level, Issues, Fragment};
 
 mod type_;
 mod type_binary_expression;
@@ -276,6 +276,17 @@ mod tests {
         }
     }
 
+    struct N2<'a>(Option<Identifier<'a>>);
+    impl<'a> alloc::fmt::Display for N2<'a> {
+        fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+            if let Some(v) = &self.0 {
+                v.fmt(f)
+            } else {
+                f.write_str("None")
+            }
+        }
+    }
+
     fn check_no_errors(name: &str, src: &str, issues: &[Issue], errors: &mut usize) {
         let mut files = SimpleFiles::new();
         let file_id = files.add(name, &src);
@@ -401,14 +412,14 @@ mod tests {
             let t = str_to_type(t);
             let cname = if cname.is_empty() { None } else { Some(cname) };
             if let Some(v) = got.get(i) {
-                if v.name != cname || v.type_ != t {
+                if v.name.as_deref() != cname || v.type_ != t {
                     println!(
                         "{}: Expected column {} with name {} of type {} got {} of type {}",
                         name,
                         i,
                         N(cname),
                         t,
-                        N(v.name),
+                        N2(v.name.clone()),
                         v.type_
                     );
                     *errors += 1;
@@ -430,7 +441,7 @@ mod tests {
                 "{}: Unexpected column {} with name {} of type {}",
                 name,
                 cnt,
-                N(got[cnt].name),
+                N2(got[cnt].name.clone()),
                 got[cnt].type_
             );
             cnt += 1;

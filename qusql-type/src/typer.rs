@@ -17,16 +17,18 @@ use crate::{
     type_::{ArgType, BaseType, FullType},
     ArgumentKey, Type, TypeOptions,
 };
-use alloc::rc::Arc;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use alloc::{collections::BTreeMap, format};
-use sql_parse::{Identifier, Issue, OptSpanned, QualifiedName, SQLDialect, Span, Spanned};
+use sql_parse::{
+    Identifier, IssueHandle, Issues, OptSpanned, QualifiedName, SQLDialect, Span, Spanned,
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ReferenceType<'a> {
-    pub(crate) name: Option<&'a str>,
+    pub(crate) name: Option<Identifier<'a>>,
     pub(crate) span: Span,
-    pub(crate) columns: Vec<(&'a str, FullType<'a>)>,
+    pub(crate) columns: Vec<(Identifier<'a>, FullType<'a>)>,
 }
 
 pub(crate) struct Typer<'a, 'b> {

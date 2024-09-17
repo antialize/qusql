@@ -12,7 +12,7 @@
 
 use alloc::{format, vec::Vec};
 use sql_parse::{
-    issue_ice, issue_todo, Expression, Identifier, IdentifierPart, Issue, OptSpanned, Select,
+    issue_ice, issue_todo, Expression, Identifier, IdentifierPart, Issues, OptSpanned, Select,
     SelectExpr, Span, Spanned, Statement, Union,
 };
 
@@ -28,7 +28,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct SelectTypeColumn<'a> {
     /// The name of the column if one is specified or can be computed
-    pub name: Option<&'a str>,
+    pub name: Option<Identifier<'a>>,
     /// The type of the data
     pub type_: FullType<'a>,
     /// A span of the expression yielding the column
@@ -67,7 +67,7 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
             let mut t = None;
             for r in &typer.reference_types {
                 for c in &r.columns {
-                    if c.0 == col.value {
+                    if c.0 == *col {
                         cnt += 1;
                         t = Some(c);
                     }
@@ -78,14 +78,14 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                 let mut issue = typer.issues.err("Ambigious reference", col);
                 for r in &typer.reference_types {
                     for c in &r.columns {
-                        if c.0 == col.value {
+                        if c.0 == *col {
                             issue.frag("Defined here", &r.span);
                         }
                     }
                 }
                 cb(
                     typer.issues,
-                    Some(name.value),
+                    Some(name.clone()),
                     FullType::invalid(),
                     name.span(),
                     as_.is_some(),
@@ -93,7 +93,7 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
             } else if let Some(t) = t {
                 cb(
                     typer.issues,
-                    Some(name.value),
+                    Some(name.clone()),
                     t.1.clone(),
                     name.span(),
                     as_.is_some(),
@@ -111,20 +111,26 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
         }
         [sql_parse::IdentifierPart::Star(v)] => {
             if let Some(as_) = as_ {
-                typer.issues.push(Issue::err("As not supported for *", as_));
+                typer.err("As not supported for *", as_);
             }
             for r in &typer.reference_types {
                 for c in &r.columns {
-                    cb(Some(c.0), c.1.clone(), v.clone(), false);
+                    cb(
+                        typer.issues,
+                        Some(c.0.clone()),
+                        c.1.clone(),
+                        v.clone(),
+                        false,
+                    );
                 }
             }
         }
         [sql_parse::IdentifierPart::Name(tbl), sql_parse::IdentifierPart::Name(col)] => {
             let mut t = None;
             for r in &typer.reference_types {
-                if r.name == Some(tbl.value) {
+                if r.name == Some(tbl.clone()) {
                     for c in &r.columns {
-                        if c.0 == col.value {
+                        if c.0 == *col {
                             t = Some(c);
                         }
                     }
@@ -134,7 +140,7 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
             if let Some(t) = t {
                 cb(
                     typer.issues,
-                    Some(name.value),
+                    Some(name.clone()),
                     t.1.clone(),
                     name.span(),
                     as_.is_some(),
@@ -143,7 +149,7 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                 typer.err("Unknown identifier", col);
                 cb(
                     typer.issues,
-                    Some(name.value),
+                    Some(name.clone()),
                     FullType::invalid(),
                     name.span(),
                     as_.is_some(),
@@ -156,13 +162,19 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
             }
             let mut t = None;
             for r in &typer.reference_types {
-                if r.name == Some(tbl.value) {
+                if r.name == Some(tbl.clone()) {
                     t = Some(r);
                 }
             }
             if let Some(t) = t {
                 for c in &t.columns {
-                    cb(typer.issues, Some(c.0), c.1.clone(), v.clone(), false);
+                    cb(
+                        typer.issues,
+                        Some(c.0.clone()),
+                        c.1.clone(),
+                        v.clone(),
+                        false,
+                    );
                 }
             } else {
                 typer.err("Unknown table", tbl);
@@ -279,7 +291,7 @@ pub(crate) fn type_select_exprs<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     select_exprs: &[SelectExpr<'a>],
     warn_duplicate: bool,
-) -> Vec<(Option<&'a str>, FullType<'a>, Span)> {
+) -> Vec<(Option<Identifier<'a>>, FullType<'a>, Span)> {
     let mut result = Vec::new();
     let mut select_reference = ReferenceType {
         name: None,
@@ -289,16 +301,16 @@ pub(crate) fn type_select_exprs<'a, 'b>(
 
     for e in select_exprs {
         let mut add_result = |issues: &mut Issues<'a>,
-                              name: Option<&'a str>,
+                              name: Option<Identifier<'a>>,
                               type_: FullType<'a>,
                               span: Span,
                               as_: bool| {
-            if let Some(name) = name {
+            if let Some(name) = name.clone() {
                 if as_ {
-                    select_reference.columns.push((name, type_.clone()));
+                    select_reference.columns.push((name.clone(), type_.clone()));
                 }
                 for (on, _, os) in &result {
-                    if Some(name) == *on && warn_duplicate {
+                    if Some(name.clone()) == *on && warn_duplicate {
                         issues
                             .warn("Also defined here", &span)
                             .frag(format!("Multiple columns with the name '{}'", name), os);
@@ -312,7 +324,7 @@ pub(crate) fn type_select_exprs<'a, 'b>(
         } else {
             let type_ = type_expression(typer, &e.expr, ExpressionFlags::default(), BaseType::Any);
             if let Some(as_) = &e.as_ {
-                add_result(typer.issues, Some(as_.value), type_, as_.span(), true);
+                add_result(typer.issues, Some(as_.clone()), type_, as_.span(), true);
             } else {
                 if typer.options.warn_unnamed_column_in_select {
                     typer.issues.warn("Unnamed column in select", e);
@@ -414,7 +426,7 @@ pub(crate) fn type_union<'a>(typer: &mut Typer<'a, '_>, union: &Union<'a>) -> Se
         columns: t
             .columns
             .iter()
-            .filter_map(|v| v.name.map(|name| (name, v.type_.clone())))
+            .filter_map(|v| v.name.as_ref().map(|name| (name.clone(), v.type_.clone())))
             .collect(),
     });
 

@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use sql_parse::{Delete, Issue, OptSpanned, Spanned};
+use sql_parse::{Delete, OptSpanned, Spanned};
 
 use crate::{
     type_expression::{type_expression, ExpressionFlags},
@@ -63,10 +63,10 @@ pub(crate) fn type_delete<'a>(
         if let Some(s) = typer.get_schema(identifier.value) {
             let mut columns = Vec::new();
             for col in &s.columns {
-                columns.push((col.identifier, col.type_.clone()));
+                columns.push((col.identifier.clone(), col.type_.clone()));
             }
             typer.reference_types.push(ReferenceType {
-                name: Some(identifier.value),
+                name: Some(identifier.clone()),
                 span: identifier.span(),
                 columns,
             });

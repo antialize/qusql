@@ -12,8 +12,7 @@
 
 use alloc::{format, vec::Vec};
 use sql_parse::{
-    issue_todo, InsertReplace, InsertReplaceFlag, InsertReplaceSetPair, InsertReplaceType, Issue,
-    Spanned,
+    issue_todo, InsertReplace, InsertReplaceFlag, InsertReplaceSetPair, InsertReplaceType, Spanned,
 };
 
 use crate::{
@@ -117,10 +116,10 @@ pub(crate) fn type_insert_replace<'a>(
     if let Some(s) = typer.schemas.schemas.get(table.value) {
         let mut columns = Vec::new();
         for c in &s.columns {
-            columns.push((c.identifier, c.type_.ref_clone()));
+            columns.push((c.identifier.clone(), c.type_.clone()));
         }
         for v in &typer.reference_types {
-            if v.name == Some(table.value) {
+            if v.name == Some(table.clone()) {
                 typer
                     .issues
                     .err("Duplicate definitions", table)
@@ -128,7 +127,7 @@ pub(crate) fn type_insert_replace<'a>(
             }
         }
         typer.reference_types.push(ReferenceType {
-            name: Some(table.value),
+            name: Some(table.clone()),
             span: table.span(),
             columns,
         });
@@ -140,7 +139,7 @@ pub(crate) fn type_insert_replace<'a>(
             let mut t = None;
             for r in &typer.reference_types {
                 for c in &r.columns {
-                    if c.0 == column.value {
+                    if c.0 == *column {
                         cnt += 1;
                         t = Some(c.clone());
                     }
@@ -151,7 +150,7 @@ pub(crate) fn type_insert_replace<'a>(
                 let mut issue = typer.issues.err("Ambiguous reference", column);
                 for r in &typer.reference_types {
                     for c in &r.columns {
-                        if c.0 == column.value {
+                        if c.0 == *column {
                             issue.frag("Defined here", &r.span);
                         }
                     }
@@ -179,7 +178,7 @@ pub(crate) fn type_insert_replace<'a>(
             let mut t = None;
             for r in &typer.reference_types {
                 for c in &r.columns {
-                    if c.0 == column.value {
+                    if c.0 == *column {
                         cnt += 1;
                         t = Some(c.clone());
                     }
@@ -191,7 +190,7 @@ pub(crate) fn type_insert_replace<'a>(
                 let mut issue = typer.issues.err("Ambiguous reference", column);
                 for r in &typer.reference_types {
                     for c in &r.columns {
-                        if c.0 == column.value {
+                        if c.0 == *column {
                             issue.frag("Defined here", &r.span);
                         }
                     }
@@ -218,7 +217,7 @@ pub(crate) fn type_insert_replace<'a>(
                 let mut t = None;
                 for r in &typer.reference_types {
                     for c in &r.columns {
-                        if c.0 == name.value {
+                        if c.0 == *name {
                             t = Some(c.clone());
                         }
                     }
@@ -244,7 +243,7 @@ pub(crate) fn type_insert_replace<'a>(
                     let mut t = None;
                     for r in &typer.reference_types {
                         for c in &r.columns {
-                            if c.0 == key.value {
+                            if c.0 == *key {
                                 cnt += 1;
                                 t = Some(c.clone());
                             }
@@ -256,7 +255,7 @@ pub(crate) fn type_insert_replace<'a>(
                         let mut issue = typer.issues.err("Ambiguous reference", key);
                         for r in &typer.reference_types {
                             for c in &r.columns {
-                                if c.0 == key.value {
+                                if c.0 == *key {
                                     issue.frag("Defined here", &r.span);
                                 }
                             }

@@ -13,7 +13,7 @@
 use alloc::{
     borrow::Cow,
     fmt::{Display, Write},
-    rc::Arc,
+    sync::Arc,
     vec::Vec,
 };
 use sql_parse::Span;

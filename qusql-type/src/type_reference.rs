@@ -11,13 +11,14 @@
 // limitations under the License.
 
 use crate::{
+    schema::IndexKey,
     type_::BaseType,
     type_expression::{type_expression, ExpressionFlags},
     type_select::type_union_select,
     typer::{unqualified_name, ReferenceType, Typer},
 };
 use alloc::vec::Vec;
-use sql_parse::{issue_todo, Issue, OptSpanned, Spanned, TableReference};
+use sql_parse::{issue_todo, OptSpanned, Spanned, TableReference};
 
 pub(crate) fn type_reference<'a>(
     typer: &mut Typer<'a, '_>,
@@ -38,11 +39,11 @@ pub(crate) fn type_reference<'a>(
                 for c in &s.columns {
                     let mut type_ = c.type_.clone();
                     type_.not_null = type_.not_null && !force_null;
-                    columns.push((c.identifier, type_));
+                    columns.push((c.identifier.clone(), type_));
                 }
                 let name = as_.as_ref().unwrap_or(identifier).clone();
                 for v in &typer.reference_types {
-                    if v.name == Some(name.value) {
+                    if v.name == Some(name.clone()) {
                         typer
                             .issues
                             .err("Duplicate definitions", &name)
@@ -52,11 +53,10 @@ pub(crate) fn type_reference<'a>(
                 for index_hint in index_hints {
                     if matches!(index_hint.type_, sql_parse::IndexHintType::Index(_)) {
                         for index in &index_hint.index_list {
-                            if !typer
-                                .schemas
-                                .indices
-                                .contains_key(&(Some(identifier), index.as_str()))
-                            {
+                            if !typer.schemas.indices.contains_key(&IndexKey {
+                                table: Some(identifier.clone()),
+                                index: index.clone(),
+                            }) {
                                 typer.err("Unknown index", index);
                             }
                         }
@@ -64,7 +64,7 @@ pub(crate) fn type_reference<'a>(
                 }
 
                 typer.reference_types.push(ReferenceType {
-                    name: Some(name.value),
+                    name: Some(name.clone()),
                     span: name.span(),
                     columns,
                 });
@@ -75,22 +75,19 @@ pub(crate) fn type_reference<'a>(
         sql_parse::TableReference::Query { query, as_, .. } => {
             let select = type_union_select(typer, query, true);
 
-            let (name, span) = if let Some(as_) = as_ {
-                (Some(as_.value), as_.span.clone())
+            let span = if let Some(as_) = as_ {
+                as_.span.clone()
             } else {
-                (
-                    None,
-                    select.columns.opt_span().unwrap_or_else(|| query.span()),
-                )
+                select.columns.opt_span().unwrap_or_else(|| query.span())
             };
 
             typer.reference_types.push(ReferenceType {
-                name,
+                name: as_.clone(),
                 span,
                 columns: select
                     .columns
                     .iter()
-                    .filter_map(|v| v.name.map(|name| (name, v.type_.clone())))
+                    .filter_map(|v| v.name.as_ref().map(|name| (name.clone(), v.type_.clone())))
                     .collect(),
             });
         }
