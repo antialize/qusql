@@ -10,11 +10,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::borrow::Cow;
+
 use crate::{
     schema::{Schema, Schemas},
     type_::{ArgType, BaseType, FullType},
     ArgumentKey, Type, TypeOptions,
 };
+use alloc::rc::Arc;
 use alloc::vec::Vec;
 use alloc::{collections::BTreeMap, format};
 use sql_parse::{Identifier, Issue, OptSpanned, QualifiedName, SQLDialect, Span, Spanned};
@@ -28,7 +31,7 @@ pub(crate) struct ReferenceType<'a> {
 
 pub(crate) struct Typer<'a, 'b> {
     pub(crate) issues: &'b mut Issues<'a>,
-    pub(crate) schemas: &'a Schemas<'a>,
+    pub(crate) schemas: &'b Schemas<'a>,
     pub(crate) with_schemas: BTreeMap<&'a str, &'b Schema<'a>>,
     pub(crate) reference_types: Vec<ReferenceType<'a>>,
     pub(crate) arg_types: Vec<(ArgumentKey<'a>, FullType<'a>)>,
@@ -104,7 +107,7 @@ impl<'a, 'b> Typer<'a, 'b> {
 
         for t in &[t1, t2] {
             if let Type::Args(_, a) = t {
-                for (idx, arg_type, _) in a {
+                for (idx, arg_type, _) in a.iter() {
                     self.constrain_arg(*idx, arg_type, &FullType::new(t1b, false));
                 }
             }
@@ -117,7 +120,7 @@ impl<'a, 'b> Typer<'a, 'b> {
                 }
             }
             if !args.is_empty() {
-                return Some(Type::Args(t1b, args));
+                return Some(Type::Args(t1b, Arc::new(args)));
             }
         }
         Some(t1b.into())

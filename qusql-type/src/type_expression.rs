@@ -208,7 +208,10 @@ pub(crate) fn type_expression<'a>(
             }
         }
         Expression::Arg((idx, span)) => FullType::new(
-            Type::Args(BaseType::Any, vec![(*idx, ArgType::Normal, span.clone())]),
+            Type::Args(
+                BaseType::Any,
+                Arc::new(vec![(*idx, ArgType::Normal, span.clone())]),
+            ),
             false,
         ),
         Expression::Exists(s) => {
@@ -249,7 +252,10 @@ pub(crate) fn type_expression<'a>(
                         }
                     }
                     Expression::ListHack((idx, span)) => FullType::new(
-                        Type::Args(BaseType::Any, vec![(*idx, ArgType::ListHack, span.clone())]),
+                        Type::Args(
+                            BaseType::Any,
+                            Arc::new(vec![(*idx, ArgType::ListHack, span.clone())]),
+                        ),
                         false,
                     ),
                     _ => type_expression(typer, rhs, flags.without_values(), BaseType::Any),

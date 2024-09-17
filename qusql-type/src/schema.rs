@@ -207,12 +207,8 @@ pub(crate) fn parse_column<'a>(
         sql_parse::Type::MediumText(_) => BaseType::String.into(),
         sql_parse::Type::Text(_) => BaseType::String.into(),
         sql_parse::Type::LongText(_) => BaseType::String.into(),
-        sql_parse::Type::Enum(e) => {
-            Type::Enum(RefOrVal::Val(e.into_iter().map(|s| s.value).collect()))
-        }
-        sql_parse::Type::Set(s) => {
-            Type::Set(RefOrVal::Val(s.into_iter().map(|s| s.value).collect()))
-        }
+        sql_parse::Type::Enum(e) => Type::Enum(Arc::new(e.into_iter().map(|s| s.value).collect())),
+        sql_parse::Type::Set(s) => Type::Set(Arc::new(s.into_iter().map(|s| s.value).collect())),
         sql_parse::Type::Float(_) => Type::F32,
         sql_parse::Type::Double(_) => Type::F64,
         sql_parse::Type::DateTime(_) => BaseType::DateTime.into(),

@@ -10,10 +10,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::RefOrVal;
 use alloc::{
     borrow::Cow,
     fmt::{Display, Write},
+    rc::Arc,
     vec::Vec,
 };
 use sql_parse::Span;
@@ -66,9 +66,9 @@ pub enum ArgType {
 pub enum Type<'a> {
     // This type is used internally and should not escape to the user
     #[doc(hidden)]
-    Args(BaseType, Vec<(usize, ArgType, Span)>),
+    Args(BaseType, Arc<Vec<(usize, ArgType, Span)>>),
     Base(BaseType),
-    Enum(RefOrVal<'a, Vec<Cow<'a, str>>>),
+    Enum(Arc<Vec<Cow<'a, str>>>),
     F32,
     F64,
     I16,
@@ -77,7 +77,7 @@ pub enum Type<'a> {
     I8,
     Invalid,
     JSON,
-    Set(RefOrVal<'a, Vec<Cow<'a, str>>>),
+    Set(Arc<Vec<Cow<'a, str>>>),
     U16,
     U32,
     U64,
@@ -92,7 +92,7 @@ impl<'a> Display for Type<'a> {
         match self {
             Type::Args(t, a) => {
                 write!(f, "args({}", t)?;
-                for (a, _, _) in a {
+                for (a, _, _) in a.iter() {
                     write!(f, ", {}", a)?;
                 }
                 f.write_char(')')
@@ -136,15 +136,6 @@ impl<'a> Display for Type<'a> {
 }
 
 impl<'a> Type<'a> {
-    /// Make a none owning clone of the type
-    pub(crate) fn ref_clone(&'a self) -> Self {
-        match self {
-            Type::Enum(e) => Type::Enum(e.ref_clone()),
-            Type::Set(e) => Type::Set(e.ref_clone()),
-            t => t.clone(),
-        }
-    }
-
     /// Compute the canonical base type
     pub fn base(&self) -> BaseType {
         match self {
@@ -184,14 +175,6 @@ pub struct FullType<'a> {
 }
 
 impl<'a> FullType<'a> {
-    pub(crate) fn ref_clone(&'a self) -> Self {
-        FullType {
-            t: self.t.ref_clone(),
-            not_null: self.not_null,
-            list_hack: self.list_hack,
-        }
-    }
-
     pub(crate) fn new(t: impl Into<Type<'a>>, not_null: bool) -> Self {
         Self {
             t: t.into(),

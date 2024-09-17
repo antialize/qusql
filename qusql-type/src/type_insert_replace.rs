@@ -46,7 +46,7 @@ pub(crate) fn type_insert_replace<'a>(
 
         for col in columns {
             if let Some(schema_col) = schema.get_column(col.value) {
-                col_types.push((schema_col.type_.ref_clone(), col.span()));
+                col_types.push((schema_col.type_.clone(), col.span()));
             } else {
                 typer.err("No such column in schema", col);
             }
@@ -70,7 +70,7 @@ pub(crate) fn type_insert_replace<'a>(
                             .err(format!("Got type {}", t.t), e)
                             .frag(format!("Expected {}", et.t), ets);
                     } else if let Type::Args(_, args) = &t.t {
-                        for (idx, arg_type, _) in args {
+                        for (idx, arg_type, _) in args.iter() {
                             typer.constrain_arg(*idx, arg_type, et);
                         }
                     }
@@ -162,7 +162,7 @@ pub(crate) fn type_insert_replace<'a>(
                 if typer.matched_type(&value_type, &t.1).is_none() {
                     typer.err(format!("Got type {} expected {}", value_type, t.1), value);
                 } else if let Type::Args(_, args) = &value_type.t {
-                    for (idx, arg_type, _) in args {
+                    for (idx, arg_type, _) in args.iter() {
                         typer.constrain_arg(*idx, arg_type, &t.1);
                     }
                 }
@@ -201,7 +201,7 @@ pub(crate) fn type_insert_replace<'a>(
                 if typer.matched_type(&value_type, &t.1).is_none() {
                     typer.err(format!("Got type {} expected {}", value_type, t.1), value);
                 } else if let Type::Args(_, args) = &value_type.t {
-                    for (idx, arg_type, _) in args {
+                    for (idx, arg_type, _) in args.iter() {
                         typer.constrain_arg(*idx, arg_type, &t.1);
                     }
                 }
@@ -266,7 +266,7 @@ pub(crate) fn type_insert_replace<'a>(
                         if typer.matched_type(&value_type, &t.1).is_none() {
                             typer.err(format!("Got type {} expected {}", value_type, t.1), value);
                         } else if let Type::Args(_, args) = &value_type.t {
-                            for (idx, arg_type, _) in args {
+                            for (idx, arg_type, _) in args.iter() {
                                 typer.constrain_arg(*idx, arg_type, &t.1);
                             }
                         }

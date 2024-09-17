@@ -72,7 +72,7 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
                             value,
                         );
                     } else if let Type::Args(_, args) = &value_type.t {
-                        for (idx, arg_type, _) in args {
+                        for (idx, arg_type, _) in args.iter() {
                             typer.constrain_arg(*idx, arg_type, &t.1);
                         }
                     }

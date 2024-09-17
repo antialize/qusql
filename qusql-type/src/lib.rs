@@ -66,9 +66,7 @@ mod type_statement;
 mod type_update;
 mod typer;
 
-mod ref_or_val;
 pub mod schema;
-pub use ref_or_val::RefOrVal;
 pub use type_::{BaseType, FullType, Type};
 pub use type_insert_replace::AutoIncrementId;
 pub use type_select::SelectTypeColumn;
