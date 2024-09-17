@@ -278,7 +278,7 @@ pub(crate) fn type_function<'a, 'b>(
             for (a, t) in &typed {
                 typer.ensure_base(*a, t, BaseType::String);
             }
-            if let (Some(t0), Some(t1), t2) = (typed.get(0), typed.get(1), typed.get(2)) {
+            if let (Some(t0), Some(t1), t2) = (typed.first(), typed.get(1), typed.get(2)) {
                 let not_null =
                     t0.1.not_null && t1.1.not_null && t2.map(|t| t.1.not_null).unwrap_or(true);
                 FullType::new(Type::Base(BaseType::Bool), not_null)

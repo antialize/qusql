@@ -312,8 +312,13 @@ pub(crate) fn type_expression<'a>(
             }
         }
         Expression::Invalid(_) => FullType::invalid(),
-        Expression::Case { value, whens, else_, ..  } => {
-            if value.is_some(){
+        Expression::Case {
+            value,
+            whens,
+            else_,
+            ..
+        } => {
+            if value.is_some() {
                 typer.issues.push(issue_todo!(expression));
                 FullType::invalid()
             } else {
