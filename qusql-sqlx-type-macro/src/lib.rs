@@ -80,7 +80,7 @@ fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
             .with_message(issue.message),
     );
     for frag in issue.fragments {
-        builder = builder.with_label(Label::new(frag.1).with_message(frag.0));
+        builder = builder.with_label(Label::new(frag.span).with_message(frag.message));
     }
     builder.finish()
 }
@@ -106,9 +106,9 @@ fn issue_to_report_color(issue: Issue) -> Report<'static, std::ops::Range<usize>
     );
     for frag in issue.fragments {
         builder = builder.with_label(
-            Label::new(frag.1)
+            Label::new(frag.span)
                 .with_color(Color::Blue)
-                .with_message(frag.0),
+                .with_message(frag.message),
         );
     }
     builder.finish()
@@ -129,7 +129,8 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
 }
 
 static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
-    let dialect = if let Some(first_line) = SCHEMA_SRC.as_str().lines().next() {
+    let schema_src = SCHEMA_SRC.as_str();
+    let dialect = if let Some(first_line) = schema_src.lines().next() {
         if first_line.contains("sql-product: postgres") {
             SQLDialect::PostgreSQL
         } else {
@@ -140,12 +141,12 @@ static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
     };
 
     let options = TypeOptions::new().dialect(dialect.clone());
-    let mut issues = Vec::new();
-    let schemas = parse_schemas(SCHEMA_SRC.as_str(), &mut issues, &options);
-    if !issues.is_empty() {
-        let source = NamedSource("sqlx-type-schema.sql", Source::from(SCHEMA_SRC.as_str()));
+    let mut issues = sql_type::Issues::new(schema_src);
+    let schemas = parse_schemas(schema_src, &mut issues, &options);
+    if !issues.is_ok() {
+        let source = NamedSource("sqlx-type-schema.sql", Source::from(schema_src));
         let mut err = false;
-        for issue in issues {
+        for issue in issues.into_vec() {
             if issue.level == sql_type::Level::Error {
                 err = true;
             }
@@ -360,12 +361,12 @@ fn construct_row(
             sql_type::Type::F64 => quote! {f64},
             sql_type::Type::JSON => quote! {String},
         };
-        let name = match c.name {
+        let name = match &c.name {
             Some(v) => v,
             None => continue,
         };
 
-        let ident = String::from("r#") + name;
+        let ident = String::from("r#") + name.value;
         let ident: Ident = if let Ok(ident) = syn::parse_str(&ident) {
             ident
         } else {
@@ -433,11 +434,11 @@ pub fn query(input: TokenStream) -> TokenStream {
             SQLDialect::PostgreSQL => SQLArguments::Dollar,
         })
         .list_hack(true);
-    let mut issues = Vec::new();
+    let mut issues = sql_type::Issues::new(&query.query);
     let stmt = type_statement(schemas, &query.query, &mut issues, &options);
     let sp = SCHEMA_PATH.as_path().to_str().unwrap();
 
-    let mut errors = issues_to_errors(issues, &query.query, query.query_span);
+    let mut errors = issues_to_errors(issues.into_vec(), &query.query, query.query_span);
     match &stmt {
         sql_type::StatementType::Select { columns, arguments } => {
             let (args_tokens, q) = quote_args(
@@ -651,12 +652,12 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             sql_type::Type::F64 => quote! {f64},
             sql_type::Type::JSON => quote! {String},
         };
-        let name = match c.name {
+        let name = match &c.name {
             Some(v) => v,
             None => continue,
         };
 
-        let ident = String::from("r#") + name;
+        let ident = String::from("r#") + name.value;
         let ident: Ident = if let Ok(ident) = syn::parse_str(&ident) {
             ident
         } else {
@@ -727,10 +728,10 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             SQLDialect::PostgreSQL => SQLArguments::Dollar,
         })
         .list_hack(true);
-    let mut issues = Vec::new();
+    let mut issues = sql_type::Issues::new(&query_as.query);
     let stmt = type_statement(schemas, &query_as.query, &mut issues, &options);
 
-    let mut errors = issues_to_errors(issues, &query_as.query, query_as.query_span);
+    let mut errors = issues_to_errors(issues.into_vec(), &query_as.query, query_as.query_span);
     match &stmt {
         sql_type::StatementType::Select { columns, arguments } => {
             let (args_tokens, q) = quote_args(
