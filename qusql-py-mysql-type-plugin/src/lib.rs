@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use ariadne::{Label, Report, ReportKind, Source};
 use ouroboros::self_referencing;
 use pyo3::prelude::*;
-use sql_type::{Issue, SQLArguments, SQLDialect, TypeOptions};
+use sql_type::{Issue, Issues, SQLArguments, SQLDialect, TypeOptions};
 
 #[pyclass]
 #[self_referencing]
@@ -11,10 +11,10 @@ struct Schemas {
     src: std::string::String,
     #[borrows(src)]
     #[covariant]
-    schemas: sql_type::schema::Schemas<'this>,
+    schemas_and_issues: (sql_type::schema::Schemas<'this>, Issues<'this>),
 }
 
-fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
+fn issue_to_report(issue: &Issue) -> Report<'static, std::ops::Range<usize>> {
     let mut builder = Report::build(
         match issue.level {
             sql_type::Level::Warning => ReportKind::Warning,
@@ -25,13 +25,14 @@ fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
     )
     .with_config(ariadne::Config::default().with_color(false))
     .with_label(
-        Label::new(issue.span)
+        Label::new(issue.span.clone())
             .with_order(-1)
             .with_priority(-1)
-            .with_message(issue.message),
+            .with_message(issue.message.to_string()),
     );
-    for frag in issue.fragments {
-        builder = builder.with_label(Label::new(frag.1).with_message(frag.0));
+    for frag in &issue.fragments {
+        builder = builder
+            .with_label(Label::new(frag.span.clone()).with_message(frag.message.to_string()));
     }
     builder.finish()
 }
@@ -50,7 +51,7 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
     }
 }
 
-fn issues_to_string(name: &str, source: &str, issues: Vec<Issue>) -> (bool, std::string::String) {
+fn issues_to_string(name: &str, source: &str, issues: &[Issue]) -> (bool, std::string::String) {
     let source = NamedSource(name, Source::from(source));
     let mut err = false;
     let mut out = Vec::new();
@@ -66,21 +67,24 @@ fn issues_to_string(name: &str, source: &str, issues: Vec<Issue>) -> (bool, std:
 
 #[pyfunction]
 fn parse_schemas(name: &str, src: std::string::String) -> (Schemas, bool, std::string::String) {
-    let mut issues = Vec::new();
-
     let schemas = SchemasBuilder {
         src,
-        schemas_builder: |src: &std::string::String| {
-            sql_type::schema::parse_schemas(
+        schemas_and_issues_builder: |src: &std::string::String| {
+            let mut issues = Issues::new(src);
+            let v = sql_type::schema::parse_schemas(
                 src,
                 &mut issues,
                 &TypeOptions::new().dialect(SQLDialect::MariaDB),
-            )
+            );
+            (v, issues)
         },
     }
     .build();
-
-    let (err, messages) = issues_to_string(name, schemas.borrow_src(), issues);
+    let (err, messages) = issues_to_string(
+        name,
+        schemas.borrow_src(),
+        schemas.borrow_schemas_and_issues().1.get(),
+    );
     (schemas, err, messages)
 }
 
@@ -264,7 +268,7 @@ fn type_statement(
     statement: &str,
     dict_result: bool,
 ) -> PyResult<(PyObject, bool, std::string::String)> {
-    let mut issues = Vec::new();
+    let mut issues = Issues::new(statement);
 
     let mut options = TypeOptions::new()
         .dialect(SQLDialect::MariaDB)
@@ -277,7 +281,12 @@ fn type_statement(
             .warn_unnamed_column_in_select(true);
     }
 
-    let stmt = sql_type::type_statement(schemas.borrow_schemas(), statement, &mut issues, &options);
+    let stmt = sql_type::type_statement(
+        &schemas.borrow_schemas_and_issues().0,
+        statement,
+        &mut issues,
+        &options,
+    );
 
     let res = match stmt {
         sql_type::StatementType::Select { columns, arguments } => {
@@ -300,13 +309,16 @@ fn type_statement(
             )?
             .to_object(py)
         }
-        sql_type::StatementType::Delete { arguments, returning } => {
+        sql_type::StatementType::Delete {
+            arguments,
+            returning,
+        } => {
             if returning.is_some() {
                 // TODO: Implement RETURNING support
-                issues.push(Issue::err(
+                issues.err(
                     "support for RETURNING is not implemented yet",
                     &(0..statement.len()),
-                ));
+                );
             }
             Py::new(
                 py,
@@ -315,7 +327,7 @@ fn type_statement(
                 },
             )?
             .to_object(py)
-        },
+        }
         sql_type::StatementType::Insert {
             yield_autoincrement,
             arguments,
@@ -323,10 +335,10 @@ fn type_statement(
         } => {
             if returning.is_some() {
                 // TODO: Implement RETURNING support
-                issues.push(Issue::err(
+                issues.err(
                     "support for RETURNING is not implemented yet",
                     &(0..statement.len()),
-                ));
+                );
             }
             let yield_autoincrement = match yield_autoincrement {
                 sql_type::AutoIncrementId::Yes => "yes",
@@ -355,10 +367,10 @@ fn type_statement(
         } => {
             if returning.is_some() {
                 // TODO: Implement RETURNING support
-                issues.push(Issue::err(
+                issues.err(
                     "support for RETURNING is not implemented yet",
                     &(0..statement.len()),
-                ));
+                );
             }
             Py::new(
                 py,
@@ -371,7 +383,7 @@ fn type_statement(
         sql_type::StatementType::Invalid => Py::new(py, Invalid {})?.to_object(py),
     };
 
-    let (err, messages) = issues_to_string("", statement, issues);
+    let (err, messages) = issues_to_string("", statement, issues.get());
     Ok((res, err, messages))
 }
 
