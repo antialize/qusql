@@ -433,8 +433,8 @@ pub(crate) fn type_expression<'a>(
             FullType::new(BaseType::Integer, true)
         }
         Expression::GroupConcat { expr, .. } => {
-            type_expression(typer, expr, flags.without_values(), BaseType::Any);
-            FullType::new(BaseType::String, true)
+            let e = type_expression(typer, expr, flags.without_values(), BaseType::Any);
+            FullType::new(BaseType::String, e.not_null)
         }
         Expression::Variable {
             variable,
