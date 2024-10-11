@@ -1,6 +1,6 @@
 [package]
 name = "sqlx-type"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -17,5 +17,5 @@ members = ["sqlx-type-macro", "."]
 sqlx = { version = "0.8.2", default-features = false, features = ["chrono", "runtime-tokio-native-tls", "mysql"] }
 
 [dependencies]
-sqlx-type-macro = { version = "0.4.2", path = "./sqlx-type-macro"}
+sqlx-type-macro = { version = "0.4.3", path = "./sqlx-type-macro"}
 chrono = "0.4"
