@@ -69,8 +69,7 @@ fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
             sql_type::Level::Warning => ReportKind::Warning,
             sql_type::Level::Error => ReportKind::Error,
         },
-        (),
-        issue.span.start,
+        issue.span.clone(),
     )
     .with_config(ariadne::Config::default().with_color(false))
     .with_label(
@@ -91,8 +90,7 @@ fn issue_to_report_color(issue: Issue) -> Report<'static, std::ops::Range<usize>
             sql_type::Level::Warning => ReportKind::Warning,
             sql_type::Level::Error => ReportKind::Error,
         },
-        (),
-        issue.span.start,
+        issue.span.clone(),
     )
     .with_label(
         Label::new(issue.span)
