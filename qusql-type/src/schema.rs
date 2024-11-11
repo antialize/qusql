@@ -593,6 +593,43 @@ pub fn parse_schemas<'a>(
                             e.columns.push(parse_column(data_type, identifier, issues));
                         }
                         sql_parse::AlterSpecification::OwnerTo { .. } => {}
+                        sql_parse::AlterSpecification::DropColumn { column, .. } => {
+                            let cnt = e.columns.len();
+                            e.columns.retain(|c| c.identifier != column);
+                            if cnt == e.columns.len() {
+                                issues
+                                    .err("No such column in table", &column)
+                                    .frag("Table defined here", &e.identifier_span);
+                            }
+                        }
+                        sql_parse::AlterSpecification::AlterColumn {
+                            column,
+                            alter_column_action,
+                            ..
+                        } => {
+                            let c = match e.get_column_mut(&column.value) {
+                                Some(v) => v,
+                                None => {
+                                    issues
+                                        .err("No such column in table", &column)
+                                        .frag("Table defined here", &e.identifier_span);
+                                    continue;
+                                }
+                            };
+                            match alter_column_action {
+                                sql_parse::AlterColumnAction::SetDefault { .. } => (),
+                                sql_parse::AlterColumnAction::DropDefault { .. } => (),
+                                sql_parse::AlterColumnAction::Type { type_, .. } => {
+                                    *c = parse_column(type_, column, issues)
+                                }
+                                sql_parse::AlterColumnAction::SetNotNull { .. } => {
+                                    c.type_.not_null = true
+                                }
+                                sql_parse::AlterColumnAction::DropNotNull { .. } => {
+                                    c.type_.not_null = false
+                                }
+                            }
+                        }
                     }
                 }
             }
