@@ -131,6 +131,8 @@ static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
     let dialect = if let Some(first_line) = schema_src.lines().next() {
         if first_line.contains("sql-product: postgres") {
             SQLDialect::PostgreSQL
+        } else if first_line.contains("sql-product: sqlite") {
+            SQLDialect::Sqlite
         } else {
             SQLDialect::MariaDB
         }
@@ -168,6 +170,7 @@ fn quote_args(
 ) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
     let cls = match dialect {
         SQLDialect::MariaDB => quote!(sqlx::mysql::MySql),
+        SQLDialect::Sqlite => quote!(sqlx::sqlite::Sqlite),
         SQLDialect::PostgreSQL => quote!(sqlx::postgres::Postgres),
     };
 
@@ -429,6 +432,7 @@ pub fn query(input: TokenStream) -> TokenStream {
         .dialect(dialect.clone())
         .arguments(match &dialect {
             SQLDialect::MariaDB => SQLArguments::QuestionMark,
+            SQLDialect::Sqlite => SQLArguments::QuestionMark,
             SQLDialect::PostgreSQL => SQLArguments::Dollar,
         })
         .list_hack(true);
@@ -723,6 +727,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
         .dialect(dialect.clone())
         .arguments(match &dialect {
             SQLDialect::MariaDB => SQLArguments::QuestionMark,
+            SQLDialect::Sqlite => SQLArguments::QuestionMark,
             SQLDialect::PostgreSQL => SQLArguments::Dollar,
         })
         .list_hack(true);
