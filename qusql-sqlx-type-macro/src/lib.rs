@@ -117,12 +117,12 @@ struct NamedSource<'a>(&'a str, Source<&'a str>);
 impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
     type Storage = &'a str;
 
-    fn display<'b>(&self, _: &'b ()) -> Option<Box<dyn std::fmt::Display + 'b>> {
-        Some(Box::new(self.0.to_string()))
+    fn display<'b>(&self, _: &'b ()) -> Option<impl std::fmt::Display + 'b> {
+        Some(self.0.to_string())
     }
 
-    fn fetch(&mut self, _: &()) -> Result<&Source<Self::Storage>, Box<dyn std::fmt::Debug + '_>> {
-        Ok(&self.1)
+    fn fetch(&mut self, _: &()) -> Result<&Source<Self::Storage>, impl std::fmt::Debug> {
+        Ok::<_,()>(&self.1)
     }
 }
 
