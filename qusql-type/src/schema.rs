@@ -99,6 +99,7 @@ pub struct Column<'a> {
     pub type_: FullType<'a>,
     /// True if the column is auto_increment
     pub auto_increment: bool,
+    pub default: bool,
     pub as_: Option<alloc::boxed::Box<Expression<'a>>>,
 }
 
@@ -161,6 +162,7 @@ pub(crate) fn parse_column<'a>(
     let mut not_null = false;
     let mut unsigned = false;
     let mut auto_increment = false;
+    let mut default = false;
     let mut _as = None;
     for p in data_type.properties {
         match p {
@@ -170,7 +172,8 @@ pub(crate) fn parse_column<'a>(
             sql_parse::DataTypeProperty::NotNull(_) => not_null = true,
             sql_parse::DataTypeProperty::AutoIncrement(_) => auto_increment = true,
             sql_parse::DataTypeProperty::As((_, e)) => _as = Some(e),
-            _ => {} // TODO default,
+            sql_parse::DataTypeProperty::Default(_) => default = true,
+            _ => {}
         }
     }
     let type_ = match data_type.type_ {
@@ -246,6 +249,7 @@ pub(crate) fn parse_column<'a>(
         },
         auto_increment,
         as_: _as,
+        default,
     }
 }
 
@@ -394,6 +398,7 @@ pub fn parse_schemas<'a>(
                             identifier: name,
                             type_: column.type_,
                             auto_increment: false,
+                            default: false,
                             as_: None,
                         });
                     }

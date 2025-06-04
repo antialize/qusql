@@ -496,6 +496,12 @@ mod tests {
         CREATE TABLE `t4` (
             `id` int(11) NOT NULL AUTO_INCREMENT,
             `dt` datetime NOT NULL);
+
+        CREATE TABLE `t5` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `a` int NOT NULL,
+            `b` int,
+            `c` int NOT NULL DEFAULT 42);
         ";
 
         let options = TypeOptions::new().dialect(SQLDialect::MariaDB);
@@ -1079,6 +1085,51 @@ mod tests {
                 check_columns(name, &columns, "id:i32!", &mut errors);
             } else {
                 println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q28";
+            let src = "INSERT INTO t5 (`a`) VALUES (44)";
+            check_no_errors(name, src, issues.get(), &mut errors);
+        }
+
+        {
+            let name = "q29";
+            let src = "INSERT INTO t5 (`a`, `b`, `c`) VALUES (?, ?)";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{} should fail", name);
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q30";
+            let src = "INSERT INTO t5 (`a`, `b`, `c`) VALUES (?, ?, ?)";
+            check_no_errors(name, src, issues.get(), &mut errors);
+        }
+
+        {
+            let name = "q31";
+            let src = "INSERT INTO t5 (`a`, `b`, `c`) VALUES (?, ?, ?, ?)";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{} should fail", name);
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q32";
+            let src = "INSERT INTO t5 (`b`, `c`) VALUES (44, 45)";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{} should fail", name);
                 errors += 1;
             }
         }
