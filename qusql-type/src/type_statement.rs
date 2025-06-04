@@ -59,6 +59,7 @@ fn type_with_query<'a>(
                     columns.push(Column {
                         identifier: name.clone(),
                         type_: c.type_,
+                        default: false,
                         auto_increment: false,
                         as_: None,
                     });

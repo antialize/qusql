@@ -12,7 +12,8 @@
 
 use alloc::{format, vec::Vec};
 use sql_parse::{
-    issue_todo, InsertReplace, InsertReplaceFlag, InsertReplaceSetPair, InsertReplaceType, Spanned,
+    issue_todo, InsertReplace, InsertReplaceFlag, InsertReplaceSetPair, InsertReplaceType,
+    OptSpanned, Spanned,
 };
 
 use crate::{
@@ -50,6 +51,45 @@ pub(crate) fn type_insert_replace<'a>(
                 typer.err("No such column in schema", col);
             }
         }
+
+        if let Some(set) = &ior.set {
+            for col in &schema.columns {
+                if col.auto_increment
+                    || col.default
+                    || !col.type_.not_null
+                    || col.as_.is_some()
+                    || set.pairs.iter().any(|v| v.column==col.identifier)
+                {
+                    continue;
+                }
+                typer.err(
+                    format!(
+                        "No value for column {} provided, but it has no default value",
+                        &col.identifier
+                    ),
+                    set
+                );
+            }
+        } else {
+            for col in &schema.columns {
+                if col.auto_increment
+                    || col.default
+                    || !col.type_.not_null
+                    || col.as_.is_some()
+                    || columns.contains(&col.identifier)
+                {
+                    continue;
+                }
+                typer.err(
+                    format!(
+                        "No value for column {} provided, but it has no default value",
+                        &col.identifier
+                    ),
+                    &columns.opt_span().unwrap()
+                );
+            }
+        }
+
         (
             Some(col_types),
             schema.columns.iter().any(|c| c.auto_increment),
@@ -75,6 +115,19 @@ pub(crate) fn type_insert_replace<'a>(
                     }
                 } else {
                     type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
+                }
+            }
+            if let Some(s) = &s {
+                if s.len() != row.len() {
+                    typer
+                        .err(
+                            format!("Got {} columns", row.len()),
+                            &row.opt_span().unwrap(),
+                        )
+                        .frag(
+                            format!("Expected {}", columns.len()),
+                            &columns.opt_span().unwrap(),
+                        );
                 }
             }
         }
