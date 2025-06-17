@@ -1224,6 +1224,33 @@ mod tests {
             }
         }
 
+
+        {
+            let name = "q3";
+            let src = "INSERT INTO t1 (path) VALUES ('HI')";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{} should fail", name);
+                errors += 1;
+            }
+        }
+
+         {
+            let name = "q3";
+            let src = "INSERT INTO t1 (path, v) VALUES ('HI', 'V1')";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+
+            if let StatementType::Insert { arguments, .. } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+            } else {
+                println!("{} should be insert {q:?}", name);
+                errors += 1;
+            }
+        }
+
         if errors != 0 {
             panic!("{} errors in test", errors);
         }

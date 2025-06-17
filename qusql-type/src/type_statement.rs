@@ -62,6 +62,7 @@ fn type_with_query<'a>(
                         default: false,
                         auto_increment: false,
                         as_: None,
+                        generated: false,
                     });
                 }
             }
