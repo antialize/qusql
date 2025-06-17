@@ -58,6 +58,7 @@ pub(crate) fn type_insert_replace<'a>(
                     || col.default
                     || !col.type_.not_null
                     || col.as_.is_some()
+                    || col.generated
                     || set.pairs.iter().any(|v| v.column==col.identifier)
                 {
                     continue;
@@ -76,6 +77,7 @@ pub(crate) fn type_insert_replace<'a>(
                     || col.default
                     || !col.type_.not_null
                     || col.as_.is_some()
+                    || col.generated
                     || columns.contains(&col.identifier)
                 {
                     continue;
