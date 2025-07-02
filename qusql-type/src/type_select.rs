@@ -313,7 +313,7 @@ pub(crate) fn type_select_exprs<'a, 'b>(
                     if Some(name.clone()) == *on && warn_duplicate {
                         issues
                             .warn("Also defined here", &span)
-                            .frag(format!("Multiple columns with the name '{}'", name), os);
+                            .frag(format!("Multiple columns with the name '{name}'"), os);
                     }
                 }
             }
@@ -353,21 +353,18 @@ pub(crate) fn type_union<'a>(typer: &mut Typer<'a, '_>, union: &Union<'a>) -> Se
                             if let Some(rn) = &r.name {
                                 typer
                                     .err("Incompatible names in union", &w.union_span)
-                                    .frag(format!("Column {} is named {}", i, ln), &left)
-                                    .frag(
-                                        format!("Column {} is named {}", i, rn),
-                                        &w.union_statement,
-                                    );
+                                    .frag(format!("Column {i} is named {ln}"), &left)
+                                    .frag(format!("Column {i} is named {rn}"), &w.union_statement);
                             } else {
                                 typer
                                     .err("Incompatible names in union", &w.union_span)
-                                    .frag(format!("Column {} is named {}", i, ln), &left)
-                                    .frag(format!("Column {} has no name", i), &w.union_statement);
+                                    .frag(format!("Column {i} is named {ln}"), &left)
+                                    .frag(format!("Column {i} has no name"), &w.union_statement);
                             }
                         } else {
                             typer
                                 .err("Incompatible names in union", &w.union_span)
-                                .frag(format!("Column {} has no name", i), &left)
+                                .frag(format!("Column {i} has no name"), &left)
                                 .frag(
                                     format!(
                                         "Column {} is named {}",
@@ -395,26 +392,23 @@ pub(crate) fn type_union<'a>(typer: &mut Typer<'a, '_>, union: &Union<'a>) -> Se
                 } else if let Some(n) = &l.name {
                     typer
                         .err("Incompatible types in union", &w.union_span)
-                        .frag(format!("Column {} ({}) only on this side", i, n), &left);
+                        .frag(format!("Column {i} ({n}) only on this side"), &left);
                 } else {
                     typer
                         .err("Incompatible types in union", &w.union_span)
-                        .frag(format!("Column {} only on this side", i), &left);
+                        .frag(format!("Column {i} only on this side"), &left);
                 }
             } else if let Some(n) = &t2.columns[i].name {
                 typer
                     .err("Incompatible types in union", &w.union_span)
                     .frag(
-                        format!("Column {} ({}) only on this side", i, n),
+                        format!("Column {i} ({n}) only on this side"),
                         &w.union_statement,
                     );
             } else {
                 typer
                     .err("Incompatible types in union", &w.union_span)
-                    .frag(
-                        format!("Column {} only on this side", i),
-                        &w.union_statement,
-                    );
+                    .frag(format!("Column {i} only on this side"), &w.union_statement);
             }
         }
         left = left.join_span(&w.union_statement);

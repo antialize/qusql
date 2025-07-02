@@ -159,6 +159,7 @@ pub(crate) fn parse_column<'a>(
     data_type: DataType<'a>,
     identifier: Identifier<'a>,
     _issues: &mut Issues<'a>,
+    options: Option<&TypeOptions>,
 ) -> Column<'a> {
     let mut not_null = false;
     let mut unsigned = false;
@@ -166,6 +167,10 @@ pub(crate) fn parse_column<'a>(
     let mut default = false;
     let mut _as = None;
     let mut generated = false;
+    let mut primary_key = false;
+    let is_sqlite = options
+        .map(|v| v.parse_options.get_dialect().is_sqlite())
+        .unwrap_or_default();
     for p in data_type.properties {
         match p {
             sql_parse::DataTypeProperty::Signed(_) => unsigned = false,
@@ -176,6 +181,7 @@ pub(crate) fn parse_column<'a>(
             sql_parse::DataTypeProperty::As((_, e)) => _as = Some(e),
             sql_parse::DataTypeProperty::Default(_) => default = true,
             sql_parse::DataTypeProperty::GeneratedAlways(_) => generated = true,
+            sql_parse::DataTypeProperty::PrimaryKey(_) => primary_key = true,
             _ => {}
         }
     }
@@ -231,7 +237,12 @@ pub(crate) fn parse_column<'a>(
         sql_parse::Type::VarBinary(_) => BaseType::Bytes.into(),
         sql_parse::Type::Binary(_) => BaseType::Bytes.into(),
         sql_parse::Type::Boolean => BaseType::Bool.into(),
-        sql_parse::Type::Integer(_) => BaseType::Integer.into(),
+        sql_parse::Type::Integer(_) => {
+            if is_sqlite && primary_key {
+                auto_increment = true;
+            }
+            BaseType::Integer.into()
+        }
         sql_parse::Type::Float8 => BaseType::Float.into(),
         sql_parse::Type::Numeric(_, _, _) => todo!("Numeric"),
         sql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
@@ -253,7 +264,7 @@ pub(crate) fn parse_column<'a>(
         auto_increment,
         as_: _as,
         default,
-        generated
+        generated,
     }
 }
 
@@ -324,7 +335,8 @@ pub fn parse_schemas<'a>(
                             identifier,
                             data_type,
                         } => {
-                            let column = parse_column(data_type, identifier.clone(), issues);
+                            let column =
+                                parse_column(data_type, identifier.clone(), issues, Some(options));
                             if let Some(oc) = schema.get_column(column.identifier.value) {
                                 issues
                                     .err("Column already defined", &identifier)
@@ -593,14 +605,24 @@ pub fn parse_schemas<'a>(
                                     continue;
                                 }
                             };
-                            *c = parse_column(definition, c.identifier.clone(), issues);
+                            *c = parse_column(
+                                definition,
+                                c.identifier.clone(),
+                                issues,
+                                Some(options),
+                            );
                         }
                         sql_parse::AlterSpecification::AddColumn {
                             identifier,
                             data_type,
                             ..
                         } => {
-                            e.columns.push(parse_column(data_type, identifier, issues));
+                            e.columns.push(parse_column(
+                                data_type,
+                                identifier,
+                                issues,
+                                Some(options),
+                            ));
                         }
                         sql_parse::AlterSpecification::OwnerTo { .. } => {}
                         sql_parse::AlterSpecification::DropColumn { column, .. } => {
@@ -617,7 +639,7 @@ pub fn parse_schemas<'a>(
                             alter_column_action,
                             ..
                         } => {
-                            let c = match e.get_column_mut(&column.value) {
+                            let c = match e.get_column_mut(column.value) {
                                 Some(v) => v,
                                 None => {
                                     issues
@@ -630,7 +652,7 @@ pub fn parse_schemas<'a>(
                                 sql_parse::AlterColumnAction::SetDefault { .. } => (),
                                 sql_parse::AlterColumnAction::DropDefault { .. } => (),
                                 sql_parse::AlterColumnAction::Type { type_, .. } => {
-                                    *c = parse_column(type_, column, issues)
+                                    *c = parse_column(type_, column, issues, Some(options))
                                 }
                                 sql_parse::AlterColumnAction::SetNotNull { .. } => {
                                     c.type_.not_null = true
@@ -702,7 +724,7 @@ pub fn parse_schemas<'a>(
             sql_parse::Statement::CreateFunction(_) => (),
             s => {
                 issues.err(
-                    alloc::format!("Unsupported statement {:?} in schema definition", s),
+                    alloc::format!("Unsupported statement {s:?} in schema definition"),
                     &s,
                 );
             }
