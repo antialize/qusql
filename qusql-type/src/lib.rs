@@ -1255,4 +1255,41 @@ mod tests {
             panic!("{} errors in test", errors);
         }
     }
+
+    #[test]
+    fn sqlite() {
+        let schema_src = "
+         CREATE TABLE IF NOT EXISTS `t1` (
+            `id` INTEGER NOT NULL PRIMARY KEY,
+            `sid` TEXT NOT NULL) STRICT;
+        CREATE UNIQUE INDEX IF NOT EXISTS `t1_sid` ON `t1` (`sid`);
+        ";
+
+        let options = TypeOptions::new().dialect(SQLDialect::Sqlite);
+        let mut issues = Issues::new(schema_src);
+        let schema = parse_schemas(schema_src, &mut issues, &options);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        let options = TypeOptions::new()
+            .dialect(SQLDialect::Sqlite)
+            .arguments(SQLArguments::QuestionMark);
+
+        {
+            let name = "q1";
+            let src =
+                "INSERT INTO `t1` (`sid`) VALUES (?)";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Insert{..}) {
+                println!("{} should be select", name);
+                errors += 1;
+            }
+        }
+
+        if errors != 0 {
+            panic!("{} errors in test", errors);
+        }
+    }
 }
