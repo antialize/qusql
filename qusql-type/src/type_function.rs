@@ -123,7 +123,7 @@ pub(crate) fn type_function<'a, 'b>(
             let mut return_type = if let Some(arg) = args.first() {
                 let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
                 if !matches!(t.base(), BaseType::Any | BaseType::String | BaseType::Bytes) {
-                    typer.err(format!("Expected type String or Bytes got {}", t), arg);
+                    typer.err(format!("Expected type String or Bytes got {t}"), arg);
                 }
                 t
             } else {
@@ -424,7 +424,7 @@ pub(crate) fn type_function<'a, 'b>(
                         .matched_type(t, &FullType::new(BaseType::Bytes, false))
                         .is_none()
                 {
-                    typer.err(format!("Expected type Bytes or String got {}", t), span);
+                    typer.err(format!("Expected type Bytes or String got {t}"), span);
                 }
             }
             FullType::new(Type::I64, not_null)

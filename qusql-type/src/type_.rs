@@ -91,9 +91,9 @@ impl<'a> Display for Type<'a> {
     fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
         match self {
             Type::Args(t, a) => {
-                write!(f, "args({}", t)?;
+                write!(f, "args({t}")?;
                 for (a, _, _) in a.iter() {
-                    write!(f, ", {}", a)?;
+                    write!(f, ", {a}")?;
                 }
                 f.write_char(')')
             }
@@ -117,7 +117,7 @@ impl<'a> Display for Type<'a> {
                     if i != 0 {
                         f.write_str(", ")?;
                     }
-                    write!(f, "'{}'", v)?
+                    write!(f, "'{v}'")?
                 }
                 f.write_char(')')
             }
@@ -127,7 +127,7 @@ impl<'a> Display for Type<'a> {
                     if i != 0 {
                         f.write_str(", ")?;
                     }
-                    write!(f, "'{}'", v)?
+                    write!(f, "'{v}'")?
                 }
                 f.write_char(')')
             }

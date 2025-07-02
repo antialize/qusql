@@ -372,7 +372,7 @@ pub(crate) fn type_expression<'a>(
                 type_.clone(),
                 Identifier::new("", as_span.clone()),
                 typer.issues,
-                None
+                None,
             );
             if typer.dialect().is_maria() {
                 match type_.type_ {

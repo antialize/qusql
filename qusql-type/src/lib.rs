@@ -344,7 +344,7 @@ mod tests {
             "dt" => BaseType::DateTime.into(),
             "json" => Type::JSON,
             "any" => BaseType::Any.into(),
-            _ => panic!("Unknown type {}", t),
+            _ => panic!("Unknown type {t}"),
         };
         let mut t = FullType::new(t, not_null);
         if list_hack {
@@ -361,7 +361,7 @@ mod tests {
     ) {
         if expected.is_empty() {
             for (cnt, value) in got.iter().enumerate() {
-                println!("{}: Unexpected argument {} type {:?}", name, cnt, value);
+                println!("{name}: Unexpected argument {cnt} type {value:?}");
                 *errors += 1;
             }
             return;
@@ -377,7 +377,7 @@ mod tests {
                     got2[*i] = v;
                 }
                 ArgumentKey::Identifier(k) => {
-                    println!("{}: Got named argument {}", name, k);
+                    println!("{name}: Got named argument {k}");
                     *errors += 1;
                 }
             }
@@ -388,11 +388,11 @@ mod tests {
             let t = str_to_type(t);
             if let Some(v) = got2.get(i) {
                 if *v != &t {
-                    println!("{}: Expected type {} for argument {} got {}", name, t, i, v);
+                    println!("{name}: Expected type {t} for argument {i} got {v}");
                     *errors += 1;
                 }
             } else {
-                println!("{}: Expected type {} for argument {} got None", name, t, i);
+                println!("{name}: Expected type {t} for argument {i} got None");
                 *errors += 1;
             }
             cnt += 1;
@@ -541,7 +541,7 @@ mod tests {
                     &mut errors,
                 );
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -565,7 +565,7 @@ mod tests {
                     &mut errors,
                 );
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -592,15 +592,15 @@ mod tests {
                     &mut errors,
                 );
                 if yield_autoincrement != AutoIncrementId::Yes {
-                    println!("{} should yield autoincrement", name);
+                    println!("{name} should yield autoincrement");
                     errors += 1;
                 }
                 if returning.is_some() {
-                    println!("{} should not return columns", name);
+                    println!("{name} should not return columns");
                     errors += 1;
                 }
             } else {
-                println!("{} should be insert", name);
+                println!("{name} should be insert");
                 errors += 1;
             }
         }
@@ -615,7 +615,7 @@ mod tests {
             if let StatementType::Delete { arguments, .. } = q {
                 check_arguments(name, &arguments, "i", &mut errors);
             } else {
-                println!("{} should be delete", name);
+                println!("{name} should be delete");
                 errors += 1;
             }
         }
@@ -634,15 +634,15 @@ mod tests {
             {
                 check_arguments(name, &arguments, "i32!,i32!", &mut errors);
                 if yield_autoincrement != AutoIncrementId::Optional {
-                    println!("{} should yield optional auto increment", name);
+                    println!("{name} should yield optional auto increment");
                     errors += 1;
                 }
                 if returning.is_some() {
-                    println!("{} should not return columns", name);
+                    println!("{name} should not return columns");
                     errors += 1;
                 }
             } else {
-                println!("{} should be insert", name);
+                println!("{name} should be insert");
                 errors += 1;
             }
         }
@@ -661,15 +661,15 @@ mod tests {
             {
                 check_arguments(name, &arguments, "i32!", &mut errors);
                 if yield_autoincrement != AutoIncrementId::Optional {
-                    println!("{} should yield optional auto increment", name);
+                    println!("{name} should yield optional auto increment");
                     errors += 1;
                 }
                 if returning.is_some() {
-                    println!("{} should not return columns", name);
+                    println!("{name} should not return columns");
                     errors += 1;
                 }
             } else {
-                println!("{} should be insert", name);
+                println!("{name} should be insert");
                 errors += 1;
             }
         }
@@ -684,7 +684,7 @@ mod tests {
                 check_arguments(name, &arguments, "b", &mut errors);
                 check_columns(name, &columns, "cc:b", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -699,7 +699,7 @@ mod tests {
                 check_arguments(name, &arguments, "i", &mut errors);
                 check_columns(name, &columns, "cc:dt!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -717,11 +717,11 @@ mod tests {
             {
                 check_arguments(name, &arguments, "i32!,i32!", &mut errors);
                 if returning.is_some() {
-                    println!("{} should not return columns", name);
+                    println!("{name} should not return columns");
                     errors += 1;
                 }
             } else {
-                println!("{} should be replace", name);
+                println!("{name} should be replace");
                 errors += 1;
             }
         }
@@ -735,7 +735,7 @@ mod tests {
             if let StatementType::Insert { arguments, .. } = q {
                 check_arguments(name, &arguments, "", &mut errors);
             } else {
-                println!("{} should be insert", name);
+                println!("{name} should be insert");
                 errors += 1;
             }
         }
@@ -751,7 +751,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:str!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -762,7 +762,7 @@ mod tests {
             let mut issues: Issues<'_> = Issues::new(src);
             type_statement(&schema, src, &mut issues, &options);
             if !issues.get().iter().any(|i| i.level == Level::Error) {
-                println!("{} should be an error", name);
+                println!("{name} should be an error");
                 errors += 1;
             }
         }
@@ -778,7 +778,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:json", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -794,7 +794,7 @@ mod tests {
                 check_arguments(name, &arguments, "i[]", &mut errors);
                 check_columns(name, &columns, "id:i32!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -809,7 +809,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "id:str", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -836,7 +836,7 @@ mod tests {
                     &mut errors,
                 );
                 if yield_autoincrement != AutoIncrementId::Yes {
-                    println!("{} should yield autoincrement", name);
+                    println!("{name} should yield autoincrement");
                     errors += 1;
                 }
                 if let Some(returning) = returning {
@@ -847,11 +847,11 @@ mod tests {
                         &mut errors,
                     );
                 } else {
-                    println!("{} should return columns", name);
+                    println!("{name} should return columns");
                     errors += 1;
                 }
             } else {
-                println!("{} should be insert", name);
+                println!("{name} should be insert");
                 errors += 1;
             }
         }
@@ -871,11 +871,11 @@ mod tests {
                 if let Some(returning) = returning {
                     check_columns(name, &returning, "id:i32!", &mut errors);
                 } else {
-                    println!("{} should return columns", name);
+                    println!("{name} should return columns");
                     errors += 1;
                 }
             } else {
-                println!("{} should be replace", name);
+                println!("{name} should be replace");
                 errors += 1;
             }
         }
@@ -890,7 +890,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "dt:dt!,t:i64!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -905,7 +905,7 @@ mod tests {
                 check_arguments(name, &arguments, "any", &mut errors);
                 check_columns(name, &columns, "c:str", &mut errors);
             } else {
-                println!("{} should be selsect", name);
+                println!("{name} should be selsect");
                 errors += 1;
             }
         }
@@ -920,7 +920,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "id:str!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -935,7 +935,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:bytes", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -950,7 +950,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:str!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -965,7 +965,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:str!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -980,7 +980,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:json", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -996,7 +996,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:json", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -1011,7 +1011,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:b!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -1026,7 +1026,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:b", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -1042,7 +1042,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:b!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -1058,7 +1058,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "k:b", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -1069,7 +1069,7 @@ mod tests {
             let mut issues: Issues<'_> = Issues::new(src);
             type_statement(&schema, src, &mut issues, &options);
             if issues.is_ok() {
-                println!("{} should fail", name);
+                println!("{name} should fail");
                 errors += 1;
             }
         }
@@ -1084,7 +1084,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, &columns, "id:i32!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -1101,7 +1101,7 @@ mod tests {
             let mut issues: Issues<'_> = Issues::new(src);
             type_statement(&schema, src, &mut issues, &options);
             if issues.is_ok() {
-                println!("{} should fail", name);
+                println!("{name} should fail");
                 errors += 1;
             }
         }
@@ -1118,7 +1118,7 @@ mod tests {
             let mut issues: Issues<'_> = Issues::new(src);
             type_statement(&schema, src, &mut issues, &options);
             if issues.is_ok() {
-                println!("{} should fail", name);
+                println!("{name} should fail");
                 errors += 1;
             }
         }
@@ -1129,13 +1129,13 @@ mod tests {
             let mut issues: Issues<'_> = Issues::new(src);
             type_statement(&schema, src, &mut issues, &options);
             if issues.is_ok() {
-                println!("{} should fail", name);
+                println!("{name} should fail");
                 errors += 1;
             }
         }
 
         if errors != 0 {
-            panic!("{} errors in test", errors);
+            panic!("{errors} errors in test");
         }
     }
 
@@ -1203,7 +1203,7 @@ mod tests {
                 check_arguments(name, &arguments, "str", &mut errors);
                 check_columns(name, &returning.expect("Returning"), "id:i64!", &mut errors);
             } else {
-                println!("{} should be select", name);
+                println!("{name} should be select");
                 errors += 1;
             }
         }
@@ -1219,11 +1219,10 @@ mod tests {
             if let StatementType::Insert { arguments, .. } = q {
                 check_arguments(name, &arguments, "", &mut errors);
             } else {
-                println!("{} should be select {q:?}", name);
+                println!("{name} should be select {q:?}");
                 errors += 1;
             }
         }
-
 
         {
             let name = "q3";
@@ -1231,12 +1230,12 @@ mod tests {
             let mut issues: Issues<'_> = Issues::new(src);
             type_statement(&schema, src, &mut issues, &options);
             if issues.is_ok() {
-                println!("{} should fail", name);
+                println!("{name} should fail");
                 errors += 1;
             }
         }
 
-         {
+        {
             let name = "q3";
             let src = "INSERT INTO t1 (path, v) VALUES ('HI', 'V1')";
             let mut issues: Issues<'_> = Issues::new(src);
@@ -1246,13 +1245,13 @@ mod tests {
             if let StatementType::Insert { arguments, .. } = q {
                 check_arguments(name, &arguments, "", &mut errors);
             } else {
-                println!("{} should be insert {q:?}", name);
+                println!("{name} should be insert {q:?}");
                 errors += 1;
             }
         }
 
         if errors != 0 {
-            panic!("{} errors in test", errors);
+            panic!("{errors} errors in test");
         }
     }
 
@@ -1277,19 +1276,18 @@ mod tests {
 
         {
             let name = "q1";
-            let src =
-                "INSERT INTO `t1` (`sid`) VALUES (?)";
+            let src = "INSERT INTO `t1` (`sid`) VALUES (?)";
             let mut issues = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
-            if !matches!(q, StatementType::Insert{..}) {
-                println!("{} should be select", name);
+            if !matches!(q, StatementType::Insert { .. }) {
+                println!("{name} should be select");
                 errors += 1;
             }
         }
 
         if errors != 0 {
-            panic!("{} errors in test", errors);
+            panic!("{errors} errors in test");
         }
     }
 }
