@@ -51,6 +51,7 @@
 //! }
 //! ```
 #![forbid(unsafe_code)]
+#[allow(clippy::single_component_path_imports)]
 use sqlx_type_macro;
 
 pub use crate::sqlx_type_macro::{query, query_as};

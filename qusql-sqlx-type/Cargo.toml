@@ -1,8 +1,8 @@
 [package]
 name = "sqlx-type"
-version = "0.4.8"
+version = "0.4.9"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0"
 keywords = [ "mysql", "sqlx", "typer" ]
 readme = "README.md"
