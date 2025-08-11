@@ -552,7 +552,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             };
             s.into()
         }
-        sql_type::StatementType::Update { arguments } => {
+        sql_type::StatementType::Update { arguments , returning} => {
             let (args_tokens, q) = quote_args(
                 &mut errors,
                 &query.query,
@@ -561,12 +561,33 @@ pub fn query(input: TokenStream) -> TokenStream {
                 arguments,
                 dialect,
             );
-            let s = quote! { {
-                use ::sqlx::Arguments as _;
-                #(#errors; )*
-                #args_tokens
-                sqlx::__query_with_result(#q, query_args)
-            }
+
+             let s = match returning.as_ref() {
+                Some(returning) => {
+                    let (row_members, row_construct) = construct_row(returning);
+                    quote! { {
+                        use ::sqlx::Arguments as _;
+                        let _ = std::include_bytes!(#sp);
+                        #(#errors; )*
+                        #args_tokens
+
+                        struct Row {
+                            #(#row_members),*
+                        };
+                        sqlx::__query_with_result(#q, query_args).map(|row|
+                            Row{
+                                #(#row_construct),*
+                            }
+                        )
+                    }}
+                }
+                None =>  quote! { {
+                    use ::sqlx::Arguments as _;
+                    #(#errors; )*
+                    #args_tokens
+                    sqlx::__query_with_result(#q, query_args)
+                }
+                },
             };
             s.into()
         }
