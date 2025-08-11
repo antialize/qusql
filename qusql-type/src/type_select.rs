@@ -12,16 +12,16 @@
 
 use alloc::{format, vec::Vec};
 use sql_parse::{
-    issue_ice, issue_todo, Expression, Identifier, IdentifierPart, Issues, OptSpanned, Select,
-    SelectExpr, Span, Spanned, Statement, Union,
+    Expression, Identifier, IdentifierPart, Issues, OptSpanned, Select, SelectExpr, Span, Spanned,
+    Statement, Union, issue_ice, issue_todo,
 };
 
 use crate::{
-    type_::{BaseType, FullType},
-    type_expression::{type_expression, ExpressionFlags},
-    type_reference::type_reference,
-    typer::{typer_stack, ReferenceType, Typer},
     Type,
+    type_::{BaseType, FullType},
+    type_expression::{ExpressionFlags, type_expression},
+    type_reference::type_reference,
+    typer::{ReferenceType, Typer, typer_stack},
 };
 
 /// A column in select
@@ -125,7 +125,10 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                 }
             }
         }
-        [sql_parse::IdentifierPart::Name(tbl), sql_parse::IdentifierPart::Name(col)] => {
+        [
+            sql_parse::IdentifierPart::Name(tbl),
+            sql_parse::IdentifierPart::Name(col),
+        ] => {
             let mut t = None;
             for r in &typer.reference_types {
                 if r.name == Some(tbl.clone()) {
@@ -156,7 +159,10 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                 );
             }
         }
-        [sql_parse::IdentifierPart::Name(tbl), sql_parse::IdentifierPart::Star(v)] => {
+        [
+            sql_parse::IdentifierPart::Name(tbl),
+            sql_parse::IdentifierPart::Star(v),
+        ] => {
             if let Some(as_) = as_ {
                 typer.err("As not supported for *", as_);
             }

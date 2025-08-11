@@ -12,15 +12,15 @@
 
 use alloc::{format, vec::Vec};
 use sql_parse::{
-    issue_todo, InsertReplace, InsertReplaceFlag, InsertReplaceSetPair, InsertReplaceType,
-    OptSpanned, Spanned,
+    InsertReplace, InsertReplaceFlag, InsertReplaceSetPair, InsertReplaceType, OptSpanned, Spanned,
+    issue_todo,
 };
 
 use crate::{
-    type_expression::{type_expression, ExpressionFlags},
-    type_select::{type_select, type_select_exprs, SelectType},
-    typer::{typer_stack, unqualified_name, ReferenceType, Typer},
     BaseType, SelectTypeColumn, Type,
+    type_expression::{ExpressionFlags, type_expression},
+    type_select::{SelectType, type_select, type_select_exprs},
+    typer::{ReferenceType, Typer, typer_stack, unqualified_name},
 };
 
 /// Does the insert yield an auto increment id
@@ -119,8 +119,8 @@ pub(crate) fn type_insert_replace<'a>(
                     type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
                 }
             }
-            if let Some(s) = &s {
-                if s.len() != row.len() {
+            if let Some(s) = &s
+                && s.len() != row.len() {
                     typer
                         .err(
                             format!("Got {} columns", row.len()),
@@ -131,7 +131,6 @@ pub(crate) fn type_insert_replace<'a>(
                             &columns.opt_span().unwrap(),
                         );
                 }
-            }
         }
     }
 

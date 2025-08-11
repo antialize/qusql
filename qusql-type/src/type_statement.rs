@@ -17,8 +17,8 @@ use alloc::vec::Vec;
 use crate::{
     schema::{Column, Schema},
     type_delete::type_delete,
-    type_insert_replace::{type_insert_replace, AutoIncrementId},
-    type_select::{type_union, SelectType},
+    type_insert_replace::{AutoIncrementId, type_insert_replace},
+    type_select::{SelectType, type_union},
     type_update::type_update,
     typer::Typer,
 };
@@ -32,7 +32,9 @@ pub(crate) enum InnerStatementType<'a> {
         auto_increment_id: AutoIncrementId,
         returning: Option<SelectType<'a>>,
     },
-    Update,
+    Update {
+        returning: Option<SelectType<'a>>,
+    },
     Replace {
         returning: Option<SelectType<'a>>,
     },
@@ -109,8 +111,8 @@ pub(crate) fn type_statement<'a>(
             }
         }
         Statement::Update(u) => {
-            type_update(typer, u);
-            InnerStatementType::Update
+            let returning = type_update(typer, u);
+            InnerStatementType::Update { returning }
         }
         Statement::Union(u) => InnerStatementType::Select(type_union(typer, u)),
         Statement::WithQuery(w) => type_with_query(typer, &w.with_blocks, &w.statement),

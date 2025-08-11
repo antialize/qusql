@@ -10,17 +10,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_parse::{OptSpanned, Update};
+use sql_parse::{OptSpanned, Spanned, Update};
 
 use crate::{
+    SelectTypeColumn, Type,
     type_::BaseType,
-    type_expression::{type_expression, ExpressionFlags},
+    type_expression::{ExpressionFlags, type_expression},
     type_reference::type_reference,
-    typer::{typer_stack, Typer},
-    Type,
+    type_select::{SelectType, type_select_exprs},
+    typer::{Typer, typer_stack},
 };
 
-pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
+pub(crate) fn type_update<'a>(
+    typer: &mut Typer<'a, '_>,
+    update: &Update<'a>,
+) -> Option<SelectType<'a>> {
     let mut guard = typer_stack(
         typer,
         |t| core::mem::take(&mut t.reference_types),
@@ -126,5 +130,20 @@ pub(crate) fn type_update<'a>(typer: &mut Typer<'a, '_>, update: &Update<'a>) {
     if let Some((where_, _)) = &update.where_ {
         let t = type_expression(typer, where_, ExpressionFlags::default(), BaseType::Bool);
         typer.ensure_base(where_, &t, BaseType::Bool);
+    }
+
+    
+    match &update.returning {
+        Some((returning_span, returning_exprs)) => {
+            let columns = type_select_exprs(typer, returning_exprs, true)
+                .into_iter()
+                .map(|(name, type_, span)| SelectTypeColumn { name, type_, span })
+                .collect();
+            Some(SelectType {
+                columns,
+                select_span: returning_span.join_span(returning_exprs),
+            })
+        }
+        None => None,
     }
 }

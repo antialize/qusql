@@ -14,10 +14,10 @@ use alloc::{format, vec::Vec};
 use sql_parse::{Expression, Function, Span};
 
 use crate::{
-    type_::{BaseType, FullType},
-    type_expression::{type_expression, ExpressionFlags},
-    typer::Typer,
     Type,
+    type_::{BaseType, FullType},
+    type_expression::{ExpressionFlags, type_expression},
+    typer::Typer,
 };
 
 fn arg_cnt<'a>(

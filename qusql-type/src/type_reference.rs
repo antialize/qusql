@@ -13,12 +13,12 @@
 use crate::{
     schema::IndexKey,
     type_::BaseType,
-    type_expression::{type_expression, ExpressionFlags},
+    type_expression::{ExpressionFlags, type_expression},
     type_select::type_union_select,
-    typer::{unqualified_name, ReferenceType, Typer},
+    typer::{ReferenceType, Typer, unqualified_name},
 };
 use alloc::vec::Vec;
-use sql_parse::{issue_todo, OptSpanned, Spanned, TableReference};
+use sql_parse::{OptSpanned, Spanned, TableReference, issue_todo};
 
 pub(crate) fn type_reference<'a>(
     typer: &mut Typer<'a, '_>,

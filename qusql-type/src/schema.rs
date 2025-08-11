@@ -83,13 +83,13 @@
 //! ```
 
 use crate::{
+    Type, TypeOptions,
     type_::{BaseType, FullType},
     type_statement,
     typer::unqualified_name,
-    Type, TypeOptions,
 };
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
-use sql_parse::{parse_statements, DataType, Expression, Identifier, Issues, Span, Spanned};
+use sql_parse::{DataType, Expression, Identifier, Issues, Span, Spanned, parse_statements};
 
 /// A column in a schema
 #[derive(Debug)]
@@ -575,8 +575,8 @@ pub fn parse_schemas<'a>(
                                     }
                                 };
 
-                                if let Some(old) = schemas.indices.insert(ident, name.span()) {
-                                    if if_not_exists.is_none() {
+                                if let Some(old) = schemas.indices.insert(ident, name.span())
+                                    && if_not_exists.is_none() {
                                         issues
                                             .err(
                                                 "Multiple indeces with the same identifier",
@@ -584,7 +584,6 @@ pub fn parse_schemas<'a>(
                                             )
                                             .frag("Already defined here", &old);
                                     }
-                                }
                             }
                         }
                         sql_parse::AlterSpecification::AddForeignKey { .. } => {}
@@ -702,13 +701,12 @@ pub fn parse_schemas<'a>(
                     }
                 };
 
-                if let Some(old) = schemas.indices.insert(ident, ci.span()) {
-                    if ci.if_not_exists.is_none() {
+                if let Some(old) = schemas.indices.insert(ident, ci.span())
+                    && ci.if_not_exists.is_none() {
                         issues
                             .err("Multiple indeces with the same identifier", &ci)
                             .frag("Already defined here", &old);
                     }
-                }
             }
             sql_parse::Statement::DropIndex(ci) => {
                 let key = IndexKey {
