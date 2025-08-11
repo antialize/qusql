@@ -13,9 +13,9 @@
 use alloc::borrow::Cow;
 
 use crate::{
+    ArgumentKey, Type, TypeOptions,
     schema::{Schema, Schemas},
     type_::{ArgType, BaseType, FullType},
-    ArgumentKey, Type, TypeOptions,
 };
 use alloc::sync::Arc;
 use alloc::vec::Vec;

@@ -51,8 +51,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use schema::Schemas;
-use sql_parse::{parse_statement, ParseOptions};
 pub use sql_parse::{Fragment, Issue, Issues, Level};
+use sql_parse::{ParseOptions, parse_statement};
 
 mod type_;
 mod type_binary_expression;
@@ -188,6 +188,8 @@ pub enum StatementType<'a> {
     Update {
         /// The key and type of arguments to the query
         arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
+        /// If present, the types and names of the columns returned from the insert
+        returning: Option<Vec<SelectTypeColumn<'a>>>,
     },
     /// The statement is a replace statement
     Replace {
@@ -235,7 +237,10 @@ pub fn type_statement<'a>(
                 arguments,
                 returning: returning.map(|r| r.columns),
             },
-            type_statement::InnerStatementType::Update => StatementType::Update { arguments },
+            type_statement::InnerStatementType::Update { returning } => StatementType::Update {
+                arguments,
+                returning: returning.map(|r| r.columns),
+            },
             type_statement::InnerStatementType::Replace { returning } => StatementType::Replace {
                 arguments,
                 returning: returning.map(|r| r.columns),
@@ -261,8 +266,8 @@ mod tests {
     use sql_parse::{Identifier, Issue, Issues, Level, SQLArguments, SQLDialect};
 
     use crate::{
-        schema::parse_schemas, type_statement, ArgumentKey, AutoIncrementId, BaseType, FullType,
-        SelectTypeColumn, StatementType, Type, TypeOptions,
+        ArgumentKey, AutoIncrementId, BaseType, FullType, SelectTypeColumn, StatementType, Type,
+        TypeOptions, schema::parse_schemas, type_statement,
     };
 
     struct N<'a>(Option<&'a str>);
@@ -769,8 +774,7 @@ mod tests {
 
         {
             let name = "q12";
-            let src =
-                "SELECT JSON_REPLACE('{ \"A\": 1, \"B\": [2, 3]}', '$.B[1]', 4, '$.C[3]', 3) AS `k` FROM `t3`";
+            let src = "SELECT JSON_REPLACE('{ \"A\": 1, \"B\": [2, 3]}', '$.B[1]', 4, '$.C[3]', 3) AS `k` FROM `t3`";
             let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
@@ -987,8 +991,7 @@ mod tests {
 
         {
             let name = "q21";
-            let src =
-                "SELECT JSON_REMOVE('{ \"A\": 1, \"B\": [2, 3]}', '$.B[1]', '$.C[3]') AS `k` FROM `t3`";
+            let src = "SELECT JSON_REMOVE('{ \"A\": 1, \"B\": [2, 3]}', '$.B[1]', '$.C[3]') AS `k` FROM `t3`";
             let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
@@ -1033,8 +1036,7 @@ mod tests {
 
         {
             let name = "q24";
-            let src =
-                "SELECT JSON_CONTAINS('{\"A\": 0, \"B\": [\"x\", \"y\"]}', '\"x\"', '$.B') AS `k` FROM `t3`";
+            let src = "SELECT JSON_CONTAINS('{\"A\": 0, \"B\": [\"x\", \"y\"]}', '\"x\"', '$.B') AS `k` FROM `t3`";
             let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
@@ -1049,8 +1051,7 @@ mod tests {
 
         {
             let name = "q25";
-            let src =
-                "SELECT JSON_CONTAINS('{\"A\": 0, \"B\": [\"x\", \"y\"]}', NULL, '$.A') AS `k` FROM `t3`";
+            let src = "SELECT JSON_CONTAINS('{\"A\": 0, \"B\": [\"x\", \"y\"]}', NULL, '$.A') AS `k` FROM `t3`";
             let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
@@ -1189,8 +1190,7 @@ mod tests {
 
         {
             let name = "q1";
-            let src =
-                "INSERT INTO t2 (id) SELECT id FROM t1 WHERE path=$1 ON CONFLICT (id) DO NOTHING RETURNING id";
+            let src = "INSERT INTO t2 (id) SELECT id FROM t1 WHERE path=$1 ON CONFLICT (id) DO NOTHING RETURNING id";
             let mut issues = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
@@ -1210,8 +1210,7 @@ mod tests {
 
         {
             let name = "q2";
-            let src =
-                "WITH hat AS (DELETE FROM t1 WHERE old_id=42 RETURNING id) INSERT INTO t2 (id) SELECT id FROM hat";
+            let src = "WITH hat AS (DELETE FROM t1 WHERE old_id=42 RETURNING id) INSERT INTO t2 (id) SELECT id FROM hat";
             let mut issues = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
@@ -1236,7 +1235,7 @@ mod tests {
         }
 
         {
-            let name = "q3";
+            let name = "q4";
             let src = "INSERT INTO t1 (path, v) VALUES ('HI', 'V1')";
             let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
@@ -1246,6 +1245,28 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
             } else {
                 println!("{name} should be insert {q:?}");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q5";
+            let src = "UPDATE t1 SET path='HI' RETURNING id";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            if let StatementType::Update {
+                arguments,
+                returning,
+                ..
+            } = q
+            {
+                check_arguments(name, &arguments, "", &mut errors);
+                if returning.is_none() {
+                    println!("{name} should have returning");
+                    errors += 1;
+                }
+            } else {
+                println!("{name} should be update {q:?}");
                 errors += 1;
             }
         }

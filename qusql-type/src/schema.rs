@@ -83,13 +83,13 @@
 //! ```
 
 use crate::{
+    Type, TypeOptions,
     type_::{BaseType, FullType},
     type_statement,
     typer::unqualified_name,
-    Type, TypeOptions,
 };
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
-use sql_parse::{parse_statements, DataType, Expression, Identifier, Issues, Span, Spanned};
+use sql_parse::{DataType, Expression, Identifier, Issues, Span, Spanned, parse_statements};
 
 /// A column in a schema
 #[derive(Debug)]

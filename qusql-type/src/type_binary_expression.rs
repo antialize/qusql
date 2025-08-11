@@ -14,10 +14,10 @@ use alloc::format;
 use sql_parse::{BinaryOperator, Expression, Span};
 
 use crate::{
-    type_::{BaseType, FullType},
-    type_expression::{type_expression, ExpressionFlags},
-    typer::Typer,
     Type,
+    type_::{BaseType, FullType},
+    type_expression::{ExpressionFlags, type_expression},
+    typer::Typer,
 };
 
 pub(crate) fn type_binary_expression<'a>(

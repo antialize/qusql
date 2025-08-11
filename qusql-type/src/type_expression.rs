@@ -12,16 +12,16 @@
 
 use alloc::{format, string::ToString, sync::Arc, vec};
 use core::ops::Deref;
-use sql_parse::{issue_todo, Expression, Identifier, Span, UnaryOperator, Variable};
+use sql_parse::{Expression, Identifier, Span, UnaryOperator, Variable, issue_todo};
 
 use crate::{
+    Type,
     schema::parse_column,
     type_::{ArgType, BaseType, FullType},
     type_binary_expression::type_binary_expression,
     type_function::type_function,
     type_select::{resolve_kleene_identifier, type_union_select},
     typer::Typer,
-    Type,
 };
 
 #[derive(Clone, Copy, Default)]

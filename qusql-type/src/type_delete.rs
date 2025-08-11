@@ -14,11 +14,11 @@ use alloc::vec::Vec;
 use sql_parse::{Delete, OptSpanned, Spanned};
 
 use crate::{
-    type_expression::{type_expression, ExpressionFlags},
-    type_reference::type_reference,
-    type_select::{type_select_exprs, SelectType},
-    typer::{typer_stack, unqualified_name, ReferenceType, Typer},
     SelectTypeColumn,
+    type_expression::{ExpressionFlags, type_expression},
+    type_reference::type_reference,
+    type_select::{SelectType, type_select_exprs},
+    typer::{ReferenceType, Typer, typer_stack, unqualified_name},
 };
 
 pub(crate) fn type_delete<'a>(
