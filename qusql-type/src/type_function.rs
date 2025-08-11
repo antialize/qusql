@@ -443,6 +443,20 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::String, not_null)
         }
+        Function::StartsWith => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let mut not_null = true;
+            if let Some((e, t)) = typed.first() {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.last() {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::Bool, not_null)
+        }
         Function::Datetime => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);

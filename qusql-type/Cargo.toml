@@ -1,6 +1,6 @@
 [package]
 name = "sql-type"
-version = "0.26.0"
+version = "0.27.0"
 edition = "2024"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 keywords = [ "mysql", "postgesql", "sql", "typer" ]
@@ -14,4 +14,4 @@ description = "Typer for sql"
 codespan-reporting = "0.12"
 
 [dependencies]
-sql-parse = "0.25.0"
+sql-parse = "0.26.0"
