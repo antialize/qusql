@@ -119,8 +119,8 @@ pub(crate) fn type_insert_replace<'a>(
                     type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
                 }
             }
-            if let Some(s) = &s {
-                if s.len() != row.len() {
+            if let Some(s) = &s
+                && s.len() != row.len() {
                     typer
                         .err(
                             format!("Got {} columns", row.len()),
@@ -131,7 +131,6 @@ pub(crate) fn type_insert_replace<'a>(
                             &columns.opt_span().unwrap(),
                         );
                 }
-            }
         }
     }
 

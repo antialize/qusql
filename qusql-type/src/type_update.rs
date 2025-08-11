@@ -132,7 +132,8 @@ pub(crate) fn type_update<'a>(
         typer.ensure_base(where_, &t, BaseType::Bool);
     }
 
-    let returning_select = match &update.returning {
+    
+    match &update.returning {
         Some((returning_span, returning_exprs)) => {
             let columns = type_select_exprs(typer, returning_exprs, true)
                 .into_iter()
@@ -144,6 +145,5 @@ pub(crate) fn type_update<'a>(
             })
         }
         None => None,
-    };
-    returning_select
+    }
 }
