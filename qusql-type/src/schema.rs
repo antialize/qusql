@@ -576,14 +576,15 @@ pub fn parse_schemas<'a>(
                                 };
 
                                 if let Some(old) = schemas.indices.insert(ident, name.span())
-                                    && if_not_exists.is_none() {
-                                        issues
-                                            .err(
-                                                "Multiple indeces with the same identifier",
-                                                &name.span(),
-                                            )
-                                            .frag("Already defined here", &old);
-                                    }
+                                    && if_not_exists.is_none()
+                                {
+                                    issues
+                                        .err(
+                                            "Multiple indeces with the same identifier",
+                                            &name.span(),
+                                        )
+                                        .frag("Already defined here", &old);
+                                }
                             }
                         }
                         sql_parse::AlterSpecification::AddForeignKey { .. } => {}
@@ -702,11 +703,12 @@ pub fn parse_schemas<'a>(
                 };
 
                 if let Some(old) = schemas.indices.insert(ident, ci.span())
-                    && ci.if_not_exists.is_none() {
-                        issues
-                            .err("Multiple indeces with the same identifier", &ci)
-                            .frag("Already defined here", &old);
-                    }
+                    && ci.if_not_exists.is_none()
+                {
+                    issues
+                        .err("Multiple indeces with the same identifier", &ci)
+                        .frag("Already defined here", &old);
+                }
             }
             sql_parse::Statement::DropIndex(ci) => {
                 let key = IndexKey {

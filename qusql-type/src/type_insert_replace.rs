@@ -12,8 +12,8 @@
 
 use alloc::{format, vec::Vec};
 use sql_parse::{
-    InsertReplace, InsertReplaceFlag, InsertReplaceSetPair, InsertReplaceType, OptSpanned, Spanned,
-    issue_todo,
+    Identifier, InsertReplace, InsertReplaceFlag, InsertReplaceSetPair, InsertReplaceType,
+    OptSpanned, Spanned, issue_todo,
 };
 
 use crate::{
@@ -120,17 +120,18 @@ pub(crate) fn type_insert_replace<'a>(
                 }
             }
             if let Some(s) = &s
-                && s.len() != row.len() {
-                    typer
-                        .err(
-                            format!("Got {} columns", row.len()),
-                            &row.opt_span().unwrap(),
-                        )
-                        .frag(
-                            format!("Expected {}", columns.len()),
-                            &columns.opt_span().unwrap(),
-                        );
-                }
+                && s.len() != row.len()
+            {
+                typer
+                    .err(
+                        format!("Got {} columns", row.len()),
+                        &row.opt_span().unwrap(),
+                    )
+                    .frag(
+                        format!("Expected {}", columns.len()),
+                        &columns.opt_span().unwrap(),
+                    );
+            }
         }
     }
 
@@ -267,17 +268,19 @@ pub(crate) fn type_insert_replace<'a>(
 
     if let Some(on_conflict) = &ior.on_conflict {
         match &on_conflict.target {
-            sql_parse::OnConflictTarget::Column { name } => {
-                let mut t = None;
-                for r in &typer.reference_types {
-                    for c in &r.columns {
-                        if c.0 == *name {
-                            t = Some(c.clone());
+            sql_parse::OnConflictTarget::Columns { names } => {
+                for name in names {
+                    let mut t = None;
+                    for r in &typer.reference_types {
+                        for c in &r.columns {
+                            if c.0 == *name {
+                                t = Some(c.clone());
+                            }
                         }
                     }
-                }
-                if t.is_none() {
-                    typer.err("Unknown identifier", name);
+                    if t.is_none() {
+                        typer.err("Unknown identifier", name);
+                    }
                 }
                 //TODO check if there is a unique constraint on column
             }
@@ -291,11 +294,38 @@ pub(crate) fn type_insert_replace<'a>(
 
         match &on_conflict.action {
             sql_parse::OnConflictAction::DoNothing(_) => (),
-            sql_parse::OnConflictAction::DoUpdateSet { sets, where_, .. } => {
+            sql_parse::OnConflictAction::DoUpdateSet {
+                sets,
+                where_,
+                do_update_set_span,
+            } => {
+                let mut excluded_columns = Vec::new();
+                if let Some(schema) = typer.schemas.schemas.get(table.value)
+                    && !schema.view
+                {
+                    for col in &ior.columns {
+                        if let Some(schema_col) = schema.get_column(col.value) {
+                            excluded_columns
+                                .push((schema_col.identifier.clone(), schema_col.type_.clone()));
+                        }
+                    }
+                }
+
+                typer.reference_types.push(ReferenceType {
+                    name: Some(Identifier::new("EXCLUDED", do_update_set_span.clone())),
+                    span: do_update_set_span.span(),
+                    columns: excluded_columns,
+                });
+
                 for (key, value) in sets {
                     let mut cnt = 0;
                     let mut t = None;
                     for r in &typer.reference_types {
+                        if let Some(name) = &r.name
+                            && name.value == "EXCLUDED"
+                        {
+                            continue;
+                        }
                         for c in &r.columns {
                             if c.0 == *key {
                                 cnt += 1;

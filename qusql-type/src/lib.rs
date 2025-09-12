@@ -1175,6 +1175,13 @@ mod tests {
 
         CREATE INDEX t2_index2 ON t2 (id);
 
+        CREATE TABLE IF NOT EXISTS t3 (
+            a bigint NOT NULL,
+            b bigint NOT NULL
+        );
+
+        CREATE UNIQUE INDEX t3u ON t3(a,b);
+
         COMMIT;
         ";
 
@@ -1267,6 +1274,43 @@ mod tests {
                 }
             } else {
                 println!("{name} should be update {q:?}");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q6";
+            let src = "INSERT INTO t3 (a,b) VALUES (1, 1) ON CONFLICT (a,b) DO UPDATE SET a=t3.a, b=EXCLUDED.b WHERE t3.a != EXCLUDED.a";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+
+            if let StatementType::Insert { arguments, .. } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+            } else {
+                println!("{name} should be insert {q:?}");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q7";
+            let src = "INSERT INTO t3 (a,b) VALUES (1, 1) ON CONFLICT (a,c) cake DO UPDATE SET a=2";
+            let mut issues = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q8";
+            let src = "INSERT INTO t3 (a,b) VALUES (1, 1) ON CONFLICT (a,b) t3u DO UPDATE SET a=2 WHERE b=2";
+            let mut issues = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail");
                 errors += 1;
             }
         }
