@@ -1315,6 +1315,22 @@ mod tests {
             }
         }
 
+        {
+            let name = "q9";
+            let src = "SELECT left(path, -4) AS k FROM t1";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                check_columns(name, &columns, "k:str!", &mut errors);
+            } else {
+                println!("{name} should be select");
+                errors += 1;
+            }
+        }
+
         if errors != 0 {
             panic!("{errors} errors in test");
         }

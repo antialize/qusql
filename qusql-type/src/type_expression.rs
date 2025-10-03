@@ -70,17 +70,19 @@ fn type_unary_expression<'a>(
         | UnaryOperator::Minus => {
             let op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Any);
             let t = match &op_type.t {
-                Type::Args(..) | Type::Base(..) | Type::Enum(..) | Type::JSON | Type::Set(..) => {
-                    typer.err(format!("Expected numeric type got {}", op_type.t), op_span);
-                    Type::Invalid
-                }
                 Type::F32
                 | Type::F64
                 | Type::I16
                 | Type::I32
                 | Type::I64
                 | Type::I8
-                | Type::Invalid => op_type.t,
+                | Type::Invalid
+                | Type::Base(BaseType::Integer)
+                | Type::Base(BaseType::Float) => op_type.t,
+                Type::Args(..) | Type::Base(..) | Type::Enum(..) | Type::JSON | Type::Set(..) => {
+                    typer.err(format!("Expected numeric type got {}", op_type.t), op_span);
+                    Type::Invalid
+                }
                 Type::U16 => Type::I16,
                 Type::U32 => Type::I32,
                 Type::U64 => Type::I64,
