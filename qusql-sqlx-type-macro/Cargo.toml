@@ -1,6 +1,6 @@
 [package]
 name = "sqlx-type-macro"
-version = "0.4.13"
+version = "0.4.14"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 edition = "2024"
 license = "Apache-2.0"
