@@ -17,7 +17,7 @@ use crate::{
     Type,
     type_::{BaseType, FullType},
     type_expression::{ExpressionFlags, type_expression},
-    typer::Typer,
+    typer::{Restrict, Typer},
 };
 
 pub(crate) fn type_binary_expression<'a>(
@@ -125,13 +125,14 @@ pub(crate) fn type_binary_expression<'a>(
             typer.ensure_base(rhs, &rhs_type, BaseType::Integer);
             FullType::new(BaseType::Integer, lhs_type.not_null && rhs_type.not_null)
         }
-        BinaryOperator::Add
-        | BinaryOperator::Subtract
-        | BinaryOperator::Divide
-        | BinaryOperator::Div
-        | BinaryOperator::Mod
-        | BinaryOperator::Mult => {
-            if let Some(t) = typer.matched_type(&lhs_type, &rhs_type) {
+        BinaryOperator::Add | BinaryOperator::Subtract => {
+            if matches!(lhs_type.base(), BaseType::TimeInterval) {
+                let t = typer.ensure_datetime(op_span, &rhs_type, Restrict::Allow, Restrict::Allow);
+                FullType::new(t, lhs_type.not_null && rhs_type.not_null)
+            } else if matches!(rhs_type.base(), BaseType::TimeInterval) {
+                let t = typer.ensure_datetime(op_span, &lhs_type, Restrict::Allow, Restrict::Allow);
+                FullType::new(t, lhs_type.not_null && rhs_type.not_null)
+            } else if let Some(t) = typer.matched_type(&lhs_type, &rhs_type) {
                 match t.base() {
                     BaseType::Any | BaseType::Float | BaseType::Integer => {
                         FullType::new(t, lhs_type.not_null && rhs_type.not_null)
@@ -147,6 +148,31 @@ pub(crate) fn type_binary_expression<'a>(
             } else {
                 typer
                     .err("Type error in addition/subtraction", op_span)
+                    .frag(format!("type {}", lhs_type.t), lhs)
+                    .frag(format!("type {}", rhs_type.t), rhs);
+                FullType::invalid()
+            }
+        }
+        BinaryOperator::Divide
+        | BinaryOperator::Div
+        | BinaryOperator::Mod
+        | BinaryOperator::Mult => {
+            if let Some(t) = typer.matched_type(&lhs_type, &rhs_type) {
+                match t.base() {
+                    BaseType::Any | BaseType::Float | BaseType::Integer => {
+                        FullType::new(t, lhs_type.not_null && rhs_type.not_null)
+                    }
+                    _ => {
+                        typer
+                            .err("Type error in multiplication/division", op_span)
+                            .frag(format!("type {}", lhs_type.t), lhs)
+                            .frag(format!("type {}", rhs_type.t), rhs);
+                        FullType::invalid()
+                    }
+                }
+            } else {
+                typer
+                    .err("Type error in multiplication/division", op_span)
                     .frag(format!("type {}", lhs_type.t), lhs)
                     .frag(format!("type {}", rhs_type.t), rhs);
                 FullType::invalid()

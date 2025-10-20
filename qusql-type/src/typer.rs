@@ -24,6 +24,12 @@ use sql_parse::{
     Identifier, IssueHandle, Issues, OptSpanned, QualifiedName, SQLDialect, Span, Spanned,
 };
 
+pub(crate) enum Restrict {
+    Disallow,
+    Allow,
+    Require,
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct ReferenceType<'a> {
     pub(crate) name: Option<Identifier<'a>>,
@@ -140,6 +146,62 @@ impl<'a, 'b> Typer<'a, 'b> {
                 span,
             );
         }
+    }
+
+    pub(crate) fn ensure_datetime(
+        &mut self,
+        span: &impl Spanned,
+        given: &FullType<'a>,
+        date: Restrict,
+        time: Restrict,
+    ) -> Type<'a> {
+        let (d, t) = match given.base() {
+            BaseType::Any | BaseType::String => {
+                let t = match (date, time) {
+                    (Restrict::Disallow, Restrict::Require) => BaseType::Time,
+                    (Restrict::Require, Restrict::Disallow) => BaseType::Date,
+                    (Restrict::Require, Restrict::Require) => BaseType::DateTime,
+                    _ => given.base(),
+                };
+                return Type::Base(t);
+            }
+            BaseType::Date => (true, false),
+            BaseType::DateTime => (true, true),
+            BaseType::Time => (false, true),
+            BaseType::TimeStamp => (true, true),
+            BaseType::Bool
+            | BaseType::Bytes
+            | BaseType::Float
+            | BaseType::Integer
+            | BaseType::TimeInterval => {
+                self.issues
+                    .err(format!("Expected time like type got {}", given.t), span);
+                return Type::Invalid;
+            }
+        };
+        match (date, d) {
+            (Restrict::Disallow, true) => {
+                self.issues
+                    .err(format!("Date type now allowed got {}", given.t), span);
+            }
+            (Restrict::Require, false) => {
+                self.issues
+                    .err(format!("Date type required got {}", given.t), span);
+            }
+            _ => (),
+        }
+        match (time, t) {
+            (Restrict::Disallow, true) => {
+                self.issues
+                    .err(format!("Time type now allowed got {}", given.t), span);
+            }
+            (Restrict::Require, false) => {
+                self.issues
+                    .err(format!("Time type required got {}", given.t), span);
+            }
+            _ => (),
+        }
+        given.t.clone()
     }
 
     pub(crate) fn ensure_base(

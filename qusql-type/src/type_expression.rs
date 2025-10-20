@@ -21,7 +21,7 @@ use crate::{
     type_binary_expression::type_binary_expression,
     type_function::type_function,
     type_select::{resolve_kleene_identifier, type_union_select},
-    typer::Typer,
+    typer::{Restrict, Typer},
 };
 
 #[derive(Clone, Copy, Default)]
@@ -378,45 +378,45 @@ pub(crate) fn type_expression<'a>(
             );
             if typer.dialect().is_maria() {
                 match type_.type_ {
-                    sql_parse::Type::Char(_)
-                    | sql_parse::Type::Date
-                    | sql_parse::Type::Inet4
-                    | sql_parse::Type::Inet6
-                    | sql_parse::Type::DateTime(_)
-                    | sql_parse::Type::Double(_)
-                    | sql_parse::Type::Float8
-                    | sql_parse::Type::Float(_)
-                    | sql_parse::Type::Integer(_)
-                    | sql_parse::Type::Int(_)
-                    | sql_parse::Type::Binary(_)
-                    | sql_parse::Type::Timestamptz
-                    | sql_parse::Type::Time(_) => {}
-                    sql_parse::Type::Boolean
-                    | sql_parse::Type::TinyInt(_)
-                    | sql_parse::Type::SmallInt(_)
-                    | sql_parse::Type::BigInt(_)
-                    | sql_parse::Type::VarChar(_)
-                    | sql_parse::Type::TinyText(_)
-                    | sql_parse::Type::MediumText(_)
-                    | sql_parse::Type::Text(_)
-                    | sql_parse::Type::LongText(_)
-                    | sql_parse::Type::Enum(_)
-                    | sql_parse::Type::Set(_)
-                    | sql_parse::Type::Numeric(_, _, _)
-                    | sql_parse::Type::Timestamp(_)
-                    | sql_parse::Type::TinyBlob(_)
-                    | sql_parse::Type::MediumBlob(_)
-                    | sql_parse::Type::Blob(_)
-                    | sql_parse::Type::LongBlob(_)
-                    | sql_parse::Type::Json
-                    | sql_parse::Type::Bit(_, _)
-                    | sql_parse::Type::Bytea
-                    | sql_parse::Type::Named(_) // TODO lookup name
-                    | sql_parse::Type::VarBinary(_) => {
-                        typer
-                            .err("Type not allow in cast", type_);
-                    }
-                };
+                            sql_parse::Type::Char(_)
+                            | sql_parse::Type::Date
+                            | sql_parse::Type::Inet4
+                            | sql_parse::Type::Inet6
+                            | sql_parse::Type::DateTime(_)
+                            | sql_parse::Type::Double(_)
+                            | sql_parse::Type::Float8
+                            | sql_parse::Type::Float(_)
+                            | sql_parse::Type::Integer(_)
+                            | sql_parse::Type::Int(_)
+                            | sql_parse::Type::Binary(_)
+                            | sql_parse::Type::Timestamptz
+                            | sql_parse::Type::Time(_) => {}
+                            sql_parse::Type::Boolean
+                            | sql_parse::Type::TinyInt(_)
+                            | sql_parse::Type::SmallInt(_)
+                            | sql_parse::Type::BigInt(_)
+                            | sql_parse::Type::VarChar(_)
+                            | sql_parse::Type::TinyText(_)
+                            | sql_parse::Type::MediumText(_)
+                            | sql_parse::Type::Text(_)
+                            | sql_parse::Type::LongText(_)
+                            | sql_parse::Type::Enum(_)
+                            | sql_parse::Type::Set(_)
+                            | sql_parse::Type::Numeric(_, _, _)
+                            | sql_parse::Type::Timestamp(_)
+                            | sql_parse::Type::TinyBlob(_)
+                            | sql_parse::Type::MediumBlob(_)
+                            | sql_parse::Type::Blob(_)
+                            | sql_parse::Type::LongBlob(_)
+                            | sql_parse::Type::Json
+                            | sql_parse::Type::Bit(_, _)
+                            | sql_parse::Type::Bytea
+                            | sql_parse::Type::Named(_) // TODO lookup name
+                            | sql_parse::Type::VarBinary(_) => {
+                                typer
+                                    .err("Type not allow in cast", type_);
+                            }
+                        };
             } else {
                 //TODO check me
             }
@@ -450,5 +450,65 @@ pub(crate) fn type_expression<'a>(
                 FullType::new(BaseType::Any, false)
             }
         },
+        Expression::Interval {
+            time_interval,
+            time_unit,
+            ..
+        } => {
+            let cnt = match time_unit.0 {
+                sql_parse::TimeUnit::Microsecond => 1,
+                sql_parse::TimeUnit::Second => 1,
+                sql_parse::TimeUnit::Minute => 1,
+                sql_parse::TimeUnit::Hour => 1,
+                sql_parse::TimeUnit::Day => 1,
+                sql_parse::TimeUnit::Week => 1,
+                sql_parse::TimeUnit::Month => 1,
+                sql_parse::TimeUnit::Quarter => 1,
+                sql_parse::TimeUnit::Year => 1,
+                sql_parse::TimeUnit::SecondMicrosecond => 2,
+                sql_parse::TimeUnit::MinuteMicrosecond => 3,
+                sql_parse::TimeUnit::MinuteSecond => 2,
+                sql_parse::TimeUnit::HourMicrosecond => 4,
+                sql_parse::TimeUnit::HourSecond => 3,
+                sql_parse::TimeUnit::HourMinute => 2,
+                sql_parse::TimeUnit::DayMicrosecond => 5,
+                sql_parse::TimeUnit::DaySecond => 4,
+                sql_parse::TimeUnit::DayMinute => 3,
+                sql_parse::TimeUnit::DayHour => 2,
+                sql_parse::TimeUnit::YearMonth => 2,
+            };
+            if cnt != time_interval.0.len() {
+                typer.err(
+                    format!(
+                        "Expected {} values for {:?} got {}",
+                        cnt,
+                        time_unit.0,
+                        time_interval.0.len()
+                    ),
+                    &time_interval.1,
+                );
+            }
+            FullType::new(BaseType::TimeInterval, true)
+        }
+        Expression::Extract { date, .. } => {
+            let t = type_expression(typer, date, flags, BaseType::Any);
+            FullType::new(BaseType::Integer, t.not_null)
+        }
+        Expression::TimestampAdd {
+            interval, datetime, ..
+        } => {
+            let t1 = type_expression(typer, interval, flags, BaseType::Integer);
+            let t2 = type_expression(typer, datetime, flags, BaseType::Any);
+            typer.ensure_base(interval, &t1, BaseType::Integer);
+            typer.ensure_datetime(interval, &t2, Restrict::Require, Restrict::Allow);
+            FullType::new(BaseType::DateTime, t1.not_null && t2.not_null)
+        }
+        Expression::TimestampDiff { e1, e2, .. } => {
+            let t1 = type_expression(typer, e1, flags, BaseType::Any);
+            let t2 = type_expression(typer, e2, flags, BaseType::Any);
+            typer.ensure_datetime(e1, &t1, Restrict::Require, Restrict::Allow);
+            typer.ensure_datetime(e2, &t2, Restrict::Require, Restrict::Allow);
+            FullType::new(BaseType::Integer, t1.not_null && t2.not_null)
+        }
     }
 }
