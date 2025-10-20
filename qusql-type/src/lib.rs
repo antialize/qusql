@@ -315,7 +315,7 @@ mod tests {
             let d = d
                 .with_message(issue.message.to_string())
                 .with_labels(labels);
-            term::emit(&mut writer.lock(), &config, &files, &d).unwrap();
+            term::emit_to_write_style(&mut writer.lock(), &config, &files, &d).unwrap();
         }
     }
 

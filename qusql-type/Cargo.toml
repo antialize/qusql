@@ -11,7 +11,7 @@ homepage = "https://github.com/antialize/sql-type/"
 description = "Typer for sql"
 
 [dev-dependencies]
-codespan-reporting = "0.12"
+codespan-reporting = "0.13"
 
 [dependencies]
 sql-parse = "0.27.1"
