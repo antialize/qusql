@@ -347,6 +347,9 @@ mod tests {
             "str" => BaseType::String.into(),
             "bytes" => BaseType::Bytes.into(),
             "dt" => BaseType::DateTime.into(),
+            "date" => BaseType::Date.into(),
+            "ts" => BaseType::TimeStamp.into(),
+            "time" => BaseType::Time.into(),
             "json" => Type::JSON,
             "any" => BaseType::Any.into(),
             _ => panic!("Unknown type {t}"),
@@ -409,7 +412,13 @@ mod tests {
         }
     }
 
-    fn check_columns(name: &str, got: &[SelectTypeColumn<'_>], expected: &str, errors: &mut usize) {
+    fn check_columns(
+        name: &str,
+        src: &str,
+        got: &[SelectTypeColumn<'_>],
+        expected: &str,
+        errors: &mut usize,
+    ) {
         let mut cnt = 0;
         for (i, t) in expected.split(',').enumerate() {
             let t = t.trim();
@@ -418,25 +427,41 @@ mod tests {
             let cname = if cname.is_empty() { None } else { Some(cname) };
             if let Some(v) = got.get(i) {
                 if v.name.as_deref() != cname || v.type_ != t {
-                    println!(
-                        "{}: Expected column {} with name {} of type {} got {} of type {}",
-                        name,
-                        i,
-                        N(cname),
-                        t,
-                        N2(v.name.clone()),
-                        v.type_
-                    );
+                    let mut files = SimpleFiles::new();
+                    let file_id = files.add(name, &src);
+                    let writer = StandardStream::stderr(ColorChoice::Always);
+                    let config = codespan_reporting::term::Config::default();
+                    let d = Diagnostic::error()
+                        .with_message(format!(
+                            "{}: Expected column {} with name {} of type {} got {} of type {}",
+                            name,
+                            i,
+                            N(cname),
+                            t,
+                            N2(v.name.clone()),
+                            v.type_
+                        ))
+                        .with_label(Label::primary(file_id, v.span.clone()));
+
+                    term::emit_to_write_style(&mut writer.lock(), &config, &files, &d).unwrap();
+
                     *errors += 1;
                 }
             } else {
-                println!(
-                    "{}: Expected column {} with name {} of type {} got None",
-                    name,
-                    i,
-                    N(cname),
-                    t
-                );
+                let mut files = SimpleFiles::new();
+                let file_id = files.add(name, &src);
+                let writer = StandardStream::stderr(ColorChoice::Always);
+                let config = codespan_reporting::term::Config::default();
+                let d = Diagnostic::error()
+                    .with_message(format!(
+                        "{}: Expected column {} with name {} of type {} got None",
+                        name,
+                        i,
+                        N(cname),
+                        t
+                    ))
+                    .with_label(Label::primary(file_id, 0..src.len()));
+                term::emit_to_write_style(&mut writer.lock(), &config, &files, &d).unwrap();
                 *errors += 1;
             }
             cnt += 1;
@@ -540,6 +565,7 @@ mod tests {
                 );
                 check_columns(
                     name,
+                    src,
                     &columns,
                     "id:i32!,cbool:b!,cu8:u8!,cu8_plus_one:u8!,cu16:u16!,cu32:u32!,cu64:u64!,
                     ci8:i8!,ci16:i16!,ci32:i32!,ci64:i64!,ctext:str!,cbytes:bytes!,cf32:f32!,cf64:f64!",
@@ -564,6 +590,7 @@ mod tests {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(
                     name,
+                    src,
                     &columns,
                     "id:i32!,cbool:b!,cu8:u8!,cu16:u16!,cu32:u32!,cu64:u64!,
                     ci8:i8!,ci16:i16,ci32:i32,ci64:i64,ctext:str!,cbytes:bytes,cf32:f32,cf64:f64,cbin:bytes",
@@ -687,7 +714,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "b", &mut errors);
-                check_columns(name, &columns, "cc:b", &mut errors);
+                check_columns(name, src, &columns, "cc:b", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -702,7 +729,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "i", &mut errors);
-                check_columns(name, &columns, "cc:dt!", &mut errors);
+                check_columns(name, src, &columns, "cc:dt!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -754,7 +781,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:str!", &mut errors);
+                check_columns(name, src, &columns, "k:str!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -780,7 +807,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:json", &mut errors);
+                check_columns(name, src, &columns, "k:json", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -796,7 +823,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "i[]", &mut errors);
-                check_columns(name, &columns, "id:i32!", &mut errors);
+                check_columns(name, src, &columns, "id:i32!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -811,7 +838,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "id:str", &mut errors);
+                check_columns(name, src, &columns, "id:str", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -846,6 +873,7 @@ mod tests {
                 if let Some(returning) = returning {
                     check_columns(
                         name,
+                        src,
                         &returning,
                         "id:i32!,cbool:b!,cu8:u8!,ctext:str!,cf64:f64",
                         &mut errors,
@@ -873,7 +901,7 @@ mod tests {
             {
                 check_arguments(name, &arguments, "i32!,i32!", &mut errors);
                 if let Some(returning) = returning {
-                    check_columns(name, &returning, "id:i32!", &mut errors);
+                    check_columns(name, src, &returning, "id:i32!", &mut errors);
                 } else {
                     println!("{name} should return columns");
                     errors += 1;
@@ -892,7 +920,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "dt:dt!,t:i64!", &mut errors);
+                check_columns(name, src, &columns, "dt:dt!,t:i64!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -907,7 +935,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "any", &mut errors);
-                check_columns(name, &columns, "c:str", &mut errors);
+                check_columns(name, src, &columns, "c:str", &mut errors);
             } else {
                 println!("{name} should be selsect");
                 errors += 1;
@@ -922,7 +950,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "id:str!", &mut errors);
+                check_columns(name, src, &columns, "id:str!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -937,7 +965,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:bytes", &mut errors);
+                check_columns(name, src, &columns, "k:bytes", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -952,7 +980,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:str!", &mut errors);
+                check_columns(name, src, &columns, "k:str!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -967,7 +995,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:str!", &mut errors);
+                check_columns(name, src, &columns, "k:str!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -982,7 +1010,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:json", &mut errors);
+                check_columns(name, src, &columns, "k:json", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -997,7 +1025,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:json", &mut errors);
+                check_columns(name, src, &columns, "k:json", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -1012,7 +1040,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:b!", &mut errors);
+                check_columns(name, src, &columns, "k:b!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -1027,7 +1055,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:b", &mut errors);
+                check_columns(name, src, &columns, "k:b", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -1042,7 +1070,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:b!", &mut errors);
+                check_columns(name, src, &columns, "k:b!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -1057,7 +1085,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:b", &mut errors);
+                check_columns(name, src, &columns, "k:b", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -1083,7 +1111,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "id:i32!", &mut errors);
+                check_columns(name, src, &columns, "id:i32!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -1208,7 +1236,13 @@ mod tests {
             } = q
             {
                 check_arguments(name, &arguments, "str", &mut errors);
-                check_columns(name, &returning.expect("Returning"), "id:i64!", &mut errors);
+                check_columns(
+                    name,
+                    src,
+                    &returning.expect("Returning"),
+                    "id:i64!",
+                    &mut errors,
+                );
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -1324,7 +1358,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, &columns, "k:str!", &mut errors);
+                check_columns(name, src, &columns, "k:str!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
