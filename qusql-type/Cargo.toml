@@ -13,5 +13,9 @@ description = "Typer for sql"
 [dev-dependencies]
 codespan-reporting = "0.13"
 
+[workspace]
+resolver = "3"
+members = ["mariadb_test"]
+
 [dependencies]
 sql-parse = "0.27.1"

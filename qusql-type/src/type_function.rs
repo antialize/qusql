@@ -488,17 +488,13 @@ pub(crate) fn type_function<'a, 'b>(
         Function::AddDate | Function::DateSub => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..2, args, span);
-            let mut not_null = true;
-            if let Some((e, t)) = typed.last() {
-                not_null = not_null && t.not_null;
-                if t.base() != BaseType::Integer {
+            if let Some((e, t)) = typed.last()
+                && t.base() != BaseType::Integer {
                     typer.ensure_base(*e, t, BaseType::TimeInterval);
                 }
-            }
             if let Some((e, t)) = typed.first() {
-                not_null = not_null && t.not_null;
                 let t = typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
-                FullType::new(t, not_null)
+                FullType::new(t, false)
             } else {
                 FullType::invalid()
             }
