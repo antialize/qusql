@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ariadne::{Label, Report, ReportKind, Source};
 use ouroboros::self_referencing;
-use pyo3::prelude::*;
+use pyo3::{prelude::*, IntoPyObjectExt};
 use sql_type::{Issue, Issues, SQLArguments, SQLDialect, TypeOptions};
 
 #[pyclass]
@@ -20,8 +20,7 @@ fn issue_to_report(issue: &Issue) -> Report<'static, std::ops::Range<usize>> {
             sql_type::Level::Warning => ReportKind::Warning,
             sql_type::Level::Error => ReportKind::Error,
         },
-        (),
-        issue.span.start,
+        issue.span.clone(),
     )
     .with_config(ariadne::Config::default().with_color(false))
     .with_label(
@@ -42,12 +41,12 @@ struct NamedSource<'a>(&'a str, Source<&'a str>);
 impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
     type Storage = &'a str;
 
-    fn fetch(&mut self, _: &()) -> Result<&Source<Self::Storage>, Box<dyn std::fmt::Debug + '_>> {
-        Ok(&self.1)
+    fn fetch(&mut self, _id: &()) -> Result<&Source<Self::Storage>, impl std::fmt::Debug> {
+        Ok::<_, std::convert::Infallible>(&self.1)
     }
 
-    fn display<'b>(&self, _: &'b ()) -> Option<Box<dyn std::fmt::Display + 'b>> {
-        Some(Box::new(self.0.to_string()))
+    fn display<'b>(&self, _id: &'b ()) -> Option<impl std::fmt::Display + 'b> {
+        Some(self.0.to_string())
     }
 }
 
@@ -94,11 +93,15 @@ enum ArgumentKey {
     Index(usize),
 }
 
-impl IntoPy<PyObject> for ArgumentKey {
-    fn into_py(self, py: Python) -> PyObject {
+impl<'py> IntoPyObject<'py> for ArgumentKey {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         match self {
-            ArgumentKey::Identifier(i) => i.to_object(py),
-            ArgumentKey::Index(i) => i.to_object(py),
+            ArgumentKey::Identifier(i) => Ok(i.into_pyobject(py)?.into_any()),
+            ArgumentKey::Index(i) => Ok(i.into_pyobject(py)?.into_any()),
         }
     }
 }
@@ -130,7 +133,7 @@ struct Enum {
 #[pyclass]
 struct List {
     #[pyo3(get)]
-    r#type: PyObject,
+    r#type: Py<PyAny>,
 }
 
 #[derive(Clone)]
@@ -145,25 +148,40 @@ enum Type {
     List(Box<Type>),
 }
 
-impl IntoPy<PyObject> for Type {
-    fn into_py(self, py: Python) -> PyObject {
-        match self {
-            Type::Any => Py::new(py, Any {}).unwrap().to_object(py),
-            Type::Integer => Py::new(py, Integer {}).unwrap().to_object(py),
-            Type::Float => Py::new(py, Float {}).unwrap().to_object(py),
-            Type::Bool => Py::new(py, Bool {}).unwrap().to_object(py),
-            Type::Bytes => Py::new(py, Bytes {}).unwrap().to_object(py),
-            Type::String => Py::new(py, String {}).unwrap().to_object(py),
-            Type::Enum(values) => Py::new(py, Enum { values }).unwrap().to_object(py),
+impl<'py> IntoPyObject<'py> for Type {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let v = match self {
+            Type::Any => Py::new(py, Any {}).unwrap().into_pyobject(py)?.into_any(),
+            Type::Integer => Py::new(py, Integer {})
+                .unwrap()
+                .into_pyobject(py)?
+                .into_any(),
+            Type::Float => Py::new(py, Float {}).unwrap().into_pyobject(py)?.into_any(),
+            Type::Bool => Py::new(py, Bool {}).unwrap().into_pyobject(py)?.into_any(),
+            Type::Bytes => Py::new(py, Bytes {}).unwrap().into_pyobject(py)?.into_any(),
+            Type::String => Py::new(py, String {})
+                .unwrap()
+                .into_pyobject(py)?
+                .into_any(),
+            Type::Enum(values) => Py::new(py, Enum { values })
+                .unwrap()
+                .into_pyobject(py)?
+                .into_any(),
             Type::List(r#type) => Py::new(
                 py,
                 List {
-                    r#type: r#type.into_py(py),
+                    r#type: r#type.into_py_any(py)?,
                 },
             )
             .unwrap()
-            .to_object(py),
-        }
+            .into_pyobject(py)?
+            .into_any(),
+        };
+        Ok(v)
     }
 }
 
@@ -209,20 +227,19 @@ struct Invalid {}
 fn map_type(t: &sql_type::FullType<'_>) -> Type {
     let b = match &t.t {
         sql_type::Type::Args(_, _) => Type::Any,
-        sql_type::Type::Base(v) => {
-            match v {
-                sql_type::BaseType::Any => Type::Any,
-                sql_type::BaseType::Bool => Type::Bool,
-                sql_type::BaseType::Bytes => Type::Bytes,
-                sql_type::BaseType::Date => Type::Any, //TODO
-                sql_type::BaseType::DateTime => Type::Any, //TODO
-                sql_type::BaseType::Float => Type::Float,
-                sql_type::BaseType::Integer => Type::Integer,
-                sql_type::BaseType::String => Type::String,
-                sql_type::BaseType::Time => Type::Any, //TODO
-                sql_type::BaseType::TimeStamp => Type::Any, //TODO
-            }
-        }
+        sql_type::Type::Base(v) => match v {
+            sql_type::BaseType::Any => Type::Any,
+            sql_type::BaseType::Bool => Type::Bool,
+            sql_type::BaseType::Bytes => Type::Bytes,
+            sql_type::BaseType::Date => Type::Any,
+            sql_type::BaseType::DateTime => Type::Any,
+            sql_type::BaseType::Float => Type::Float,
+            sql_type::BaseType::Integer => Type::Integer,
+            sql_type::BaseType::String => Type::String,
+            sql_type::BaseType::Time => Type::Any,
+            sql_type::BaseType::TimeStamp => Type::Any,
+            sql_type::BaseType::TimeInterval => Type::Any,
+        },
         sql_type::Type::Enum(v) => Type::Enum(v.iter().map(|v| v.to_string()).collect()),
         sql_type::Type::F32 => Type::Float,
         sql_type::Type::F64 => Type::Float,
@@ -267,7 +284,7 @@ fn type_statement(
     schemas: &Schemas,
     statement: &str,
     dict_result: bool,
-) -> PyResult<(PyObject, bool, std::string::String)> {
+) -> PyResult<(Py<PyAny>, bool, std::string::String)> {
     let mut issues = Issues::new(statement);
 
     let mut options = TypeOptions::new()
@@ -307,7 +324,7 @@ fn type_statement(
                     columns,
                 },
             )?
-            .to_object(py)
+            .into_py_any(py)?
         }
         sql_type::StatementType::Delete {
             arguments,
@@ -326,7 +343,7 @@ fn type_statement(
                     arguments: map_arguments(arguments),
                 },
             )?
-            .to_object(py)
+            .into_py_any(py)?
         }
         sql_type::StatementType::Insert {
             yield_autoincrement,
@@ -352,15 +369,27 @@ fn type_statement(
                     arguments: map_arguments(arguments),
                 },
             )?
-            .to_object(py)
+            .into_py_any(py)?
         }
-        sql_type::StatementType::Update { arguments } => Py::new(
-            py,
-            Update {
-                arguments: map_arguments(arguments),
-            },
-        )?
-        .to_object(py),
+        sql_type::StatementType::Update {
+            arguments,
+            returning,
+        } => {
+            if returning.is_some() {
+                // TODO: Implement RETURNING support
+                issues.err(
+                    "support for RETURNING is not implemented yet",
+                    &(0..statement.len()),
+                );
+            }
+            Py::new(
+                py,
+                Update {
+                    arguments: map_arguments(arguments),
+                },
+            )?
+            .into_py_any(py)?
+        }
         sql_type::StatementType::Replace {
             arguments,
             returning,
@@ -378,9 +407,9 @@ fn type_statement(
                     arguments: map_arguments(arguments),
                 },
             )?
-            .to_object(py)
+            .into_py_any(py)?
         }
-        sql_type::StatementType::Invalid => Py::new(py, Invalid {})?.to_object(py),
+        sql_type::StatementType::Invalid => Py::new(py, Invalid {})?.into_py_any(py)?,
     };
 
     let (err, messages) = issues_to_string("", statement, issues.get());
