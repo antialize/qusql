@@ -122,7 +122,7 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
     }
 
     fn fetch(&mut self, _: &()) -> Result<&Source<Self::Storage>, impl std::fmt::Debug> {
-        Ok::<_,()>(&self.1)
+        Ok::<_, ()>(&self.1)
     }
 }
 
@@ -236,7 +236,8 @@ fn quote_args(
             sql_type::Type::Base(sql_type::BaseType::Float) => quote! {sqlx_type::Float},
             sql_type::Type::Base(sql_type::BaseType::Integer) => quote! {sqlx_type::Integer},
             sql_type::Type::Base(sql_type::BaseType::String) => quote! {&str},
-            sql_type::Type::Base(sql_type::BaseType::Time) => todo!("time"),
+            sql_type::Type::Base(sql_type::BaseType::Time) => quote! {sqlx_type::Time},
+            sql_type::Type::Base(sql_type::BaseType::TimeInterval) => todo!("time_interval"),
             sql_type::Type::Base(sql_type::BaseType::TimeStamp) => quote! {sqlx_type::Timestamp},
             sql_type::Type::Null => todo!("null"),
             sql_type::Type::Invalid => quote! {std::convert::Infallible},
@@ -350,6 +351,7 @@ fn construct_row(
             sql_type::Type::Base(sql_type::BaseType::Integer) => quote! {i64},
             sql_type::Type::Base(sql_type::BaseType::String) => quote! {String},
             sql_type::Type::Base(sql_type::BaseType::Time) => todo!("from_time"),
+            sql_type::Type::Base(sql_type::BaseType::TimeInterval) => todo!("from_time_interval"),
             sql_type::Type::Base(sql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
@@ -552,7 +554,10 @@ pub fn query(input: TokenStream) -> TokenStream {
             };
             s.into()
         }
-        sql_type::StatementType::Update { arguments , returning} => {
+        sql_type::StatementType::Update {
+            arguments,
+            returning,
+        } => {
             let (args_tokens, q) = quote_args(
                 &mut errors,
                 &query.query,
@@ -562,7 +567,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                 dialect,
             );
 
-             let s = match returning.as_ref() {
+            let s = match returning.as_ref() {
                 Some(returning) => {
                     let (row_members, row_construct) = construct_row(returning);
                     quote! { {
@@ -581,7 +586,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                         )
                     }}
                 }
-                None =>  quote! { {
+                None => quote! { {
                     use ::sqlx::Arguments as _;
                     #(#errors; )*
                     #args_tokens
@@ -663,6 +668,7 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             sql_type::Type::Base(sql_type::BaseType::Integer) => quote! {i64},
             sql_type::Type::Base(sql_type::BaseType::String) => quote! {String},
             sql_type::Type::Base(sql_type::BaseType::Time) => todo!("from_time"),
+            sql_type::Type::Base(sql_type::BaseType::TimeInterval) => todo!("from_time_interval"),
             sql_type::Type::Base(sql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }

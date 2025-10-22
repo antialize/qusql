@@ -84,7 +84,6 @@ pub struct Time;
 #[doc(hidden)]
 pub struct Any;
 
-
 /// If ArgIn<T> is implemented for J, it means that J can be used as for arguments of type T
 #[doc(hidden)]
 pub trait ArgIn<T> {}
@@ -106,7 +105,6 @@ macro_rules! arg_io {
         impl<const IDX: usize> ArgOut<$dst, IDX> for Option<$t> {}
     };
 }
-
 
 arg_io!(Any, u64);
 arg_io!(Any, i64);
