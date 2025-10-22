@@ -1,6 +1,6 @@
 [package]
 name = "sql-type"
-version = "0.28.1"
+version = "0.29.0"
 edition = "2024"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 keywords = [ "mysql", "postgesql", "sql", "typer" ]
@@ -11,7 +11,11 @@ homepage = "https://github.com/antialize/sql-type/"
 description = "Typer for sql"
 
 [dev-dependencies]
-codespan-reporting = "0.12"
+codespan-reporting = "0.13"
+
+[workspace]
+resolver = "3"
+members = ["mariadb_test"]
 
 [dependencies]
-sql-parse = "0.27.1"
+sql-parse = "0.28.0"

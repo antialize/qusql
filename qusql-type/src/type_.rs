@@ -36,6 +36,7 @@ pub enum BaseType {
     String,
     Time,
     TimeStamp,
+    TimeInterval,
 }
 
 impl Display for BaseType {
@@ -51,6 +52,7 @@ impl Display for BaseType {
             BaseType::String => f.write_str("string"),
             BaseType::Time => f.write_str("time"),
             BaseType::TimeStamp => f.write_str("timestamp"),
+            BaseType::TimeInterval => f.write_str("timeinterval"),
         }
     }
 }

@@ -17,7 +17,7 @@ use crate::{
     Type,
     type_::{BaseType, FullType},
     type_expression::{ExpressionFlags, type_expression},
-    typer::Typer,
+    typer::{Restrict, Typer},
 };
 
 fn arg_cnt<'a>(
@@ -317,7 +317,9 @@ pub(crate) fn type_function<'a, 'b>(
             }
         }
         Function::Now => tf(BaseType::DateTime.into(), &[], &[BaseType::Integer]),
-        Function::CurDate => tf(BaseType::Date.into(), &[], &[]),
+        Function::CurDate | Function::UtcDate => tf(BaseType::Date.into(), &[], &[]),
+        Function::CurTime | Function::UtcTime => tf(BaseType::Time.into(), &[], &[]),
+        Function::UtcTimeStamp => tf(BaseType::DateTime.into(), &[], &[]),
         Function::CurrentTimestamp => tf(BaseType::TimeStamp.into(), &[], &[BaseType::Integer]),
         Function::Concat => {
             let typed = typed_args(typer, args, flags);
@@ -465,6 +467,234 @@ pub(crate) fn type_function<'a, 'b>(
                 not_null = not_null && t.not_null;
                 typer.ensure_base(*e, t, BaseType::String);
             }
+            FullType::new(BaseType::DateTime, not_null)
+        }
+        Function::AddMonths => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let mut not_null = true;
+            if let Some((e, t)) = typed.last() {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            if let Some((e, t)) = typed.first() {
+                not_null = not_null && t.not_null;
+                let t = typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
+                FullType::new(t, not_null)
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::AddDate | Function::DateSub => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.last()
+                && t.base() != BaseType::Integer {
+                    typer.ensure_base(*e, t, BaseType::TimeInterval);
+                }
+            if let Some((e, t)) = typed.first() {
+                let t = typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
+                FullType::new(t, false)
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::AddTime | Function::SubTime => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let mut not_null = true;
+            if let Some((e, t)) = typed.last() {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::Time);
+            }
+            if let Some((e, t)) = typed.first() {
+                not_null = not_null && t.not_null;
+                let t = typer.ensure_datetime(*e, t, Restrict::Allow, Restrict::Require);
+                FullType::new(t, not_null)
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::ConvertTz => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..3, args, span);
+            let mut not_null = true;
+            if let Some((e, t)) = typed.get(1) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.get(2) {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.first() {
+                not_null = not_null && t.not_null;
+                let t = typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Require);
+                FullType::new(t, not_null)
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Date | Function::LastDay => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = if let Some((e, t)) = typed.first() {
+                typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
+                t.not_null
+            } else {
+                true
+            };
+            FullType::new(BaseType::Date, not_null)
+        }
+        Function::Time => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = if let Some((e, t)) = typed.first() {
+                typer.ensure_datetime(*e, t, Restrict::Allow, Restrict::Require);
+                t.not_null
+            } else {
+                true
+            };
+            FullType::new(BaseType::Time, not_null)
+        }
+        Function::DateDiff => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let mut not_null = true;
+            if let Some((e, t)) = typed.last() {
+                not_null = not_null && t.not_null;
+                typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
+            }
+            if let Some((e, t)) = typed.first() {
+                not_null = not_null && t.not_null;
+                typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
+            }
+            FullType::new(BaseType::Integer, not_null)
+        }
+        Function::DayName | Function::MonthName => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = if let Some((e, t)) = typed.first() {
+                typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
+                t.not_null
+            } else {
+                true
+            };
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::DayOfMonth
+        | Function::DayOfWeek
+        | Function::DayOfYear
+        | Function::Month
+        | Function::Quarter
+        | Function::ToDays
+        | Function::ToSeconds
+        | Function::Year
+        | Function::Weekday => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = if let Some((e, t)) = typed.first() {
+                typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
+                t.not_null
+            } else {
+                true
+            };
+            FullType::new(BaseType::Integer, not_null)
+        }
+        Function::Week | Function::YearWeek => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let not_null = if let Some((e, t)) = typed.first() {
+                typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
+                t.not_null
+            } else {
+                true
+            };
+            if let Some((e, t)) = typed.get(2) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            };
+            FullType::new(BaseType::Integer, not_null)
+        }
+        Function::Hour | Function::MicroSecond | Function::Minute | Function::Second => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = if let Some((e, t)) = typed.first() {
+                typer.ensure_datetime(*e, t, Restrict::Allow, Restrict::Require);
+                t.not_null
+            } else {
+                true
+            };
+            FullType::new(BaseType::Integer, not_null)
+        }
+        Function::FromDays => tf(BaseType::Date.into(), &[BaseType::Integer], &[]),
+        Function::SecToTime => tf(BaseType::Time.into(), &[BaseType::Integer], &[]),
+        Function::MakeDate => FullType::new(
+            tf(
+                BaseType::Date.into(),
+                &[BaseType::Integer, BaseType::Integer],
+                &[],
+            )
+            .t,
+            false,
+        ),
+        Function::MakeTime => FullType::new(
+            tf(
+                BaseType::Time.into(),
+                &[BaseType::Integer, BaseType::Integer, BaseType::Integer],
+                &[],
+            )
+            .t,
+            false,
+        ),
+        Function::PeriodAdd | Function::PeriodDiff => tf(
+            BaseType::Integer.into(),
+            &[BaseType::Integer, BaseType::Integer],
+            &[],
+        ),
+        Function::StrToDate => tf(
+            BaseType::DateTime.into(),
+            &[BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::SysDate => tf(BaseType::DateTime.into(), &[], &[]),
+        Function::TimeFormat => tf(
+            BaseType::String.into(),
+            &[BaseType::Time, BaseType::String],
+            &[],
+        ),
+        Function::TimeToSec => tf(BaseType::Float.into(), &[BaseType::Time], &[]),
+        Function::TimeDiff => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let not_null = if let Some((e, t)) = typed.first() {
+                typer.ensure_datetime(*e, t, Restrict::Allow, Restrict::Require);
+                t.not_null
+            } else {
+                true
+            };
+            let not_null = if let Some((e, t)) = typed.last() {
+                typer.ensure_datetime(*e, t, Restrict::Allow, Restrict::Require);
+                t.not_null & not_null
+            } else {
+                not_null
+            };
+            FullType::new(BaseType::Time, not_null)
+        }
+        Function::Timestamp => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let not_null = if let Some((e, t)) = typed.first() {
+                typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
+                t.not_null
+            } else {
+                true
+            };
+            let not_null = if let Some((e, t)) = typed.get(2) {
+                typer.ensure_datetime(*e, t, Restrict::Disallow, Restrict::Require);
+                t.not_null & not_null
+            } else {
+                not_null
+            };
             FullType::new(BaseType::DateTime, not_null)
         }
         _ => {

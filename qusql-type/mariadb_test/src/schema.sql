@@ -1,0 +1,32 @@
+DROP TABLE IF EXISTS `tt`;
+
+CREATE TABLE `tt` (
+    `u8` TINYINT UNSIGNED,
+    `u8nn` TINYINT UNSIGNED NOT NULL,
+    `u16` SMALLINT UNSIGNED,
+    `u16nn` SMALLINT UNSIGNED NOT NULL,
+    `u32` INT UNSIGNED,
+    `u32nn` INT UNSIGNED NOT NULL,
+    `u64` BIGINT UNSIGNED,
+    `u64nn` BIGINT UNSIGNED NOT NULL,
+    `i8` TINYINT,
+    `i8nn` TINYINT NOT NULL,
+    `i16` SMALLINT,
+    `i16nn` SMALLINT NOT NULL,
+    `i32` INT,
+    `i32nn` INT NOT NULL,
+    `i64` BIGINT,
+    `i64nn` BIGINT NOT NULL,
+    `f32` FLOAT,
+    `f32nn` FLOAT NOT NULL,
+    `f64` REAL,
+    `f64nn` REAL NOT NULL,
+    `date` DATE,
+    `date_nn` DATE NOT NULL,
+    `time` time,
+    `time_nn` time NOT NULL,
+    `datetime` datetime,
+    `datetime_nn` datetime NOT NULL,
+    `timestamp` timestamp,
+    `timestamp_nn` timestamp NOT NULL
+);
