@@ -129,7 +129,7 @@ pub(crate) fn type_insert_replace<'a>(
                     )
                     .frag(
                         format!("Expected {}", columns.len()),
-                        &columns.opt_span().unwrap(),
+                        &columns.opt_span().unwrap_or(table.span()),
                     );
             }
         }
