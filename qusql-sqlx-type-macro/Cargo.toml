@@ -2,7 +2,7 @@
 name = "sqlx-type-macro"
 version = "0.4.14"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
-edition = "2024"
+edition = "2021"
 license = "Apache-2.0"
 keywords = [ "mysql", "posgresql", "sqlx", "procmacro" ]
 repository = "https://github.com/antialize/sqlx-type/"
