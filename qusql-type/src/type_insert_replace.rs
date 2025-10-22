@@ -87,7 +87,7 @@ pub(crate) fn type_insert_replace<'a>(
                         "No value for column {} provided, but it has no default value",
                         &col.identifier
                     ),
-                    &columns.opt_span().unwrap(),
+                    &columns.opt_span().unwrap_or(table.span()),
                 );
             }
         }
