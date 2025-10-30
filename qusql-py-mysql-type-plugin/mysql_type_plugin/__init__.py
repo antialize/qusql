@@ -150,6 +150,13 @@ def get_argument_types(
 
 
 class CustomPlugin(Plugin):
+    def make_typed_dict(self, api: Any, ntp: Any) -> Any:
+        return TypedDictType(
+            OrderedDict(ntp),
+            set([n for (n,_) in ntp]),
+            api.named_generic_type("dict", [])
+        )
+
     def get_function_signature_hook(
         self, fullname: str
     ) -> Optional[Callable[[FunctionSigContext], CallableType]]:
@@ -234,11 +241,7 @@ class CustomPlugin(Plugin):
                         if dc:
                             return Instance(
                                 sr.node, # type: ignore
-                                [TypedDictType(
-                                    OrderedDict(ntp),
-                                    set([n for (n,_) in ntp]),
-                                    api.named_generic_type("dict", [])
-                                )]
+                                [self.make_typed_dict(api, ntp)]
                             )
                         else:
                             ts = [t for (_,t) in ntp]
@@ -320,7 +323,20 @@ class CustomPlugin(Plugin):
 
         return execute_hook
 
+class CustomPluginNew(CustomPlugin):
+    def make_typed_dict(self, api: Any, ntp: Any) -> Any:
+        return TypedDictType(
+            OrderedDict(ntp),
+            set([n for (n,_) in ntp]),
+            set(),
+            api.named_generic_type("dict", [])
+        )
 
 def plugin(version: str):
     # ignore version argument if the plugin works with all mypy versions.
-    return CustomPlugin
+    (major_s, minor_s, patch_s) = version.split(".")
+    v = int(major_s) * 1000 + int(minor_s)
+    if v >= 1015:
+        return CustomPluginNew
+    else:
+        return CustomPlugin
