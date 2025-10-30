@@ -160,9 +160,12 @@ class CustomPlugin(Plugin):
     def get_function_signature_hook(
         self, fullname: str
     ) -> Optional[Callable[[FunctionSigContext], CallableType]]:
-        if fullname == "mysql_type.execute":
+        if fullname in (
+            "mysql_type.execute",
+            "aiomysql_type.execute"):
             many = False
-        elif fullname == "mysql_type.execute_many":
+        elif fullname in ("mysql_type.executemany",
+            "aiomysql_type.executemany"):
             many = True
         else:
             return None
@@ -203,25 +206,32 @@ class CustomPlugin(Plugin):
     def get_function_hook(
         self, fullname: str
     ) -> Optional[Callable[[FunctionContext], Type]]:
-        if fullname == "mysql_type.execute":
-            many = False
-        elif fullname == "mysql_type.executemany":
-            many = True
+        if fullname in ("mysql_type.execute", "mysql_type.executemany"):
+            aio = False
+        elif fullname in ("aiomysql_type.execute", "aiomysql_type.executemany"):
+            aio = True
         else:
             return None
-
         def execute_hook(context: FunctionContext) -> Type:
             try:
                 api = context.api
                 ct = context.arg_types[0][0]
                 dc = False
                 try:
-                    if ct.type.has_base("MySQLdb.cursors.DictCursor"):
-                        dc = True
-                    elif ct.type.has_base("MySQLdb.cursors.Cursor"):
-                        pass
+                    if aio:
+                        if ct.type.has_base("aiomysql.cursors.DictCursor") or ct.type.has_base("aiomysql.DictCursor"):
+                            dc = True
+                        elif ct.type.has_base("aiomysql.cursors.Cursor") or ct.type.has_base("aiomysql.Cursor"):
+                            pass
+                        else:
+                            context.api.fail(f"Unknown cursor {ct}", context.context)
                     else:
-                        context.api.fail(f"Unknown cursor {ct}", context.context)
+                        if ct.type.has_base("MySQLdb.cursors.DictCursor"):
+                            dc = True
+                        elif ct.type.has_base("MySQLdb.cursors.Cursor"):
+                            pass
+                        else:
+                            context.api.fail(f"Unknown cursor {ct}", context.context)
                 except AttributeError:
                     context.api.fail(f"Unknown cursor {ct}", context.context)
 
@@ -232,40 +242,52 @@ class CustomPlugin(Plugin):
                 if stmt is None:
                     return context.default_return_type
 
+                pkg = "aiomysql_type" if aio else "mysql_type"
+                nrt = NoneType()
                 if isinstance(stmt, rs.Select):
                     ntp: List[Tuple[str, Type]] = []
                     for (name, type_, not_null) in stmt.columns:
                         t = map_type(type_, not_null, api, context.context)
                         ntp.append((name, t))
-                    if sr := self.lookup_fully_qualified("mysql_type.SelectResult"):
+                    if sr := self.lookup_fully_qualified(f"{pkg}.SelectResult"):
                         if dc:
-                            return Instance(
+                            nrt = Instance(
                                 sr.node, # type: ignore
                                 [self.make_typed_dict(api, ntp)]
                             )
                         else:
                             ts = [t for (_,t) in ntp]
-                            return Instance(
+                            nrt = Instance(
                                 sr.node, # type: ignore
                                 [TupleType(ts, api.named_generic_type("tuple", ts))],
                             )
                     else:
-                        context.api.fail(f"Could not find mysql_type.SelectResult", ct)
-
+                        context.api.fail(f"Could not find {pkg}.SelectResult", ct)
                 elif isinstance(stmt, rs.Insert):
                     if stmt.yield_autoincrement == "yes":
                         if ir := self.lookup_fully_qualified(
-                            "mysql_type.InsertWithLastRowIdResult"
+                            f"{pkg}.InsertWithLastRowIdResult"
                         ):
-                            return Instance(ir.node, [])  # type: ignore
+                            nrt = Instance(ir.node, [])  # type: ignore
                     elif stmt.yield_autoincrement == "maybe":
                         if ir := self.lookup_fully_qualified(
-                            "mysql_type.InsertWithOptLastRowIdResult"
+                            f"{pkg}.InsertWithOptLastRowIdResult"
                         ):
-                            return Instance(ir.node, [])  # type: ignore
-                if other := self.lookup_fully_qualified("mysql_type.OtherResult"):
-                    return Instance(other.node, [])  # type: ignore
-                return NoneType()
+                            nrt = Instance(ir.node, [])  # type: ignore
+                    else:
+                        if other := self.lookup_fully_qualified(f"{pkg}.OtherResult"):
+                            nrt = Instance(other.node, [])  # type: ignore
+                        else:
+                            context.api.fail(f"Could not find {pkg}.OtherResult", ct)
+                else:
+                    if other := self.lookup_fully_qualified(f"{pkg}.OtherResult"):
+                        nrt = Instance(other.node, [])  # type: ignore
+                    else:
+                        context.api.fail(f"Could not find {pkg}.OtherResult", ct)
+                if aio:
+                    return api.named_generic_type("typing.Awaitable", [nrt])
+                else:
+                    return nrt
             except Exception as e:
                 context.api.fail(f"ICE: {e}", context.context)
                 return context.default_return_type
@@ -277,11 +299,15 @@ class CustomPlugin(Plugin):
         if fullname in (
             "MySQLdb.cursors.Cursor.execute",
             "MySQLdb.cursors.DictCursor.execute",
+            "aiomysql.cursors.Cursor.execute",
+            "aiomysql.cursors.DictCursor.execute",
         ):
             many = False
         elif fullname in (
             "MySQLdb.cursors.Cursor.executemany",
             "MySQLdb.cursors.DictCursor.executemany",
+            "aiomysql.cursors.Cursor.executemany",
+            "aiomysql.cursors.DictCursor.executemany",
         ):
             many = True
         else:
@@ -308,7 +334,7 @@ class CustomPlugin(Plugin):
                 ts = get_argument_types(stmt, context.api, context.context)
                 if many:
                     ans.arg_types[1] = context.api.named_generic_type(
-                        "list", [TupleType(ts, context.api.named_generic_type("tuple", ts))]
+                        "typing.Sequence", [TupleType(ts, context.api.named_generic_type("tuple", ts))]
                     )
                 else:
                     ans.arg_types[1] = TupleType(
