@@ -192,10 +192,17 @@ class CustomPlugin(Plugin):
                 )
 
                 at = get_argument_types(stmt, context.api, context.context)
-                for i, t in enumerate(at):
-                    ans.arg_types.append(t)
-                    ans.arg_names.append(f"a{i}")
+                if many:
+                    ans.arg_types.append(context.api.named_generic_type("typing.Sequence", [
+                        TupleType(at, context.api.named_generic_type("tuple", at))
+                    ])),
+                    ans.arg_names.append(f"args")
                     ans.arg_kinds.append(ARG_POS)
+                else:
+                    for i, t in enumerate(at):
+                        ans.arg_types.append(t)
+                        ans.arg_names.append(f"a{i}")
+                        ans.arg_kinds.append(ARG_POS)
                 return ans
             except Exception as e:
                 context.api.fail(f"ICE: {e}", context.context)
