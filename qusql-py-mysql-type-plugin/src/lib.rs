@@ -1,18 +1,19 @@
 use std::collections::HashMap;
 
 use ariadne::{Label, Report, ReportKind, Source};
-use ouroboros::self_referencing;
 use pyo3::{prelude::*, IntoPyObjectExt};
 use sql_type::{Issue, Issues, SQLArguments, SQLDialect, TypeOptions};
+use yoke::{Yoke, Yokeable};
+
+#[derive(Yokeable)]
+struct SchemasAndIssues<'a> {
+    schema: sql_type::schema::Schemas<'a>,
+    issues: Issues<'a>
+}
 
 #[pyclass]
-#[self_referencing]
-struct Schemas {
-    src: std::string::String,
-    #[borrows(src)]
-    #[covariant]
-    schemas_and_issues: (sql_type::schema::Schemas<'this>, Issues<'this>),
-}
+struct Schemas(Yoke<SchemasAndIssues<'static>, std::string::String>);
+
 
 fn issue_to_report(issue: &Issue) -> Report<'static, std::ops::Range<usize>> {
     let mut builder = Report::build(
@@ -66,25 +67,24 @@ fn issues_to_string(name: &str, source: &str, issues: &[Issue]) -> (bool, std::s
 
 #[pyfunction]
 fn parse_schemas(name: &str, src: std::string::String) -> (Schemas, bool, std::string::String) {
-    let schemas = SchemasBuilder {
-        src,
-        schemas_and_issues_builder: |src: &std::string::String| {
-            let mut issues = Issues::new(src);
-            let v = sql_type::schema::parse_schemas(
-                src,
-                &mut issues,
-                &TypeOptions::new().dialect(SQLDialect::MariaDB),
-            );
-            (v, issues)
-        },
-    }
-    .build();
+    let schemas = Yoke::<SchemasAndIssues<'static>, std::string::String>::attach_to_cart(src, |src: &str| {
+        let mut issues = Issues::new(src);
+        let schema = sql_type::schema::parse_schemas(
+            src,
+            &mut issues,
+            &TypeOptions::new().dialect(SQLDialect::MariaDB),
+        );
+        SchemasAndIssues{
+            schema, issues
+        }
+    });
+
     let (err, messages) = issues_to_string(
         name,
-        schemas.borrow_src(),
-        schemas.borrow_schemas_and_issues().1.get(),
+        schemas.backing_cart(),
+        &schemas.get().issues.issues,
     );
-    (schemas, err, messages)
+    (Schemas(schemas), err, messages)
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -299,7 +299,7 @@ fn type_statement(
     }
 
     let stmt = sql_type::type_statement(
-        &schemas.borrow_schemas_and_issues().0,
+        &schemas.0.get().schema,
         statement,
         &mut issues,
         &options,
