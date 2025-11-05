@@ -50,7 +50,7 @@ dependencies = [
 
 [[package]]
 name = "mysql-type-plugin"
-version = "0.1.30"
+version = "0.1.31"
 dependencies = [
  "ariadne",
  "pyo3",
