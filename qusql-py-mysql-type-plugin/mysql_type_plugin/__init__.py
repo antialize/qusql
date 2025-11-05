@@ -18,7 +18,7 @@ from mypy.types import (
     is_named_instance,
     Instance,
     TypedDictType,
-    ARG_POS
+    ARG_POS,
 )
 from mypy.nodes import StrExpr, OpExpr, Expression, Context
 from mypy.errorcodes import ErrorCode
@@ -38,9 +38,7 @@ def get_str_value(e: Expression) -> Optional[str]:
     return None
 
 
-DYNAMIC_SQL = ErrorCode(
-    "dynamic-sql", "Query not of string literal", "SQL"
-)  # type: Final
+DYNAMIC_SQL = ErrorCode("dynamic-sql", "Query not of string literal", "SQL")  # type: Final
 
 USE_DB_EXECUTE = ErrorCode("use-db-execute", "Use db_execute", "SQL")  # type: Final
 
@@ -87,7 +85,11 @@ def get_sql(
 
 
 def type_statement(
-    sql: str, api: CheckerPluginInterface, context: Context, dict_cursor:bool, quiet: bool = False
+    sql: str,
+    api: CheckerPluginInterface,
+    context: Context,
+    dict_cursor: bool,
+    quiet: bool = False,
 ) -> Optional[Any]:
     schemas = get_schemas(api, context)
     if schemas is None:
@@ -109,7 +111,10 @@ def type_statement(
             note(message, context)
     return stmt
 
-def map_type(v: Any, not_null: bool, api: CheckerPluginInterface, context: Context) -> Type:
+
+def map_type(
+    v: Any, not_null: bool, api: CheckerPluginInterface, context: Context
+) -> Type:
     t: Type = AnyType(TypeOfAny.special_form)
     if isinstance(v, rs.Integer):
         t = api.named_generic_type("int", [])
@@ -135,6 +140,7 @@ def map_type(v: Any, not_null: bool, api: CheckerPluginInterface, context: Conte
         t = UnionType((t, NoneType()))
     return t
 
+
 def get_argument_types(
     stmt: Any, api: CheckerPluginInterface, context: Context
 ) -> List[Type]:
@@ -153,8 +159,8 @@ class CustomPlugin(Plugin):
     def make_typed_dict(self, api: Any, ntp: Any) -> Any:
         return TypedDictType(
             OrderedDict(ntp),
-            set([n for (n,_) in ntp]),
-            api.named_generic_type("dict", [])
+            set([n for (n, _) in ntp]),
+            api.named_generic_type("dict", []),
         )
 
     def get_function_signature_hook(
@@ -162,10 +168,12 @@ class CustomPlugin(Plugin):
     ) -> Optional[Callable[[FunctionSigContext], CallableType]]:
         if fullname in (
             "mysql_type.execute",
-            "aiomysql_type.execute"):
+            "aiomysql_type.execute",
+            "aiomysql_type.fetchone",
+            "aiomysql_type.fetchall",
+        ):
             many = False
-        elif fullname in ("mysql_type.executemany",
-            "aiomysql_type.executemany"):
+        elif fullname in ("mysql_type.executemany", "aiomysql_type.executemany"):
             many = True
         else:
             return None
@@ -176,7 +184,9 @@ class CustomPlugin(Plugin):
                 if sql is None:
                     return context.default_signature
 
-                stmt = type_statement(sql, context.api, context.context, dict_cursor=False, quiet=True)
+                stmt = type_statement(
+                    sql, context.api, context.context, dict_cursor=False, quiet=True
+                )
                 if stmt is None:
                     return context.default_signature
                 ans = CallableType(
@@ -193,9 +203,18 @@ class CustomPlugin(Plugin):
 
                 at = get_argument_types(stmt, context.api, context.context)
                 if many:
-                    ans.arg_types.append(context.api.named_generic_type("typing.Sequence", [
-                        TupleType(at, context.api.named_generic_type("tuple", at))
-                    ])),
+                    (
+                        ans.arg_types.append(
+                            context.api.named_generic_type(
+                                "typing.Sequence",
+                                [
+                                    TupleType(
+                                        at, context.api.named_generic_type("tuple", at)
+                                    )
+                                ],
+                            )
+                        ),
+                    )
                     ans.arg_names.append(f"args")
                     ans.arg_kinds.append(ARG_POS)
                 else:
@@ -213,12 +232,20 @@ class CustomPlugin(Plugin):
     def get_function_hook(
         self, fullname: str
     ) -> Optional[Callable[[FunctionContext], Type]]:
+        method = "execute"
         if fullname in ("mysql_type.execute", "mysql_type.executemany"):
             aio = False
         elif fullname in ("aiomysql_type.execute", "aiomysql_type.executemany"):
             aio = True
+        elif fullname == "aiomysql_type.fetchone":
+            aio = True
+            method = "fetchone"
+        elif fullname == "aiomysql_type.fetchall":
+            aio = True
+            method = "fetchall"
         else:
             return None
+
         def execute_hook(context: FunctionContext) -> Type:
             try:
                 api = context.api
@@ -226,9 +253,13 @@ class CustomPlugin(Plugin):
                 dc = False
                 try:
                     if aio:
-                        if ct.type.has_base("aiomysql.cursors.DictCursor") or ct.type.has_base("aiomysql.DictCursor"):
+                        if ct.type.has_base(
+                            "aiomysql.cursors.DictCursor"
+                        ) or ct.type.has_base("aiomysql.DictCursor"):
                             dc = True
-                        elif ct.type.has_base("aiomysql.cursors.Cursor") or ct.type.has_base("aiomysql.Cursor"):
+                        elif ct.type.has_base(
+                            "aiomysql.cursors.Cursor"
+                        ) or ct.type.has_base("aiomysql.Cursor"):
                             pass
                         else:
                             context.api.fail(f"Unknown cursor {ct}", context.context)
@@ -245,52 +276,88 @@ class CustomPlugin(Plugin):
                 sql = get_sql(1, context.args, api, quiet=False)
                 if sql is None:
                     return context.default_return_type
-                stmt = type_statement(sql, api, context.context, dict_cursor=dc,quiet=False)
+                stmt = type_statement(
+                    sql, api, context.context, dict_cursor=dc, quiet=False
+                )
                 if stmt is None:
                     return context.default_return_type
 
                 pkg = "aiomysql_type" if aio else "mysql_type"
                 nrt = NoneType()
-                if isinstance(stmt, rs.Select):
-                    ntp: List[Tuple[str, Type]] = []
-                    for (name, type_, not_null) in stmt.columns:
-                        t = map_type(type_, not_null, api, context.context)
-                        ntp.append((name, t))
-                    if sr := self.lookup_fully_qualified(f"{pkg}.SelectResult"):
+                if method in ("fetchall", "fetchone"):
+                    if isinstance(stmt, rs.Select):
+                        ntp: List[Tuple[str, Type]] = []
+                        for name, type_, not_null in stmt.columns:
+                            t = map_type(type_, not_null, api, context.context)
+                            ntp.append((name, t))
                         if dc:
-                            nrt = Instance(
-                                sr.node, # type: ignore
-                                [self.make_typed_dict(api, ntp)]
-                            )
+                            nrt = self.make_typed_dict(api, ntp)
                         else:
-                            ts = [t for (_,t) in ntp]
-                            nrt = Instance(
-                                sr.node, # type: ignore
-                                [TupleType(ts, api.named_generic_type("tuple", ts))],
-                            )
+                            ts = [t for (_, t) in ntp]
+                            nrt = TupleType(ts, api.named_generic_type("tuple", ts))
+                        if method == "fetchall":
+                            nrt = api.named_generic_type("list", [nrt])
+                        else:
+                            nrt = UnionType((nrt, NoneType()))
                     else:
-                        context.api.fail(f"Could not find {pkg}.SelectResult", ct)
-                elif isinstance(stmt, rs.Insert):
-                    if stmt.yield_autoincrement == "yes":
-                        if ir := self.lookup_fully_qualified(
-                            f"{pkg}.InsertWithLastRowIdResult"
-                        ):
-                            nrt = Instance(ir.node, [])  # type: ignore
-                    elif stmt.yield_autoincrement == "maybe":
-                        if ir := self.lookup_fully_qualified(
-                            f"{pkg}.InsertWithOptLastRowIdResult"
-                        ):
-                            nrt = Instance(ir.node, [])  # type: ignore
+                        context.api.fail(
+                            f"fetchall and fetchone only works for SELECT",
+                            context.context,
+                        )
+                        return context.default_return_type
+                elif method == "execute":
+                    if isinstance(stmt, rs.Select):
+                        ntp: List[Tuple[str, Type]] = []
+                        for name, type_, not_null in stmt.columns:
+                            t = map_type(type_, not_null, api, context.context)
+                            ntp.append((name, t))
+                        if sr := self.lookup_fully_qualified(f"{pkg}.SelectResult"):
+                            if dc:
+                                nrt = Instance(
+                                    sr.node,  # type: ignore
+                                    [self.make_typed_dict(api, ntp)],
+                                )
+                            else:
+                                ts = [t for (_, t) in ntp]
+                                nrt = Instance(
+                                    sr.node,  # type: ignore
+                                    [
+                                        TupleType(
+                                            ts, api.named_generic_type("tuple", ts)
+                                        )
+                                    ],
+                                )
+                        else:
+                            context.api.fail(f"Could not find {pkg}.SelectResult", ct)
+                    elif isinstance(stmt, rs.Insert):
+                        if stmt.yield_autoincrement == "yes":
+                            if ir := self.lookup_fully_qualified(
+                                f"{pkg}.InsertWithLastRowIdResult"
+                            ):
+                                nrt = Instance(ir.node, [])  # type: ignore
+                        elif stmt.yield_autoincrement == "maybe":
+                            if ir := self.lookup_fully_qualified(
+                                f"{pkg}.InsertWithOptLastRowIdResult"
+                            ):
+                                nrt = Instance(ir.node, [])  # type: ignore
+                        else:
+                            if other := self.lookup_fully_qualified(
+                                f"{pkg}.OtherResult"
+                            ):
+                                nrt = Instance(other.node, [])  # type: ignore
+                            else:
+                                context.api.fail(
+                                    f"Could not find {pkg}.OtherResult", ct
+                                )
                     else:
                         if other := self.lookup_fully_qualified(f"{pkg}.OtherResult"):
                             nrt = Instance(other.node, [])  # type: ignore
                         else:
                             context.api.fail(f"Could not find {pkg}.OtherResult", ct)
                 else:
-                    if other := self.lookup_fully_qualified(f"{pkg}.OtherResult"):
-                        nrt = Instance(other.node, [])  # type: ignore
-                    else:
-                        context.api.fail(f"Could not find {pkg}.OtherResult", ct)
+                    context.api.fail(f"ICE: Unknown method {method}", context.context)
+                    return context.default_return_type
+
                 if aio:
                     return api.named_generic_type("typing.Awaitable", [nrt])
                 else:
@@ -298,6 +365,7 @@ class CustomPlugin(Plugin):
             except Exception as e:
                 context.api.fail(f"ICE: {e}", context.context)
                 return context.default_return_type
+
         return execute_hook
 
     def get_method_signature_hook(
@@ -341,7 +409,8 @@ class CustomPlugin(Plugin):
                 ts = get_argument_types(stmt, context.api, context.context)
                 if many:
                     ans.arg_types[1] = context.api.named_generic_type(
-                        "typing.Sequence", [TupleType(ts, context.api.named_generic_type("tuple", ts))]
+                        "typing.Sequence",
+                        [TupleType(ts, context.api.named_generic_type("tuple", ts))],
                     )
                 else:
                     ans.arg_types[1] = TupleType(
@@ -350,20 +419,22 @@ class CustomPlugin(Plugin):
                 if note := getattr(context.api, "note"):
                     note("Use db_execute instead", context.context, code=USE_DB_EXECUTE)
             except Exception as e:
-                context.api.fail(f"ICE: {e}", context.context)
+                context.api.fail(f"ICE 4: {e}", context.context)
                 return context.default_signature
             return ans
 
         return execute_hook
 
+
 class CustomPluginNew(CustomPlugin):
     def make_typed_dict(self, api: Any, ntp: Any) -> Any:
         return TypedDictType(
             OrderedDict(ntp),
-            set([n for (n,_) in ntp]),
+            set([n for (n, _) in ntp]),
             set(),
-            api.named_generic_type("dict", [])
+            api.named_generic_type("dict", []),
         )
+
 
 def plugin(version: str):
     # ignore version argument if the plugin works with all mypy versions.
