@@ -1,0 +1,17 @@
+[package]
+name = "qusql-mysql"
+version = "0.1.0"
+edition = "2024"
+
+[lints.rust]
+missing_docs = "deny"
+
+[lints.clippy]
+missing_safety_doc = "deny"
+unnecessary_safety_comment = "deny"
+unnecessary_safety_doc = "deny"
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "deny"
+missing_docs_in_private_items = "deny"
+
+[dependencies]
