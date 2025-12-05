@@ -11,19 +11,20 @@ use std::{
 };
 
 use qusql_mysql::{
-    connection::{Connection, ConnectionErrorContent, ConnectionOptions, ExecutorExt},
+    connection::{Connection, ConnectionErrorContent, ConnectionOptions, Executor, ExecutorExt},
     plain_types::{Bit, Date, DateTime, Decimal, Json, Time, Timestamp, Year},
+    pool::{Pool, PoolOptions},
 };
 
 const ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 1235);
-const OPTS: ConnectionOptions = ConnectionOptions {
+const OPTS: ConnectionOptions<'static> = ConnectionOptions {
     address: ADDR,
     user: Cow::Borrowed("root"),
     password: Cow::Borrowed("test"),
     database: Cow::Borrowed("test"),
 };
 
-struct Error(Box<dyn std::error::Error>);
+struct Error(Box<dyn std::error::Error + Send>);
 
 impl Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -31,7 +32,7 @@ impl Debug for Error {
     }
 }
 
-impl<E: std::error::Error + 'static> From<E> for Error {
+impl<E: std::error::Error + 'static + Send> From<E> for Error {
     fn from(value: E) -> Self {
         Error(Box::new(value))
     }
@@ -641,6 +642,149 @@ async fn drop_cancel_transaction() -> Result<(), Error> {
     conn.cleanup().await?;
     let (cnt,): (i64,) = conn.fetch_one("SELECT COUNT(*) FROM db_test4", ()).await?;
     assert_eq!(cnt, 3);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn pool() -> Result<(), Error> {
+    let pool = tokio::time::timeout(
+        Duration::from_secs(2),
+        Pool::connect(
+            OPTS,
+            PoolOptions {
+                max_connections: 2,
+                ..Default::default()
+            },
+        ),
+    )
+    .await??;
+
+    {
+        let mut conn = pool.acquire().await?;
+
+        let mut tr = conn.begin().await?;
+        tr.execute("DROP TABLE IF EXISTS db_test5", ()).await?;
+        tr.execute(
+            "CREATE TABLE db_test5 (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            v INT NOT NULL,
+            t TEXT NOT NULL,
+            PRIMARY KEY (id)
+            )",
+            (),
+        )
+        .await?;
+        tr.commit().await?;
+    }
+
+    async fn insert_task(pool: Pool, i: i32) -> Result<(), Error> {
+        let mut conn = pool.acquire().await?;
+        let mut tr = conn.begin().await?;
+        tr.execute("INSERT INTO db_test5 (v,t) VALUES (?, ?)", (i, "hi"))
+            .await?;
+        tr.commit().await?;
+        Ok(())
+    }
+
+    let mut tasks = Vec::new();
+    for i in 0..20 {
+        tasks.push(tokio::task::spawn(insert_task(pool.clone(), i)));
+    }
+
+    for task in tasks {
+        task.await??;
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn pool_drop() -> Result<(), Error> {
+    let pool = tokio::time::timeout(
+        Duration::from_secs(2),
+        Pool::connect(
+            OPTS,
+            PoolOptions {
+                max_connections: 2,
+                ..Default::default()
+            },
+        ),
+    )
+    .await??;
+
+    {
+        let mut conn = pool.acquire().await?;
+
+        let mut tr = conn.begin().await?;
+        tr.execute("DROP TABLE IF EXISTS db_test6", ()).await?;
+        tr.execute(
+            "CREATE TABLE db_test6 (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            v INT NOT NULL,
+            t TEXT NOT NULL,
+            PRIMARY KEY (id)
+            )",
+            (),
+        )
+        .await?;
+        tr.commit().await?;
+    }
+
+    async fn test_task(pool: Pool, c: usize) -> Result<(), Error> {
+        let mut conn = pool.acquire().await?;
+
+        conn.set_cancel_count(None);
+        conn.cleanup().await?;
+
+        let (cnt,): (i64,) = conn.fetch_one("SELECT COUNT(*) FROM db_test6", ()).await?;
+        assert_eq!(cnt, 0);
+
+        // Tests are repeated due to caching of prepared queries
+        conn.set_cancel_count(Some(c / 3));
+
+        let mut tr = match conn.begin().await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => {
+                return Ok(());
+            }
+            Ok(tr) => tr,
+            Err(e) => return Err(e.into()),
+        };
+
+        match tr
+            .execute("INSERT INTO db_test6 (v, t) VALUES (?, ?)", (42, "hat"))
+            .await
+        {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => {
+                return Ok(());
+            }
+            Ok(_) => (),
+            Err(e) => return Err(e.into()),
+        }
+
+        match tr.commit().await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => {
+                return Ok(());
+            }
+            Ok(()) => (),
+            Err(e) => return Err(e.into()),
+        };
+
+        let _: Vec<(i64, i32, &str)> =
+            match conn.fetch_all("SELECT id, v, t FROM db_test6", ()).await {
+                Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => {
+                    return Ok(());
+                }
+                Ok(v) => v,
+                Err(e) => return Err(e.into()),
+            };
+
+        return Ok(());
+    }
+
+    let mut tasks = Vec::new();
+    for i in 0..40 {
+        tasks.push(tokio::task::spawn(test_task(pool.clone(), i)));
+    }
 
     Ok(())
 }
