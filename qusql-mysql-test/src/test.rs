@@ -452,3 +452,195 @@ async fn drop_cancel() -> Result<(), Error> {
     }
     Ok(())
 }
+
+#[tokio::test]
+async fn test_transaction() -> Result<(), Error> {
+    let mut conn =
+        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&OPTS)).await??;
+
+    let mut tr = conn.begin().await?;
+    tr.execute("DROP TABLE IF EXISTS db_test2", ()).await?;
+    tr.execute(
+        "CREATE TABLE db_test2 (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        v INT NOT NULL,
+        t TEXT NOT NULL,
+        PRIMARY KEY (id)
+        )",
+        (),
+    )
+    .await?;
+    tr.commit().await?;
+
+    let mut tr = conn.begin().await?;
+    tr.execute(
+        "INSERT INTO `db_test2` (v, t) VALUES (?, ?)",
+        (42u32, "hello"),
+    )
+    .await?;
+    tr.commit().await?;
+
+    let _: (i64, i32, &str) = conn.fetch_one("SELECT id, v, t FROM db_test2", ()).await?;
+
+    let mut tr = conn.begin().await?;
+    tr.execute("DELETE FROM `db_test2`", ()).await?;
+    tr.rollback().await?;
+
+    let _: (i64, i32, &str) = conn.fetch_one("SELECT id, v, t FROM db_test2", ()).await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn drop_cancel_transaction() -> Result<(), Error> {
+    let mut conn =
+        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&OPTS)).await??;
+
+    let mut tr = conn.begin().await?;
+    tr.execute("DROP TABLE IF EXISTS db_test4", ()).await?;
+    tr.execute(
+        "CREATE TABLE db_test4 (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        v INT NOT NULL,
+        t TEXT NOT NULL,
+        PRIMARY KEY (id)
+        )",
+        (),
+    )
+    .await?;
+    tr.commit().await?;
+
+    // Test dropping of a transaction at all event points
+    for c in 0.. {
+        conn.set_cancel_count(None);
+        conn.cleanup().await?;
+
+        let (cnt,): (i64,) = conn.fetch_one("SELECT COUNT(*) FROM db_test4", ()).await?;
+        assert_eq!(cnt, 0);
+
+        // Tests are repeated due to caching of prepared queries
+        conn.set_cancel_count(Some(c / 3));
+
+        let mut tr = match conn.begin().await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => {
+                continue;
+            }
+            Ok(tr) => tr,
+            Err(e) => return Err(e.into()),
+        };
+
+        match tr
+            .execute("INSERT INTO db_test4 (v, t) VALUES (?, ?)", (42, "hat"))
+            .await
+        {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => {
+                continue;
+            }
+            Ok(_) => (),
+            Err(e) => return Err(e.into()),
+        }
+
+        match tr.commit().await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => {
+                continue;
+            }
+            Ok(()) => (),
+            Err(e) => return Err(e.into()),
+        };
+
+        break;
+    }
+
+    conn.set_cancel_count(None);
+    conn.cleanup().await?;
+    let (cnt,): (i64,) = conn.fetch_one("SELECT COUNT(*) FROM db_test4", ()).await?;
+    assert_eq!(cnt, 1);
+
+    let mut commit_attempted = false;
+    for c in 0.. {
+        conn.set_cancel_count(None);
+        conn.cleanup().await?;
+
+        let (cnt,): (i64,) = conn.fetch_one("SELECT COUNT(*) FROM db_test4", ()).await?;
+        if cnt == 3 && commit_attempted {
+            break;
+        }
+        assert_eq!(cnt, 1);
+
+        // Tests are repeated due to caching of prepared queries
+        conn.set_cancel_count(Some(c / 3));
+
+        let mut tr = match conn.begin().await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => continue,
+            Ok(tr) => tr,
+            Err(e) => return Err(e.into()),
+        };
+
+        match tr
+            .execute("INSERT INTO db_test4 (v, t) VALUES (?, ?)", (55, "hat"))
+            .await
+        {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => continue,
+            Ok(_) => (),
+            Err(e) => return Err(e.into()),
+        }
+
+        let mut tr2 = match tr.begin().await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => continue,
+            Ok(tr) => tr,
+
+            Err(e) => return Err(e.into()),
+        };
+
+        match tr2
+            .execute("INSERT INTO db_test4 (v, t) VALUES (?, ?)", (43, "kat"))
+            .await
+        {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => continue,
+            Ok(_) => (),
+            Err(e) => return Err(e.into()),
+        }
+
+        match tr2.rollback().await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => continue,
+            Ok(_) => (),
+            Err(e) => return Err(e.into()),
+        };
+
+        let mut tr2 = match tr.begin().await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => continue,
+            Ok(tr) => tr,
+            Err(e) => return Err(e.into()),
+        };
+
+        match tr2
+            .execute("INSERT INTO db_test4 (v, t) VALUES (?, ?)", (66, "kat"))
+            .await
+        {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => continue,
+            Ok(_) => (),
+            Err(e) => return Err(e.into()),
+        }
+
+        match tr2.commit().await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => continue,
+            Ok(_) => (),
+            Err(e) => return Err(e.into()),
+        };
+
+        commit_attempted = true;
+        match tr.commit().await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => continue,
+            Ok(tr) => tr,
+            Err(e) => return Err(e.into()),
+        };
+        break;
+    }
+
+    conn.set_cancel_count(None);
+    conn.cleanup().await?;
+    let (cnt,): (i64,) = conn.fetch_one("SELECT COUNT(*) FROM db_test4", ()).await?;
+    assert_eq!(cnt, 3);
+
+    Ok(())
+}

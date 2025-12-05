@@ -3,6 +3,7 @@ use std::{
     borrow::Cow,
     collections::{HashMap, hash_map::Entry},
     fmt::Display,
+    mem::ManuallyDrop,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     ops::Range,
 };
@@ -418,6 +419,10 @@ enum ConnectionState {
     QueryReadColumns(u64),
     /// We are reading query rows
     QueryReadRows,
+    /// We are sending an unprepared statement
+    UnpreparedSend,
+    /// We are receiving the response of an unprepared statement
+    UnpreparedRecv,
     /// The connection is in a broken state and cannot be recovered
     Broken,
 }
@@ -479,6 +484,39 @@ fn handle_mysql_error(pp: &mut PackageParser) -> ConnectionResult<std::convert::
         message: msg.to_string(),
     }
     .into())
+}
+
+/// Compute string to begin transaction
+fn begin_transaction_query(depth: usize) -> Cow<'static, str> {
+    match depth {
+        0 => "BEGIN".into(),
+        1 => "SAVEPOINT _sqly_savepoint_1".into(),
+        2 => "SAVEPOINT _sqly_savepoint_2".into(),
+        3 => "SAVEPOINT _sqly_savepoint_3".into(),
+        v => format!("SAVEPOINT _sqly_savepoint_{}", v).into(),
+    }
+}
+
+/// Compute string to commit transaction
+fn commit_transaction_query(depth: usize) -> Cow<'static, str> {
+    match depth {
+        0 => "COMMIT".into(),
+        1 => "RELEASE SAVEPOINT _sqly_savepoint_1".into(),
+        2 => "RELEASE SAVEPOINT _sqly_savepoint_2".into(),
+        3 => "RELEASE SAVEPOINT _sqly_savepoint_3".into(),
+        v => format!("RELEASE SAVEPOINT _sqly_savepoint_{}", v).into(),
+    }
+}
+
+/// Compute string to rollback transaction
+fn rollback_transaction_query(depth: usize) -> Cow<'static, str> {
+    match depth {
+        0 => "ROLLBACK".into(),
+        1 => "ROLLBACK TO SAVEPOINT _sqly_savepoint_1".into(),
+        2 => "ROLLBACK TO SAVEPOINT _sqly_savepoint_2".into(),
+        3 => "ROLLBACK TO SAVEPOINT _sqly_savepoint_3".into(),
+        v => format!("RELEASE TO SAVEPOINT _sqly_savepoint_{}", v).into(),
+    }
 }
 
 impl RawConnection {
@@ -736,6 +774,34 @@ impl RawConnection {
                         }
                     }
                 }
+                ConnectionState::UnpreparedSend => {
+                    self.test_cancel()?;
+                    self.writer.send().await?;
+                    self.state = ConnectionState::QueryReadHead;
+                }
+                ConnectionState::UnpreparedRecv => {
+                    self.test_cancel()?;
+                    let package = self.reader.read().await?;
+                    let mut pp = PackageParser::new(package);
+                    match pp.get_u8().loc("first_byte")? {
+                        255 => {
+                            self.state = ConnectionState::Broken;
+                            handle_mysql_error(&mut pp)?;
+                            unreachable!()
+                        }
+                        0 => {
+                            self.state = ConnectionState::Clean;
+                            return Ok(());
+                        }
+                        v => {
+                            self.state = ConnectionState::Broken;
+                            return Err(ConnectionErrorContent::ProtocolError(format!(
+                                "Unexpected response type {v} to row package"
+                            ))
+                            .into());
+                        }
+                    }
+                }
                 ConnectionState::Broken => {
                     return Err(ConnectionErrorContent::ProtocolError(
                         "Previous protocol error reported".to_string(),
@@ -913,6 +979,53 @@ impl RawConnection {
         self.state = ConnectionState::QueryReadRows;
         Ok(QueryResult::WithColumns)
     }
+
+    /// Execute an unprepared statement
+    ///
+    /// This is not implemented as a async method since we need to guarantee
+    /// that the package has been composed correctly before the first await point
+    fn execute_unprepared(
+        &mut self,
+        escaped_sql: &str,
+    ) -> impl Future<Output = ConnectionResult<()>> + Send {
+        assert!(matches!(self.state, ConnectionState::Clean));
+        self.writer.seq = 0;
+        let mut p = self.writer.compose();
+        p.put_u8(com::QUERY);
+        p.put_bytes(escaped_sql.as_bytes());
+        p.finalize();
+
+        self.state = ConnectionState::UnpreparedSend;
+
+        async move {
+            self.test_cancel()?;
+            self.writer.send().await?;
+
+            self.state = ConnectionState::UnpreparedRecv;
+            self.test_cancel()?;
+            let package = self.reader.read().await?;
+            {
+                let mut pp = PackageParser::new(package);
+                match pp.get_u8().loc("first_byte")? {
+                    255 => {
+                        handle_mysql_error(&mut pp)?;
+                    }
+                    0 => {
+                        self.state = ConnectionState::Clean;
+                        return Ok(());
+                    }
+                    v => {
+                        self.state = ConnectionState::Broken;
+                        return Err(ConnectionErrorContent::ProtocolError(format!(
+                            "Unexpected response type {v} to row package"
+                        ))
+                        .into());
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
 }
 
 /// A connection to Mariadb/Mysql
@@ -923,6 +1036,10 @@ pub struct Connection {
     prepared_statements: HashMap<Cow<'static, str>, Statement>,
     /// Underlying raw connection
     raw: RawConnection,
+    /// The current transaction depth
+    transaction_depth: usize,
+    /// The number of transactions to drop after cleanup
+    cleanup_rollbacks: usize,
 }
 
 /// A query to Mariadb/Mysql
@@ -1149,7 +1266,63 @@ impl<'a> Query<'a> {
     }
 }
 
-/// Trait implemented by [Connection] and [Transaction] that facilitates executing queries
+/// Represents an ongoing transaction in the connection
+///
+/// Note: Since rust does not support async drops. Dropping
+/// a transaction object will not roll back the transaction
+/// immediately. This will instead be deferred to next time
+/// the connection is used.
+pub struct Transaction<'a> {
+    /// The underlying connection we have started a transaction on
+    connection: &'a mut Connection,
+}
+
+impl<'a> Transaction<'a> {
+    /// Commit this traction to the database
+    ///
+    /// If the returned future is dropped. The transaction will
+    /// be rolled back or committed the next time the underlying
+    /// connection is used
+    pub async fn commit(self) -> ConnectionResult<()> {
+        let mut this = ManuallyDrop::new(self);
+        this.connection.commit_impl().await?;
+        Ok(())
+    }
+
+    /// Commit this traction to the database
+    ///
+    /// If the returned future is dropped. The transaction will
+    /// be rolled back connection is used
+    pub async fn rollback(self) -> ConnectionResult<()> {
+        let mut this = ManuallyDrop::new(self);
+        this.connection.rollback_impl().await?;
+        Ok(())
+    }
+}
+
+impl<'a> Executor for Transaction<'a> {
+    #[inline]
+    fn query_raw(
+        &mut self,
+        stmt: Cow<'static, str>,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send {
+        self.connection.query_inner(stmt)
+    }
+
+    #[inline]
+    fn begin(&mut self) -> impl Future<Output = ConnectionResult<Transaction<'_>>> + Send {
+        self.connection.begin_impl()
+    }
+}
+
+impl<'a> Drop for Transaction<'a> {
+    fn drop(&mut self) {
+        // Register in connection to drop transaction in cleanup
+        self.connection.cleanup_rollbacks += 1;
+    }
+}
+
+/// Trait implemented by [Connection] and [Transaction] that facilitates executing queries or creating new transactions
 pub trait Executor: Sized {
     /// Execute a query on the connection
     ///
@@ -1165,6 +1338,12 @@ pub trait Executor: Sized {
         &mut self,
         stmt: Cow<'static, str>,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send;
+
+    /// Begin a new transaction (or Save point)
+    ///
+    /// If the returned future is dropped either now transaction will have been created, or it will be
+    /// dropped again [Connection::cleanup]
+    fn begin(&mut self) -> impl Future<Output = ConnectionResult<Transaction<'_>>> + Send;
 }
 
 /// Add helper methods to Executor to facilitate common operations
@@ -1408,6 +1587,8 @@ impl Connection {
         Ok(Connection {
             raw,
             prepared_statements: Default::default(),
+            transaction_depth: 0,
+            cleanup_rollbacks: 0,
         })
     }
 
@@ -1420,6 +1601,25 @@ impl Connection {
     /// Finish up any partially execute queries as quickly as possible
     pub async fn cleanup(&mut self) -> ConnectionResult<()> {
         self.raw.cleanup().await?;
+
+        assert!(self.cleanup_rollbacks <= self.transaction_depth);
+        if self.cleanup_rollbacks != 0 {
+            let statement = match self.prepared_statements.entry(rollback_transaction_query(
+                self.transaction_depth - self.cleanup_rollbacks,
+            )) {
+                Entry::Occupied(e) => e.into_mut(),
+                Entry::Vacant(e) => {
+                    let r = self.raw.prepare_query(e.key()).await?;
+                    e.insert(r)
+                }
+            };
+
+            // Once raw.query has been called we will have roled back to this transaction level once raw.cleanup succeed
+            self.transaction_depth -= self.cleanup_rollbacks;
+            self.cleanup_rollbacks = 0;
+            let q = self.raw.query(statement);
+            q.execute().await?;
+        }
         Ok(())
     }
 
@@ -1437,6 +1637,58 @@ impl Connection {
         Ok(self.raw.query(statement))
     }
 
+    /// Begin a new transaction or save-point
+    async fn begin_impl(&mut self) -> ConnectionResult<Transaction<'_>> {
+        self.cleanup().await?;
+
+        assert_eq!(self.cleanup_rollbacks, 0); // cleanup_rollback will be 0 after cleanup
+
+        // Once we call query the state will be such that once raw.cleanup has been called
+        // there will be one more transaction level
+        let q = begin_transaction_query(self.transaction_depth);
+        self.transaction_depth += 1;
+        self.cleanup_rollbacks = 1;
+        self.raw.execute_unprepared(&q).await?;
+
+        // The execute has now succeeded so there is no need to role back the transaction
+        assert_eq!(self.cleanup_rollbacks, 1);
+        self.cleanup_rollbacks = 0;
+        Ok(Transaction { connection: self })
+    }
+
+    /// Rollback the top most transaction or save point
+    async fn rollback_impl(&mut self) -> ConnectionResult<()> {
+        self.cleanup().await?;
+        assert_eq!(self.cleanup_rollbacks, 0);
+        assert_ne!(self.transaction_depth, 0);
+        self.transaction_depth -= 1;
+
+        // Once we call query the state will be such that once raw.cleanup has been called
+        // there will be one less transaction
+        self.raw
+            .execute_unprepared(&rollback_transaction_query(self.transaction_depth))
+            .await?;
+
+        Ok(())
+    }
+
+    /// Commit the top most transaction or save point
+    async fn commit_impl(&mut self) -> ConnectionResult<()> {
+        self.cleanup().await?;
+        assert_eq!(self.cleanup_rollbacks, 0);
+        assert_ne!(self.transaction_depth, 0);
+
+        self.transaction_depth -= 1;
+
+        // Once we call query the state will be such that once raw.cleanup has been called
+        // there will be one less transaction
+        self.raw
+            .execute_unprepared(&commit_transaction_query(self.transaction_depth))
+            .await?;
+
+        Ok(())
+    }
+
     #[cfg(feature = "cancel_testing")]
     #[doc(hidden)]
     /// Set the cancel counts for testing
@@ -1452,5 +1704,10 @@ impl Executor for Connection {
         stmt: Cow<'static, str>,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send {
         self.query_inner(stmt)
+    }
+
+    #[inline]
+    fn begin(&mut self) -> impl Future<Output = ConnectionResult<Transaction<'_>>> + Send {
+        self.begin_impl()
     }
 }

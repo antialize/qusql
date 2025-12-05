@@ -97,4 +97,6 @@ pub(crate) mod com {
     pub const STMT_CLOSE: u8 = 0x19;
     /// Prepare statement, see <https://mariadb.com/docs/server/reference/clientserver-protocol/3-binary-protocol-prepared-statements/com_stmt_prepare>
     pub const STMT_PREPARE: u8 = 0x16;
+    /// Query, see https://mariadb.com/docs/server/reference/clientserver-protocol/2-text-protocol/com_query
+    pub const QUERY: u8 = 0x03;
 }
