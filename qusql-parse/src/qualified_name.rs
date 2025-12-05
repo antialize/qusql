@@ -1,9 +1,9 @@
 use alloc::vec::Vec;
 
 use crate::{
+    Identifier, Span, Spanned,
     lexer::Token,
     parser::{ParseError, Parser},
-    Identifier, Span, Spanned,
 };
 
 #[derive(Clone, Debug)]

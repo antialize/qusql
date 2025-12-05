@@ -11,16 +11,16 @@
 // limitations under the License.
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::qualified_name::parse_qualified_name;
 use crate::QualifiedName;
+use crate::qualified_name::parse_qualified_name;
 use crate::{
-    expression::{parse_expression, Expression},
+    Identifier, Span, Spanned, Statement,
+    expression::{Expression, parse_expression},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
     span::OptSpanned,
     statement::parse_compound_query,
-    Identifier, Span, Spanned, Statement,
 };
 
 /// Value in select
@@ -572,7 +572,7 @@ impl<'a> Spanned for Locking<'a> {
 /// Representation of select Statement
 ///
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statement, Select, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statement, Select, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "SELECT f1,f2 FROM t1 WHERE f3<=10 AND f4='y'";
@@ -720,7 +720,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
                 order_by: None,
                 limit: None,
                 locking: None,
-            })
+            });
         }
     };
 

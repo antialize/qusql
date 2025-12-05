@@ -13,28 +13,28 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    alter::{parse_alter, AlterTable},
+    Identifier, RenameTable, Span, Spanned, WithQuery,
+    alter::{AlterTable, parse_alter},
     create::{
-        parse_create, CreateFunction, CreateIndex, CreateTable, CreateTrigger, CreateTypeEnum,
-        CreateView,
+        CreateFunction, CreateIndex, CreateTable, CreateTrigger, CreateTypeEnum, CreateView,
+        parse_create,
     },
-    delete::{parse_delete, Delete},
+    delete::{Delete, parse_delete},
     drop::{
-        parse_drop, DropDatabase, DropEvent, DropFunction, DropIndex, DropProcedure, DropServer,
-        DropTable, DropTrigger, DropView,
+        DropDatabase, DropEvent, DropFunction, DropIndex, DropProcedure, DropServer, DropTable,
+        DropTrigger, DropView, parse_drop,
     },
-    expression::{parse_expression, Expression},
-    insert_replace::{parse_insert_replace, InsertReplace},
+    expression::{Expression, parse_expression},
+    insert_replace::{InsertReplace, parse_insert_replace},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
     rename::parse_rename_table,
-    select::{parse_select, OrderFlag, Select},
+    select::{OrderFlag, Select, parse_select},
     span::OptSpanned,
-    truncate::{parse_truncate_table, TruncateTable},
-    update::{parse_update, Update},
+    truncate::{TruncateTable, parse_truncate_table},
+    update::{Update, parse_update},
     with_query::parse_with_query,
-    Identifier, RenameTable, Span, Spanned, WithQuery,
 };
 
 #[derive(Clone, Debug)]

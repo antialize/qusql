@@ -13,12 +13,12 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    expression::{parse_expression, Expression},
+    Identifier, SString, Span, Spanned,
+    expression::{Expression, parse_expression},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
     span::OptSpanned,
-    Identifier, SString, Span, Spanned,
 };
 
 /// A property on a datatype

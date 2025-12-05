@@ -1,13 +1,13 @@
 use crate::{
+    QualifiedName, Span, Spanned,
     keywords::Keyword,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
-    QualifiedName, Span, Spanned,
 };
 
 /// Represent a truncate table statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, TruncateTable, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, TruncateTable, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "TRUNCATE TABLE `t1`;";
@@ -31,6 +31,7 @@ pub struct TruncateTable<'a> {
     pub truncate_span: Span,
     /// Span of "TABLE" if specified
     pub table_span: Option<Span>,
+    /// Name of the truncated table
     pub table_name: QualifiedName<'a>,
 }
 

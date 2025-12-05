@@ -12,13 +12,13 @@ use alloc::vec::Vec;
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+    DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
     data_type::parse_data_type,
     expression::parse_expression,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
-    DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
 };
 
 /// Option on an index
@@ -605,7 +605,7 @@ fn parse_add_alter_specification<'a>(
 
 /// Represent an alter table statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, AlterTable, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, AlterTable, Statement, Issues};
 /// let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 ///
 /// let sql = "ALTER TABLE `t1`

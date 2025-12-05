@@ -1,24 +1,24 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
+    Identifier, Span, Spanned, Statement,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
     statement::parse_statement,
-    Identifier, Span, Spanned, Statement,
 };
 
 #[derive(Clone, Debug)]
 pub struct WithBlock<'a> {
-    // Identifier for the with block
+    /// Identifier for the with block
     pub identifier: Identifier<'a>,
-    // Span of AS
+    /// Span of AS
     pub as_span: Span,
-    // Span of (
+    /// Span of (
     pub lparen_span: Span,
-    // The statement within the with block, will be one of select, update, insert or delete
+    /// The statement within the with block, will be one of select, update, insert or delete
     pub statement: Statement<'a>,
-    // Span of )
+    /// Span of )
     pub rparen_span: Span,
 }
 
@@ -35,7 +35,7 @@ impl<'a> Spanned for WithBlock<'a> {
 
 /// Represent a with query statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, WithQuery, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, WithQuery, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
 /// #
 /// let sql = "WITH ids AS (DELETE FROM things WHERE number=42) INSERT INTO deleted (id) SELECT id FROM ids;";
@@ -53,11 +53,11 @@ impl<'a> Spanned for WithBlock<'a> {
 /// ```
 #[derive(Clone, Debug)]
 pub struct WithQuery<'a> {
-    // Span of WITH
+    /// Span of WITH
     pub with_span: Span,
-    // The comma seperated with blocks
+    /// The comma seperated with blocks
     pub with_blocks: Vec<WithBlock<'a>>,
-    // The final statement of the with query, will be one of select, update, insert, delete or merge
+    /// The final statement of the with query, will be one of select, update, insert, delete or merge
     pub statement: Box<Statement<'a>>,
 }
 

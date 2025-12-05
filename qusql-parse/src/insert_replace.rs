@@ -12,13 +12,13 @@
 use alloc::vec::Vec;
 
 use crate::{
-    expression::{parse_expression, Expression},
+    Identifier, OptSpanned, QualifiedName, Span, Spanned,
+    expression::{Expression, parse_expression},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
-    select::{parse_select, parse_select_expr, Select, SelectExpr},
-    Identifier, OptSpanned, QualifiedName, Span, Spanned,
+    select::{Select, SelectExpr, parse_select, parse_select_expr},
 };
 
 /// Flags for insert
@@ -161,7 +161,7 @@ impl<'a> Spanned for InsertReplaceOnDuplicateKeyUpdate<'a> {
 /// Representation of Insert or Replace Statement
 ///
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statement, InsertReplace, InsertReplaceType, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statement, InsertReplace, InsertReplaceType, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql1 = "INSERT INTO person (first_name, last_name) VALUES ('John', 'Doe')";
@@ -205,7 +205,7 @@ impl<'a> Spanned for InsertReplaceOnDuplicateKeyUpdate<'a> {
 ///
 /// PostgreSQL
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statement, InsertReplace, InsertReplaceType, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statement, InsertReplace, InsertReplaceType, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL).arguments(SQLArguments::Dollar);
 /// #
 ///

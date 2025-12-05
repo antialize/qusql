@@ -1,11 +1,11 @@
 use alloc::vec::Vec;
 
 use crate::{
+    QualifiedName, Span, Spanned,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
-    QualifiedName, Span, Spanned,
 };
 
 #[derive(Debug, Clone)]
@@ -26,7 +26,7 @@ impl<'a> Spanned for TableToTable<'a> {
 
 /// Represent a rename table statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, RenameTable, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, RenameTable, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "RENAME TABLE `t1` TO `t2`;";

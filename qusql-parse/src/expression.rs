@@ -11,14 +11,14 @@
 // limitations under the License.
 
 use crate::{
+    DataType, Identifier, SString, Span, Spanned, Statement,
     data_type::parse_data_type,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
-    select::{parse_select, OrderFlag},
+    select::{OrderFlag, parse_select},
     span::OptSpanned,
     statement::parse_compound_query,
-    DataType, Identifier, SString, Span, Spanned, Statement,
 };
 use alloc::string::ToString;
 use alloc::vec;
@@ -1656,13 +1656,13 @@ mod tests {
     };
 
     use crate::{
+        Function, ParseOptions, SQLDialect,
         expression::{BinaryOperator, Expression},
         issue::Issues,
         parser::Parser,
-        Function, ParseOptions, SQLDialect,
     };
 
-    use super::{parse_expression, IdentifierPart};
+    use super::{IdentifierPart, parse_expression};
 
     fn test_ident<'a>(e: impl AsRef<Expression<'a>>, v: &str) -> Result<(), String> {
         let v = match e.as_ref() {

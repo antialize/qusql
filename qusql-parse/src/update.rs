@@ -14,13 +14,13 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::{
-    expression::{parse_expression, Expression},
+    Identifier, SelectExpr, Span, Spanned,
+    expression::{Expression, parse_expression},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
-    select::{parse_select_expr, parse_table_reference, TableReference},
+    select::{TableReference, parse_select_expr, parse_table_reference},
     span::OptSpanned,
-    Identifier, SelectExpr, Span, Spanned,
 };
 
 /// Flags specified after "UPDATE"
@@ -42,7 +42,7 @@ impl Spanned for UpdateFlag {
 /// Representation of replace Statement
 ///
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statement, Update, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statement, Update, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "UPDATE tab1, tab2 SET tab1.column1 = value1, tab1.column2 = value2 WHERE tab1.id = tab2.id";

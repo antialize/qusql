@@ -12,7 +12,7 @@ on MariaDB/Mysql.
 
 Example code:
 ```rust
-use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statement, Issues};
+use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statement, Issues};
 
 let options = ParseOptions::new()
     .dialect(SQLDialect::MariaDB)

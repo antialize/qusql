@@ -12,6 +12,7 @@ use alloc::{boxed::Box, vec::Vec};
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+    DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
     data_type::parse_data_type,
     expression::parse_expression,
     keywords::Keyword,
@@ -19,7 +20,6 @@ use crate::{
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
     statement::{parse_compound_query, parse_statement},
-    DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
 };
 
 /// Options on created table
@@ -249,7 +249,7 @@ impl<'a> Spanned for CreateOption<'a> {
 
 /// Represent a create table statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, CreateTable, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, CreateTable, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// let sql = "CREATE TABLE `parts` (
 ///         `id` int(11) NOT NULL COMMENT 'THIS IS THE ID FIELD',
@@ -304,7 +304,7 @@ impl<'a> Spanned for CreateTable<'a> {
 
 /// Represent a create view statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, CreateView, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, CreateView, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "CREATE ALGORITHM=UNDEFINED DEFINER=`phpmyadmin`@`localhost` SQL SECURITY DEFINER
@@ -506,7 +506,7 @@ impl Spanned for FunctionParamDirection {
 /// This is not fully implemented yet
 ///
 /// ```ignore
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, CreateFunction, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, CreateFunction, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DELIMITER $$
@@ -758,7 +758,7 @@ impl Spanned for TriggerEvent {
 
 /// Represent a create trigger statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, CreateTrigger, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, CreateTrigger, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DROP TRIGGER IF EXISTS `my_trigger`;

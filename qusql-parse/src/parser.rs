@@ -13,10 +13,10 @@
 use alloc::{borrow::Cow, format, string::String, vec::Vec};
 
 use crate::{
+    Identifier, ParseOptions, SString, Span, Spanned,
     issue::{IssueHandle, Issues},
     keywords::Keyword,
     lexer::{Lexer, Token},
-    Identifier, ParseOptions, SString, Span, Spanned,
 };
 
 #[derive(Debug)]
@@ -168,14 +168,20 @@ impl<'a, 'b> Parser<'a, 'b> {
 
     pub(crate) fn read_from_stdin_and_next(&mut self) -> (&'a str, Span) {
         let stdin = self.lexer.read_from_stdin();
-        let (token, span) = self.peeked_token.take().unwrap_or_else(|| self.lexer.next_token());
+        let (token, span) = self
+            .peeked_token
+            .take()
+            .unwrap_or_else(|| self.lexer.next_token());
         self.token = token;
         self.span = span;
         stdin
     }
 
     pub(crate) fn next(&mut self) {
-        let (token, span) = self.peeked_token.take().unwrap_or_else(|| self.lexer.next_token());
+        let (token, span) = self
+            .peeked_token
+            .take()
+            .unwrap_or_else(|| self.lexer.next_token());
         self.token = token;
         self.span = span;
     }

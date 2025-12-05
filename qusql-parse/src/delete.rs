@@ -13,13 +13,13 @@
 use alloc::vec::Vec;
 
 use crate::{
-    expression::{parse_expression, Expression},
+    QualifiedName, SelectExpr, Span, Spanned, TableReference,
+    expression::{Expression, parse_expression},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
     select::{parse_select_expr, parse_table_reference},
-    QualifiedName, SelectExpr, Span, Spanned, TableReference,
 };
 
 /// Flags for deletion
@@ -42,7 +42,7 @@ impl Spanned for DeleteFlag {
 
 /// Represent a delete statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, Delete, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, Delete, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DELETE FROM t1 WHERE c1 IN (SELECT b.c1 FROM t1 b WHERE b.c2=0);";

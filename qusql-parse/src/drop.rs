@@ -13,16 +13,16 @@
 use alloc::vec::Vec;
 
 use crate::{
+    Identifier, QualifiedName, Span, Spanned, Statement,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
-    Identifier, QualifiedName, Span, Spanned, Statement,
 };
 
 /// Represent a drop table statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropTable, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropTable, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DROP TABLE `Employees`, `Customers`;";
@@ -66,7 +66,7 @@ impl<'a> Spanned for DropTable<'a> {
 
 /// Represent a drop view statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropView, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropView, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DROP VIEW `Employees`, `Customers`;";
@@ -107,7 +107,7 @@ impl<'a> Spanned for DropView<'a> {
 
 /// Represent a drop database statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropDatabase, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropDatabase, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DROP DATABASE mydb;";
@@ -146,7 +146,7 @@ impl<'a> Spanned for DropDatabase<'a> {
 
 /// Represent a drop event statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropEvent, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropEvent, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DROP EVENT myevent;";
@@ -184,7 +184,7 @@ impl<'a> Spanned for DropEvent<'a> {
 
 /// Represent a drop function statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropFunction, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropFunction, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DROP FUNCTION myfunc;";
@@ -222,7 +222,7 @@ impl<'a> Spanned for DropFunction<'a> {
 
 /// Represent a drop procedure statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropProcedure, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropProcedure, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DROP PROCEDURE myproc;";
@@ -260,7 +260,7 @@ impl<'a> Spanned for DropProcedure<'a> {
 
 /// Represent a drop server statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropServer, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropServer, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DROP SERVER myserver;";
@@ -299,7 +299,7 @@ impl<'a> Spanned for DropServer<'a> {
 
 /// Represent a drop trigger statement
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropTrigger, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropTrigger, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DROP TRIGGER IF EXISTS `foo`.`mytrigger`;";
@@ -534,7 +534,7 @@ pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a
 ///
 /// MariaDB example
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropIndex, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropIndex, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
 /// #
 /// let sql = "DROP INDEX IF EXISTS `myindex` ON `bar`;";
@@ -552,7 +552,7 @@ pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a
 ///
 /// PostgreSQL example
 /// ```
-/// # use sql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropIndex, Statement, Issues};
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropIndex, Statement, Issues};
 /// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
 /// #
 /// let sql = "DROP INDEX IF EXISTS \"myindex\";";
