@@ -18,6 +18,7 @@ use tokio::{
 };
 
 use crate::{
+    args::Args,
     auth::compute_auth,
     bind::{Bind, BindError},
     constants::{client, com},
@@ -1102,9 +1103,26 @@ impl<'a> Query<'a> {
         }
     }
 }
-
 /// Trait implemented by [Connection] and [Transaction] that facilitates executing queries
 pub trait Executor: Sized {
+    /// Execute a query on the connection
+    ///
+    /// If the returned feature is dropped, or if the returned [Query] or [QueryIterator] is dropped,
+    /// the connection will be left in a unclean state. Where the query can be in a half finished stare.
+    ///
+    /// If this is the case [Connection::is_clean] will return false. A call to [Connection::cleanup] will finish up the
+    /// query as quickly as possibly.
+    ///
+    /// If query is called while [Connection::is_clean] is false, query will call [Connection::cleanup] before executing the next
+    /// query
+    fn query_raw(
+        &mut self,
+        stmt: Cow<'static, str>,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send;
+}
+
+/// Add helper methods to Executor to facilitate common operations
+pub trait ExecutorExt {
     /// Execute a query on the connection
     ///
     /// If the returned feature is dropped, or if the returned [Query] or [QueryIterator] is dropped,
@@ -1119,6 +1137,222 @@ pub trait Executor: Sized {
         &mut self,
         stmt: impl Into<Cow<'static, str>>,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send;
+
+    /// Execute a query on the connection with the given arguments
+    ///
+    /// This is a shortcut for
+    /// ```ignore
+    /// args.bind_args(query(stmt).await?)?;
+    /// ```
+    ///
+    /// See [Executor::query] for cancel/drop safety
+    fn query_with_args(
+        &mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>>;
+
+    /// Execute a query with the given arguments and return all rows as a vector
+    ///
+    /// This is a shortcut for
+    /// ```ignore
+    /// query_with_args(stmt, args).await?.fetch_all().await?
+    /// ```
+    ///
+    /// See [Executor::query] for cancel/drop safety
+    fn fetch_all<'a, T: FromRow<'a> + Send>(
+        &'a mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<Vec<T>>> + Send;
+
+    /// Execute a query with the given arguments and return one row
+    ///
+    /// This is a shortcut for
+    /// ```ignore
+    /// query_with_args(stmt, args).await?.fetch_one().await?
+    /// ```
+    ///
+    /// See [Executor::query] for cancel/drop safety
+    fn fetch_one<'a, T: FromRow<'a> + Send>(
+        &'a mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<T>> + Send;
+
+    /// Execute a query with the given arguments are return an optional row
+    ///
+    /// This is a shortcut for
+    /// ```ignore
+    /// query_with_args(stmt, args).await?.fetch_optional().await?
+    /// ```
+    ///
+    /// See [Executor::query] for cancel/drop safety
+    fn fetch_optional<'a, T: FromRow<'a> + Send>(
+        &'a mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<Option<T>>> + Send;
+
+    /// Executing a query with the given arg
+    ///
+    /// This is a shortcut for
+    /// ```ignore
+    /// query_with_args(stmt, args).await?.execute().await?
+    /// ```
+    ///
+    /// See [Executor::query] for cancel/drop safety
+    fn execute(
+        &mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<ExecuteResult>> + Send;
+
+    /// Execute a query with the given arguments and stream the results back
+    ///
+    /// This is a shortcut for
+    /// ```ignore
+    /// query_with_args(stmt, args).await?.fetch().await?
+    /// ```
+    ///
+    /// See [Executor::query] for cancel/drop safety
+    fn fetch(
+        &mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<QueryIterator<'_>>> + Send;
+}
+
+/// Implement [ExecutorExt::query_with_args] without stmt as a generic
+async fn query_with_args_impl<'a, E: Executor + Sized + Send>(
+    e: &'a mut E,
+    stmt: Cow<'static, str>,
+    args: impl Args + Send,
+) -> ConnectionResult<Query<'a>> {
+    let q = e.query_raw(stmt).await?;
+    args.bind_args(q)
+}
+
+/// Implement [ExecutorExt::fetch_all] without stmt as a generic
+async fn fetch_all_impl<'a, E: Executor + Sized + Send, T: FromRow<'a>>(
+    e: &'a mut E,
+    stmt: Cow<'static, str>,
+    args: impl Args + Send,
+) -> ConnectionResult<Vec<T>> {
+    let q = e.query(stmt).await?;
+    let q = args.bind_args(q)?;
+    q.fetch_all().await
+}
+
+/// Implement [ExecutorExt::fetch_one] without stmt as a generic
+async fn fetch_one_impl<'a, E: Executor + Sized + Send, T: FromRow<'a> + Send>(
+    e: &'a mut E,
+    stmt: Cow<'static, str>,
+    args: impl Args + Send,
+) -> ConnectionResult<T> {
+    let q = e.query(stmt).await?;
+    let q = args.bind_args(q)?;
+    match q.fetch_optional().await? {
+        Some(v) => Ok(v),
+        None => Err(ConnectionErrorContent::ExpectedRows.into()),
+    }
+}
+
+/// Implement [ExecutorExt::fetch_optional] without stmt as a generic
+async fn fetch_optional_impl<'a, E: Executor + Sized + Send, T: FromRow<'a> + Send>(
+    e: &'a mut E,
+    stmt: Cow<'static, str>,
+    args: impl Args + Send,
+) -> ConnectionResult<Option<T>> {
+    let q = e.query(stmt).await?;
+    let q = args.bind_args(q)?;
+    q.fetch_optional().await
+}
+
+/// Implement [ExecutorExt::execute] without stmt as a generic
+async fn execute_impl<E: Executor + Sized + Send>(
+    e: &mut E,
+    stmt: Cow<'static, str>,
+    args: impl Args + Send,
+) -> ConnectionResult<ExecuteResult> {
+    let q = e.query_raw(stmt).await?;
+    let q = args.bind_args(q)?;
+    q.execute().await
+}
+
+/// Implement [ExecutorExt::fetch] without stmt as a generic
+async fn fetch_impl<'a, E: Executor + Sized + Send>(
+    e: &'a mut E,
+    stmt: Cow<'static, str>,
+    args: impl Args + Send,
+) -> ConnectionResult<QueryIterator<'a>> {
+    let q = e.query(stmt).await?;
+    let q = args.bind_args(q)?;
+    q.fetch().await
+}
+
+impl<E: Executor + Sized + Send> ExecutorExt for E {
+    #[inline]
+    fn query(
+        &mut self,
+        stmt: impl Into<Cow<'static, str>>,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send {
+        self.query_raw(stmt.into())
+    }
+
+    #[inline]
+    fn query_with_args(
+        &mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> {
+        query_with_args_impl(self, stmt.into(), args)
+    }
+
+    #[inline]
+    fn fetch_all<'a, T: FromRow<'a> + Send>(
+        &'a mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<Vec<T>>> + Send {
+        fetch_all_impl(self, stmt.into(), args)
+    }
+
+    #[inline]
+    fn fetch_one<'a, T: FromRow<'a> + Send>(
+        &'a mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<T>> + Send {
+        fetch_one_impl(self, stmt.into(), args)
+    }
+
+    #[inline]
+    fn fetch_optional<'a, T: FromRow<'a> + Send>(
+        &'a mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<Option<T>>> + Send {
+        fetch_optional_impl(self, stmt.into(), args)
+    }
+
+    #[inline]
+    fn execute(
+        &mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<ExecuteResult>> + Send {
+        execute_impl(self, stmt.into(), args)
+    }
+
+    #[inline]
+    fn fetch(
+        &mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<QueryIterator<'_>>> + Send {
+        fetch_impl(self, stmt.into(), args)
+    }
 }
 
 impl Connection {
@@ -1160,10 +1394,10 @@ impl Connection {
 
 impl Executor for Connection {
     #[inline]
-    fn query(
+    fn query_raw(
         &mut self,
-        stmt: impl Into<Cow<'static, str>>,
+        stmt: Cow<'static, str>,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send {
-        self.query_inner(stmt.into())
+        self.query_inner(stmt)
     }
 }
