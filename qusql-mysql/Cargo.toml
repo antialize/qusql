@@ -15,3 +15,5 @@ multiple_unsafe_ops_per_block = "deny"
 missing_docs_in_private_items = "deny"
 
 [dependencies]
+bytes = "1.11.0"
+thiserror = "2.0.17"
