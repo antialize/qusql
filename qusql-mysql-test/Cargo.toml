@@ -1,0 +1,8 @@
+[package]
+name = "qusql-mysql-test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+qusql-mysql = {path = "../qusql-mysql"}
+tokio = {version = "1", features=["full"]}
