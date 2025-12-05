@@ -4,7 +4,6 @@ use sha1_smol::Sha1;
 /// Compute the auth values based on the password and nonces
 ///
 /// Res must be 20 bytes long
-#[allow(unused)]
 pub(crate) fn compute_auth(password: &str, nonce_1: &[u8], nonce_2: &[u8], res: &mut [u8]) {
     // SHA1( password ) ^ SHA1( seed + SHA1( SHA1( password ) ) )
     // https://mariadb.com/kb/en/connection/#mysql_native_password-plugin

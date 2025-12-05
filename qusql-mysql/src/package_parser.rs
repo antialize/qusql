@@ -69,7 +69,6 @@ pub struct PackageParser<'a>(&'a [u8]);
 
 impl<'a> PackageParser<'a> {
     /// Construct a new [PackageParser] for the given package
-    #[allow(unused)]
     pub(crate) fn new(package: &'a [u8]) -> Self {
         Self(package)
     }

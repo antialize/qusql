@@ -14,7 +14,6 @@ pub struct Row<'a> {
 
 impl<'a> Row<'a> {
     /// Construct a new row instance
-    #[allow(unused)]
     pub(crate) fn new(columns: &'a [Column], package: &'a [u8]) -> Self {
         Self { columns, package }
     }
@@ -35,7 +34,7 @@ impl<'a> Row<'a> {
     /// Decode the row as a tuple using the [FromRow] trait
     ///
     /// ```no_run
-    /// use sqly2::{row::Row, package_parser::DecodeResult};
+    /// use qusql_mysql::{row::Row, package_parser::DecodeResult};
     ///
     /// fn test(row: &Row) -> DecodeResult<()> {
     ///     let (v1, v2): (u8, &str) = row.read()?;

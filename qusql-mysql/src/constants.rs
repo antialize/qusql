@@ -88,3 +88,13 @@ pub(crate) mod client {
     pub const PLUGIN_AUTH: u32 = 1 << 19;
     pub const DEPRECATE_EOF: u32 = 1 << 24;
 }
+
+/// Package types
+pub(crate) mod com {
+    /// Execute statement, see <https://mariadb.com/docs/server/reference/clientserver-protocol/3-binary-protocol-prepared-statements/com_stmt_execute>
+    pub const STMT_EXECUTE: u8 = 0x17;
+    /// Close statement, see <https://mariadb.com/docs/server/reference/clientserver-protocol/3-binary-protocol-prepared-statements/3-binary-protocol-prepared-statements-com_stmt_close>
+    pub const STMT_CLOSE: u8 = 0x19;
+    /// Prepare statement, see <https://mariadb.com/docs/server/reference/clientserver-protocol/3-binary-protocol-prepared-statements/com_stmt_prepare>
+    pub const STMT_PREPARE: u8 = 0x16;
+}
