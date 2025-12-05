@@ -14,6 +14,9 @@ undocumented_unsafe_blocks = "deny"
 multiple_unsafe_ops_per_block = "deny"
 missing_docs_in_private_items = "deny"
 
+[features]
+cancel_testing = []
+
 [dependencies]
 bytes = "1.11.0"
 sha1_smol = "1.0.1"

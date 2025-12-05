@@ -11,7 +11,7 @@ use std::{
 };
 
 use qusql_mysql::{
-    connection::{Connection, ConnectionOptions, ExecutorExt},
+    connection::{Connection, ConnectionErrorContent, ConnectionOptions, ExecutorExt},
     plain_types::{Bit, Date, DateTime, Decimal, Json, Time, Timestamp, Year},
 };
 
@@ -374,5 +374,81 @@ async fn test_connection() -> Result<(), Error> {
     }
 
     std::mem::drop(conn);
+    Ok(())
+}
+
+#[tokio::test]
+async fn drop_cancel() -> Result<(), Error> {
+    // Ensure that the drop/cleanup functionally works
+    let mut conn =
+        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&OPTS)).await??;
+    conn.execute("DROP TABLE IF EXISTS db_test3", ()).await?;
+    conn.execute(
+        "CREATE TABLE db_test3 (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        v INT NOT NULL,
+        PRIMARY KEY (id)
+        )",
+        (),
+    )
+    .await?;
+
+    // ********************************************************************************
+    // Test dropping of normal queries, checking that cancel can recover the connection
+    // ********************************************************************************
+
+    for v in 0..50 {
+        conn.execute("INSERT INTO db_test3 (v) VALUES (?)", (v,))
+            .await?;
+    }
+
+    // Make sure this statement is prepared
+    for (idx, (id, v)) in conn
+        .fetch_all::<(i64, i32)>("SELECT id, v FROM db_test3", ())
+        .await?
+        .iter()
+        .enumerate()
+    {
+        assert_eq!(*id, (idx + 1) as i64);
+        assert_eq!(*v, idx as i32);
+    }
+
+    for c in 0.. {
+        conn.set_cancel_count(None);
+        conn.cleanup().await?;
+        conn.set_cancel_count(Some(c));
+        let t: Result<Vec<(i64, i32)>, _> = conn.fetch_all("SELECT id, v FROM db_test3", ()).await;
+        match t {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => (),
+            Ok(v) => {
+                for (idx, (id, v)) in v.iter().enumerate() {
+                    assert_eq!(*id, (idx + 1) as i64);
+                    assert_eq!(*v, idx as i32);
+                }
+                break;
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
+
+    // ********************************************************************************
+    // Test dropping of preparing statements
+    // ********************************************************************************
+    for c in 0.. {
+        conn.set_cancel_count(None);
+        conn.cleanup().await?;
+
+        conn.set_cancel_count(Some(c));
+        let q = format!("DELETE FROM db_test3 WHERE id={}", c + 1000);
+        match conn.execute(q, ()).await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => {
+                let q = format!("DELETE FROM db_test3 WHERE id={}", c + 2000);
+                conn.set_cancel_count(None);
+                conn.execute(q, ()).await?;
+            }
+            Ok(_) => break,
+            Err(e) => return Err(e.into()),
+        }
+    }
     Ok(())
 }

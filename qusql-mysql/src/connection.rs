@@ -59,6 +59,11 @@ pub enum ConnectionErrorContent {
     /// You executed a mysql statement that does return columns, so you need to read the rowss
     #[error("rows return for execute")]
     UnexpectedRows,
+    #[cfg(feature = "cancel_testing")]
+    /// For testing cancel safety
+    #[doc(hidden)]
+    #[error("await threshold reached")]
+    TestCancelled,
 }
 
 /// Error handling connection
@@ -347,6 +352,7 @@ impl<'a> QueryIterator<'a> {
             _ => panic!("Logic error"),
         }
         // safety-cancel: The cleanup on the connection will skip the remaining rows
+        self.connection.test_cancel()?;
         let package = self.connection.reader.read().await?;
         let mut pp = PackageParser::new(package);
         match pp.get_u8().loc("Row first byte")? {
@@ -429,6 +435,9 @@ struct RawConnection {
     columns: Vec<Column>,
     /// Ranges used by fetch all
     ranges: Vec<Range<usize>>,
+    #[cfg(feature = "cancel_testing")]
+    /// Return TestCancelled after this many sends
+    cancel_count: Option<usize>,
 }
 
 /// Parse a column definition package
@@ -568,7 +577,26 @@ impl RawConnection {
             state: ConnectionState::Clean,
             columns: Vec::new(),
             ranges: Vec::new(),
+            #[cfg(feature = "cancel_testing")]
+            cancel_count: None,
         })
+    }
+
+    /// Can be called self.cancel_count times
+    /// before it returns Err(ConnectionError::TestCancelled)
+    ///
+    /// This is used to to test that that we can properly recover
+    /// from dropped futures
+    #[inline]
+    fn test_cancel(&mut self) -> ConnectionResult<()> {
+        #[cfg(feature = "cancel_testing")]
+        if let Some(v) = &mut self.cancel_count {
+            if *v == 0 {
+                return Err(ConnectionErrorContent::TestCancelled.into());
+            }
+            *v -= 1;
+        }
+        Ok(())
     }
 
     /// Cleanup The connection if it is dirty
@@ -577,11 +605,13 @@ impl RawConnection {
             match self.state {
                 ConnectionState::Clean => break,
                 ConnectionState::PrepareStatementSend => {
+                    self.test_cancel()?;
                     self.writer.send().await?;
                     self.state = ConnectionState::PrepareStatementReadHead;
                     continue;
                 }
                 ConnectionState::PrepareStatementReadHead => {
+                    self.test_cancel()?;
                     let package = self.reader.read().await?;
                     let mut p = PackageParser::new(package);
                     match p.get_u8().loc("response type")? {
@@ -625,6 +655,7 @@ impl RawConnection {
                     columns,
                     stmt_id,
                 } => {
+                    self.test_cancel()?;
                     self.reader.read().await?;
                     self.state = ConnectionState::PrepareStatementReadParams {
                         params: 0,
@@ -637,6 +668,7 @@ impl RawConnection {
                     columns,
                     stmt_id,
                 } => {
+                    self.test_cancel()?;
                     self.reader.read().await?;
                     self.state = ConnectionState::PrepareStatementReadParams {
                         params: params - 1,
@@ -645,14 +677,17 @@ impl RawConnection {
                     };
                 }
                 ConnectionState::ClosePreparedStatement => {
+                    self.test_cancel()?;
                     self.writer.send().await?;
                     self.state = ConnectionState::Clean;
                 }
                 ConnectionState::QuerySend => {
+                    self.test_cancel()?;
                     self.writer.send().await?;
                     self.state = ConnectionState::QueryReadHead;
                 }
                 ConnectionState::QueryReadHead => {
+                    self.test_cancel()?;
                     let package = self.reader.read().await?;
                     {
                         let mut pp = PackageParser::new(package);
@@ -673,10 +708,12 @@ impl RawConnection {
                     self.state = ConnectionState::QueryReadRows;
                 }
                 ConnectionState::QueryReadColumns(cnt) => {
+                    self.test_cancel()?;
                     self.reader.read().await?;
                     self.state = ConnectionState::QueryReadColumns(cnt - 1);
                 }
                 ConnectionState::QueryReadRows => {
+                    self.test_cancel()?;
                     let package = self.reader.read().await?;
                     let mut pp = PackageParser::new(package);
                     match pp.get_u8().loc("Row first byte")? {
@@ -723,10 +760,12 @@ impl RawConnection {
 
         self.state = ConnectionState::PrepareStatementSend;
         // safety-cancel: We set the state so that cleanup will get us in a good state
+        self.test_cancel()?;
         self.writer.send().await?;
 
         self.state = ConnectionState::PrepareStatementReadHead;
         // safety-cancel: We set the state so that cleanup will get us in a good state
+        self.test_cancel()?;
         let package = self.reader.read().await?;
 
         let mut p = PackageParser::new(package);
@@ -745,6 +784,7 @@ impl RawConnection {
                         stmt_id,
                     };
                     // safety-cancel: We set the state so that cleanup will get us in a good state
+                    self.test_cancel()?;
                     self.reader.read().await?;
                     // We could use parse_column_definition if we care about the content
                 }
@@ -757,6 +797,7 @@ impl RawConnection {
                         stmt_id,
                     };
                     // safety-cancel: We set the state so that cleanup will get us in a good state
+                    self.test_cancel()?;
                     self.reader.read().await?;
                     // We could use parse_column_definition if we care about the content
                 }
@@ -827,10 +868,12 @@ impl RawConnection {
 
         self.state = ConnectionState::QuerySend;
         // safety-cancel: We have set the state so that clean can finish up
+        self.test_cancel()?;
         self.writer.send().await?;
 
         self.state = ConnectionState::QueryReadHead;
         // safety-cancel: We have set the state so that clean can finish up
+        self.test_cancel()?;
         let package = self.reader.read().await?;
         {
             let mut pp = PackageParser::new(package);
@@ -861,7 +904,7 @@ impl RawConnection {
         for c in 0..column_count {
             self.state = ConnectionState::QueryReadColumns(column_count - c);
             // safety-cancel: We have set the state so that clean can finish up
-
+            self.test_cancel()?;
             let package = self.reader.read().await?;
             let mut p = PackageParser::new(package);
             self.columns.push(parse_column_definition(&mut p)?);
@@ -946,6 +989,7 @@ impl<'a> Query<'a> {
         };
 
         // safety-cancel: The cleanup on the connection will skip the remaining rows
+        self.connection.test_cancel()?;
         let p1 = self.connection.reader.read_raw().await?;
         {
             let mut pp = PackageParser::new(self.connection.reader.bytes(p1.clone()));
@@ -973,6 +1017,7 @@ impl<'a> Query<'a> {
         self.connection.reader.buffer_packages = true;
 
         // safety-cancel: The cleanup on the connection will skip the remaining rows
+        self.connection.test_cancel()?;
         let p2 = self.connection.reader.read_raw().await?;
         {
             let mut pp = PackageParser::new(self.connection.reader.bytes(p2));
@@ -1032,7 +1077,7 @@ impl<'a> Query<'a> {
         self.connection.ranges.clear();
         loop {
             // safety-cancel: The cleanup on the connection will skip the remaining rows
-
+            self.connection.test_cancel()?;
             let p = self.connection.reader.read_raw().await?;
             {
                 let mut pp = PackageParser::new(self.connection.reader.bytes(p.clone()));
@@ -1103,6 +1148,7 @@ impl<'a> Query<'a> {
         }
     }
 }
+
 /// Trait implemented by [Connection] and [Transaction] that facilitates executing queries
 pub trait Executor: Sized {
     /// Execute a query on the connection
@@ -1389,6 +1435,13 @@ impl Connection {
             }
         };
         Ok(self.raw.query(statement))
+    }
+
+    #[cfg(feature = "cancel_testing")]
+    #[doc(hidden)]
+    /// Set the cancel counts for testing
+    pub fn set_cancel_count(&mut self, cnt: Option<usize>) {
+        self.raw.cancel_count = cnt;
     }
 }
 
