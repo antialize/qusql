@@ -32,7 +32,7 @@
 //! Example:
 //! --------
 //! ```no_run
-//! use sqly2::{Pool, ConnectionOptions, PoolOptions, ConnectionError, ExecutorExt, Executor};
+//! use qusql_mysql::{Pool, ConnectionOptions, PoolOptions, ConnectionError, ExecutorExt, Executor};
 //!
 //! async fn test() -> Result<(), ConnectionError> {
 //!     let pool = Pool::connect(
