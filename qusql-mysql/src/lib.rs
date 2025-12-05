@@ -4,3 +4,4 @@ pub mod constants;
 pub mod decode;
 pub mod package_parser;
 pub mod plain_types;
+pub mod row;
