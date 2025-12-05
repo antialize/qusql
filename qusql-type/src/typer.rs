@@ -20,7 +20,7 @@ use crate::{
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use alloc::{collections::BTreeMap, format};
-use sql_parse::{
+use qusql_parse::{
     Identifier, IssueHandle, Issues, OptSpanned, QualifiedName, SQLDialect, Span, Spanned,
 };
 

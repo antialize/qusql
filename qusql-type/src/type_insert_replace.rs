@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::{format, vec::Vec};
-use sql_parse::{
+use qusql_parse::{
     Identifier, InsertReplace, InsertReplaceFlag, InsertReplaceSetPair, InsertReplaceType,
     OptSpanned, Spanned, issue_todo,
 };
@@ -268,7 +268,7 @@ pub(crate) fn type_insert_replace<'a>(
 
     if let Some(on_conflict) = &ior.on_conflict {
         match &on_conflict.target {
-            sql_parse::OnConflictTarget::Columns { names } => {
+            qusql_parse::OnConflictTarget::Columns { names } => {
                 for name in names {
                     let mut t = None;
                     for r in &typer.reference_types {
@@ -284,17 +284,17 @@ pub(crate) fn type_insert_replace<'a>(
                 }
                 //TODO check if there is a unique constraint on column
             }
-            sql_parse::OnConflictTarget::OnConstraint {
+            qusql_parse::OnConflictTarget::OnConstraint {
                 on_constraint_span, ..
             } => {
                 issue_todo!(typer.issues, on_constraint_span);
             }
-            sql_parse::OnConflictTarget::None => (),
+            qusql_parse::OnConflictTarget::None => (),
         }
 
         match &on_conflict.action {
-            sql_parse::OnConflictAction::DoNothing(_) => (),
-            sql_parse::OnConflictAction::DoUpdateSet {
+            qusql_parse::OnConflictAction::DoNothing(_) => (),
+            qusql_parse::OnConflictAction::DoUpdateSet {
                 sets,
                 where_,
                 do_update_set_span,

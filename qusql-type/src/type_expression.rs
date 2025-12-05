@@ -12,7 +12,7 @@
 
 use alloc::{format, string::ToString, sync::Arc, vec};
 use core::ops::Deref;
-use sql_parse::{Expression, Identifier, Span, UnaryOperator, Variable, issue_todo};
+use qusql_parse::{Expression, Identifier, Span, UnaryOperator, Variable, issue_todo};
 
 use crate::{
     Type,
@@ -155,8 +155,8 @@ pub(crate) fn type_expression<'a>(
             match i.as_slice() {
                 [part] => {
                     let col = match part {
-                        sql_parse::IdentifierPart::Name(n) => n,
-                        sql_parse::IdentifierPart::Star(v) => {
+                        qusql_parse::IdentifierPart::Name(n) => n,
+                        qusql_parse::IdentifierPart::Star(v) => {
                             typer.err("Not supported here", v);
                             return FullType::invalid();
                         }
@@ -187,15 +187,15 @@ pub(crate) fn type_expression<'a>(
                 }
                 [p1, p2] => {
                     let tbl = match p1 {
-                        sql_parse::IdentifierPart::Name(n) => n,
-                        sql_parse::IdentifierPart::Star(v) => {
+                        qusql_parse::IdentifierPart::Name(n) => n,
+                        qusql_parse::IdentifierPart::Star(v) => {
                             typer.err("Not supported here", v);
                             return FullType::invalid();
                         }
                     };
                     let col = match p2 {
-                        sql_parse::IdentifierPart::Name(n) => n,
-                        sql_parse::IdentifierPart::Star(v) => {
+                        qusql_parse::IdentifierPart::Name(n) => n,
+                        qusql_parse::IdentifierPart::Star(v) => {
                             typer.err("Not supported here", v);
                             return FullType::invalid();
                         }
@@ -291,36 +291,36 @@ pub(crate) fn type_expression<'a>(
         }
         Expression::Is(e, is, _) => {
             let (flags, base_type) = match is {
-                sql_parse::Is::Null => (flags.without_values(), BaseType::Any),
-                sql_parse::Is::NotNull => {
+                qusql_parse::Is::Null => (flags.without_values(), BaseType::Any),
+                qusql_parse::Is::NotNull => {
                     if flags.true_ {
                         (flags.with_not_null(true).with_true(false), BaseType::Any)
                     } else {
                         (flags.with_not_null(false), BaseType::Any)
                     }
                 }
-                sql_parse::Is::True
-                | sql_parse::Is::NotTrue
-                | sql_parse::Is::False
-                | sql_parse::Is::NotFalse => (flags.without_values(), BaseType::Bool),
-                sql_parse::Is::Unknown | sql_parse::Is::NotUnknown => {
+                qusql_parse::Is::True
+                | qusql_parse::Is::NotTrue
+                | qusql_parse::Is::False
+                | qusql_parse::Is::NotFalse => (flags.without_values(), BaseType::Bool),
+                qusql_parse::Is::Unknown | qusql_parse::Is::NotUnknown => {
                     (flags.without_values(), BaseType::Any)
                 }
             };
             let t = type_expression(typer, e, flags, base_type);
             match is {
-                sql_parse::Is::Null => {
+                qusql_parse::Is::Null => {
                     if t.not_null {
                         typer.warn("Cannot be null", e);
                     }
                     FullType::new(BaseType::Bool, true)
                 }
-                sql_parse::Is::NotNull
-                | sql_parse::Is::True
-                | sql_parse::Is::NotTrue
-                | sql_parse::Is::False
-                | sql_parse::Is::NotFalse => FullType::new(BaseType::Bool, true),
-                sql_parse::Is::Unknown | sql_parse::Is::NotUnknown => {
+                qusql_parse::Is::NotNull
+                | qusql_parse::Is::True
+                | qusql_parse::Is::NotTrue
+                | qusql_parse::Is::False
+                | qusql_parse::Is::NotFalse => FullType::new(BaseType::Bool, true),
+                qusql_parse::Is::Unknown | qusql_parse::Is::NotUnknown => {
                     issue_todo!(typer.issues, expression);
                     FullType::invalid()
                 }
@@ -378,41 +378,41 @@ pub(crate) fn type_expression<'a>(
             );
             if typer.dialect().is_maria() {
                 match type_.type_ {
-                            sql_parse::Type::Char(_)
-                            | sql_parse::Type::Date
-                            | sql_parse::Type::Inet4
-                            | sql_parse::Type::Inet6
-                            | sql_parse::Type::DateTime(_)
-                            | sql_parse::Type::Double(_)
-                            | sql_parse::Type::Float8
-                            | sql_parse::Type::Float(_)
-                            | sql_parse::Type::Integer(_)
-                            | sql_parse::Type::Int(_)
-                            | sql_parse::Type::Binary(_)
-                            | sql_parse::Type::Timestamptz
-                            | sql_parse::Type::Time(_) => {}
-                            sql_parse::Type::Boolean
-                            | sql_parse::Type::TinyInt(_)
-                            | sql_parse::Type::SmallInt(_)
-                            | sql_parse::Type::BigInt(_)
-                            | sql_parse::Type::VarChar(_)
-                            | sql_parse::Type::TinyText(_)
-                            | sql_parse::Type::MediumText(_)
-                            | sql_parse::Type::Text(_)
-                            | sql_parse::Type::LongText(_)
-                            | sql_parse::Type::Enum(_)
-                            | sql_parse::Type::Set(_)
-                            | sql_parse::Type::Numeric(_, _, _)
-                            | sql_parse::Type::Timestamp(_)
-                            | sql_parse::Type::TinyBlob(_)
-                            | sql_parse::Type::MediumBlob(_)
-                            | sql_parse::Type::Blob(_)
-                            | sql_parse::Type::LongBlob(_)
-                            | sql_parse::Type::Json
-                            | sql_parse::Type::Bit(_, _)
-                            | sql_parse::Type::Bytea
-                            | sql_parse::Type::Named(_) // TODO lookup name
-                            | sql_parse::Type::VarBinary(_) => {
+                            qusql_parse::Type::Char(_)
+                            | qusql_parse::Type::Date
+                            | qusql_parse::Type::Inet4
+                            | qusql_parse::Type::Inet6
+                            | qusql_parse::Type::DateTime(_)
+                            | qusql_parse::Type::Double(_)
+                            | qusql_parse::Type::Float8
+                            | qusql_parse::Type::Float(_)
+                            | qusql_parse::Type::Integer(_)
+                            | qusql_parse::Type::Int(_)
+                            | qusql_parse::Type::Binary(_)
+                            | qusql_parse::Type::Timestamptz
+                            | qusql_parse::Type::Time(_) => {}
+                            qusql_parse::Type::Boolean
+                            | qusql_parse::Type::TinyInt(_)
+                            | qusql_parse::Type::SmallInt(_)
+                            | qusql_parse::Type::BigInt(_)
+                            | qusql_parse::Type::VarChar(_)
+                            | qusql_parse::Type::TinyText(_)
+                            | qusql_parse::Type::MediumText(_)
+                            | qusql_parse::Type::Text(_)
+                            | qusql_parse::Type::LongText(_)
+                            | qusql_parse::Type::Enum(_)
+                            | qusql_parse::Type::Set(_)
+                            | qusql_parse::Type::Numeric(_, _, _)
+                            | qusql_parse::Type::Timestamp(_)
+                            | qusql_parse::Type::TinyBlob(_)
+                            | qusql_parse::Type::MediumBlob(_)
+                            | qusql_parse::Type::Blob(_)
+                            | qusql_parse::Type::LongBlob(_)
+                            | qusql_parse::Type::Json
+                            | qusql_parse::Type::Bit(_, _)
+                            | qusql_parse::Type::Bytea
+                            | qusql_parse::Type::Named(_) // TODO lookup name
+                            | qusql_parse::Type::VarBinary(_) => {
                                 typer
                                     .err("Type not allow in cast", type_);
                             }
@@ -456,26 +456,26 @@ pub(crate) fn type_expression<'a>(
             ..
         } => {
             let cnt = match time_unit.0 {
-                sql_parse::TimeUnit::Microsecond => 1,
-                sql_parse::TimeUnit::Second => 1,
-                sql_parse::TimeUnit::Minute => 1,
-                sql_parse::TimeUnit::Hour => 1,
-                sql_parse::TimeUnit::Day => 1,
-                sql_parse::TimeUnit::Week => 1,
-                sql_parse::TimeUnit::Month => 1,
-                sql_parse::TimeUnit::Quarter => 1,
-                sql_parse::TimeUnit::Year => 1,
-                sql_parse::TimeUnit::SecondMicrosecond => 2,
-                sql_parse::TimeUnit::MinuteMicrosecond => 3,
-                sql_parse::TimeUnit::MinuteSecond => 2,
-                sql_parse::TimeUnit::HourMicrosecond => 4,
-                sql_parse::TimeUnit::HourSecond => 3,
-                sql_parse::TimeUnit::HourMinute => 2,
-                sql_parse::TimeUnit::DayMicrosecond => 5,
-                sql_parse::TimeUnit::DaySecond => 4,
-                sql_parse::TimeUnit::DayMinute => 3,
-                sql_parse::TimeUnit::DayHour => 2,
-                sql_parse::TimeUnit::YearMonth => 2,
+                qusql_parse::TimeUnit::Microsecond => 1,
+                qusql_parse::TimeUnit::Second => 1,
+                qusql_parse::TimeUnit::Minute => 1,
+                qusql_parse::TimeUnit::Hour => 1,
+                qusql_parse::TimeUnit::Day => 1,
+                qusql_parse::TimeUnit::Week => 1,
+                qusql_parse::TimeUnit::Month => 1,
+                qusql_parse::TimeUnit::Quarter => 1,
+                qusql_parse::TimeUnit::Year => 1,
+                qusql_parse::TimeUnit::SecondMicrosecond => 2,
+                qusql_parse::TimeUnit::MinuteMicrosecond => 3,
+                qusql_parse::TimeUnit::MinuteSecond => 2,
+                qusql_parse::TimeUnit::HourMicrosecond => 4,
+                qusql_parse::TimeUnit::HourSecond => 3,
+                qusql_parse::TimeUnit::HourMinute => 2,
+                qusql_parse::TimeUnit::DayMicrosecond => 5,
+                qusql_parse::TimeUnit::DaySecond => 4,
+                qusql_parse::TimeUnit::DayMinute => 3,
+                qusql_parse::TimeUnit::DayHour => 2,
+                qusql_parse::TimeUnit::YearMonth => 2,
             };
             if cnt != time_interval.0.len() {
                 typer.err(

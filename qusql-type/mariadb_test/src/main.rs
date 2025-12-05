@@ -9,7 +9,7 @@ use crate::{
     tester::{NO_FLAGS, STRICTER_TYPE, Tester, emit_issues},
 };
 use error::Result;
-use sql_type::{Issues, SQLArguments, SQLDialect, TypeOptions, schema::parse_schemas};
+use qusql_type::{Issues, SQLArguments, SQLDialect, TypeOptions, schema::parse_schemas};
 
 fn main() -> Result<()> {
     let schema_src = include_str!("schema.sql");
@@ -80,7 +80,8 @@ fn main() -> Result<()> {
         String,
         StringNotNull,
         StringLiteral,
-        QueryArg] {
+        QueryArg,
+    ] {
         tester.test_statement(&format!("SELECT {} as `q`", t.v()), NO_FLAGS)?;
     }
 

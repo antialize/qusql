@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::{format, vec::Vec};
-use sql_parse::{
+use qusql_parse::{
     Expression, Identifier, IdentifierPart, Issues, OptSpanned, Select, SelectExpr, Span, Spanned,
     Statement, Union, issue_ice, issue_todo,
 };
@@ -62,7 +62,7 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
     mut cb: impl FnMut(&mut Issues<'a>, Option<Identifier<'a>>, FullType<'a>, Span, bool),
 ) {
     match parts {
-        [sql_parse::IdentifierPart::Name(col)] => {
+        [qusql_parse::IdentifierPart::Name(col)] => {
             let mut cnt = 0;
             let mut t = None;
             for r in &typer.reference_types {
@@ -109,7 +109,7 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                 );
             }
         }
-        [sql_parse::IdentifierPart::Star(v)] => {
+        [qusql_parse::IdentifierPart::Star(v)] => {
             if let Some(as_) = as_ {
                 typer.err("As not supported for *", as_);
             }
@@ -126,8 +126,8 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
             }
         }
         [
-            sql_parse::IdentifierPart::Name(tbl),
-            sql_parse::IdentifierPart::Name(col),
+            qusql_parse::IdentifierPart::Name(tbl),
+            qusql_parse::IdentifierPart::Name(col),
         ] => {
             let mut t = None;
             for r in &typer.reference_types {
@@ -160,8 +160,8 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
             }
         }
         [
-            sql_parse::IdentifierPart::Name(tbl),
-            sql_parse::IdentifierPart::Star(v),
+            qusql_parse::IdentifierPart::Name(tbl),
+            qusql_parse::IdentifierPart::Star(v),
         ] => {
             if let Some(as_) = as_ {
                 typer.err("As not supported for *", as_);
@@ -186,7 +186,7 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                 typer.err("Unknown table", tbl);
             }
         }
-        [sql_parse::IdentifierPart::Star(v), _] => {
+        [qusql_parse::IdentifierPart::Star(v), _] => {
             typer.err("Not supported here", v);
         }
         _ => {
@@ -209,15 +209,15 @@ pub(crate) fn type_select<'a>(
 
     for flag in &select.flags {
         match &flag {
-            sql_parse::SelectFlag::All(_) => issue_todo!(typer.issues, flag),
-            sql_parse::SelectFlag::Distinct(_) | sql_parse::SelectFlag::DistinctRow(_) => (),
-            sql_parse::SelectFlag::StraightJoin(_) => issue_todo!(typer.issues, flag),
-            sql_parse::SelectFlag::HighPriority(_)
-            | sql_parse::SelectFlag::SqlSmallResult(_)
-            | sql_parse::SelectFlag::SqlBigResult(_)
-            | sql_parse::SelectFlag::SqlBufferResult(_)
-            | sql_parse::SelectFlag::SqlNoCache(_)
-            | sql_parse::SelectFlag::SqlCalcFoundRows(_) => (),
+            qusql_parse::SelectFlag::All(_) => issue_todo!(typer.issues, flag),
+            qusql_parse::SelectFlag::Distinct(_) | qusql_parse::SelectFlag::DistinctRow(_) => (),
+            qusql_parse::SelectFlag::StraightJoin(_) => issue_todo!(typer.issues, flag),
+            qusql_parse::SelectFlag::HighPriority(_)
+            | qusql_parse::SelectFlag::SqlSmallResult(_)
+            | qusql_parse::SelectFlag::SqlBigResult(_)
+            | qusql_parse::SelectFlag::SqlBufferResult(_)
+            | qusql_parse::SelectFlag::SqlNoCache(_)
+            | qusql_parse::SelectFlag::SqlCalcFoundRows(_) => (),
         }
     }
 

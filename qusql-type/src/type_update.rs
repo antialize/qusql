@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_parse::{OptSpanned, Spanned, Update};
+use qusql_parse::{OptSpanned, Spanned, Update};
 
 use crate::{
     SelectTypeColumn, Type,
@@ -34,7 +34,7 @@ pub(crate) fn type_update<'a>(
 
     for f in &update.flags {
         match f {
-            sql_parse::UpdateFlag::LowPriority(_) | sql_parse::UpdateFlag::Ignore(_) => (),
+            qusql_parse::UpdateFlag::LowPriority(_) | qusql_parse::UpdateFlag::Ignore(_) => (),
         }
     }
 

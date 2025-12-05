@@ -1,6 +1,6 @@
 [package]
-name = "sql-type"
-version = "0.29.2"
+name = "qusql-type"
+version = "0.1.0"
 edition = "2024"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 keywords = [ "mysql", "postgesql", "sql", "typer" ]
@@ -13,9 +13,5 @@ description = "Typer for sql"
 [dev-dependencies]
 codespan-reporting = "0.13"
 
-[workspace]
-resolver = "3"
-members = ["mariadb_test"]
-
 [dependencies]
-sql-parse = "0.28.0"
+qusql-parse = {path="../qusql-parse"}

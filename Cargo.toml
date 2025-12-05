@@ -5,4 +5,11 @@ edition = "2024"
  
 [workspace]
 resolver = "3"
-members = ["qusql-mysql", "qusql-mysql-test", "benchmark", "qusql-parse"]
+members = [
+    "benchmark",
+    "qusql-mysql-test",
+    "qusql-mysql",
+    "qusql-parse",
+    "qusql-type",
+    "qusql-type/mariadb_test"
+]

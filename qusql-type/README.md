@@ -14,7 +14,7 @@ Currently primarily focused on MariaDB/Mysql.
 
 Example code:
 ```rust
-use sql_type::{schema::parse_schemas, type_statement, TypeOptions,
+use qusql_type::{schema::parse_schemas, type_statement, TypeOptions,
     SQLDialect, SQLArguments, StatementType};
 let schemas = "
     CREATE TABLE `events` (

@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use sql_parse::{Delete, OptSpanned, Spanned};
+use qusql_parse::{Delete, OptSpanned, Spanned};
 
 use crate::{
     SelectTypeColumn,
@@ -34,9 +34,9 @@ pub(crate) fn type_delete<'a>(
 
     for flag in &delete.flags {
         match flag {
-            sql_parse::DeleteFlag::LowPriority(_)
-            | sql_parse::DeleteFlag::Quick(_)
-            | sql_parse::DeleteFlag::Ignore(_) => (),
+            qusql_parse::DeleteFlag::LowPriority(_)
+            | qusql_parse::DeleteFlag::Quick(_)
+            | qusql_parse::DeleteFlag::Ignore(_) => (),
         }
     }
 

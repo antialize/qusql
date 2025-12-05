@@ -14,7 +14,7 @@
 //! for typing statements.
 //!
 //! ```
-//! use sql_type::{schema::parse_schemas, TypeOptions, SQLDialect, Issues};
+//! use qusql_type::{schema::parse_schemas, TypeOptions, SQLDialect, Issues};
 //! let schemas = "
 //!     -- Table structure for table `events`
 //!     DROP TABLE IF EXISTS `events`;
@@ -89,7 +89,7 @@ use crate::{
     typer::unqualified_name,
 };
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
-use sql_parse::{DataType, Expression, Identifier, Issues, Span, Spanned, parse_statements};
+use qusql_parse::{DataType, Expression, Identifier, Issues, Span, Spanned, parse_statements};
 
 /// A column in a schema
 #[derive(Debug)]
@@ -173,20 +173,20 @@ pub(crate) fn parse_column<'a>(
         .unwrap_or_default();
     for p in data_type.properties {
         match p {
-            sql_parse::DataTypeProperty::Signed(_) => unsigned = false,
-            sql_parse::DataTypeProperty::Unsigned(_) => unsigned = true,
-            sql_parse::DataTypeProperty::Null(_) => not_null = false,
-            sql_parse::DataTypeProperty::NotNull(_) => not_null = true,
-            sql_parse::DataTypeProperty::AutoIncrement(_) => auto_increment = true,
-            sql_parse::DataTypeProperty::As((_, e)) => _as = Some(e),
-            sql_parse::DataTypeProperty::Default(_) => default = true,
-            sql_parse::DataTypeProperty::GeneratedAlways(_) => generated = true,
-            sql_parse::DataTypeProperty::PrimaryKey(_) => primary_key = true,
+            qusql_parse::DataTypeProperty::Signed(_) => unsigned = false,
+            qusql_parse::DataTypeProperty::Unsigned(_) => unsigned = true,
+            qusql_parse::DataTypeProperty::Null(_) => not_null = false,
+            qusql_parse::DataTypeProperty::NotNull(_) => not_null = true,
+            qusql_parse::DataTypeProperty::AutoIncrement(_) => auto_increment = true,
+            qusql_parse::DataTypeProperty::As((_, e)) => _as = Some(e),
+            qusql_parse::DataTypeProperty::Default(_) => default = true,
+            qusql_parse::DataTypeProperty::GeneratedAlways(_) => generated = true,
+            qusql_parse::DataTypeProperty::PrimaryKey(_) => primary_key = true,
             _ => {}
         }
     }
     let type_ = match data_type.type_ {
-        sql_parse::Type::TinyInt(v) => {
+        qusql_parse::Type::TinyInt(v) => {
             if !unsigned && matches!(v, Some((1, _))) {
                 BaseType::Bool.into()
             } else if unsigned {
@@ -195,63 +195,63 @@ pub(crate) fn parse_column<'a>(
                 Type::I8
             }
         }
-        sql_parse::Type::SmallInt(_) => {
+        qusql_parse::Type::SmallInt(_) => {
             if unsigned {
                 Type::U16
             } else {
                 Type::I16
             }
         }
-        sql_parse::Type::Int(_) => {
+        qusql_parse::Type::Int(_) => {
             if unsigned {
                 Type::U32
             } else {
                 Type::I32
             }
         }
-        sql_parse::Type::BigInt(_) => {
+        qusql_parse::Type::BigInt(_) => {
             if unsigned {
                 Type::U64
             } else {
                 Type::I64
             }
         }
-        sql_parse::Type::Char(_) => BaseType::String.into(),
-        sql_parse::Type::VarChar(_) => BaseType::String.into(),
-        sql_parse::Type::TinyText(_) => BaseType::String.into(),
-        sql_parse::Type::MediumText(_) => BaseType::String.into(),
-        sql_parse::Type::Text(_) => BaseType::String.into(),
-        sql_parse::Type::LongText(_) => BaseType::String.into(),
-        sql_parse::Type::Enum(e) => Type::Enum(Arc::new(e.into_iter().map(|s| s.value).collect())),
-        sql_parse::Type::Set(s) => Type::Set(Arc::new(s.into_iter().map(|s| s.value).collect())),
-        sql_parse::Type::Float(_) => Type::F32,
-        sql_parse::Type::Double(_) => Type::F64,
-        sql_parse::Type::DateTime(_) => BaseType::DateTime.into(),
-        sql_parse::Type::Timestamp(_) => BaseType::TimeStamp.into(),
-        sql_parse::Type::Time(_) => BaseType::Time.into(),
-        sql_parse::Type::TinyBlob(_) => BaseType::Bytes.into(),
-        sql_parse::Type::MediumBlob(_) => BaseType::Bytes.into(),
-        sql_parse::Type::Date => BaseType::Date.into(),
-        sql_parse::Type::Blob(_) => BaseType::Bytes.into(),
-        sql_parse::Type::LongBlob(_) => BaseType::Bytes.into(),
-        sql_parse::Type::VarBinary(_) => BaseType::Bytes.into(),
-        sql_parse::Type::Binary(_) => BaseType::Bytes.into(),
-        sql_parse::Type::Boolean => BaseType::Bool.into(),
-        sql_parse::Type::Integer(_) => {
+        qusql_parse::Type::Char(_) => BaseType::String.into(),
+        qusql_parse::Type::VarChar(_) => BaseType::String.into(),
+        qusql_parse::Type::TinyText(_) => BaseType::String.into(),
+        qusql_parse::Type::MediumText(_) => BaseType::String.into(),
+        qusql_parse::Type::Text(_) => BaseType::String.into(),
+        qusql_parse::Type::LongText(_) => BaseType::String.into(),
+        qusql_parse::Type::Enum(e) => Type::Enum(Arc::new(e.into_iter().map(|s| s.value).collect())),
+        qusql_parse::Type::Set(s) => Type::Set(Arc::new(s.into_iter().map(|s| s.value).collect())),
+        qusql_parse::Type::Float(_) => Type::F32,
+        qusql_parse::Type::Double(_) => Type::F64,
+        qusql_parse::Type::DateTime(_) => BaseType::DateTime.into(),
+        qusql_parse::Type::Timestamp(_) => BaseType::TimeStamp.into(),
+        qusql_parse::Type::Time(_) => BaseType::Time.into(),
+        qusql_parse::Type::TinyBlob(_) => BaseType::Bytes.into(),
+        qusql_parse::Type::MediumBlob(_) => BaseType::Bytes.into(),
+        qusql_parse::Type::Date => BaseType::Date.into(),
+        qusql_parse::Type::Blob(_) => BaseType::Bytes.into(),
+        qusql_parse::Type::LongBlob(_) => BaseType::Bytes.into(),
+        qusql_parse::Type::VarBinary(_) => BaseType::Bytes.into(),
+        qusql_parse::Type::Binary(_) => BaseType::Bytes.into(),
+        qusql_parse::Type::Boolean => BaseType::Bool.into(),
+        qusql_parse::Type::Integer(_) => {
             if is_sqlite && primary_key {
                 auto_increment = true;
             }
             BaseType::Integer.into()
         }
-        sql_parse::Type::Float8 => BaseType::Float.into(),
-        sql_parse::Type::Numeric(_, _, _) => todo!("Numeric"),
-        sql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
-        sql_parse::Type::Json => BaseType::String.into(),
-        sql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
-        sql_parse::Type::Bytea => BaseType::Bytes.into(),
-        sql_parse::Type::Named(_) => BaseType::String.into(), // TODO lookup name??
-        sql_parse::Type::Inet4 => BaseType::String.into(),
-        sql_parse::Type::Inet6 => BaseType::String.into(),
+        qusql_parse::Type::Float8 => BaseType::Float.into(),
+        qusql_parse::Type::Numeric(_, _, _) => todo!("Numeric"),
+        qusql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
+        qusql_parse::Type::Json => BaseType::String.into(),
+        qusql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
+        qusql_parse::Type::Bytea => BaseType::Bytes.into(),
+        qusql_parse::Type::Named(_) => BaseType::String.into(), // TODO lookup name??
+        qusql_parse::Type::Inet4 => BaseType::String.into(),
+        qusql_parse::Type::Inet6 => BaseType::String.into(),
     };
 
     Column {
@@ -300,7 +300,7 @@ pub fn parse_schemas<'a>(
 
     for statement in statements {
         match statement {
-            sql_parse::Statement::CreateTable(t) => {
+            qusql_parse::Statement::CreateTable(t) => {
                 let mut replace = false;
 
                 let id = unqualified_name(issues, &t.identifier);
@@ -313,25 +313,25 @@ pub fn parse_schemas<'a>(
 
                 for o in t.create_options {
                     match o {
-                        sql_parse::CreateOption::OrReplace(_) => {
+                        qusql_parse::CreateOption::OrReplace(_) => {
                             replace = true;
                         }
-                        sql_parse::CreateOption::Temporary(s) => {
+                        qusql_parse::CreateOption::Temporary(s) => {
                             issues.err("Not supported", &s);
                         }
-                        sql_parse::CreateOption::Unique(s) => {
+                        qusql_parse::CreateOption::Unique(s) => {
                             issues.err("Not supported", &s);
                         }
-                        sql_parse::CreateOption::Algorithm(_, _) => {}
-                        sql_parse::CreateOption::Definer { .. } => {}
-                        sql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
-                        sql_parse::CreateOption::SqlSecurityUser(_, _) => {}
+                        qusql_parse::CreateOption::Algorithm(_, _) => {}
+                        qusql_parse::CreateOption::Definer { .. } => {}
+                        qusql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
+                        qusql_parse::CreateOption::SqlSecurityUser(_, _) => {}
                     }
                 }
                 // TODO: do we care about table options
                 for d in t.create_definitions {
                     match d {
-                        sql_parse::CreateDefinition::ColumnDefinition {
+                        qusql_parse::CreateDefinition::ColumnDefinition {
                             identifier,
                             data_type,
                         } => {
@@ -345,7 +345,7 @@ pub fn parse_schemas<'a>(
                                 schema.columns.push(column);
                             }
                         }
-                        sql_parse::CreateDefinition::ConstraintDefinition { .. } => {}
+                        qusql_parse::CreateDefinition::ConstraintDefinition { .. } => {}
                     }
                 }
                 match schemas.schemas.entry(id.clone()) {
@@ -363,7 +363,7 @@ pub fn parse_schemas<'a>(
                     }
                 }
             }
-            sql_parse::Statement::CreateView(v) => {
+            qusql_parse::Statement::CreateView(v) => {
                 let mut replace = false;
                 let mut schema = Schema {
                     view: true,
@@ -372,19 +372,19 @@ pub fn parse_schemas<'a>(
                 };
                 for o in v.create_options {
                     match o {
-                        sql_parse::CreateOption::OrReplace(_) => {
+                        qusql_parse::CreateOption::OrReplace(_) => {
                             replace = true;
                         }
-                        sql_parse::CreateOption::Temporary(s) => {
+                        qusql_parse::CreateOption::Temporary(s) => {
                             issues.err("Not supported", &s);
                         }
-                        sql_parse::CreateOption::Unique(s) => {
+                        qusql_parse::CreateOption::Unique(s) => {
                             issues.err("Not supported", &s);
                         }
-                        sql_parse::CreateOption::Algorithm(_, _) => {}
-                        sql_parse::CreateOption::Definer { .. } => {}
-                        sql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
-                        sql_parse::CreateOption::SqlSecurityUser(_, _) => {}
+                        qusql_parse::CreateOption::Algorithm(_, _) => {}
+                        qusql_parse::CreateOption::Definer { .. } => {}
+                        qusql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
+                        qusql_parse::CreateOption::SqlSecurityUser(_, _) => {}
                     }
                 }
 
@@ -439,13 +439,13 @@ pub fn parse_schemas<'a>(
                     }
                 }
             }
-            sql_parse::Statement::CreateTrigger(_) => {}
-            // sql_parse::Statement::CreateFunction(_) => todo!(),
-            // sql_parse::Statement::Select(_) => todo!(),
-            // sql_parse::Statement::Delete(_) => todo!(),
-            // sql_parse::Statement::Insert(_) => todo!(),
-            // sql_parse::Statement::Update(_) => todo!(),
-            sql_parse::Statement::DropTable(t) => {
+            qusql_parse::Statement::CreateTrigger(_) => {}
+            // qusql_parse::Statement::CreateFunction(_) => todo!(),
+            // qusql_parse::Statement::Select(_) => todo!(),
+            // qusql_parse::Statement::Delete(_) => todo!(),
+            // qusql_parse::Statement::Insert(_) => todo!(),
+            // qusql_parse::Statement::Update(_) => todo!(),
+            qusql_parse::Statement::DropTable(t) => {
                 for i in t.tables {
                     match schemas.schemas.entry(unqualified_name(issues, &i).clone()) {
                         alloc::collections::btree_map::Entry::Occupied(e) => {
@@ -465,7 +465,7 @@ pub fn parse_schemas<'a>(
                     }
                 }
             }
-            sql_parse::Statement::DropFunction(f) => {
+            qusql_parse::Statement::DropFunction(f) => {
                 match schemas
                     .functions
                     .entry(unqualified_name(issues, &f.function).clone())
@@ -483,7 +483,7 @@ pub fn parse_schemas<'a>(
                     }
                 }
             }
-            sql_parse::Statement::DropProcedure(p) => {
+            qusql_parse::Statement::DropProcedure(p) => {
                 match schemas
                     .procedures
                     .entry(unqualified_name(issues, &p.procedure).clone())
@@ -501,11 +501,11 @@ pub fn parse_schemas<'a>(
                     }
                 }
             }
-            //sql_parse::Statement::DropEvent(_) => todo!(),
-            sql_parse::Statement::DropDatabase(_) => {}
-            sql_parse::Statement::DropServer(_) => {}
-            sql_parse::Statement::DropTrigger(_) => {}
-            sql_parse::Statement::DropView(v) => {
+            //qusql_parse::Statement::DropEvent(_) => todo!(),
+            qusql_parse::Statement::DropDatabase(_) => {}
+            qusql_parse::Statement::DropServer(_) => {}
+            qusql_parse::Statement::DropTrigger(_) => {}
+            qusql_parse::Statement::DropView(v) => {
                 for i in v.views {
                     match schemas.schemas.entry(unqualified_name(issues, &i).clone()) {
                         alloc::collections::btree_map::Entry::Occupied(e) => {
@@ -525,8 +525,8 @@ pub fn parse_schemas<'a>(
                     }
                 }
             }
-            sql_parse::Statement::Set(_) => {}
-            sql_parse::Statement::AlterTable(a) => {
+            qusql_parse::Statement::Set(_) => {}
+            qusql_parse::Statement::AlterTable(a) => {
                 let e = match schemas
                     .schemas
                     .entry(unqualified_name(issues, &a.table).clone())
@@ -548,7 +548,7 @@ pub fn parse_schemas<'a>(
                 };
                 for s in a.alter_specifications {
                     match s {
-                        sql_parse::AlterSpecification::AddIndex {
+                        qusql_parse::AlterSpecification::AddIndex {
                             if_not_exists,
                             name,
                             cols,
@@ -587,8 +587,8 @@ pub fn parse_schemas<'a>(
                                 }
                             }
                         }
-                        sql_parse::AlterSpecification::AddForeignKey { .. } => {}
-                        sql_parse::AlterSpecification::Modify {
+                        qusql_parse::AlterSpecification::AddForeignKey { .. } => {}
+                        qusql_parse::AlterSpecification::Modify {
                             if_exists,
                             col,
                             definition,
@@ -612,7 +612,7 @@ pub fn parse_schemas<'a>(
                                 Some(options),
                             );
                         }
-                        sql_parse::AlterSpecification::AddColumn {
+                        qusql_parse::AlterSpecification::AddColumn {
                             identifier,
                             data_type,
                             ..
@@ -624,8 +624,8 @@ pub fn parse_schemas<'a>(
                                 Some(options),
                             ));
                         }
-                        sql_parse::AlterSpecification::OwnerTo { .. } => {}
-                        sql_parse::AlterSpecification::DropColumn { column, .. } => {
+                        qusql_parse::AlterSpecification::OwnerTo { .. } => {}
+                        qusql_parse::AlterSpecification::DropColumn { column, .. } => {
                             let cnt = e.columns.len();
                             e.columns.retain(|c| c.identifier != column);
                             if cnt == e.columns.len() {
@@ -634,7 +634,7 @@ pub fn parse_schemas<'a>(
                                     .frag("Table defined here", &e.identifier_span);
                             }
                         }
-                        sql_parse::AlterSpecification::AlterColumn {
+                        qusql_parse::AlterSpecification::AlterColumn {
                             column,
                             alter_column_action,
                             ..
@@ -649,15 +649,15 @@ pub fn parse_schemas<'a>(
                                 }
                             };
                             match alter_column_action {
-                                sql_parse::AlterColumnAction::SetDefault { .. } => (),
-                                sql_parse::AlterColumnAction::DropDefault { .. } => (),
-                                sql_parse::AlterColumnAction::Type { type_, .. } => {
+                                qusql_parse::AlterColumnAction::SetDefault { .. } => (),
+                                qusql_parse::AlterColumnAction::DropDefault { .. } => (),
+                                qusql_parse::AlterColumnAction::Type { type_, .. } => {
                                     *c = parse_column(type_, column, issues, Some(options))
                                 }
-                                sql_parse::AlterColumnAction::SetNotNull { .. } => {
+                                qusql_parse::AlterColumnAction::SetNotNull { .. } => {
                                     c.type_.not_null = true
                                 }
-                                sql_parse::AlterColumnAction::DropNotNull { .. } => {
+                                qusql_parse::AlterColumnAction::DropNotNull { .. } => {
                                     c.type_.not_null = false
                                 }
                             }
@@ -665,16 +665,16 @@ pub fn parse_schemas<'a>(
                     }
                 }
             }
-            sql_parse::Statement::Do(_) => {
+            qusql_parse::Statement::Do(_) => {
                 //todo!()
             }
-            // sql_parse::Statement::Block(_) => todo!(),
-            // sql_parse::Statement::If(_) => todo!(),
-            // sql_parse::Statement::Invalid => todo!(),
-            // sql_parse::Statement::Union(_) => todo!(),
-            // sql_parse::Statement::Replace(_) => todo!(),
-            // sql_parse::Statement::Case(_) => todo!(),
-            sql_parse::Statement::CreateIndex(ci) => {
+            // qusql_parse::Statement::Block(_) => todo!(),
+            // qusql_parse::Statement::If(_) => todo!(),
+            // qusql_parse::Statement::Invalid => todo!(),
+            // qusql_parse::Statement::Union(_) => todo!(),
+            // qusql_parse::Statement::Replace(_) => todo!(),
+            // qusql_parse::Statement::Case(_) => todo!(),
+            qusql_parse::Statement::CreateIndex(ci) => {
                 let t = unqualified_name(issues, &ci.table_name);
 
                 if let Some(table) = schemas.schemas.get(t) {
@@ -710,7 +710,7 @@ pub fn parse_schemas<'a>(
                         .frag("Already defined here", &old);
                 }
             }
-            sql_parse::Statement::DropIndex(ci) => {
+            qusql_parse::Statement::DropIndex(ci) => {
                 let key = IndexKey {
                     table: ci.on.as_ref().map(|(_, t)| t.identifier.clone()),
                     index: ci.index_name.clone(),
@@ -719,9 +719,9 @@ pub fn parse_schemas<'a>(
                     issues.err("No such index", &ci);
                 }
             }
-            sql_parse::Statement::Commit(_) => (),
-            sql_parse::Statement::Begin(_) => (),
-            sql_parse::Statement::CreateFunction(_) => (),
+            qusql_parse::Statement::Commit(_) => (),
+            qusql_parse::Statement::Begin(_) => (),
+            qusql_parse::Statement::CreateFunction(_) => (),
             s => {
                 issues.err(
                     alloc::format!("Unsupported statement {s:?} in schema definition"),

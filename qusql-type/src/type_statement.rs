@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_parse::{InsertReplaceType, Statement, WithBlock};
+use qusql_parse::{InsertReplaceType, Statement, WithBlock};
 
 use alloc::vec::Vec;
 

@@ -256,11 +256,9 @@ impl Connection {
                 let message = str::from_utf8(r.0)?.to_string();
                 Ok(TypeStatementResult::Error { code, message })
             }
-            r => {
-                Err(Error::bail(format!(
-                    "Expected prepare statement response {r}"
-                )))
-            }
+            r => Err(Error::bail(format!(
+                "Expected prepare statement response {r}"
+            ))),
         }
     }
 
@@ -284,7 +282,7 @@ impl Connection {
         ));
         ack.extend_from_slice(&u32::to_le_bytes(0x1000000));
         ack.push(45); //utf8mb4_general_ci
-        ack.extend(&[0;23]);
+        ack.extend(&[0; 23]);
         ack.extend_from_slice("root\0".as_bytes());
         // No password
         ack.push(0);

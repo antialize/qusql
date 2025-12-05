@@ -8,7 +8,7 @@ use codespan_reporting::{
         termcolor::{ColorChoice, StandardStream},
     },
 };
-use sql_type::{BaseType, Issue, Issues, Level, StatementType, Type, TypeOptions, schema::Schemas};
+use qusql_type::{BaseType, Issue, Issues, Level, StatementType, Type, TypeOptions, schema::Schemas};
 
 use crate::error::Result;
 use crate::{
@@ -188,14 +188,11 @@ impl<'a> Tester<'a> {
             println!();
         }
 
-        let r1 = self
-            .conn
-            .type_statement(stmt)
-            .context("Typing statement")?;
+        let r1 = self.conn.type_statement(stmt).context("Typing statement")?;
 
         let mut is_error = false;
         let mut issues = Issues::new(stmt);
-        let r2 = sql_type::type_statement(&self.schemas, stmt, &mut issues, &self.options);
+        let r2 = qusql_type::type_statement(&self.schemas, stmt, &mut issues, &self.options);
         match (r1, issues.is_ok()) {
             (TypeStatementResult::Typed { params, columns }, true) => {
                 let (our_cols, our_params) = match r2 {

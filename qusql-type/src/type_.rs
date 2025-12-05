@@ -16,7 +16,7 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
-use sql_parse::Span;
+use qusql_parse::Span;
 
 /// Canonical base type of a type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

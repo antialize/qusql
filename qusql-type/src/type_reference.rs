@@ -18,7 +18,7 @@ use crate::{
     typer::{ReferenceType, Typer, unqualified_name},
 };
 use alloc::vec::Vec;
-use sql_parse::{OptSpanned, Spanned, TableReference, issue_todo};
+use qusql_parse::{OptSpanned, Spanned, TableReference, issue_todo};
 
 pub(crate) fn type_reference<'a>(
     typer: &mut Typer<'a, '_>,
@@ -27,7 +27,7 @@ pub(crate) fn type_reference<'a>(
 ) {
     let mut given_refs = core::mem::take(&mut typer.reference_types);
     match reference {
-        sql_parse::TableReference::Table {
+        qusql_parse::TableReference::Table {
             identifier,
             as_,
             index_hints,
@@ -51,7 +51,7 @@ pub(crate) fn type_reference<'a>(
                     }
                 }
                 for index_hint in index_hints {
-                    if matches!(index_hint.type_, sql_parse::IndexHintType::Index(_)) {
+                    if matches!(index_hint.type_, qusql_parse::IndexHintType::Index(_)) {
                         for index in &index_hint.index_list {
                             if !typer.schemas.indices.contains_key(&IndexKey {
                                 table: Some(identifier.clone()),
@@ -72,7 +72,7 @@ pub(crate) fn type_reference<'a>(
                 typer.issues.err("Unknown table or view", identifier);
             }
         }
-        sql_parse::TableReference::Query { query, as_, .. } => {
+        qusql_parse::TableReference::Query { query, as_, .. } => {
             let select = type_union_select(typer, query, true);
 
             let span = if let Some(as_) = as_ {
@@ -91,18 +91,18 @@ pub(crate) fn type_reference<'a>(
                     .collect(),
             });
         }
-        sql_parse::TableReference::Join {
+        qusql_parse::TableReference::Join {
             join,
             left,
             right,
             specification,
         } => {
             let (left_force_null, right_force_null) = match join {
-                sql_parse::JoinType::Left(_) => (force_null, true),
-                sql_parse::JoinType::Right(_) => (true, force_null),
-                sql_parse::JoinType::Inner(_)
-                | sql_parse::JoinType::Cross(_)
-                | sql_parse::JoinType::Normal(_) => (force_null, force_null),
+                qusql_parse::JoinType::Left(_) => (force_null, true),
+                qusql_parse::JoinType::Right(_) => (true, force_null),
+                qusql_parse::JoinType::Inner(_)
+                | qusql_parse::JoinType::Cross(_)
+                | qusql_parse::JoinType::Normal(_) => (force_null, force_null),
                 _ => {
                     issue_todo!(typer.issues, join);
                     (force_null, force_null)
@@ -111,11 +111,11 @@ pub(crate) fn type_reference<'a>(
             type_reference(typer, left, left_force_null);
             type_reference(typer, right, right_force_null);
             match &specification {
-                Some(sql_parse::JoinSpecification::On(e, _)) => {
+                Some(qusql_parse::JoinSpecification::On(e, _)) => {
                     let t = type_expression(typer, e, ExpressionFlags::default(), BaseType::Bool);
                     typer.ensure_base(e, &t, BaseType::Bool);
                 }
-                Some(s @ sql_parse::JoinSpecification::Using(_, _)) => {
+                Some(s @ qusql_parse::JoinSpecification::Using(_, _)) => {
                     issue_todo!(typer.issues, s);
                 }
                 None => (),

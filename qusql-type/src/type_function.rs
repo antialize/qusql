@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::{format, vec::Vec};
-use sql_parse::{Expression, Function, Span};
+use qusql_parse::{Expression, Function, Span};
 
 use crate::{
     Type,
@@ -489,9 +489,10 @@ pub(crate) fn type_function<'a, 'b>(
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..2, args, span);
             if let Some((e, t)) = typed.last()
-                && t.base() != BaseType::Integer {
-                    typer.ensure_base(*e, t, BaseType::TimeInterval);
-                }
+                && t.base() != BaseType::Integer
+            {
+                typer.ensure_base(*e, t, BaseType::TimeInterval);
+            }
             if let Some((e, t)) = typed.first() {
                 let t = typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
                 FullType::new(t, false)

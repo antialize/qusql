@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::format;
-use sql_parse::{BinaryOperator, Expression, Span};
+use qusql_parse::{BinaryOperator, Expression, Span};
 
 use crate::{
     Type,

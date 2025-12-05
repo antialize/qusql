@@ -15,7 +15,7 @@
 //! Crate for typing SQL statements.
 //!
 //! ```
-//! use sql_type::{schema::parse_schemas, type_statement, TypeOptions,
+//! use qusql_type::{schema::parse_schemas, type_statement, TypeOptions,
 //!     SQLDialect, SQLArguments, StatementType, Issues};
 //! let schemas = "
 //!     CREATE TABLE `events` (
@@ -51,8 +51,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use schema::Schemas;
-pub use sql_parse::{Fragment, Issue, Issues, Level};
-use sql_parse::{ParseOptions, parse_statement};
+pub use qusql_parse::{Fragment, Issue, Issues, Level};
+use qusql_parse::{ParseOptions, parse_statement};
 
 mod type_;
 mod type_binary_expression;
@@ -72,7 +72,7 @@ pub use type_insert_replace::AutoIncrementId;
 pub use type_select::SelectTypeColumn;
 use typer::Typer;
 
-pub use sql_parse::{SQLArguments, SQLDialect};
+pub use qusql_parse::{SQLArguments, SQLDialect};
 
 /// Options used when typing sql or parsing a schema
 #[derive(Debug, Default, Clone)]
@@ -263,7 +263,7 @@ mod tests {
             termcolor::{ColorChoice, StandardStream},
         },
     };
-    use sql_parse::{Identifier, Issue, Issues, Level, SQLArguments, SQLDialect};
+    use qusql_parse::{Identifier, Issue, Issues, Level, SQLArguments, SQLDialect};
 
     use crate::{
         ArgumentKey, AutoIncrementId, BaseType, FullType, SelectTypeColumn, StatementType, Type,
