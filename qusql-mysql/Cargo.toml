@@ -16,4 +16,5 @@ missing_docs_in_private_items = "deny"
 
 [dependencies]
 bytes = "1.11.0"
+sha1_smol = "1.0.1"
 thiserror = "2.0.17"

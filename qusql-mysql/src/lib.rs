@@ -1,4 +1,5 @@
 //! This crate allow efficent async communication with mysql/mariadb
+pub mod auth;
 pub mod bind;
 pub mod constants;
 pub mod decode;
