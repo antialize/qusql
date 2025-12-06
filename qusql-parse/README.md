@@ -1,4 +1,4 @@
-# sql-parse
+# qusql-parse
 [![crates.io](https://img.shields.io/crates/v/sql-parse.svg)](https://crates.io/crates/sql-parse)
 [![crates.io](https://docs.rs/sql-parse/badge.svg)](https://docs.rs/sql-parse)
 [![License](https://img.shields.io/crates/l/sql-parse.svg)](https://github.com/antialize/sql-parse)

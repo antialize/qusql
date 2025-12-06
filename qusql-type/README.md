@@ -1,4 +1,4 @@
-# sql-type
+# qusql-type
 [![crates.io](https://img.shields.io/crates/v/sql-type.svg)](https://crates.io/crates/sql-type)
 [![crates.io](https://docs.rs/sql-type/badge.svg)](https://docs.rs/sql-type)
 [![License](https://img.shields.io/crates/l/sql-type.svg)](https://github.com/antialize/sql-type)
