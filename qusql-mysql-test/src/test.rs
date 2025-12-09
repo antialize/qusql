@@ -1,6 +1,6 @@
 ///! To use this db test framework start a mysql db as follows:
 ///! podman volume create --ignore --opt type=tmpfs --opt device=tmpfs dbstore
-///! podman run -d --replace --name test_db --rm -e MYSQL_ROOT_PASSWORD=test -e MYSQL_DATABASE=test \
+///! podman run --replace --name test_db --rm -e MYSQL_ROOT_PASSWORD=test -e MYSQL_DATABASE=test \
 ///!     --network=host -v dbstore:/var/lib/mysql  docker.io/mariadb:10.5 \
 ///!     --port 1235 --innodb-flush-method=nosync --innodb-buffer-pool-size=200M
 use std::{
@@ -785,6 +785,218 @@ async fn pool_drop() -> Result<(), Error> {
     for i in 0..40 {
         tasks.push(tokio::task::spawn(test_task(pool.clone(), i)));
     }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn typed() -> Result<(), Error> {
+    let pool = tokio::time::timeout(
+        Duration::from_secs(2),
+        Pool::connect(
+            OPTS,
+            PoolOptions {
+                max_connections: 2,
+                ..Default::default()
+            },
+        ),
+    )
+    .await??;
+
+    {
+        let mut conn = pool.acquire().await?;
+
+        let mut tr = conn.begin().await?;
+        tr.execute("DROP TABLE IF EXISTS db_test7", ()).await?;
+        tr.execute(
+            "CREATE TABLE db_test7 (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            v INT NOT NULL,
+            t TEXT NOT NULL,
+            PRIMARY KEY (id)
+            )",
+            (),
+        )
+        .await?;
+        tr.commit().await?;
+    }
+
+    let mut conn = pool.acquire().await?;
+    qusql_mysql_type::execute!(conn, "INSERT INTO db_test7 (v,t) VALUES (?,?)", 42, "hat").await?;
+
+    #[derive(Debug)]
+    struct RowO {
+        id: i64,
+        v: i32,
+        t: String,
+    }
+
+    #[derive(Debug)]
+    struct RowB<'a> {
+        id: i64,
+        v: i32,
+        t: &'a str,
+    }
+
+    let row =
+        qusql_mysql_type::fetch_one!(conn, "SELECT id, v, t FROM db_test7 WHERE v = ?", 42).await?;
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let row =
+        qusql_mysql_type::fetch_one_owned!(conn, "SELECT id, v, t FROM db_test7 WHERE v = ?", 42)
+            .await?;
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let row = qusql_mysql_type::fetch_one_as!(
+        RowB,
+        conn,
+        "SELECT id, v, t FROM db_test7 WHERE v = ?",
+        42
+    )
+    .await?;
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let row = qusql_mysql_type::fetch_one_as_owned!(
+        RowO,
+        conn,
+        "SELECT id, v, t FROM db_test7 WHERE v = ?",
+        42
+    )
+    .await?;
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let row =
+        qusql_mysql_type::fetch_optional!(conn, "SELECT id, v, t FROM db_test7 WHERE v = ?", 42)
+            .await?
+            .unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let row = qusql_mysql_type::fetch_optional_owned!(
+        conn,
+        "SELECT id, v, t FROM db_test7 WHERE v = ?",
+        42
+    )
+    .await?
+    .unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let row = qusql_mysql_type::fetch_optional_as!(
+        RowB,
+        conn,
+        "SELECT id, v, t FROM db_test7 WHERE v = ?",
+        42
+    )
+    .await?
+    .unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let row = qusql_mysql_type::fetch_optional_as_owned!(
+        RowO,
+        conn,
+        "SELECT id, v, t FROM db_test7 WHERE v = ?",
+        42
+    )
+    .await?
+    .unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let [row] = qusql_mysql_type::fetch_all!(conn, "SELECT id, v, t FROM db_test7 WHERE v = ?", 42)
+        .await?
+        .try_into()
+        .unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let [row] =
+        qusql_mysql_type::fetch_all_owned!(conn, "SELECT id, v, t FROM db_test7 WHERE v = ?", 42)
+            .await?
+            .try_into()
+            .unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let [row] = qusql_mysql_type::fetch_all_as!(
+        RowB,
+        conn,
+        "SELECT id, v, t FROM db_test7 WHERE v = ?",
+        42
+    )
+    .await?
+    .try_into()
+    .unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let [row] = qusql_mysql_type::fetch_all_as_owned!(
+        RowO,
+        conn,
+        "SELECT id, v, t FROM db_test7 WHERE v = ?",
+        42
+    )
+    .await?
+    .try_into()
+    .unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+
+    let mut iter =
+        qusql_mysql_type::fetch!(conn, "SELECT id, v, t FROM db_test7 WHERE v = ?", 42).await?;
+    let row = iter.next().await?.unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+    assert!(iter.next().await?.is_none());
+
+    let mut iter =
+        qusql_mysql_type::fetch_owned!(conn, "SELECT id, v, t FROM db_test7 WHERE v = ?", 42)
+            .await?;
+    let row = iter.next().await?.unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+    assert!(iter.next().await?.is_none());
+
+    let mut iter =
+        qusql_mysql_type::fetch_as!(RowB, conn, "SELECT id, v, t FROM db_test7 WHERE v = ?", 42)
+            .await?;
+    let row = iter.next().await?.unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+    assert!(iter.next().await?.is_none());
+
+    let mut iter = qusql_mysql_type::fetch_as_owned!(
+        RowO,
+        conn,
+        "SELECT id, v, t FROM db_test7 WHERE v = ?",
+        42
+    )
+    .await?;
+    let row = iter.next().await?.unwrap();
+    assert_eq!(row.id, 1);
+    assert_eq!(row.v, 42);
+    assert_eq!(row.t, "hat");
+    assert!(iter.next().await?.is_none());
 
     Ok(())
 }

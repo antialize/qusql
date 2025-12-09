@@ -8,6 +8,8 @@ resolver = "3"
 members = [
     "benchmark",
     "qusql-mysql-test",
+    "qusql-mysql-type",
+    "qusql-mysql-type-macro",
     "qusql-mysql",
     "qusql-parse",
     "qusql-type",
