@@ -115,9 +115,9 @@ impl std::error::Error for ConnectionError {}
 
 /// Result return by the connection
 pub type ConnectionResult<T> = std::result::Result<T, ConnectionError>;
-/// Convert [crate::package_parser::DecodeError] into [ConnectionError::Decode] with an attached location
+/// Convert [crate::package_parser::DecodeError] into [ConnectionErrorContent::Decode] with an attached location
 pub trait WithLoc<T> {
-    /// Convert [crate::package_parser::DecodeError] into [ConnectionError::Decode] with an attached location
+    /// Convert [crate::package_parser::DecodeError] into [ConnectionErrorContent::Decode] with an attached location
     fn loc(self, loc: &'static str) -> ConnectionResult<T>;
 }
 
