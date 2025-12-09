@@ -84,6 +84,7 @@ pub mod row;
 
 pub use connection::{
     Connection, ConnectionError, ConnectionErrorContent, ConnectionOptions, ExecuteResult,
-    Executor, ExecutorExt, Query, QueryIterator, Transaction,
+    Executor, ExecutorExt, Query, QueryIterator, RowMap, Transaction,
 };
 pub use pool::{Pool, PoolConnection, PoolOptions};
+pub use row::Row;

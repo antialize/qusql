@@ -584,10 +584,10 @@ fn parse_add_alter_specification<'a>(
                     Some(parser.consume_keywords(&[Keyword::IF, Keyword::NOT, Keyword::EXISTS])?);
             }
 
-            if let Some(s) = &if_not_exists_span {
-                if parser.options.dialect.is_maria() {
-                    parser.err("IF NOT EXIST is not supported", s);
-                }
+            if let Some(s) = &if_not_exists_span
+                && parser.options.dialect.is_maria()
+            {
+                parser.err("IF NOT EXIST is not supported", s);
             }
 
             let identifier = parser.consume_plain_identifier()?;

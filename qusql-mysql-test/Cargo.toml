@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 qusql-mysql = {path = "../qusql-mysql", features = ["cancel_testing"]}
 tokio = {version = "1", features=["full"]}
+qusql-mysql-type = {path = "../qusql-mysql-type"}

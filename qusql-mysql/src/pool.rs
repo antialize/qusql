@@ -187,9 +187,7 @@ impl Pool {
     /// A connection has been dropped, allow new connections to be established
     fn connection_dropped(&self) {
         let mut inner = self.0.protected.lock().unwrap();
-        if inner.connections.is_empty() && inner.unallocated_connections == 0 {
-            self.0.connection_available.notify_one();
-        }
+        self.0.connection_available.notify_one();
         assert_ne!(inner.unallocated_connections, 0);
         inner.unallocated_connections -= 1;
     }
@@ -197,9 +195,7 @@ impl Pool {
     /// Put a connection back into the pool
     fn release(&self, connection: Connection) {
         let mut inner = self.0.protected.lock().unwrap();
-        if inner.connections.is_empty() && inner.unallocated_connections == 0 {
-            self.0.connection_available.notify_one();
-        }
+        self.0.connection_available.notify_one();
         inner.connections.push(connection);
     }
 }

@@ -222,7 +222,9 @@ pub(crate) fn parse_column<'a>(
         qusql_parse::Type::MediumText(_) => BaseType::String.into(),
         qusql_parse::Type::Text(_) => BaseType::String.into(),
         qusql_parse::Type::LongText(_) => BaseType::String.into(),
-        qusql_parse::Type::Enum(e) => Type::Enum(Arc::new(e.into_iter().map(|s| s.value).collect())),
+        qusql_parse::Type::Enum(e) => {
+            Type::Enum(Arc::new(e.into_iter().map(|s| s.value).collect()))
+        }
         qusql_parse::Type::Set(s) => Type::Set(Arc::new(s.into_iter().map(|s| s.value).collect())),
         qusql_parse::Type::Float(_) => Type::F32,
         qusql_parse::Type::Double(_) => Type::F64,

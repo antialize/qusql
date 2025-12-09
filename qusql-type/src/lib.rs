@@ -50,9 +50,9 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use schema::Schemas;
 pub use qusql_parse::{Fragment, Issue, Issues, Level};
 use qusql_parse::{ParseOptions, parse_statement};
+use schema::Schemas;
 
 mod type_;
 mod type_binary_expression;

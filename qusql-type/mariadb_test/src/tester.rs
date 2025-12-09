@@ -8,7 +8,9 @@ use codespan_reporting::{
         termcolor::{ColorChoice, StandardStream},
     },
 };
-use qusql_type::{BaseType, Issue, Issues, Level, StatementType, Type, TypeOptions, schema::Schemas};
+use qusql_type::{
+    BaseType, Issue, Issues, Level, StatementType, Type, TypeOptions, schema::Schemas,
+};
 
 use crate::error::Result;
 use crate::{

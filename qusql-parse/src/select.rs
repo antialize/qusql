@@ -823,10 +823,10 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
             _ => parser.expected_failure("UPDATE, SHARE, NO KEY UPDATE or KEY SHARE here")?,
         };
 
-        if let LockStrength::NoKeyUpdate(s) | LockStrength::KeyShare(s) = &strength {
-            if !parser.options.dialect.is_postgresql() {
-                parser.err("Only support by PostgreSQL", s);
-            }
+        if let LockStrength::NoKeyUpdate(s) | LockStrength::KeyShare(s) = &strength
+            && !parser.options.dialect.is_postgresql()
+        {
+            parser.err("Only support by PostgreSQL", s);
         }
 
         let of = if let Some(of_span) = parser.skip_keyword(Keyword::OF) {

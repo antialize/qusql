@@ -115,9 +115,9 @@ impl std::error::Error for ConnectionError {}
 
 /// Result return by the connection
 pub type ConnectionResult<T> = std::result::Result<T, ConnectionError>;
-/// Convert [crate::package_parser::DecodeError] into [ConnectionError::Decode] with an attached location
+/// Convert [crate::package_parser::DecodeError] into [ConnectionErrorContent::Decode] with an attached location
 pub trait WithLoc<T> {
-    /// Convert [crate::package_parser::DecodeError] into [ConnectionError::Decode] with an attached location
+    /// Convert [crate::package_parser::DecodeError] into [ConnectionErrorContent::Decode] with an attached location
     fn loc(self, loc: &'static str) -> ConnectionResult<T>;
 }
 
@@ -153,15 +153,28 @@ impl<T: Eq + Display> Except for DecodeResult<T> {
 }
 
 /// Map a row into some concrete type
-pub trait RowMap: Send {
+pub trait RowMap<'a> {
     /// The error type returned by map
-    type E: From<ConnectionError> + Send;
+    type E: From<ConnectionError>;
 
     /// The value type returned by map
-    type T<'a>: Send;
+    type T;
 
     /// Map the row into a concrete type
-    fn map<'a>(row: Row<'a>) -> Result<Self::T<'a>, Self::E>;
+    fn map(row: Row<'a>) -> Result<Self::T, Self::E>;
+}
+
+/// Wrapper to Use a [FromRow] as a [RowMap]
+struct FromRowMapper<T>(PhantomData<T>);
+
+impl<'a, T: FromRow<'a>> RowMap<'a> for FromRowMapper<T> {
+    type E = ConnectionError;
+
+    type T = T;
+
+    fn map(row: Row<'a>) -> Result<Self::T, Self::E> {
+        T::from_row(&row).loc("row")
+    }
 }
 
 /// Reader used to read packages from Mariadb/Mysql
@@ -388,18 +401,26 @@ impl<'a> QueryIterator<'a> {
 }
 
 /// Iterate over mapped rows in a query result
-pub struct MapQueryIterator<'a, M: RowMap> {
+pub struct MapQueryIterator<'a, M>
+where
+    for<'b> M: RowMap<'b>,
+{
     /// A reference to the connection
     connection: &'a mut RawConnection,
     /// We need a phantom data fro M
     _phantom: PhantomData<M>,
 }
 
-impl<'a, M: RowMap> MapQueryIterator<'a, M> {
+impl<'a, M> MapQueryIterator<'a, M>
+where
+    for<'b> M: RowMap<'b>,
+{
     /// Fetch the next row from the result mapped using M
     ///
     /// The returned future is cancel-safe.
-    pub async fn next(&mut self) -> Result<Option<M::T<'_>>, M::E> {
+    pub async fn next<'b>(
+        &'b mut self,
+    ) -> Result<Option<<M as RowMap<'b>>::T>, <M as RowMap<'b>>::E> {
         match self.connection.state {
             ConnectionState::Clean => return Ok(None),
             ConnectionState::QueryReadRows => (),
@@ -1145,7 +1166,7 @@ impl<'a> Query<'a> {
     /// All arguments must have been bound
     ///
     /// If the query returns more than one row an error is returned
-    pub async fn fetch_optional_map<M: RowMap>(self) -> Result<Option<M::T<'a>>, M::E> {
+    pub async fn fetch_optional_map<M: RowMap<'a>>(self) -> Result<Option<M::T>, M::E> {
         if self.cur_param != self.statement.num_params {
             return Err(ConnectionError::from(ConnectionErrorContent::Bind(
                 self.cur_param,
@@ -1224,74 +1245,10 @@ impl<'a> Query<'a> {
     /// All arguments must have been bound
     ///
     /// If the query returns more than one row an error is returned
-    pub async fn fetch_optional<T: FromRow<'a>>(self) -> ConnectionResult<Option<T>> {
-        if self.cur_param != self.statement.num_params {
-            return Err(ConnectionErrorContent::Bind(
-                self.cur_param,
-                BindError::TooFewArgumentsBound,
-            )
-            .into());
-        }
-        match self.connection.query_send().await? {
-            QueryResult::WithColumns => (),
-            QueryResult::ExecuteResult(_) => {
-                return Err(ConnectionErrorContent::ExpectedRows.into());
-            }
-        };
-
-        // safety-cancel: The cleanup on the connection will skip the remaining rows
-        self.connection.test_cancel()?;
-        let p1 = self.connection.reader.read_raw().await?;
-        {
-            let mut pp = PackageParser::new(self.connection.reader.bytes(p1.clone()));
-            match pp.get_u8().loc("Row first byte")? {
-                0x00 => (),
-                0xFE => {
-                    //EOD
-                    self.connection.state = ConnectionState::Clean;
-                    return Ok(None);
-                }
-                0xFF => {
-                    handle_mysql_error(&mut pp)?;
-                    unreachable!()
-                }
-                v => {
-                    return Err(ConnectionErrorContent::ProtocolError(format!(
-                        "Unexpected response type {v} to row package"
-                    ))
-                    .into());
-                }
-            }
-        }
-
-        // We need to keep two packages in memory, cleanup will unset this bool
-        self.connection.reader.buffer_packages = true;
-
-        // safety-cancel: The cleanup on the connection will skip the remaining rows
-        self.connection.test_cancel()?;
-        let p2 = self.connection.reader.read_raw().await?;
-        {
-            let mut pp = PackageParser::new(self.connection.reader.bytes(p2));
-            match pp.get_u8().loc("Row first byte")? {
-                0x00 => return Err(ConnectionErrorContent::UnexpectedRows.into()),
-                0xFE => {
-                    self.connection.state = ConnectionState::Clean;
-                }
-                0xFF => {
-                    handle_mysql_error(&mut pp)?;
-                    unreachable!()
-                }
-                v => {
-                    return Err(ConnectionErrorContent::ProtocolError(format!(
-                        "Unexpected response type {v} to row package"
-                    ))
-                    .into());
-                }
-            }
-        }
-
-        let row = Row::new(&self.connection.columns, self.connection.reader.bytes(p1));
-        Ok(Some(T::from_row(&row).loc("Row")?))
+    pub fn fetch_optional<T: FromRow<'a>>(
+        self,
+    ) -> impl Future<Output = ConnectionResult<Option<T>>> + Send {
+        self.fetch_optional_map::<FromRowMapper<T>>()
     }
 
     /// Execute the query and return one row
@@ -1310,7 +1267,7 @@ impl<'a> Query<'a> {
     /// Execute the query and return all mapped rows in a vector
     ///
     /// All arguments must have been bound
-    pub async fn fetch_all_map<M: RowMap>(self) -> Result<Vec<M::T<'a>>, M::E> {
+    pub async fn fetch_all_map<M: RowMap<'a>>(self) -> Result<Vec<M::T>, M::E> {
         if self.cur_param != self.statement.num_params {
             return Err(ConnectionError::from(ConnectionErrorContent::Bind(
                 self.cur_param,
@@ -1370,61 +1327,10 @@ impl<'a> Query<'a> {
     /// Execute the query and return all rows in a vector
     ///
     /// All arguments must have been bound
-    pub async fn fetch_all<T: FromRow<'a>>(self) -> ConnectionResult<Vec<T>> {
-        if self.cur_param != self.statement.num_params {
-            return Err(ConnectionErrorContent::Bind(
-                self.cur_param,
-                BindError::TooFewArgumentsBound,
-            )
-            .into());
-        }
-        match self.connection.query_send().await? {
-            QueryResult::WithColumns => (),
-            QueryResult::ExecuteResult(_) => {
-                return Err(ConnectionErrorContent::ExpectedRows.into());
-            }
-        };
-
-        self.connection.ranges.clear();
-        loop {
-            // safety-cancel: The cleanup on the connection will skip the remaining rows
-            self.connection.test_cancel()?;
-            let p = self.connection.reader.read_raw().await?;
-            {
-                let mut pp = PackageParser::new(self.connection.reader.bytes(p.clone()));
-                match pp.get_u8().loc("Row first byte")? {
-                    0x00 => self.connection.ranges.push(p),
-                    0xFE => {
-                        //EOD
-                        self.connection.state = ConnectionState::Clean;
-                        break;
-                    }
-                    0xFF => {
-                        handle_mysql_error(&mut pp)?;
-                        unreachable!()
-                    }
-                    v => {
-                        return Err(ConnectionErrorContent::ProtocolError(format!(
-                            "Unexpected response type {v} to row package"
-                        ))
-                        .into());
-                    }
-                }
-            }
-
-            // We need to keep two packages in memory, cleanup will unset this bool
-            self.connection.reader.buffer_packages = true;
-        }
-
-        let mut ans = Vec::with_capacity(self.connection.ranges.len());
-        for p in &self.connection.ranges {
-            let row = Row::new(
-                &self.connection.columns,
-                self.connection.reader.bytes(p.clone()),
-            );
-            ans.push(T::from_row(&row).loc("Row")?);
-        }
-        Ok(ans)
+    pub fn fetch_all<T: FromRow<'a>>(
+        self,
+    ) -> impl Future<Output = ConnectionResult<Vec<T>>> + Send {
+        self.fetch_all_map::<FromRowMapper<T>>()
     }
 
     /// Execute the query and return an iterator that can return the results
@@ -1445,7 +1351,10 @@ impl<'a> Query<'a> {
     }
 
     /// Execute the query and return an iterator that can return the mapped results
-    pub async fn fetch_map<M: RowMap>(self) -> ConnectionResult<MapQueryIterator<'a, M>> {
+    pub async fn fetch_map<M>(self) -> ConnectionResult<MapQueryIterator<'a, M>>
+    where
+        for<'b> M: RowMap<'b>,
+    {
         if self.cur_param != self.statement.num_params {
             return Err(ConnectionErrorContent::Bind(
                 self.cur_param,
@@ -1582,7 +1491,7 @@ pub trait ExecutorExt {
     /// args.bind_args(query(stmt).await?)?;
     /// ```
     ///
-    /// See [Executor::query] for cancel/drop safety
+    /// See [Executor::query_raw] for cancel/drop safety
     fn query_with_args(
         &mut self,
         stmt: impl Into<Cow<'static, str>>,
@@ -1596,8 +1505,8 @@ pub trait ExecutorExt {
     /// query_with_args(stmt, args).await?.fetch_all().await?
     /// ```
     ///
-    /// See [Executor::query] for cancel/drop safety
-    fn fetch_all<'a, T: FromRow<'a> + Send>(
+    /// See [Executor::query_raw] for cancel/drop safety
+    fn fetch_all<'a, T: FromRow<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
@@ -1610,12 +1519,12 @@ pub trait ExecutorExt {
     /// query_with_args(stmt, args).await?.fetch_all_map(map).await?
     /// ```
     ///
-    /// See [Executor::query] for cancel/drop safety
-    fn fetch_all_map<'a, M: RowMap>(
+    /// See [Executor::query_raw] for cancel/drop safety
+    fn fetch_all_map<'a, M: RowMap<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
-    ) -> impl Future<Output = Result<Vec<M::T<'a>>, M::E>> + Send;
+    ) -> impl Future<Output = Result<Vec<M::T>, M::E>> + Send;
 
     /// Execute a query with the given arguments and return one row
     ///
@@ -1624,8 +1533,8 @@ pub trait ExecutorExt {
     /// query_with_args(stmt, args).await?.fetch_one().await?
     /// ```
     ///
-    /// See [Executor::query] for cancel/drop safety
-    fn fetch_one<'a, T: FromRow<'a> + Send>(
+    /// See [Executor::query_raw] for cancel/drop safety
+    fn fetch_one<'a, T: FromRow<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
@@ -1638,12 +1547,12 @@ pub trait ExecutorExt {
     /// query_with_args(stmt, args).await?.fetch_one_map(map).await?
     /// ```
     ///
-    /// See [Executor::query] for cancel/drop safety
-    fn fetch_one_map<'a, M: RowMap>(
+    /// See [Executor::query_raw] for cancel/drop safety
+    fn fetch_one_map<'a, M: RowMap<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
-    ) -> impl Future<Output = Result<M::T<'a>, M::E>> + Send;
+    ) -> impl Future<Output = Result<M::T, M::E>> + Send;
 
     /// Execute a query with the given arguments are return an optional row
     ///
@@ -1652,8 +1561,8 @@ pub trait ExecutorExt {
     /// query_with_args(stmt, args).await?.fetch_optional().await?
     /// ```
     ///
-    /// See [Executor::query] for cancel/drop safety
-    fn fetch_optional<'a, T: FromRow<'a> + Send>(
+    /// See [Executor::query_raw] for cancel/drop safety
+    fn fetch_optional<'a, T: FromRow<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
@@ -1666,12 +1575,12 @@ pub trait ExecutorExt {
     /// query_with_args(stmt, args).await?.fetch_optional_map(map).await?
     /// ```
     ///
-    /// See [Executor::query] for cancel/drop safety
-    fn fetch_optional_map<'a, M: RowMap>(
+    /// See [Executor::query_raw] for cancel/drop safety
+    fn fetch_optional_map<'a, M: RowMap<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
-    ) -> impl Future<Output = Result<Option<M::T<'a>>, M::E>> + Send;
+    ) -> impl Future<Output = Result<Option<M::T>, M::E>> + Send;
 
     /// Executing a query with the given arg
     ///
@@ -1680,7 +1589,7 @@ pub trait ExecutorExt {
     /// query_with_args(stmt, args).await?.execute().await?
     /// ```
     ///
-    /// See [Executor::query] for cancel/drop safety
+    /// See [Executor::query_raw] for cancel/drop safety
     fn execute(
         &mut self,
         stmt: impl Into<Cow<'static, str>>,
@@ -1694,7 +1603,7 @@ pub trait ExecutorExt {
     /// query_with_args(stmt, args).await?.fetch().await?
     /// ```
     ///
-    /// See [Executor::query] for cancel/drop safety
+    /// See [Executor::query_raw] for cancel/drop safety
     fn fetch(
         &mut self,
         stmt: impl Into<Cow<'static, str>>,
@@ -1708,12 +1617,14 @@ pub trait ExecutorExt {
     /// query_with_args(stmt, args).await?.fetch_map(map).await?
     /// ```
     ///
-    /// See [Executor::query] for cancel/drop safety
-    fn fetch_map<'a, M: RowMap>(
+    /// See [Executor::query_raw] for cancel/drop safety
+    fn fetch_map<'a, M>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
-    ) -> impl Future<Output = ConnectionResult<MapQueryIterator<'a, M>>> + Send;
+    ) -> impl Future<Output = ConnectionResult<MapQueryIterator<'a, M>>> + Send
+    where
+        for<'b> M: RowMap<'b>;
 }
 
 /// Implement [ExecutorExt::query_with_args] without stmt as a generic
@@ -1738,18 +1649,18 @@ async fn fetch_all_impl<'a, E: Executor + Sized + Send, T: FromRow<'a>>(
 }
 
 /// Implement [ExecutorExt::fetch_all_map] without stmt as a generic
-async fn fetch_all_map_impl<'a, E: Executor + Sized + Send, M: RowMap>(
+async fn fetch_all_map_impl<'a, E: Executor + Sized + Send, M: RowMap<'a>>(
     e: &'a mut E,
     stmt: Cow<'static, str>,
     args: impl Args + Send,
-) -> Result<Vec<M::T<'a>>, M::E> {
+) -> Result<Vec<M::T>, M::E> {
     let q = e.query(stmt).await?;
     let q = args.bind_args(q)?;
     q.fetch_all_map::<M>().await
 }
 
 /// Implement [ExecutorExt::fetch_one] without stmt as a generic
-async fn fetch_one_impl<'a, E: Executor + Sized + Send, T: FromRow<'a> + Send>(
+async fn fetch_one_impl<'a, E: Executor + Sized + Send, T: FromRow<'a>>(
     e: &'a mut E,
     stmt: Cow<'static, str>,
     args: impl Args + Send,
@@ -1763,11 +1674,11 @@ async fn fetch_one_impl<'a, E: Executor + Sized + Send, T: FromRow<'a> + Send>(
 }
 
 /// Implement [ExecutorExt::fetch_one_map] without stmt as a generic
-async fn fetch_one_map_impl<'a, E: Executor + Sized + Send, M: RowMap>(
+async fn fetch_one_map_impl<'a, E: Executor + Sized + Send, M: RowMap<'a>>(
     e: &'a mut E,
     stmt: Cow<'static, str>,
     args: impl Args + Send,
-) -> Result<M::T<'a>, M::E> {
+) -> Result<M::T, M::E> {
     let q = e.query(stmt).await.map_err(M::E::from)?;
     let q = args.bind_args(q).map_err(M::E::from)?;
     match q.fetch_optional_map::<M>().await? {
@@ -1777,7 +1688,7 @@ async fn fetch_one_map_impl<'a, E: Executor + Sized + Send, M: RowMap>(
 }
 
 /// Implement [ExecutorExt::fetch_optional] without stmt as a generic
-async fn fetch_optional_impl<'a, E: Executor + Sized + Send, T: FromRow<'a> + Send>(
+async fn fetch_optional_impl<'a, E: Executor + Sized + Send, T: FromRow<'a>>(
     e: &'a mut E,
     stmt: Cow<'static, str>,
     args: impl Args + Send,
@@ -1788,11 +1699,11 @@ async fn fetch_optional_impl<'a, E: Executor + Sized + Send, T: FromRow<'a> + Se
 }
 
 /// Implement [ExecutorExt::fetch_optional_map] without stmt as a generic
-async fn fetch_optional_map_impl<'a, E: Executor + Sized + Send, M: RowMap>(
+async fn fetch_optional_map_impl<'a, E: Executor + Sized + Send, M: RowMap<'a>>(
     e: &'a mut E,
     stmt: Cow<'static, str>,
     args: impl Args + Send,
-) -> Result<Option<M::T<'a>>, M::E> {
+) -> Result<Option<M::T>, M::E> {
     let q = e.query(stmt).await?;
     let q = args.bind_args(q)?;
     q.fetch_optional_map::<M>().await
@@ -1821,11 +1732,14 @@ async fn fetch_impl<'a, E: Executor + Sized + Send>(
 }
 
 /// Implement [ExecutorExt::fetch_map] without stmt as a generic
-async fn fetch_map_impl<'a, E: Executor + Sized + Send, M: RowMap>(
+async fn fetch_map_impl<'a, E: Executor + Sized + Send, M>(
     e: &'a mut E,
     stmt: Cow<'static, str>,
     args: impl Args + Send,
-) -> ConnectionResult<MapQueryIterator<'a, M>> {
+) -> ConnectionResult<MapQueryIterator<'a, M>>
+where
+    for<'b> M: RowMap<'b>,
+{
     let q = e.query(stmt).await?;
     let q = args.bind_args(q)?;
     q.fetch_map::<M>().await
@@ -1850,7 +1764,7 @@ impl<E: Executor + Sized + Send> ExecutorExt for E {
     }
 
     #[inline]
-    fn fetch_all<'a, T: FromRow<'a> + Send>(
+    fn fetch_all<'a, T: FromRow<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
@@ -1859,16 +1773,16 @@ impl<E: Executor + Sized + Send> ExecutorExt for E {
     }
 
     #[inline]
-    fn fetch_all_map<'a, M: RowMap>(
+    fn fetch_all_map<'a, M: RowMap<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
-    ) -> impl Future<Output = Result<Vec<M::T<'a>>, M::E>> + Send {
+    ) -> impl Future<Output = Result<Vec<M::T>, M::E>> + Send {
         fetch_all_map_impl::<E, M>(self, stmt.into(), args)
     }
 
     #[inline]
-    fn fetch_one<'a, T: FromRow<'a> + Send>(
+    fn fetch_one<'a, T: FromRow<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
@@ -1877,16 +1791,16 @@ impl<E: Executor + Sized + Send> ExecutorExt for E {
     }
 
     #[inline]
-    fn fetch_one_map<'a, M: RowMap>(
+    fn fetch_one_map<'a, M: RowMap<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
-    ) -> impl Future<Output = Result<M::T<'a>, M::E>> + Send {
+    ) -> impl Future<Output = Result<M::T, M::E>> + Send {
         fetch_one_map_impl::<E, M>(self, stmt.into(), args)
     }
 
     #[inline]
-    fn fetch_optional<'a, T: FromRow<'a> + Send>(
+    fn fetch_optional<'a, T: FromRow<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
@@ -1895,11 +1809,11 @@ impl<E: Executor + Sized + Send> ExecutorExt for E {
     }
 
     #[inline]
-    fn fetch_optional_map<'a, M: RowMap>(
+    fn fetch_optional_map<'a, M: RowMap<'a>>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
-    ) -> impl Future<Output = Result<Option<M::T<'a>>, M::E>> + Send {
+    ) -> impl Future<Output = Result<Option<M::T>, M::E>> + Send {
         fetch_optional_map_impl::<E, M>(self, stmt.into(), args)
     }
 
@@ -1922,11 +1836,14 @@ impl<E: Executor + Sized + Send> ExecutorExt for E {
     }
 
     #[inline]
-    fn fetch_map<'a, M: RowMap>(
+    fn fetch_map<'a, M>(
         &'a mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
-    ) -> impl Future<Output = ConnectionResult<MapQueryIterator<'a, M>>> + Send {
+    ) -> impl Future<Output = ConnectionResult<MapQueryIterator<'a, M>>> + Send
+    where
+        for<'b> M: RowMap<'b>,
+    {
         fetch_map_impl::<E, M>(self, stmt.into(), args)
     }
 }
