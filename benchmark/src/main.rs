@@ -27,7 +27,7 @@ struct Timings {
 const CNT: i64 = 400000;
 const ITR: i64 = 100;
 
-async fn sqly_test() -> Result<Timings> {
+async fn qusql_test() -> Result<Timings> {
     let start = std::time::Instant::now();
 
     let pool = Pool::connect(
@@ -241,34 +241,36 @@ async fn sqlx_test() -> Result<Timings> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    println!("Starting sqlx");
     let sqlx_times = sqlx_test().await?;
-    let sqly_times = sqly_test().await?;
+    println!("Starting qusql");
+    let qusql_times = qusql_test().await?;
 
-    println!("Test              Sqly time     Sqlx time");
+    println!("Test              Qusql time   Sqlx time");
     println!("-----------------------------------------");
     println!(
         "Setup         {:10.3} ms {:10.3} ms",
-        sqly_times.setup.as_secs_f64() * 1000.0,
+        qusql_times.setup.as_secs_f64() * 1000.0,
         sqlx_times.setup.as_secs_f64() * 1000.0
     );
     println!(
         "Insert        {:10.3} ms {:10.3} ms",
-        sqly_times.insert.as_secs_f64() * 1000.0,
+        qusql_times.insert.as_secs_f64() * 1000.0,
         sqlx_times.insert.as_secs_f64() * 1000.0
     );
     println!(
         "Select all    {:10.3} ms {:10.3} ms",
-        sqly_times.select_all.as_secs_f64() * 1000.0,
+        qusql_times.select_all.as_secs_f64() * 1000.0,
         sqlx_times.select_all.as_secs_f64() * 1000.0
     );
     println!(
         "Select stream {:10.3} ms {:10.3} ms",
-        sqly_times.select_stream.as_secs_f64() * 1000.0,
+        qusql_times.select_stream.as_secs_f64() * 1000.0,
         sqlx_times.select_stream.as_secs_f64() * 1000.0
     );
     println!(
         "Select one    {:10.3} ms {:10.3} ms",
-        sqly_times.select_one.as_secs_f64() * 1000.0,
+        qusql_times.select_one.as_secs_f64() * 1000.0,
         sqlx_times.select_one.as_secs_f64() * 1000.0
     );
 

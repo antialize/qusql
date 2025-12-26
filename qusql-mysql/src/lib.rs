@@ -15,7 +15,7 @@
 //! a spawned task. If this task takes too long to execute the connection is closed an a new
 //! connection may be established.
 //!
-//! This means that if the sqly is used in a backend to handle web requests, and the
+//! This means that if the qusql-mysql is used in a backend to handle web requests, and the
 //! web request is cancelled while performing a long running query. Then the long running
 //! query will be killed shortly after.
 //!
@@ -29,16 +29,16 @@
 //!
 //! The error types returned are all 8 bytes.
 //!
-//! The benchmark folder contains a benchmark that compares sqlx to sqly.
+//! The benchmark folder contains a benchmark that compares sqlx to qusql-mysql.
 //! When run it shows the we are significantly more efficent than sqlx
 //!
-//! Test              Sqly time     Sqlx time
-//! -----------------------------------------
-//! Setup              0.921 ms      1.189 ms
-//! Insert         14218.778 ms  15499.612 ms
-//! Select all     10968.823 ms  15860.648 ms
-//! Select stream   9991.353 ms  13215.973 ms
-//! Select one     19085.157 ms  34728.834 ms
+//! | Test          |   Qusql time |    Sqlx time |
+//! |---------------|--------------|--------------|
+//! | Setup         |     0.921 ms |     1.189 ms |
+//! | Insert        | 14218.778 ms | 15499.612 ms |
+//! | Select all    | 10968.823 ms | 15860.648 ms |
+//! | Select stream |  9991.353 ms | 13215.973 ms |
+//! | Select one    | 19085.157 ms | 34728.834 ms |
 //!
 //! Feature flags:
 //! --------------

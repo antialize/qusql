@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 edition = "2021"
 license = "Apache-2.0"
-keywords = [ "mysql", "posgresql", "sqly", "procmacro" ]
-description = "Proc macros for sqly-type"
+keywords = [ "mysql", "posgresql", "qusql-mysql", "procmacro" ]
+description = "Proc macros for qusql-mysql-type"
 
 [lints.rust]
 missing_docs = "deny"
