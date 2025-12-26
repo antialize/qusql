@@ -21,6 +21,9 @@ missing_docs_in_private_items = "deny"
 [lib]
 proc-macro = true
 
+[features]
+list_hack = []
+
 [dependencies]
 quote = "1"
 syn = { version = "2", features = ["full", "parsing"] }

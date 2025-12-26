@@ -63,6 +63,12 @@ pub enum ConnectionErrorContent {
     #[doc(hidden)]
     #[error("await threshold reached")]
     TestCancelled,
+    /// There where more instances of _LIST_ in the query, than there where list arguments
+    #[error("await threshold reached")]
+    TooFewListArguments,
+    /// There where less instances of _LIST_ in the query, than there where list arguments
+    #[error("await threshold reached")]
+    TooManyListArguments,
     /// The url supplied is invalid
     #[error("Invalid url")]
     InvalidUrl,
@@ -904,6 +910,9 @@ struct RawConnection {
     #[cfg(not(feature = "stats"))]
     /// Connection statistics
     stats: NoStats,
+    #[cfg(feature = "list_hack")]
+    /// List lengths allocation
+    list_lengths: Vec<usize>,
 }
 
 /// Parse a column definition package
@@ -1094,6 +1103,8 @@ impl RawConnection {
             #[cfg(feature = "cancel_testing")]
             cancel_count: None,
             stats: Default::default(),
+            #[cfg(feature = "list_hack")]
+            list_lengths: Vec::new(),
         })
     }
 
@@ -2017,6 +2028,10 @@ pub trait ExecutorExt {
 
     /// Execute a query on the connection with arguments
     ///
+    /// If the `list_hack` feature is enabled any instance of _LIST_ in the query
+    /// is replaced by an appropriate number of comma separated question marks
+    /// corresponding to the supplied [crate::bind::list] argument.
+    ///
     /// If the returned feature is dropped, or if the returned [Query] or [QueryIterator] is dropped,
     /// the connection will be left in a unclean state. Where the query can be in a half finished stare.
     ///
@@ -2576,6 +2591,46 @@ impl Connection {
     }
 }
 
+#[cfg(feature = "list_hack")]
+/// Convert _LIST_ instances in a query to a sequence of ?,?,..,? or NULL depending on
+/// the counts in lengths
+fn convert_list_query(
+    stmt: Cow<'static, str>,
+    lengths: &[usize],
+) -> ConnectionResult<Cow<'static, str>> {
+    if let Some((head, tail)) = stmt.split_once("_LIST_") {
+        let mut stmt = String::with_capacity(stmt.len() + 2 * lengths.iter().sum::<usize>());
+        stmt.push_str(head);
+        let mut len_it = lengths.iter();
+        for part in tail.split("_LIST_") {
+            let Some(len) = len_it.next() else {
+                return Err(ConnectionErrorContent::TooFewListArguments.into());
+            };
+            if *len == 0 {
+                stmt.push_str("NULL");
+            } else {
+                for i in 0..*len {
+                    if i == 0 {
+                        stmt.push('?');
+                    } else {
+                        stmt.push_str(", ?");
+                    }
+                }
+            }
+            stmt.push_str(part);
+        }
+        if len_it.next().is_some() {
+            return Err(ConnectionErrorContent::TooManyListArguments.into());
+        }
+        Ok(stmt.into())
+    } else {
+        if !lengths.is_empty() {
+            return Err(ConnectionErrorContent::TooManyListArguments.into());
+        }
+        Ok(stmt)
+    }
+}
+
 impl Executor for Connection {
     #[inline]
     fn query_raw(
@@ -2598,6 +2653,12 @@ impl Executor for Connection {
         options: QueryOptions,
         args: impl Args + Send,
     ) -> ConnectionResult<Query<'_>> {
+        #[cfg(feature = "list_hack")]
+        let stmt = {
+            self.raw.list_lengths.clear();
+            args.list_lengths(&mut self.raw.list_lengths);
+            convert_list_query(stmt, &self.raw.list_lengths)?
+        };
         self.cleanup().await?;
         let query = self.query_inner(stmt, options).await?;
         args.bind_args(query)

@@ -325,3 +325,106 @@ impl<T: Bind + ?Sized> Bind for &T {
         (*self).bind(writer)
     }
 }
+
+/// Bind used for args that can also handle lists
+pub trait ListBind {
+    /// The contained bind type
+    type T: Bind + ?Sized;
+
+    /// Get the singular bind value.
+    /// Panics if list_length is not None
+    fn single(&self) -> &Self::T;
+
+    /// Get a bind bind value. Panics if list_length is None or if idx >= list_length
+    fn get(&self, idx: usize) -> &Self::T;
+
+    /// If the value is a list return the length of the list
+    fn list_length(&self) -> Option<usize>;
+}
+
+impl<T: Bind + ?Sized> ListBind for T {
+    type T = T;
+
+    #[inline]
+    fn single(&self) -> &Self::T {
+        self
+    }
+
+    #[inline]
+    fn get(&self, _: usize) -> &Self::T {
+        panic!("Singular")
+    }
+
+    #[inline]
+    fn list_length(&self) -> Option<usize> {
+        None
+    }
+}
+
+/// Bind to a _LIST_
+pub struct List<'a, T> {
+    /// The content of the list
+    inner: &'a [T],
+}
+
+impl<'a, T: Bind> ListBind for List<'a, T> {
+    type T = T;
+
+    #[inline]
+    fn single(&self) -> &Self::T {
+        panic!("List")
+    }
+
+    #[inline]
+    fn get(&self, idx: usize) -> &Self::T {
+        &self.inner[idx]
+    }
+
+    #[inline]
+    fn list_length(&self) -> Option<usize> {
+        Some(self.inner.len())
+    }
+}
+
+impl<'a, T: Bind> ListBind for &List<'a, T> {
+    type T = T;
+
+    #[inline]
+    fn single(&self) -> &Self::T {
+        panic!("List")
+    }
+
+    #[inline]
+    fn get(&self, idx: usize) -> &Self::T {
+        &self.inner[idx]
+    }
+
+    #[inline]
+    fn list_length(&self) -> Option<usize> {
+        Some(self.inner.len())
+    }
+}
+
+/// Produce a [List] object that can be used as an argument to a _LIST_ argument
+/// Assuming that the `list_hack` feature is set
+/// ```no_run
+/// use qusql_mysql::{Connection, ExecutorExt, Executor, list, ConnectionError};
+///
+/// async fn test(conn: &mut Connection) -> Result<(), ConnectionError> {
+///     let vs: &[i32] = &[1,2,55];
+///     let rows: Vec<(&str, )> = conn.fetch_all(
+///         "SELECT `t` FROM `table` WHERE v IN (_LIST_)", (list(vs), )).await?;
+///     Ok(())
+/// }
+/// ```
+#[cfg(feature = "list_hack")]
+pub fn list<'a, T: Bind>(v: &'a [T]) -> List<'a, T> {
+    List { inner: v }
+}
+
+/// Produce a [List] object that can be used as an argument to a _LIST_ argument
+/// Assuming that the `list_hack` feature is set
+#[cfg(not(feature = "list_hack"))]
+pub fn list<'a, T: Bind>(_: &'a [T]) -> std::convert::Infallible {
+    panic!("The list_hack feature is not")
+}

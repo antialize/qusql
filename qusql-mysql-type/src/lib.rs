@@ -696,7 +696,7 @@ arg_io!(Timestamp, chrono::DateTime<chrono::Utc>);
 pub fn check_arg<T, T2: ArgIn<T>>(_: &T2) {}
 
 #[doc(hidden)]
-pub fn check_arg_list_hack<T, T2: ArgIn<T>>(_: &[T2]) {}
+pub fn check_arg_list_hack<T, T2: ArgIn<T>>(_: &qusql_mysql::List<'_, T2>) {}
 
 #[doc(hidden)]
 pub fn check_arg_out<N, T, T2: ArgOut<N, T>>(_: &T2) {}

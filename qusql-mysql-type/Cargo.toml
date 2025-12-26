@@ -16,6 +16,7 @@ missing_docs_in_private_items = "deny"
 
 [features]
 chrono = ["dep:chrono", "qusql-mysql/chrono"]
+list_hack = ["qusql-mysql/list_hack", "qusql-mysql-type-macro/list_hack"]
 
 [dependencies]
 qusql-mysql-type-macro={path="../qusql-mysql-type-macro"}

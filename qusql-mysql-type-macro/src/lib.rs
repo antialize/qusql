@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::{format_ident, quote, quote_spanned};
+use quote::{quote, quote_spanned};
 use qusql_type::schema::{parse_schemas, Schemas};
 use qusql_type::{
     type_statement, FullType, Issue, SQLArguments, SQLDialect, SelectTypeColumn, TypeOptions,
@@ -19,6 +19,12 @@ use qusql_type::{
 use std::sync::LazyLock;
 use syn::spanned::Spanned;
 use syn::{parse::Parse, punctuated::Punctuated, Expr, Ident, LitStr, Token};
+
+/// Do we support _LIST_ in queries
+#[cfg(feature = "list_hack")]
+const LIST_HACK: bool = true;
+#[cfg(not(feature = "list_hack"))]
+const LIST_HACK: bool = false;
 
 /// Path of where the qusql-mysql-type-schema.sql file can be found
 ///
@@ -214,11 +220,8 @@ fn map_type(ta: &FullType<'_>) -> proc_macro2::TokenStream {
 }
 
 /// Generate code to validate and build arguments
-///
-/// Handels list hack
 fn handle_argumens(
     errors: &mut Vec<proc_macro2::TokenStream>,
-    query: &str,
     last_span: Span,
     args: &[Expr],
     arguments: &[(qusql_type::ArgumentKey<'_>, qusql_type::FullType)],
@@ -258,47 +261,31 @@ fn handle_argumens(
         }
     }
 
-    let arg_names = (0..args.len())
-        .map(|i| format_ident!("arg{}", i))
-        .collect::<Vec<_>>();
-
     let mut arg_bindings = Vec::new();
-    let mut arg_add = Vec::new();
 
-    let mut list_lengths = Vec::new();
-
-    for ((qa, ta), name) in args.iter().zip(at).zip(&arg_names) {
+    for (qa, ta) in args.iter().zip(at) {
         let t = map_type(ta);
         let span = qa.span();
         if ta.list_hack {
-            list_lengths.push(quote!(#name.len()));
             arg_bindings.push(quote_spanned! {span=>
-                let #name = &(#qa);
-                if false {
-                    sqlx_type::check_arg_list_hack::<#t, _>(#name);
-                    ::std::panic!();
-                }
+                qusql_mysql_type::check_arg_list_hack::<#t, _>(&#qa);
             });
-            arg_add.push(quote!(
-                for v in #name.iter() {
-                    e = e.and_then(|()| query_args.add(v));
-                }
-            ));
         } else {
             arg_bindings.push(quote_spanned! {span=>
                 qusql_mysql_type::check_arg::<#t, _>(&#qa);
             });
-            arg_add.push(quote!(#qa, ));
         }
     }
 
-    let query = if list_lengths.is_empty() {
-        quote!(#query)
-    } else {
-        quote!(
-            &sqlx_type::convert_list_query(#query, &[#(#list_lengths),*])
-        )
-    };
+    let at: Vec<_> = args
+        .iter()
+        .map(|qa| {
+            let span = qa.span();
+            quote_spanned! {span=>
+                (&#qa),
+            }
+        })
+        .collect();
 
     (
         quote! {
@@ -306,9 +293,10 @@ fn handle_argumens(
                 #(#arg_bindings)*
                 ::std::panic!();
             }
-            let query_args = (#(#arg_add)*);
         },
-        query,
+        quote! {
+            ( #(#at)* )
+        },
     )
 }
 
@@ -538,10 +526,12 @@ enum FetchType {
 pub fn execute_impl(input: TokenStream) -> TokenStream {
     let query = syn::parse_macro_input!(input as Query).0;
     let schemas = SCHEMAS.deref();
+
     let options = TypeOptions::new()
         .dialect(SQLDialect::MariaDB)
         .arguments(SQLArguments::QuestionMark)
-        .list_hack(true);
+        .list_hack(LIST_HACK);
+
     let mut issues = qusql_type::Issues::new(&query.query);
     let stmt = type_statement(schemas, &query.query, &mut issues, &options);
     let mut errors = issues_to_errors(issues.into_vec(), &query.query, query.query_span);
@@ -598,25 +588,19 @@ pub fn execute_impl(input: TokenStream) -> TokenStream {
         }
     };
 
-    let (args_tokens, q) = handle_argumens(
-        &mut errors,
-        &query.query,
-        query.last_span,
-        &query.args,
-        arguments,
-    );
+    let (arg_check, arg_gen) =
+        handle_argumens(&mut errors, query.last_span, &query.args, arguments);
 
     let e = query.executor;
-
+    let q = query.query;
     quote! { {
         use qusql_mysql::connection::{WithLoc, ExecutorExt};
 
         const _SCHEMA_HASH: u64 = #schema_hash;
 
-
         #(#errors; )*
-        #args_tokens
-        (#e).execute(#q, query_args)
+        #arg_check
+        (#e).execute(#q, #arg_gen)
     }}
     .into()
 }
@@ -632,7 +616,7 @@ fn build_fetch_impl(input: TokenStream, mode: FetchMode, t: FetchType) -> TokenS
     let options = TypeOptions::new()
         .dialect(SQLDialect::MariaDB)
         .arguments(SQLArguments::QuestionMark)
-        .list_hack(true);
+        .list_hack(LIST_HACK);
     let mut issues = qusql_type::Issues::new(&query.query);
     let stmt = type_statement(schemas, &query.query, &mut issues, &options);
 
@@ -694,15 +678,11 @@ fn build_fetch_impl(input: TokenStream, mode: FetchMode, t: FetchType) -> TokenS
         }
     };
 
-    let (args_tokens, q) = handle_argumens(
-        &mut errors,
-        &query.query,
-        query.last_span,
-        &query.args,
-        arguments,
-    );
+    let (arg_check, arg_gen) =
+        handle_argumens(&mut errors, query.last_span, &query.args, arguments);
 
     let e = query.executor;
+    let q = &query.query;
 
     let (row_construct, row_name, full_row_name, s) = match t {
         FetchType::Borrowed => {
@@ -787,7 +767,7 @@ fn build_fetch_impl(input: TokenStream, mode: FetchMode, t: FetchType) -> TokenS
         const _SCHEMA_HASH: u64 = #schema_hash;
 
         #(#errors; )*
-        #args_tokens
+        #arg_check
 
         #s
 
@@ -805,7 +785,7 @@ fn build_fetch_impl(input: TokenStream, mode: FetchMode, t: FetchType) -> TokenS
             }
         }
 
-        #e.#qm::<M>(#q, query_args)
+        #e.#qm::<M>(#q, #arg_gen)
     }}
     .into()
 }

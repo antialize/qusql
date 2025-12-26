@@ -1,12 +1,15 @@
 //! Contains Structs to contains and parse rows
 
-use crate::bind::Bind;
+use crate::bind::ListBind;
 use crate::connection::{ConnectionResult, Query};
 
 /// Decode a row as a tuple
 pub trait Args: Sized {
     /// Decode the row as Self
     fn bind_args<'a>(&self, query: Query<'a>) -> ConnectionResult<Query<'a>>;
+
+    /// For every list argument in order, return the number of items in the list
+    fn list_lengths(&self, out: &mut Vec<usize>);
 }
 
 /// Implement [Args] for a tuple
@@ -14,12 +17,29 @@ macro_rules! impl_args_for_tuple {
     ($($idx:tt $T:ident),+) => {
         impl<$($T,)+> Args for ($($T,)+)
         where
-            $($T: Bind,)+
+            $($T: ListBind,)+
         {
             #[inline]
             fn bind_args<'a>(&self, query: Query<'a>) -> ConnectionResult<Query<'a>> {
-                $(let query = query.bind::<$T>(&self.$idx)?;)+
+                $(
+                    let query = if let Some(cnt) = self.$idx.list_length() {
+                        let mut query = query;
+                        for idx in 0..cnt {
+                            query = query.bind::<$T::T>(&self.$idx.get(idx))?;
+                        }
+                        query
+                    } else {
+                        query.bind::<$T::T>(&self.$idx.single())?
+                    }
+                ;)+
                 Ok(query)
+            }
+
+            #[inline]
+            fn list_lengths(&self, out: &mut Vec<usize>) {
+                $(if let Some(v) = self.$idx.list_length() {
+                    out.push(v);
+                })+
             }
         }
     };
@@ -29,6 +49,8 @@ impl Args for () {
     fn bind_args<'a>(&self, query: Query<'a>) -> ConnectionResult<Query<'a>> {
         Ok(query)
     }
+
+    fn list_lengths(&self, _: &mut Vec<usize>) {}
 }
 
 impl_args_for_tuple!(0 T1);

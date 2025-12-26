@@ -7,6 +7,7 @@ use std::{fmt::Debug, time::Duration};
 
 use qusql_mysql::{
     connection::{Connection, ConnectionErrorContent, ConnectionOptions, Executor, ExecutorExt},
+    list,
     plain_types::{Bit, Date, DateTime, Decimal, Json, Time, Timestamp, Year},
     pool::{Pool, PoolOptions},
 };
@@ -484,6 +485,38 @@ async fn test_transaction() -> Result<(), Error> {
     tr.rollback().await?;
 
     let _: (i64, i32, &str) = conn.fetch_one("SELECT id, v, t FROM db_test2", ()).await?;
+
+    let c: Vec<(i32,)> = conn
+        .fetch_all(
+            "SELECT v FROM db_test2 WHERE id IN (_LIST_)",
+            (list::<i64>(&[]),),
+        )
+        .await?;
+    assert_eq!(c.len(), 0);
+
+    let c: Vec<(i32,)> = conn
+        .fetch_all(
+            "SELECT v FROM db_test2 WHERE id IN (_LIST_)",
+            (list::<i64>(&[1]),),
+        )
+        .await?;
+    assert_eq!(c.len(), 1);
+
+    let c: Vec<(i32,)> = conn
+        .fetch_all(
+            "SELECT v FROM db_test2 WHERE id IN (_LIST_)",
+            (list::<i64>(&[1, 2]),),
+        )
+        .await?;
+    assert_eq!(c.len(), 1);
+
+    let c: Vec<(i32,)> = conn
+        .fetch_all(
+            "SELECT v FROM db_test2 WHERE id IN (_LIST_)",
+            (list::<i64>(&[2, 3]),),
+        )
+        .await?;
+    assert_eq!(c.len(), 0);
 
     Ok(())
 }
@@ -980,6 +1013,13 @@ async fn typed() -> Result<(), Error> {
     assert_eq!(row.v, 42);
     assert_eq!(row.t, "hat");
     assert!(iter.next().await?.is_none());
+
+    let _: Vec<_> = qusql_mysql_type::fetch_all!(
+        conn,
+        "SELECT id, v, t FROM db_test7 WHERE v IN (_LIST_)",
+        list(&[2, 3])
+    )
+    .await?;
 
     Ok(())
 }

@@ -44,6 +44,7 @@
 //! --------------
 //! * stats: Add query count and timing statistics to the [Connection]
 //! * chrono: Add bind and decode support for chrono DateTime and Time
+//! * list_hack: Add support lists as arguments to queries
 //!
 //! Example:
 //! --------
@@ -67,6 +68,23 @@
 //!     Ok(())
 //! }
 //! ```
+//!
+//! List hack:
+//! ----------
+//! If the list `list_hack` feature is enabled. Support for lists as arguments to queries is added
+//! this is done done by adding a sufficient number of `?`'s to the query.
+//!
+//! ```no_run
+//! # use qusql_mysql::{Connection, ExecutorExt, Executor, list, ConnectionError};
+//! #[cfg(feature="list_hack")]
+//! async fn test(conn: &mut Connection, vs: &[u32]) -> Result<(), ConnectionError> {
+//!     let rows: Vec<(i64, &str)> = conn.fetch_all(
+//!         "SELECT `v`, `t` FROM `table` WHERE `v` IN (_LIST_)", (list(vs),)).await?;
+//!     Ok(())
+//! }
+//! ```
+//! Here the `_LIST_` is replaced with `?,?,..,?` where the number of `?`'s depend on the length
+//! of the list. If the list is empty `_LIST_` is replaced by `NULL`
 pub mod args;
 pub mod auth;
 pub mod bind;
@@ -78,10 +96,10 @@ pub mod package_parser;
 pub mod plain_types;
 pub mod pool;
 pub mod row;
-
+pub use bind::{List, list};
 pub use connection::{
-    Connection, ConnectionError, ConnectionErrorContent, ConnectionOptions, ExecuteResult,
-    Executor, ExecutorExt, Query, QueryIterator, RowMap, Transaction,
+    ColumnDefinition, Connection, ConnectionError, ConnectionErrorContent, ConnectionOptions,
+    ExecuteResult, Executor, ExecutorExt, Query, QueryIterator, RowMap, Transaction,
 };
 pub use pool::{Pool, PoolConnection, PoolOptions};
 pub use row::Row;
