@@ -88,8 +88,8 @@ pub use qusql_mysql_type_macro::execute_impl;
 /// ```
 #[macro_export]
 macro_rules! execute {
-    ( $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
-        qusql_mysql_type::execute_impl!(($executor), $stmt, $($args,)*)
+    ( $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
+        qusql_mysql_type::execute_impl!(($executor), $stmt, $(($args),)*)
     };
 }
 
@@ -115,7 +115,7 @@ pub use qusql_mysql_type_macro::fetch_one_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_one {
-    ( $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $executor: expr, $stmt: literal $(, $args:expr )* $(,)?) => {
         qusql_mysql_type::fetch_one_impl!(($executor), $stmt, $($args,)*)
     };
 }
@@ -142,7 +142,7 @@ pub use qusql_mysql_type_macro::fetch_one_owned_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_one_owned {
-    ( $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_one_owned_impl!(($executor), $stmt, $($args,)*)
     };
 }
@@ -173,7 +173,7 @@ pub use qusql_mysql_type_macro::fetch_one_as_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_one_as {
-    ( $rt: ty, $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $rt: ty, $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_one_as_impl!($rt, ($executor), $stmt, $($args,)*)
     };
 }
@@ -204,7 +204,7 @@ pub use qusql_mysql_type_macro::fetch_one_as_owned_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_one_as_owned {
-    ( $rt: ty, $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $rt: ty, $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_one_as_owned_impl!($rt, ($executor), $stmt, $($args,)*)
     };
 }
@@ -233,7 +233,7 @@ pub use qusql_mysql_type_macro::fetch_optional_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_optional {
-    ( $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $executor: expr, $stmt: literal $(, $args:expr )* $(,)?) => {
         qusql_mysql_type::fetch_optional_impl!(($executor), $stmt, $($args,)*)
     };
 }
@@ -262,7 +262,7 @@ pub use qusql_mysql_type_macro::fetch_optional_owned_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_optional_owned {
-    ( $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_optional_owned_impl!(($executor), $stmt, $($args,)*)
     };
 }
@@ -295,7 +295,7 @@ pub use qusql_mysql_type_macro::fetch_optional_as_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_optional_as {
-    ( $rt: ty, $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $rt: ty, $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_optional_as_impl!($rt, ($executor), $stmt, $($args,)*)
     };
 }
@@ -328,7 +328,7 @@ pub use qusql_mysql_type_macro::fetch_optional_as_owned_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_optional_as_owned {
-    ( $rt: ty, $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $rt: ty, $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_optional_as_owned_impl!($rt, ($executor), $stmt, $($args,)*)
     };
 }
@@ -357,7 +357,7 @@ pub use qusql_mysql_type_macro::fetch_all_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_all {
-    ( $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_all_impl!(($executor), $stmt, $($args,)*)
     };
 }
@@ -386,7 +386,7 @@ pub use qusql_mysql_type_macro::fetch_all_owned_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_all_owned {
-    ( $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_all_owned_impl!(($executor), $stmt, $($args,)*)
     };
 }
@@ -419,7 +419,7 @@ pub use qusql_mysql_type_macro::fetch_all_as_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_all_as {
-    ( $rt: ty, $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $rt: ty, $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_all_as_impl!($rt, ($executor), $stmt, $($args,)*)
     };
 }
@@ -452,7 +452,7 @@ pub use qusql_mysql_type_macro::fetch_all_as_owned_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_all_as_owned {
-    ( $rt: ty, $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $rt: ty, $executor: expr, $stmt: literal $(, $args:expr )* $(,)?) => {
         qusql_mysql_type::fetch_all_as_owned_impl!($rt, ($executor), $stmt, $($args,)*)
     };
 }
@@ -481,7 +481,7 @@ pub use qusql_mysql_type_macro::fetch_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch {
-    ( $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_impl!(($executor), $stmt, $($args,)*)
     };
 }
@@ -510,7 +510,7 @@ pub use qusql_mysql_type_macro::fetch_owned_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_owned {
-    ( $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $executor: expr, $stmt: literal $(, $args:expr )* $(,)?) => {
         qusql_mysql_type::fetch_owned_impl!(($executor), $stmt, $($args,)*)
     };
 }
@@ -543,7 +543,7 @@ pub use qusql_mysql_type_macro::fetch_as_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_as {
-    ( $rt: ty, $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $rt: ty, $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_as_impl!($rt, ($executor), $stmt, $($args,)*)
     };
 }
@@ -576,7 +576,7 @@ pub use qusql_mysql_type_macro::fetch_as_owned_impl;
 /// ```
 #[macro_export]
 macro_rules! fetch_as_owned {
-    ( $rt: ty, $executor: expr, $stmt: literal, $( $args:expr ),* ) => {
+    ( $rt: ty, $executor: expr, $stmt: literal $(, $args:expr )* $(,)? ) => {
         qusql_mysql_type::fetch_as_owned_impl!($rt, ($executor), $stmt, $($args,)*)
     };
 }
