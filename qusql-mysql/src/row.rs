@@ -1,5 +1,6 @@
 //! Contains Structs to contains and parse rows
 use crate::{
+    constants::type_,
     decode::{Column, Decode},
     package_parser::{DecodeError, DecodeResult, PackageParser},
 };
@@ -74,6 +75,46 @@ impl<'a> RowParser<'a> {
         let v = T::decode(&mut self.parser, c, null)?;
         self.idx += 1;
         Ok(v)
+    }
+
+    /// Skip the next field
+    #[inline]
+    pub fn skip(&mut self) -> DecodeResult<()> {
+        let idx = self.idx;
+        let c = self.columns.get(idx).ok_or(DecodeError::EndOfColumns)?;
+        let null = self.nulls[(idx + 2) / 8] & (1 << ((idx + 2) % 8)) != 0;
+        if !null {
+            match c.r#type {
+                type_::DECIMAL
+                | type_::NEW_DECIMAL
+                | type_::STRING
+                | type_::JSON
+                | type_::VAR_CHAR
+                | type_::ENUM
+                | type_::SET
+                | type_::TINY_BLOB
+                | type_::MEDIUM_BLOB
+                | type_::LONG_BLOB
+                | type_::BLOB
+                | type_::VAR_STRING
+                | type_::BIT
+                | type_::GEOMETRY => {
+                    self.parser.skip_lenenc_str()?;
+                }
+                type_::TINY => self.parser.skip_bytes(1),
+                type_::SHORT | type_::YEAR => self.parser.skip_bytes(2),
+                type_::LONG | type_::FLOAT => self.parser.skip_bytes(4),
+                type_::LONG_LONG | type_::DOUBLE => self.parser.skip_bytes(8),
+                type_::TIMESTAMP | type_::DATE | type_::DATETIME | type_::TIME => {
+                    let len = self.parser.get_u8()?;
+                    self.parser.skip_bytes(len.into());
+                }
+                type_::INT24 => self.parser.skip_bytes(3),
+                _ => return Err(DecodeError::InvalidValue),
+            }
+        }
+        self.idx += 1;
+        Ok(())
     }
 }
 

@@ -40,6 +40,10 @@
 //! Select stream   9991.353 ms  13215.973 ms
 //! Select one     19085.157 ms  34728.834 ms
 //!
+//! Feature flags:
+//! --------------
+//! * chrono: Add bind and decode support for chrono DateTime and Time
+//!
 //! Example:
 //! --------
 //! ```no_run
@@ -88,3 +92,6 @@ pub use connection::{
 };
 pub use pool::{Pool, PoolConnection, PoolOptions};
 pub use row::Row;
+
+#[cfg(feature = "chrono")]
+pub mod chrono;

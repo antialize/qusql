@@ -688,10 +688,14 @@ arg_io!(&[u8], &[u8]);
 arg_io!(&[u8], Vec<u8>);
 arg_io!(Vec<u8>, Vec<u8>);
 
-// arg_io!(Timestamp, chrono::NaiveDateTime);
-// arg_io!(DateTime, chrono::NaiveDateTime);
-// arg_io!(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>);
-// arg_io!(Timestamp, chrono::DateTime<chrono::Utc>);
+#[cfg(feature = "chrono")]
+arg_io!(Timestamp, chrono::NaiveDateTime);
+#[cfg(feature = "chrono")]
+arg_io!(DateTime, chrono::NaiveDateTime);
+#[cfg(feature = "chrono")]
+arg_io!(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>);
+#[cfg(feature = "chrono")]
+arg_io!(Timestamp, chrono::DateTime<chrono::Utc>);
 
 #[doc(hidden)]
 pub fn check_arg<T, T2: ArgIn<T>>(_: &T2) {}

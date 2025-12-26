@@ -1,4 +1,6 @@
 //! Contains parser used to parse packages
+use std::num::TryFromIntError;
+
 use bytes::Buf;
 use thiserror::Error;
 
@@ -39,6 +41,12 @@ pub enum DecodeError {
     /// A variable length encoded field has an unexpected size
     #[error("Invalid size {0}")]
     InvalidSize(u8),
+    /// The value could not be converted to the target type
+    #[error("Invalid value")]
+    InvalidValue,
+    /// Error converting between integer types
+    #[error("Invalid integer cast")]
+    TryFromInt,
 }
 
 const _: () = {
@@ -57,6 +65,12 @@ impl From<std::str::Utf8Error> for DecodeError {
             valid_up_to: value.valid_up_to().try_into().unwrap_or(u32::MAX),
             error_len: value.error_len().map(|v| v.try_into().unwrap_or(0xFF)),
         }
+    }
+}
+
+impl From<TryFromIntError> for DecodeError {
+    fn from(_value: TryFromIntError) -> Self {
+        DecodeError::TryFromInt
     }
 }
 
@@ -177,6 +191,12 @@ impl<'a> PackageParser<'a> {
         let l = self.get_lenenc()?;
         self.0.advance(l as usize);
         Ok(())
+    }
+
+    /// Skip a given number of bytes
+    #[inline]
+    pub fn skip_bytes(&mut self, len: usize) {
+        self.0.advance(len);
     }
 
     /// Read a null-terminated string

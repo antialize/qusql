@@ -14,6 +14,10 @@ undocumented_unsafe_blocks = "deny"
 multiple_unsafe_ops_per_block = "deny"
 missing_docs_in_private_items = "deny"
 
+[features]
+chrono = ["dep:chrono", "qusql-mysql/chrono"]
+
 [dependencies]
 qusql-mysql-type-macro={path="../qusql-mysql-type-macro"}
 qusql-mysql={path="../qusql-mysql"}
+chrono = {version = "0.4", optional=true}

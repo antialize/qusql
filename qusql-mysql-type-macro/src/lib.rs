@@ -379,7 +379,7 @@ fn construct_row(
                 todo!("from_time_interval")
             }
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
-                quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
+                quote! {chrono::DateTime<chrono::Utc>}
             }
             qusql_type::Type::Null => todo!("from_null"),
             qusql_type::Type::Invalid => quote! {i64},

@@ -12,6 +12,9 @@ pub enum BindError {
     /// Not enough arguments has been bound to the query
     #[error("missing argument")]
     TooFewArgumentsBound,
+    /// Error converting between
+    #[error("try from int")]
+    TryFromInt(#[from] std::num::TryFromIntError),
 }
 
 const _: () = {
