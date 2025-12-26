@@ -134,9 +134,9 @@ macro_rules! impl_from_row_for_tuple {
             #[inline]
             fn from_row(row: &Row<'r> ) -> DecodeResult<Self> {
                 let mut parser= row.parse();
-                Ok((
+                Ok(
                     ($(parser.next::<$T>()?,)+)
-                ))
+                )
             }
         }
     };
