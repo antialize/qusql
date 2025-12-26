@@ -13,10 +13,7 @@ use bytes::{Buf, BufMut, BytesMut};
 use thiserror::Error;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::{
-        TcpSocket,
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-    },
+    net::{TcpSocket, UnixStream},
 };
 
 use crate::{
@@ -177,6 +174,22 @@ impl<'a, T: FromRow<'a>> RowMap<'a> for FromRowMapper<T> {
     }
 }
 
+/// Read half of a split [tokio::net::tcp::TcpStream] or [tokio::net::unix::UnixStream]
+enum OwnedReadHalf {
+    /// Read half of a split [tokio::net::tcp::TcpStream]
+    Tcp(tokio::net::tcp::OwnedReadHalf),
+    /// Read half of a split [tokio::net::unix::UnixStream]
+    Unix(tokio::net::unix::OwnedReadHalf),
+}
+
+/// Write half of a split [tokio::net::tcp::TcpStream] or [tokio::net::unix::UnixStream]
+enum OwnedWriteHalf {
+    /// Write half of a split [tokio::net::tcp::TcpStream]
+    Tcp(tokio::net::tcp::OwnedWriteHalf),
+    /// Write half of a split [tokio::net::unix::UnixStream]
+    Unix(tokio::net::unix::OwnedWriteHalf),
+}
+
 /// Reader used to read packages from Mariadb/Mysql
 struct Reader {
     /// Buffer used to contain one or more packages
@@ -210,7 +223,10 @@ impl Reader {
         }
 
         while self.buff.remaining() < 4 + self.skip_on_read {
-            self.read.read_buf(&mut self.buff).await?;
+            match &mut self.read {
+                OwnedReadHalf::Tcp(r) => r.read_buf(&mut self.buff).await?,
+                OwnedReadHalf::Unix(r) => r.read_buf(&mut self.buff).await?,
+            };
         }
         let y: u32 = u32::from_le_bytes(
             self.buff[self.skip_on_read..self.skip_on_read + 4]
@@ -226,7 +242,10 @@ impl Reader {
             .into());
         }
         while self.buff.remaining() < self.skip_on_read + 4 + len {
-            self.read.read_buf(&mut self.buff).await?;
+            match &mut self.read {
+                OwnedReadHalf::Tcp(r) => r.read_buf(&mut self.buff).await?,
+                OwnedReadHalf::Unix(r) => r.read_buf(&mut self.buff).await?,
+            };
         }
         let r = self.skip_on_read + 4..self.skip_on_read + 4 + len;
         self.skip_on_read += 4 + len;
@@ -284,7 +303,10 @@ impl Writer {
 
     /// Send the last composed package
     async fn send(&mut self) -> ConnectionResult<()> {
-        Ok(self.write.write_all_buf(&mut self.buff).await?)
+        match &mut self.write {
+            OwnedWriteHalf::Tcp(r) => Ok(r.write_all_buf(&mut self.buff).await?),
+            OwnedWriteHalf::Unix(r) => Ok(r.write_all_buf(&mut self.buff).await?),
+        }
     }
 }
 
@@ -340,6 +362,8 @@ pub struct ConnectionOptions<'a> {
     password: Cow<'a, str>,
     /// The database to connect to
     database: Option<Cow<'a, str>>,
+    /// Unix socket
+    unix_socket: Option<Cow<'a, std::path::Path>>,
 }
 
 impl<'a> ConnectionOptions<'a> {
@@ -355,6 +379,7 @@ impl<'a> ConnectionOptions<'a> {
             user: self.user.into_owned().into(),
             password: self.password.into_owned().into(),
             database: self.database.map(|v| v.into_owned().into()),
+            unix_socket: self.unix_socket.map(|v| v.into_owned().into()),
         }
     }
 
@@ -392,6 +417,14 @@ impl<'a> ConnectionOptions<'a> {
             )),
         }
     }
+
+    /// Set the unix socket to connect to
+    pub fn unix_socket(self, path: impl Into<Cow<'a, std::path::Path>>) -> Self {
+        Self {
+            unix_socket: Some(path.into()),
+            ..self
+        }
+    }
 }
 
 impl<'a> Default for ConnectionOptions<'a> {
@@ -401,6 +434,7 @@ impl<'a> Default for ConnectionOptions<'a> {
             user: Cow::Borrowed("root"),
             password: Cow::Borrowed("password"),
             database: None,
+            unix_socket: None,
         }
     }
 }
@@ -655,9 +689,21 @@ impl RawConnection {
         // safety-cancel: It is safe to drop this future since it does not mute shared state
 
         // Connect to socket
-        let socket = TcpSocket::new_v4()?;
-        let stream = socket.connect(options.address).await?;
-        let (read, write) = stream.into_split();
+        let (read, write) = if let Some(path) = &options.unix_socket {
+            let socket = UnixStream::connect(path).await?;
+            let (read, write) = socket.into_split();
+            (OwnedReadHalf::Unix(read), OwnedWriteHalf::Unix(write))
+        } else {
+            let stream = if options.address.is_ipv4() {
+                let socket = TcpSocket::new_v4()?;
+                socket.connect(options.address).await?
+            } else {
+                let socket = TcpSocket::new_v6()?;
+                socket.connect(options.address).await?
+            };
+            let (read, write) = stream.into_split();
+            (OwnedReadHalf::Tcp(read), OwnedWriteHalf::Tcp(write))
+        };
 
         let mut reader = Reader::new(read);
         let mut writer = Writer::new(write);
