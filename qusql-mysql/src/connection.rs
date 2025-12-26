@@ -441,7 +441,6 @@ impl<'a> ConnectionOptions<'a> {
             password: password.unwrap_or("password").into(),
             database: db.map(|v| v.into()),
             unix_socket,
-            ..Default::default()
         })
     }
 
