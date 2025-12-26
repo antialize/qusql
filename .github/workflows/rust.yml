@@ -1,0 +1,49 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "next" ]
+  pull_request:
+    branches: [ "next" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test_maria:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: docker.io/mariadb:10.5
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: test
+        ports:
+          - 1235:3306
+        volumes:
+          - /dev/shm/mysql:/var/lib/mysql
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    steps:
+    - uses: actions/checkout@v5
+    - name: Build
+      run: cargo check --all-features --all --verbose
+    - name: Run tests
+      run: cargo test --all-features --all --verbose
+  clippy_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run Clippy
+        run: cargo clippy --all --all-features -- -D warnings
+  format_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run Fmt
+        run: cargo fmt --all --check
+  doc_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run Doc
+        run: cargo  doc --all --all-features --no-deps
