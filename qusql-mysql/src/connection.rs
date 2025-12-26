@@ -605,9 +605,21 @@ where
 /// The result of a execute
 pub struct ExecuteResult {
     /// The number of rows affected by the query
-    pub affected_rows: u64,
+    affected_rows: u64,
     /// The id of the last row inserted
-    pub last_insert_id: u64,
+    last_insert_id: u64,
+}
+
+impl ExecuteResult {
+    /// The number of rows affected by the query
+    pub fn affected_rows(&self) -> u64 {
+        self.affected_rows
+    }
+
+    /// The id of the last row inserted
+    pub fn last_insert_id(&self) -> u64 {
+        self.last_insert_id
+    }
 }
 
 /// The result of a query
@@ -1310,8 +1322,8 @@ impl RawConnection {
     /// that the package has been composed correctly before the first await point
     fn execute_unprepared(
         &mut self,
-        escaped_sql: &str,
-    ) -> impl Future<Output = ConnectionResult<()>> + Send {
+        escaped_sql: Cow<'_, str>,
+    ) -> impl Future<Output = ConnectionResult<ExecuteResult>> + Send {
         assert!(matches!(self.state, ConnectionState::Clean));
         self.writer.seq = 0;
         let mut p = self.writer.compose();
@@ -1339,7 +1351,12 @@ impl RawConnection {
                     0 => {
                         self.stats.add_execute(start_time);
                         self.state = ConnectionState::Clean;
-                        Ok(())
+                        let affected_rows = pp.get_lenenc().loc("affected_rows")?;
+                        let last_insert_id = pp.get_lenenc().loc("last_insert_id")?;
+                        Ok(ExecuteResult {
+                            affected_rows,
+                            last_insert_id,
+                        })
                     }
                     v => {
                         self.state = ConnectionState::Broken;
@@ -2171,7 +2188,7 @@ impl Connection {
         let q = begin_transaction_query(self.transaction_depth);
         self.transaction_depth += 1;
         self.cleanup_rollbacks = 1;
-        self.raw.execute_unprepared(&q).await?;
+        self.raw.execute_unprepared(q).await?;
 
         // The execute has now succeeded so there is no need to role back the transaction
         assert_eq!(self.cleanup_rollbacks, 1);
@@ -2189,7 +2206,7 @@ impl Connection {
         // Once we call query the state will be such that once raw.cleanup has been called
         // there will be one less transaction
         self.raw
-            .execute_unprepared(&rollback_transaction_query(self.transaction_depth))
+            .execute_unprepared(rollback_transaction_query(self.transaction_depth))
             .await?;
 
         Ok(())
@@ -2206,7 +2223,7 @@ impl Connection {
         // Once we call query the state will be such that once raw.cleanup has been called
         // there will be one less transaction
         self.raw
-            .execute_unprepared(&commit_transaction_query(self.transaction_depth))
+            .execute_unprepared(commit_transaction_query(self.transaction_depth))
             .await?;
 
         Ok(())

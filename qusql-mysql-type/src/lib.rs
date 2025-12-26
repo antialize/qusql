@@ -51,9 +51,9 @@
 //!     let id = execute!(&mut conn, "INSERT INTO `t1` (
 //!         `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ctext`)
 //!         VALUES (?, ?, ?, ?, ?, ?)",
-//!         true, 8, 1243, 42, 42, "Hello world").await?.last_insert_id;
+//!         true, 8, 1243, 42, 42, "Hello world").await?.last_insert_id();
 //!
-//!     let row = fetch_one!(&mut conn,  
+//!     let row = fetch_one!(&mut conn,
 //!         "SELECT `cu16`, `ctext`, `ci32` FROM `t1` WHERE `id`=?", id).await?;
 //!
 //!     assert_eq!(row.cu16, 1234);
@@ -83,7 +83,7 @@ pub use qusql_mysql_type_macro::execute_impl;
 ///         conn,
 ///         "INSERT INTO `t1` (`cu32`, `ctext`) VALUES (?,?)",
 ///         42, "hello").await.unwrap();
-///     println!("{}", res.last_insert_id);
+///     println!("{}", res.last_insert_id());
 /// }
 /// ```
 #[macro_export]

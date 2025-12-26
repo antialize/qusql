@@ -45,8 +45,8 @@ async fn test_connection() -> Result<(), Error> {
         .await?
         .execute()
         .await?;
-    assert_eq!(r.affected_rows, 0);
-    assert_eq!(r.last_insert_id, 0);
+    assert_eq!(r.affected_rows(), 0);
+    assert_eq!(r.last_insert_id(), 0);
 
     let r = conn
         .query(
@@ -110,8 +110,8 @@ async fn test_connection() -> Result<(), Error> {
         .await?
         .execute()
         .await?;
-    assert_eq!(r.affected_rows, 0);
-    assert_eq!(r.last_insert_id, 0);
+    assert_eq!(r.affected_rows(), 0);
+    assert_eq!(r.last_insert_id(), 0);
 
     // Check that we can bind parameters of all types
     let r = conn
@@ -265,8 +265,8 @@ async fn test_connection() -> Result<(), Error> {
         .execute()
         .await?;
 
-    assert_eq!(r.last_insert_id, 1);
-    assert_eq!(r.affected_rows, 1);
+    assert_eq!(r.last_insert_id(), 1);
+    assert_eq!(r.affected_rows(), 1);
 
     // Check that we inserted values correctly and that we can decode them
     let mut rows = conn
