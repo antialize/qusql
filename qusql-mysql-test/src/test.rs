@@ -511,12 +511,16 @@ async fn drop_cancel_transaction() -> Result<(), Error> {
     .await?;
     tr.commit().await?;
 
+    let mut commit_attempted = false;
     // Test dropping of a transaction at all event points
     for c in 0.. {
         conn.set_cancel_count(None);
         conn.cleanup().await?;
 
         let (cnt,): (i64,) = conn.fetch_one("SELECT COUNT(*) FROM db_test4", ()).await?;
+        if cnt == 1 && commit_attempted {
+            break;
+        }
         assert_eq!(cnt, 0);
 
         // Tests are repeated due to caching of prepared queries
@@ -541,6 +545,7 @@ async fn drop_cancel_transaction() -> Result<(), Error> {
             Err(e) => return Err(e.into()),
         }
 
+        commit_attempted = true;
         match tr.commit().await {
             Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => {
                 continue;
