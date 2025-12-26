@@ -1412,6 +1412,9 @@ pub struct Connection {
     ///
     /// Note currently we do not clean up any prepared statements. In the future this will be turned into a LRU
     prepared_statements: LRUCache<Statement>,
+
+    /// Single prepared statement not cached
+    prepared_statement: Option<Statement>,
     /// Underlying raw connection
     raw: RawConnection,
     /// The current transaction depth
@@ -1734,13 +1737,24 @@ impl<'a> Executor for Transaction<'a> {
     fn query_raw(
         &mut self,
         stmt: Cow<'static, str>,
+        options: QueryOptions,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send {
-        self.connection.query_inner(stmt)
+        self.connection.query_inner(stmt, options)
     }
 
     #[inline]
     fn begin(&mut self) -> impl Future<Output = ConnectionResult<Transaction<'_>>> + Send {
         self.connection.begin_impl()
+    }
+
+    #[inline]
+    fn query_with_args_raw(
+        &mut self,
+        stmt: Cow<'static, str>,
+        options: QueryOptions,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> {
+        self.connection.query_with_args_raw(stmt, options, args)
     }
 
     #[inline]
@@ -1774,6 +1788,22 @@ pub trait Executor: Sized + Send {
     fn query_raw(
         &mut self,
         stmt: Cow<'static, str>,
+        options: QueryOptions,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send;
+
+    /// Execute a query on the connection with the given arguments
+    ///
+    /// This is a shortcut for
+    /// ```ignore
+    /// args.bind_args(e.query_raw(stmt).await?)?;
+    /// ```
+    ///
+    /// See [Executor::query_raw] for cancel/drop safety
+    fn query_with_args_raw(
+        &mut self,
+        stmt: Cow<'static, str>,
+        options: QueryOptions,
+        args: impl Args + Send,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send;
 
     /// Execute a statement directly using the mysql text protocol
@@ -1808,19 +1838,37 @@ pub trait ExecutorExt {
         stmt: impl Into<Cow<'static, str>>,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send;
 
-    /// Execute a query on the connection with the given arguments
+    /// Execute a query on the connection
     ///
-    /// This is a shortcut for
-    /// ```ignore
-    /// args.bind_args(query(stmt).await?)?;
-    /// ```
+    /// If the returned feature is dropped, or if the returned [Query] or [QueryIterator] is dropped,
+    /// the connection will be left in a unclean state. Where the query can be in a half finished stare.
     ///
-    /// See [Executor::query_raw] for cancel/drop safety
+    /// If this is the case [Connection::is_clean] will return false. A call to [Connection::cleanup] will finish up the
+    /// query as quickly as possibly.
+    ///
+    /// If query is called while [Connection::is_clean] is false, query will call [Connection::cleanup] before executing the next
+    /// query
+    fn query_with_options(
+        &mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        options: QueryOptions,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send;
+
+    /// Execute a query on the connection with arguments
+    ///
+    /// If the returned feature is dropped, or if the returned [Query] or [QueryIterator] is dropped,
+    /// the connection will be left in a unclean state. Where the query can be in a half finished stare.
+    ///
+    /// If this is the case [Connection::is_clean] will return false. A call to [Connection::cleanup] will finish up the
+    /// query as quickly as possibly.
+    ///
+    /// If query is called while [Connection::is_clean] is false, query will call [Connection::cleanup] before executing the next
+    /// query
     fn query_with_args(
         &mut self,
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
-    ) -> impl Future<Output = ConnectionResult<Query<'_>>>;
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send;
 
     /// Execute a query with the given arguments and return all rows as a vector
     ///
@@ -1951,24 +1999,15 @@ pub trait ExecutorExt {
         for<'b> M: RowMap<'b>;
 }
 
-/// Implement [ExecutorExt::query_with_args] without stmt as a generic
-async fn query_with_args_impl<'a, E: Executor + Sized + Send>(
-    e: &'a mut E,
-    stmt: Cow<'static, str>,
-    args: impl Args + Send,
-) -> ConnectionResult<Query<'a>> {
-    let q = e.query_raw(stmt).await?;
-    args.bind_args(q)
-}
-
 /// Implement [ExecutorExt::fetch_all] without stmt as a generic
 async fn fetch_all_impl<'a, E: Executor + Sized + Send, T: FromRow<'a>>(
     e: &'a mut E,
     stmt: Cow<'static, str>,
     args: impl Args + Send,
 ) -> ConnectionResult<Vec<T>> {
-    let q = e.query(stmt).await?;
-    let q = args.bind_args(q)?;
+    let q = e
+        .query_with_args_raw(stmt, QueryOptions::new(), args)
+        .await?;
     q.fetch_all().await
 }
 
@@ -1978,8 +2017,9 @@ async fn fetch_all_map_impl<'a, E: Executor + Sized + Send, M: RowMap<'a>>(
     stmt: Cow<'static, str>,
     args: impl Args + Send,
 ) -> Result<Vec<M::T>, M::E> {
-    let q = e.query(stmt).await?;
-    let q = args.bind_args(q)?;
+    let q = e
+        .query_with_args_raw(stmt, QueryOptions::new(), args)
+        .await?;
     q.fetch_all_map::<M>().await
 }
 
@@ -1989,8 +2029,9 @@ async fn fetch_one_impl<'a, E: Executor + Sized + Send, T: FromRow<'a>>(
     stmt: Cow<'static, str>,
     args: impl Args + Send,
 ) -> ConnectionResult<T> {
-    let q = e.query(stmt).await?;
-    let q = args.bind_args(q)?;
+    let q = e
+        .query_with_args_raw(stmt, QueryOptions::new(), args)
+        .await?;
     match q.fetch_optional().await? {
         Some(v) => Ok(v),
         None => Err(ConnectionErrorContent::ExpectedRows.into()),
@@ -2003,8 +2044,10 @@ async fn fetch_one_map_impl<'a, E: Executor + Sized + Send, M: RowMap<'a>>(
     stmt: Cow<'static, str>,
     args: impl Args + Send,
 ) -> Result<M::T, M::E> {
-    let q = e.query(stmt).await.map_err(M::E::from)?;
-    let q = args.bind_args(q).map_err(M::E::from)?;
+    let q = e
+        .query_with_args_raw(stmt, QueryOptions::new(), args)
+        .await
+        .map_err(M::E::from)?;
     match q.fetch_optional_map::<M>().await? {
         Some(v) => Ok(v),
         None => Err(ConnectionError::from(ConnectionErrorContent::ExpectedRows).into()),
@@ -2017,8 +2060,9 @@ async fn fetch_optional_impl<'a, E: Executor + Sized + Send, T: FromRow<'a>>(
     stmt: Cow<'static, str>,
     args: impl Args + Send,
 ) -> ConnectionResult<Option<T>> {
-    let q = e.query(stmt).await?;
-    let q = args.bind_args(q)?;
+    let q = e
+        .query_with_args_raw(stmt, QueryOptions::new(), args)
+        .await?;
     q.fetch_optional().await
 }
 
@@ -2028,8 +2072,9 @@ async fn fetch_optional_map_impl<'a, E: Executor + Sized + Send, M: RowMap<'a>>(
     stmt: Cow<'static, str>,
     args: impl Args + Send,
 ) -> Result<Option<M::T>, M::E> {
-    let q = e.query(stmt).await?;
-    let q = args.bind_args(q)?;
+    let q = e
+        .query_with_args_raw(stmt, QueryOptions::new(), args)
+        .await?;
     q.fetch_optional_map::<M>().await
 }
 
@@ -2039,8 +2084,9 @@ async fn execute_impl<E: Executor + Sized + Send>(
     stmt: Cow<'static, str>,
     args: impl Args + Send,
 ) -> ConnectionResult<ExecuteResult> {
-    let q = e.query_raw(stmt).await?;
-    let q = args.bind_args(q)?;
+    let q = e
+        .query_with_args_raw(stmt, QueryOptions::new(), args)
+        .await?;
     q.execute().await
 }
 
@@ -2050,8 +2096,9 @@ async fn fetch_impl<'a, E: Executor + Sized + Send>(
     stmt: Cow<'static, str>,
     args: impl Args + Send,
 ) -> ConnectionResult<QueryIterator<'a>> {
-    let q = e.query(stmt).await?;
-    let q = args.bind_args(q)?;
+    let q = e
+        .query_with_args_raw(stmt, QueryOptions::new(), args)
+        .await?;
     q.fetch().await
 }
 
@@ -2064,8 +2111,9 @@ async fn fetch_map_impl<'a, E: Executor + Sized + Send, M>(
 where
     for<'b> M: RowMap<'b>,
 {
-    let q = e.query(stmt).await?;
-    let q = args.bind_args(q)?;
+    let q = e
+        .query_with_args_raw(stmt, QueryOptions::new(), args)
+        .await?;
     q.fetch_map::<M>().await
 }
 
@@ -2075,7 +2123,16 @@ impl<E: Executor + Sized + Send> ExecutorExt for E {
         &mut self,
         stmt: impl Into<Cow<'static, str>>,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send {
-        self.query_raw(stmt.into())
+        self.query_raw(stmt.into(), QueryOptions::new())
+    }
+
+    #[inline]
+    fn query_with_options(
+        &mut self,
+        stmt: impl Into<Cow<'static, str>>,
+        options: QueryOptions,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send {
+        self.query_raw(stmt.into(), options)
     }
 
     #[inline]
@@ -2084,7 +2141,7 @@ impl<E: Executor + Sized + Send> ExecutorExt for E {
         stmt: impl Into<Cow<'static, str>>,
         args: impl Args + Send,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> {
-        query_with_args_impl(self, stmt.into(), args)
+        self.query_with_args_raw(stmt.into(), QueryOptions::new(), args)
     }
 
     #[inline]
@@ -2172,6 +2229,38 @@ impl<E: Executor + Sized + Send> ExecutorExt for E {
     }
 }
 
+/// Options for preparing queries
+pub struct QueryOptions {
+    /// Should we cache the prepared statement
+    cache: bool,
+    /// Should be store information about columns and parameters
+    information: bool,
+}
+
+impl QueryOptions {
+    /// Construct default options with caching enabled and column information disabled
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Add the prepared statement to the prepared statement cache
+    pub fn cache(self, enable: bool) -> Self {
+        QueryOptions {
+            cache: enable,
+            ..self
+        }
+    }
+}
+
+impl Default for QueryOptions {
+    fn default() -> Self {
+        Self {
+            cache: true,
+            information: false,
+        }
+    }
+}
+
 impl Connection {
     /// Connect to Mariadb/Mysql
     pub async fn connect(options: &ConnectionOptions<'_>) -> ConnectionResult<Self> {
@@ -2181,6 +2270,7 @@ impl Connection {
             prepared_statements: LRUCache::new(options.statement_case_size),
             transaction_depth: 0,
             cleanup_rollbacks: 0,
+            prepared_statement: None,
         })
     }
 
@@ -2203,28 +2293,42 @@ impl Connection {
             self.cleanup_rollbacks = 0;
             self.raw.execute_unprepared(statement).await?;
         }
+
+        if let Some(v) = self.prepared_statement.take() {
+            self.raw.close_prepared_statement(v.stmt_id).await?
+        }
         Ok(())
     }
 
     /// Execute query. This inner method exists because [Self::query] is template on the stmt type
     /// but we would like only one instantiation.
-    async fn query_inner(&mut self, stmt: Cow<'static, str>) -> ConnectionResult<Query<'_>> {
+    async fn query_inner(
+        &mut self,
+        stmt: Cow<'static, str>,
+        options: QueryOptions,
+    ) -> ConnectionResult<Query<'_>> {
         self.cleanup().await?;
-        let statement = match self.prepared_statements.entry(stmt) {
-            Entry::Occupied(mut e) => {
-                e.bump();
-                e.into_mut()
-            }
-            Entry::Vacant(e) => {
-                let r = self.raw.prepare_query(e.key()).await?;
-                let (r, old) = e.insert(r);
-                if let Some((_, old)) = old {
-                    self.raw.close_prepared_statement(old.stmt_id).await?
+        if !options.cache {
+            let r = self.raw.prepare_query(&stmt).await?;
+            self.prepared_statement = Some(r);
+            Ok(self.raw.query(self.prepared_statement.as_ref().unwrap()))
+        } else {
+            let statement = match self.prepared_statements.entry(stmt) {
+                Entry::Occupied(mut e) => {
+                    e.bump();
+                    e.into_mut()
                 }
-                r
-            }
-        };
-        Ok(self.raw.query(statement))
+                Entry::Vacant(e) => {
+                    let r = self.raw.prepare_query(e.key()).await?;
+                    let (r, old) = e.insert(r);
+                    if let Some((_, old)) = old {
+                        self.raw.close_prepared_statement(old.stmt_id).await?
+                    }
+                    r
+                }
+            };
+            Ok(self.raw.query(statement))
+        }
     }
 
     /// Begin a new transaction or save-point
@@ -2302,13 +2406,26 @@ impl Executor for Connection {
     fn query_raw(
         &mut self,
         stmt: Cow<'static, str>,
+        options: QueryOptions,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send {
-        self.query_inner(stmt)
+        self.query_inner(stmt, options)
     }
 
     #[inline]
     fn begin(&mut self) -> impl Future<Output = ConnectionResult<Transaction<'_>>> + Send {
         self.begin_impl()
+    }
+
+    #[inline]
+    async fn query_with_args_raw(
+        &mut self,
+        stmt: Cow<'static, str>,
+        options: QueryOptions,
+        args: impl Args + Send,
+    ) -> ConnectionResult<Query<'_>> {
+        self.cleanup().await?;
+        let query = self.query_inner(stmt, options).await?;
+        args.bind_args(query)
     }
 
     async fn execute_unprepared(&mut self, stmt: &str) -> ConnectionResult<ExecuteResult> {
