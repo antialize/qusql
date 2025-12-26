@@ -1,8 +1,7 @@
 # qusql-parse
-[![crates.io](https://img.shields.io/crates/v/sql-parse.svg)](https://crates.io/crates/sql-parse)
-[![crates.io](https://docs.rs/sql-parse/badge.svg)](https://docs.rs/sql-parse)
-[![License](https://img.shields.io/crates/l/sql-parse.svg)](https://github.com/antialize/sql-parse)
-[![actions-badge](https://github.com/antialize/sql-parse/workflows/Rust/badge.svg?branch=main)](https://github.com/antialize/sql-parse/actions)
+[![crates.io](https://img.shields.io/crates/v/qusql-parse.svg)](https://crates.io/crates/qusql-parse)
+[![crates.io](https://docs.rs/qusql-parse/badge.svg)](https://docs.rs/qusql-parse)
+[![License](https://img.shields.io/crates/l/qusql-parse.svg)](https://github.com/antialize/qusql)
 
 Parse SQL into an AST
 
@@ -23,11 +22,10 @@ let options = ParseOptions::new()
 let sql = "SELECT `monkey`,
            FROM `t1` LEFT JOIN `t2` ON `t2`.`id` = `t1.two`
            WHERE `t1`.`id` = ?";
-
 let mut issues = Issues::new(sql);
 let ast = parse_statement(sql, &mut issues, &options);
 
-println!("Issues: {}", issues);
+println!("{}", issues);
 println!("AST: {:#?}", ast);
 ```
 

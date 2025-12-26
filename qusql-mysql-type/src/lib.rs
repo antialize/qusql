@@ -38,18 +38,14 @@
 //!
 //! async fn test() -> Result<(), ConnectionError> {
 //!     let pool = Pool::connect(
-//!         ConnectionOptions::new()
-//!             .address("127.0.0.1:3307").unwrap()
-//!             .user("user")
-//!             .password("pw")
-//!             .database("test"),
+//!         ConnectionOptions::from_url("mysql://user:pw@127.0.0.1:3307/db").unwrap(),
 //!         PoolOptions::new().max_connections(10)
 //!     ).await?;
 //!
 //!     let mut conn = pool.acquire().await?;
 //!
 //!     let id = execute!(&mut conn, "INSERT INTO `t1` (
-//!         `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ctext`)
+//!        `cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ctext`)
 //!         VALUES (?, ?, ?, ?, ?, ?)",
 //!         true, 8, 1243, 42, 42, "Hello world").await?.last_insert_id();
 //!

@@ -1,9 +1,9 @@
-//! This crate allow efficent async communication with Mariadb/Mysql
+//! This crate allow efficient async communication with Mariadb/Mysql
 //!
 //! You can either establish a raw connection using [Connection] or
 //! use a [Pool] of connections.
 //!
-//! Drop handling:
+//! Drop handling
 //! ------------
 //!
 //! When dropping/cancelling any future or struct returned by the library. The connections
@@ -19,7 +19,7 @@
 //! web request is cancelled while performing a long running query. Then the long running
 //! query will be killed shortly after.
 //!
-//! Efficiency:
+//! Efficiency
 //! -----------
 //! We spawn very few tasks.  Currently the only task spawned is
 //! when a [PoolConnection] is dropped while there is a ongoing query or transaction.
@@ -30,7 +30,7 @@
 //! The error types returned are all 8 bytes.
 //!
 //! The benchmark folder contains a benchmark that compares sqlx to qusql-mysql.
-//! When run it shows the we are significantly more efficent than sqlx
+//! When run it shows the we are significantly more efficient than sqlx
 //!
 //! | Test          |   Qusql time |    Sqlx time |
 //! |---------------|--------------|--------------|
@@ -40,13 +40,13 @@
 //! | Select stream |  9991.353 ms | 13215.973 ms |
 //! | Select one    | 19085.157 ms | 34728.834 ms |
 //!
-//! Feature flags:
+//! Feature flags
 //! --------------
 //! * stats: Add query count and timing statistics to the [Connection]
 //! * chrono: Add bind and decode support for chrono DateTime and Time
 //! * list_hack: Add support lists as arguments to queries
 //!
-//! Example:
+//! Example
 //! --------
 //! ```no_run
 //! use qusql_mysql::{Pool, ConnectionOptions, PoolOptions, ConnectionError, ExecutorExt, Executor};
@@ -64,12 +64,11 @@
 //!     tr.commit().await?;
 //!
 //!     let rows: Vec<(i64, &str)> = conn.fetch_all("SELECT `v`, `t` FROM `table`", ()).await?;
-//!
 //!     Ok(())
 //! }
 //! ```
 //!
-//! List hack:
+//! List hack
 //! ----------
 //! If the list `list_hack` feature is enabled. Support for lists as arguments to queries is added
 //! this is done done by adding a sufficient number of `?`'s to the query.
