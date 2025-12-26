@@ -5,7 +5,7 @@ use std::{
     fmt::Display,
     marker::PhantomData,
     mem::ManuallyDrop,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs},
     ops::Range,
 };
 
@@ -63,6 +63,9 @@ pub enum ConnectionErrorContent {
     #[doc(hidden)]
     #[error("await threshold reached")]
     TestCancelled,
+    /// The url supplied is invalid
+    #[error("Invalid url")]
+    InvalidUrl,
 }
 
 /// Error handling connection
@@ -381,6 +384,65 @@ impl<'a> ConnectionOptions<'a> {
             database: self.database.map(|v| v.into_owned().into()),
             unix_socket: self.unix_socket.map(|v| v.into_owned().into()),
         }
+    }
+
+    /// Construct a connection options from a url
+    /// ```
+    /// # use qusql_mysql::ConnectionOptions;
+    /// # fn main() {
+    /// let o = ConnectionOptions::from_url(
+    ///     "mysql://user:password@localhost/database?socket=/var/run/mysql.sock"
+    /// ).unwrap();
+    /// # }
+    /// ```
+    pub fn from_url(url: &'a str) -> Result<Self, ConnectionError> {
+        let Some(v) = url.strip_prefix("mysql://") else {
+            return Err(ConnectionErrorContent::InvalidUrl.into());
+        };
+        let (authority, path) = v
+            .split_once('/')
+            .map(|(a, b)| (a, Some(b)))
+            .unwrap_or((v, None));
+        let (user_info, address) = authority
+            .split_once('@')
+            .map(|(a, b)| (Some(a), b))
+            .unwrap_or((None, authority));
+        let (user, password) = user_info
+            .map(|v| {
+                v.split_once(':')
+                    .map(|(a, b)| (Some(a), Some(b)))
+                    .unwrap_or((Some(v), None))
+            })
+            .unwrap_or_default();
+        let (host, port) = address
+            .rsplit_once(':')
+            .map(|(a, b)| (a, Some(b)))
+            .unwrap_or((address, None));
+        let port: u16 = match port {
+            Some(v) => v.parse().map_err(|_| ConnectionErrorContent::InvalidUrl)?,
+            None => 3306,
+        };
+        let (db, unix_socket) = path
+            .map(|v| {
+                v.split_once("?socket=")
+                    .map(|(a, b)| (Some(a), Some(std::path::Path::new(b).into())))
+                    .unwrap_or((Some(v), None))
+            })
+            .unwrap_or_default();
+
+        let mut addrs = (host, port).to_socket_addrs()?;
+        let Some(address) = addrs.next() else {
+            return Err(ConnectionErrorContent::InvalidUrl.into());
+        };
+
+        Ok(ConnectionOptions {
+            address,
+            user: user.unwrap_or("root").into(),
+            password: password.unwrap_or("password").into(),
+            database: db.map(|v| v.into()),
+            unix_socket,
+            ..Default::default()
+        })
     }
 
     /// Set the user

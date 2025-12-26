@@ -38,17 +38,12 @@
 //!
 //! async fn test() -> Result<(), ConnectionError> {
 //!     let pool = Pool::connect(
-//!         ConnectionOptions{
-//!             address: "127.0.0.1:3307".parse().unwrap(),
-//!             user: "user".into(),
-//!             password: "pw".into(),
-//!             database: "test".into(),
-//!             ..Default::default()
-//!         },
-//!         PoolOptions{
-//!              max_connections: 10,
-//!             ..Default::default()
-//!         }
+//!         ConnectionOptions::new()
+//!             .address("127.0.0.1:3307").unwrap()
+//!             .user("user")
+//!             .password("pw")
+//!             .database("test"),
+//!         PoolOptions::new().max_connections(10)
 //!     ).await?;
 //!
 //!     let mut conn = pool.acquire().await?;
