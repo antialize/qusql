@@ -513,12 +513,145 @@ impl<'a> Default for ConnectionOptions<'a> {
     }
 }
 
+/// Definition of a column or parameter, see <https://mariadb.com/docs/server/reference/clientserver-protocol/4-server-response-packets/result-set-packets#column-definition-packet>
+#[derive(Debug)]
+#[non_exhaustive]
+pub struct ColumnDefinition<'a> {
+    /// Schema
+    pub schema: &'a str,
+    /// Alias for the table
+    pub table_alias: &'a str,
+    /// Table
+    pub table: &'a str,
+    /// Alias for column
+    pub column_alias: &'a str,
+    /// Column
+    pub column: &'a str,
+    /// Extended metadata, currently always null
+    pub extended_matadata: Option<&'a str>,
+    /// Number of the character set used
+    pub character_set_number: u16,
+    /// The maximal column size
+    pub max_column_size: u32,
+    /// The type of the field, see <https://mariadb.com/docs/server/reference/clientserver-protocol/4-server-response-packets/result-set-packets#field-types>
+    pub field_types: u8,
+    /// Flags set on the field, see <https://mariadb.com/docs/server/reference/clientserver-protocol/4-server-response-packets/result-set-packets#field-details-flag>
+    pub field_detail_flags: u16,
+    /// decimals used
+    pub decimals: u8,
+}
+
+impl<'a> ColumnDefinition<'a> {
+    /// Parse a ColumnDefinition package
+    fn new(data: &'a [u8]) -> DecodeResult<Self> {
+        let mut p = PackageParser::new(data);
+        p.skip_lenenc_str()?; // Skip def
+        let schema = p.get_lenenc_str()?;
+        let table_alias = p.get_lenenc_str()?;
+        let table = p.get_lenenc_str()?;
+        let column_alias = p.get_lenenc_str()?;
+        let column = p.get_lenenc_str()?;
+        let extended_matadata = None;
+        p.get_lenenc()?;
+        let character_set_number = p.get_u16()?;
+        let max_column_size = p.get_u32()?;
+        let field_types = p.get_u8()?;
+        let field_detail_flags = p.get_u16()?;
+        let decimals = p.get_u8()?;
+        Ok(ColumnDefinition {
+            schema,
+            table_alias,
+            table,
+            column_alias,
+            column,
+            extended_matadata,
+            character_set_number,
+            max_column_size,
+            field_types,
+            field_detail_flags,
+            decimals,
+        })
+    }
+}
+
+/// Columns or parameters of a prepared query
+pub struct ColumnsInformation<'a> {
+    /// Bytes of statement information
+    data: &'a [u8],
+    /// Offset in bytes of the column information packages
+    ranges: &'a [Range<usize>],
+}
+
+impl<'a> ColumnsInformation<'a> {
+    /// Return the idx eth element
+    pub fn get(&self, idx: usize) -> Option<DecodeResult<ColumnDefinition<'a>>> {
+        self.ranges
+            .get(idx)
+            .map(|v| ColumnDefinition::new(&self.data[v.clone()]))
+    }
+}
+
+impl<'a> Iterator for ColumnsInformation<'a> {
+    type Item = DecodeResult<ColumnDefinition<'a>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.ranges.split_off_first() {
+            Some(v) => Some(ColumnDefinition::new(&self.data[v.clone()])),
+            None => None,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.ranges.len(), Some(self.ranges.len()))
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.get(n)
+    }
+}
+
+impl<'a> ExactSizeIterator for ColumnsInformation<'a> {
+    fn len(&self) -> usize {
+        self.ranges.len()
+    }
+}
+
+impl StatementInformation {
+    /// Information about the columns returned by the statement
+    pub fn columns(&self) -> ColumnsInformation<'_> {
+        ColumnsInformation {
+            data: &self.info,
+            ranges: &self.ranges[self.num_params as usize..],
+        }
+    }
+
+    /// Information about the parameters assigned to the statement
+    pub fn parameters(&self) -> ColumnsInformation<'_> {
+        ColumnsInformation {
+            data: &self.info,
+            ranges: &self.ranges[..self.num_params as usize],
+        }
+    }
+}
+
+/// Contains information about a prepared statement
+pub struct StatementInformation {
+    /// The number of parameters the statement takes
+    num_params: u16,
+    /// Bytes of statement information
+    info: Vec<u8>,
+    /// Offset of params and columns
+    ranges: Vec<Range<usize>>,
+}
+
 /// A prepared statement
 struct Statement {
     /// The id of the statement
     stmt_id: u32,
     /// The number of parameters the statement takes
     num_params: u16,
+    /// Information about the statement
+    information: Option<StatementInformation>,
 }
 
 /// Iterate over rows in a query result
@@ -1160,7 +1293,7 @@ impl RawConnection {
     /// Prepare a statement.
     ///
     /// The cleanup functionally ensures that the future is drop drop safe
-    async fn prepare_query(&mut self, stmt: &str) -> ConnectionResult<Statement> {
+    async fn prepare_query(&mut self, stmt: &str, with_info: bool) -> ConnectionResult<Statement> {
         assert!(matches!(self.state, ConnectionState::Clean));
         self.writer.seq = 0;
         let mut p = self.writer.compose();
@@ -1187,6 +1320,9 @@ impl RawConnection {
                 let num_params = p.get_u16().loc("num_params")?;
                 // We skip the rest of the package here
 
+                let mut info_bytes: Vec<_> = Vec::new();
+                let mut info_ranges = Vec::new();
+
                 // Read param definitions
                 for p in 0..num_params {
                     self.state = ConnectionState::PrepareStatementReadParams {
@@ -1196,8 +1332,12 @@ impl RawConnection {
                     };
                     // safety-cancel: We set the state so that cleanup will get us in a good state
                     self.test_cancel()?;
-                    self.reader.read().await?;
-                    // We could use parse_column_definition if we care about the content
+                    let pkg = self.reader.read().await?;
+                    if with_info {
+                        let start = info_bytes.len();
+                        info_bytes.extend(pkg);
+                        info_ranges.push(start..info_bytes.len())
+                    }
                 }
 
                 // Skip column definitions
@@ -1209,15 +1349,30 @@ impl RawConnection {
                     };
                     // safety-cancel: We set the state so that cleanup will get us in a good state
                     self.test_cancel()?;
-                    self.reader.read().await?;
-                    // We could use parse_column_definition if we care about the content
+                    let pkg = self.reader.read().await?;
+                    if with_info {
+                        let start = info_bytes.len();
+                        info_bytes.extend(pkg);
+                        info_ranges.push(start..info_bytes.len())
+                    }
                 }
+
+                let information = if with_info {
+                    Some(StatementInformation {
+                        num_params,
+                        info: info_bytes,
+                        ranges: info_ranges,
+                    })
+                } else {
+                    None
+                };
 
                 self.state = ConnectionState::Clean;
                 self.stats.add_prepare(start_instant);
                 Ok(Statement {
                     stmt_id,
                     num_params,
+                    information,
                 })
             }
             255 => {
@@ -1438,6 +1593,12 @@ pub struct Query<'a> {
 }
 
 impl<'a> Query<'a> {
+    /// Get information about the prepared statement, if the [QueryOptions::information] was enabled
+    #[inline]
+    pub fn information(&self) -> Option<&StatementInformation> {
+        self.statement.information.as_ref()
+    }
+
     /// Bind the next argument to the query
     #[inline]
     pub fn bind<T: Bind + ?Sized>(mut self, v: &T) -> ConnectionResult<Self> {
@@ -2250,6 +2411,14 @@ impl QueryOptions {
             ..self
         }
     }
+
+    /// Store type information about columns and parameters
+    pub fn information(self, enable: bool) -> Self {
+        QueryOptions {
+            information: enable,
+            ..self
+        }
+    }
 }
 
 impl Default for QueryOptions {
@@ -2309,17 +2478,23 @@ impl Connection {
     ) -> ConnectionResult<Query<'_>> {
         self.cleanup().await?;
         if !options.cache {
-            let r = self.raw.prepare_query(&stmt).await?;
+            let r = self.raw.prepare_query(&stmt, options.information).await?;
             self.prepared_statement = Some(r);
             Ok(self.raw.query(self.prepared_statement.as_ref().unwrap()))
         } else {
             let statement = match self.prepared_statements.entry(stmt) {
                 Entry::Occupied(mut e) => {
+                    if e.get().information.is_none() && options.information {
+                        // Replace old cached statement without info with a new one with information
+                        let r = self.raw.prepare_query(e.key(), options.information).await?;
+                        let old = e.insert(r);
+                        self.raw.close_prepared_statement(old.stmt_id).await?
+                    }
                     e.bump();
                     e.into_mut()
                 }
                 Entry::Vacant(e) => {
-                    let r = self.raw.prepare_query(e.key()).await?;
+                    let r = self.raw.prepare_query(e.key(), options.information).await?;
                     let (r, old) = e.insert(r);
                     if let Some((_, old)) = old {
                         self.raw.close_prepared_statement(old.stmt_id).await?
