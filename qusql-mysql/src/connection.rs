@@ -339,7 +339,7 @@ pub struct ConnectionOptions<'a> {
     /// The password for the user
     password: Cow<'a, str>,
     /// The database to connect to
-    database: Cow<'a, str>,
+    database: Option<Cow<'a, str>>,
 }
 
 impl<'a> ConnectionOptions<'a> {
@@ -354,7 +354,7 @@ impl<'a> ConnectionOptions<'a> {
             address: self.address,
             user: self.user.into_owned().into(),
             password: self.password.into_owned().into(),
-            database: self.database.into_owned().into(),
+            database: self.database.map(|v| v.into_owned().into()),
         }
     }
 
@@ -377,7 +377,7 @@ impl<'a> ConnectionOptions<'a> {
     /// Set the database to connect to
     pub fn database(self, database: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            database: database.into(),
+            database: Some(database.into()),
             ..self
         }
     }
@@ -400,7 +400,7 @@ impl<'a> Default for ConnectionOptions<'a> {
             address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 3306),
             user: Cow::Borrowed("root"),
             password: Cow::Borrowed("password"),
-            database: Cow::Borrowed("db"),
+            database: None,
         }
     }
 }
@@ -686,20 +686,21 @@ impl RawConnection {
 
         // Compose and send handshake response
         let mut p = writer.compose();
-        p.put_u32(
-            client::LONG_PASSWORD
-                | client::LONG_FLAG
-                | client::CONNECT_WITH_DB
-                | client::LOCAL_FILES
-                | client::PROTOCOL_41
-                | client::DEPRECATE_EOF
-                | client::TRANSACTIONS
-                | client::SECURE_CONNECTION
-                | client::MULTI_STATEMENTS
-                | client::MULTI_RESULTS
-                | client::PS_MULTI_RESULTS
-                | client::PLUGIN_AUTH,
-        );
+        let mut opts = client::LONG_PASSWORD
+            | client::LONG_FLAG
+            | client::LOCAL_FILES
+            | client::PROTOCOL_41
+            | client::DEPRECATE_EOF
+            | client::TRANSACTIONS
+            | client::SECURE_CONNECTION
+            | client::MULTI_STATEMENTS
+            | client::MULTI_RESULTS
+            | client::PS_MULTI_RESULTS
+            | client::PLUGIN_AUTH;
+        if options.database.is_some() {
+            opts |= client::CONNECT_WITH_DB
+        }
+        p.put_u32(opts);
         p.put_u32(0x1000000); // Max package size
         p.put_u16(45); //utf8mb4_general_ci
         for _ in 0..22 {
@@ -712,7 +713,9 @@ impl RawConnection {
         for v in auth {
             p.put_u8(v);
         }
-        p.put_str_null(&options.database);
+        if let Some(database) = &options.database {
+            p.put_str_null(database);
+        }
         // mysql_native_password
         p.put_str_null("mysql_native_password");
         p.finalize();
