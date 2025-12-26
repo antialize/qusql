@@ -73,6 +73,7 @@ pub mod bind;
 pub mod connection;
 pub mod constants;
 pub mod decode;
+mod lru;
 pub mod package_parser;
 pub mod plain_types;
 pub mod pool;

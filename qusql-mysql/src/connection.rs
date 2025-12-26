@@ -1,7 +1,6 @@
 //! Handle a single connection to Mariadb/Mysql
 use std::{
     borrow::Cow,
-    collections::{HashMap, hash_map::Entry},
     fmt::Display,
     marker::PhantomData,
     mem::ManuallyDrop,
@@ -22,6 +21,7 @@ use crate::{
     bind::{Bind, BindError},
     constants::{client, com},
     decode::Column,
+    lru::{Entry, LRUCache},
     package_parser::{DecodeError, DecodeResult, PackageParser},
     row::{FromRow, Row},
 };
@@ -365,6 +365,8 @@ pub struct ConnectionOptions<'a> {
     password: Cow<'a, str>,
     /// The database to connect to
     database: Option<Cow<'a, str>>,
+    /// The maximum number of prepared statements in the cache
+    statement_case_size: usize,
     /// Unix socket
     unix_socket: Option<Cow<'a, std::path::Path>>,
 }
@@ -382,6 +384,7 @@ impl<'a> ConnectionOptions<'a> {
             user: self.user.into_owned().into(),
             password: self.password.into_owned().into(),
             database: self.database.map(|v| v.into_owned().into()),
+            statement_case_size: self.statement_case_size,
             unix_socket: self.unix_socket.map(|v| v.into_owned().into()),
         }
     }
@@ -441,6 +444,7 @@ impl<'a> ConnectionOptions<'a> {
             password: password.unwrap_or("password").into(),
             database: db.map(|v| v.into()),
             unix_socket,
+            ..Default::default()
         })
     }
 
@@ -486,6 +490,14 @@ impl<'a> ConnectionOptions<'a> {
             ..self
         }
     }
+
+    /// The maximum number of prepared statements in the cache
+    pub fn statment_case_size(self, size: usize) -> Self {
+        Self {
+            statement_case_size: size,
+            ..self
+        }
+    }
 }
 
 impl<'a> Default for ConnectionOptions<'a> {
@@ -495,6 +507,7 @@ impl<'a> Default for ConnectionOptions<'a> {
             user: Cow::Borrowed("root"),
             password: Cow::Borrowed("password"),
             database: None,
+            statement_case_size: 1024,
             unix_socket: None,
         }
     }
@@ -1369,6 +1382,28 @@ impl RawConnection {
             }
         }
     }
+
+    /// Close a prepared statement
+    fn close_prepared_statement(
+        &mut self,
+        id: u32,
+    ) -> impl Future<Output = ConnectionResult<()>> + Send {
+        assert!(matches!(self.state, ConnectionState::Clean));
+        self.writer.seq = 0;
+        let mut p = self.writer.compose();
+        p.put_u8(com::STMT_CLOSE);
+        p.put_u32(id);
+        p.finalize();
+        self.state = ConnectionState::ClosePreparedStatement;
+        async move {
+            let start_time = self.stats.get_instant();
+            self.test_cancel()?;
+            self.writer.send().await?;
+            self.stats.add_prepare(start_time);
+            self.state = ConnectionState::Clean;
+            Ok(())
+        }
+    }
 }
 
 /// A connection to Mariadb/Mysql
@@ -1376,7 +1411,7 @@ pub struct Connection {
     /// Hash map of prepared statements.
     ///
     /// Note currently we do not clean up any prepared statements. In the future this will be turned into a LRU
-    prepared_statements: HashMap<Cow<'static, str>, Statement>,
+    prepared_statements: LRUCache<Statement>,
     /// Underlying raw connection
     raw: RawConnection,
     /// The current transaction depth
@@ -1687,6 +1722,7 @@ impl<'a> Transaction<'a> {
     /// If the returned future is dropped. The transaction will
     /// be rolled back connection is used
     pub async fn rollback(self) -> ConnectionResult<()> {
+        self.connection.cleanup().await?;
         let mut this = ManuallyDrop::new(self);
         this.connection.rollback_impl().await?;
         Ok(())
@@ -1706,6 +1742,14 @@ impl<'a> Executor for Transaction<'a> {
     fn begin(&mut self) -> impl Future<Output = ConnectionResult<Transaction<'_>>> + Send {
         self.connection.begin_impl()
     }
+
+    #[inline]
+    fn execute_unprepared(
+        &mut self,
+        stmt: &str,
+    ) -> impl Future<Output = ConnectionResult<ExecuteResult>> + Send {
+        self.connection.execute_unprepared(stmt)
+    }
 }
 
 impl<'a> Drop for Transaction<'a> {
@@ -1716,7 +1760,7 @@ impl<'a> Drop for Transaction<'a> {
 }
 
 /// Trait implemented by [Connection] and [Transaction] that facilitates executing queries or creating new transactions
-pub trait Executor: Sized {
+pub trait Executor: Sized + Send {
     /// Execute a query on the connection
     ///
     /// If the returned feature is dropped, or if the returned [Query] or [QueryIterator] is dropped,
@@ -1731,6 +1775,14 @@ pub trait Executor: Sized {
         &mut self,
         stmt: Cow<'static, str>,
     ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send;
+
+    /// Execute a statement directly using the mysql text protocol
+    ///
+    /// Note currently we cannot recover the session if the result returns rows
+    fn execute_unprepared(
+        &mut self,
+        stmt: &str,
+    ) -> impl Future<Output = ConnectionResult<ExecuteResult>> + Send;
 
     /// Begin a new transaction (or Save point)
     ///
@@ -2126,7 +2178,7 @@ impl Connection {
         let raw = RawConnection::connect(options).await?;
         Ok(Connection {
             raw,
-            prepared_statements: Default::default(),
+            prepared_statements: LRUCache::new(options.statement_case_size),
             transaction_depth: 0,
             cleanup_rollbacks: 0,
         })
@@ -2144,21 +2196,12 @@ impl Connection {
 
         assert!(self.cleanup_rollbacks <= self.transaction_depth);
         if self.cleanup_rollbacks != 0 {
-            let statement = match self.prepared_statements.entry(rollback_transaction_query(
-                self.transaction_depth - self.cleanup_rollbacks,
-            )) {
-                Entry::Occupied(e) => e.into_mut(),
-                Entry::Vacant(e) => {
-                    let r = self.raw.prepare_query(e.key()).await?;
-                    e.insert(r)
-                }
-            };
-
+            let statement =
+                rollback_transaction_query(self.transaction_depth - self.cleanup_rollbacks);
             // Once raw.query has been called we will have roled back to this transaction level once raw.cleanup succeed
             self.transaction_depth -= self.cleanup_rollbacks;
             self.cleanup_rollbacks = 0;
-            let q = self.raw.query(statement);
-            q.execute().await?;
+            self.raw.execute_unprepared(statement).await?;
         }
         Ok(())
     }
@@ -2168,10 +2211,17 @@ impl Connection {
     async fn query_inner(&mut self, stmt: Cow<'static, str>) -> ConnectionResult<Query<'_>> {
         self.cleanup().await?;
         let statement = match self.prepared_statements.entry(stmt) {
-            Entry::Occupied(e) => e.into_mut(),
+            Entry::Occupied(mut e) => {
+                e.bump();
+                e.into_mut()
+            }
             Entry::Vacant(e) => {
                 let r = self.raw.prepare_query(e.key()).await?;
-                e.insert(r)
+                let (r, old) = e.insert(r);
+                if let Some((_, old)) = old {
+                    self.raw.close_prepared_statement(old.stmt_id).await?
+                }
+                r
             }
         };
         Ok(self.raw.query(statement))
@@ -2197,8 +2247,8 @@ impl Connection {
     }
 
     /// Rollback the top most transaction or save point
-    async fn rollback_impl(&mut self) -> ConnectionResult<()> {
-        self.cleanup().await?;
+    fn rollback_impl(&mut self) -> impl Future<Output = ConnectionResult<ExecuteResult>> + Send {
+        assert!(matches!(self.raw.state, ConnectionState::Clean));
         assert_eq!(self.cleanup_rollbacks, 0);
         assert_ne!(self.transaction_depth, 0);
         self.transaction_depth -= 1;
@@ -2207,14 +2257,11 @@ impl Connection {
         // there will be one less transaction
         self.raw
             .execute_unprepared(rollback_transaction_query(self.transaction_depth))
-            .await?;
-
-        Ok(())
     }
 
     /// Commit the top most transaction or save point
-    async fn commit_impl(&mut self) -> ConnectionResult<()> {
-        self.cleanup().await?;
+    fn commit_impl(&mut self) -> impl Future<Output = ConnectionResult<ExecuteResult>> + Send {
+        assert!(matches!(self.raw.state, ConnectionState::Clean));
         assert_eq!(self.cleanup_rollbacks, 0);
         assert_ne!(self.transaction_depth, 0);
 
@@ -2224,9 +2271,6 @@ impl Connection {
         // there will be one less transaction
         self.raw
             .execute_unprepared(commit_transaction_query(self.transaction_depth))
-            .await?;
-
-        Ok(())
     }
 
     #[cfg(feature = "cancel_testing")]
@@ -2265,5 +2309,10 @@ impl Executor for Connection {
     #[inline]
     fn begin(&mut self) -> impl Future<Output = ConnectionResult<Transaction<'_>>> + Send {
         self.begin_impl()
+    }
+
+    async fn execute_unprepared(&mut self, stmt: &str) -> ConnectionResult<ExecuteResult> {
+        self.cleanup().await?;
+        self.raw.execute_unprepared(stmt.into()).await
     }
 }
