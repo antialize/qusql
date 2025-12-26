@@ -51,17 +51,8 @@
 //!
 //! async fn test() -> Result<(), ConnectionError> {
 //!     let pool = Pool::connect(
-//!         ConnectionOptions{
-//!             address: "127.0.0.1:3307".parse().unwrap(),
-//!             user: "user".into(),
-//!             password: "pw".into(),
-//!             database: "test".into(),
-//!             ..Default::default()
-//!         },
-//!         PoolOptions{
-//!              max_connections: 10,
-//!             ..Default::default()
-//!         }
+//!         ConnectionOptions::from_url("mysql://user:pw@127.0.0.1:3307/db").unwrap(),
+//!         PoolOptions::new().max_connections(10)
 //!     ).await?;
 //!
 //!     let mut conn = pool.acquire().await?;

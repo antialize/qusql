@@ -8,17 +8,12 @@
 //!
 //! async fn test() -> Result<(), ConnectionError> {
 //!     let pool = Pool::connect(
-//!         ConnectionOptions{
-//!             address: "127.0.0.1:3307".parse().unwrap(),
-//!             user: "user".into(),
-//!             password: "pw".into(),
-//!             database: "test".into(),
-//!             ..Default::default()
-//!         },
-//!         PoolOptions{
-//!              max_connections: 10,
-//!             ..Default::default()
-//!         }
+//!         ConnectionOptions::new()
+//!             .address("127.0.0.1:3307").unwrap()
+//!             .user("user")
+//!             .password("pw")
+//!             .database("test"),
+//!         PoolOptions::new().max_connections(10)
 //!     ).await?;
 //!
 //!     let mut conn = pool.acquire().await?;
@@ -49,11 +44,44 @@ pub struct PoolOptions {
     /// With this long when a connection is dropped while it is performing a query.
     ///
     /// After timeout the connection is closed. And a new connection may then be opened
-    pub clean_timeout: Duration,
+    clean_timeout: Duration,
     /// Wait this long to attempt to connection again if we fail to connect
-    pub reconnect_time: Duration,
+    reconnect_time: Duration,
     /// The maximum number of concurrent connections allowed
-    pub max_connections: usize,
+    max_connections: usize,
+}
+
+impl PoolOptions {
+    /// New default pool options
+    pub fn new() -> Self {
+        PoolOptions::default()
+    }
+
+    /// With this long when a connection is dropped while it is performing a query.
+    ///
+    /// After timeout the connection is closed. And a new connection may then be opened
+    pub fn clean_timeout(self, duration: Duration) -> Self {
+        PoolOptions {
+            clean_timeout: duration,
+            ..self
+        }
+    }
+
+    /// Wait this long to attempt to connection again if we fail to connect
+    pub fn reconnect_time(self, duration: Duration) -> Self {
+        PoolOptions {
+            reconnect_time: duration,
+            ..self
+        }
+    }
+
+    /// The maximum number of concurrent connections allowed
+    pub fn max_connections(self, connection: usize) -> Self {
+        PoolOptions {
+            max_connections: connection,
+            ..self
+        }
+    }
 }
 
 impl Default for PoolOptions {

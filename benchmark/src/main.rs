@@ -1,7 +1,6 @@
 use anyhow::Result;
 
 use std::{
-    borrow::Cow,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     time::Duration,
 };
@@ -9,12 +8,14 @@ use std::{
 use qusql_mysql::{ConnectionOptions, Executor, ExecutorExt, Pool, PoolOptions};
 
 const ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 1235);
-const OPTS: ConnectionOptions<'static> = ConnectionOptions {
-    address: ADDR,
-    user: Cow::Borrowed("root"),
-    password: Cow::Borrowed("test"),
-    database: Cow::Borrowed("test"),
-};
+fn test_options() -> ConnectionOptions<'static> {
+    ConnectionOptions::new()
+        .address(ADDR)
+        .unwrap()
+        .user("root")
+        .password("test")
+        .database("test")
+}
 
 struct Timings {
     setup: Duration,
@@ -30,14 +31,7 @@ const ITR: i64 = 100;
 async fn qusql_test() -> Result<Timings> {
     let start = std::time::Instant::now();
 
-    let pool = Pool::connect(
-        OPTS,
-        PoolOptions {
-            max_connections: 2,
-            ..Default::default()
-        },
-    )
-    .await?;
+    let pool = Pool::connect(test_options(), PoolOptions::new().max_connections(2)).await?;
 
     {
         let mut conn = pool.acquire().await?;

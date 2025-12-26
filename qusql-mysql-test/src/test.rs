@@ -3,12 +3,7 @@
 ///! podman run --replace --name test_db --rm -e MYSQL_ROOT_PASSWORD=test -e MYSQL_DATABASE=test \
 ///!     --network=host -v dbstore:/var/lib/mysql  docker.io/mariadb:10.5 \
 ///!     --port 1235 --innodb-flush-method=nosync --innodb-buffer-pool-size=200M
-use std::{
-    borrow::Cow,
-    fmt::Debug,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    time::Duration,
-};
+use std::{fmt::Debug, time::Duration};
 
 use qusql_mysql::{
     connection::{Connection, ConnectionErrorContent, ConnectionOptions, Executor, ExecutorExt},
@@ -16,13 +11,14 @@ use qusql_mysql::{
     pool::{Pool, PoolOptions},
 };
 
-const ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 1235);
-const OPTS: ConnectionOptions<'static> = ConnectionOptions {
-    address: ADDR,
-    user: Cow::Borrowed("root"),
-    password: Cow::Borrowed("test"),
-    database: Cow::Borrowed("test"),
-};
+fn opts() -> ConnectionOptions<'static> {
+    ConnectionOptions::new()
+        .address("127.0.0.1:1235")
+        .unwrap()
+        .user("root")
+        .password("test")
+        .database("test")
+}
 
 struct Error(Box<dyn std::error::Error + Send>);
 
@@ -41,7 +37,7 @@ impl<E: std::error::Error + 'static + Send> From<E> for Error {
 #[tokio::test]
 async fn test_connection() -> Result<(), Error> {
     let mut conn =
-        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&OPTS)).await??;
+        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&opts())).await??;
 
     // Create a test database with all handled types
     let r = conn
@@ -382,7 +378,7 @@ async fn test_connection() -> Result<(), Error> {
 async fn drop_cancel() -> Result<(), Error> {
     // Ensure that the drop/cleanup functionally works
     let mut conn =
-        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&OPTS)).await??;
+        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&opts())).await??;
     conn.execute("DROP TABLE IF EXISTS db_test3", ()).await?;
     conn.execute(
         "CREATE TABLE db_test3 (
@@ -457,7 +453,7 @@ async fn drop_cancel() -> Result<(), Error> {
 #[tokio::test]
 async fn test_transaction() -> Result<(), Error> {
     let mut conn =
-        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&OPTS)).await??;
+        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&opts())).await??;
 
     let mut tr = conn.begin().await?;
     tr.execute("DROP TABLE IF EXISTS db_test2", ()).await?;
@@ -495,7 +491,7 @@ async fn test_transaction() -> Result<(), Error> {
 #[tokio::test]
 async fn drop_cancel_transaction() -> Result<(), Error> {
     let mut conn =
-        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&OPTS)).await??;
+        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&opts())).await??;
 
     let mut tr = conn.begin().await?;
     tr.execute("DROP TABLE IF EXISTS db_test4", ()).await?;
@@ -655,13 +651,7 @@ async fn drop_cancel_transaction() -> Result<(), Error> {
 async fn pool() -> Result<(), Error> {
     let pool = tokio::time::timeout(
         Duration::from_secs(2),
-        Pool::connect(
-            OPTS,
-            PoolOptions {
-                max_connections: 2,
-                ..Default::default()
-            },
-        ),
+        Pool::connect(opts(), PoolOptions::new().max_connections(2)),
     )
     .await??;
 
@@ -707,13 +697,7 @@ async fn pool() -> Result<(), Error> {
 async fn pool_drop() -> Result<(), Error> {
     let pool = tokio::time::timeout(
         Duration::from_secs(2),
-        Pool::connect(
-            OPTS,
-            PoolOptions {
-                max_connections: 2,
-                ..Default::default()
-            },
-        ),
+        Pool::connect(opts(), PoolOptions::new().max_connections(2)),
     )
     .await??;
 
@@ -798,13 +782,7 @@ async fn pool_drop() -> Result<(), Error> {
 async fn typed() -> Result<(), Error> {
     let pool = tokio::time::timeout(
         Duration::from_secs(2),
-        Pool::connect(
-            OPTS,
-            PoolOptions {
-                max_connections: 2,
-                ..Default::default()
-            },
-        ),
+        Pool::connect(opts(), PoolOptions::new().max_connections(2)),
     )
     .await??;
 

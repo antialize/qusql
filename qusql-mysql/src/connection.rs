@@ -333,19 +333,71 @@ impl<'a> Composer<'a> {
 /// Options used to establish connection to Mariadb/Mysql
 pub struct ConnectionOptions<'a> {
     /// The TCP adders to connect to
-    pub address: SocketAddr,
+    address: SocketAddr,
     /// The user to connect as
-    pub user: Cow<'a, str>,
+    user: Cow<'a, str>,
     /// The password for the user
-    pub password: Cow<'a, str>,
+    password: Cow<'a, str>,
     /// The database to connect to
-    pub database: Cow<'a, str>,
+    database: Cow<'a, str>,
+}
+
+impl<'a> ConnectionOptions<'a> {
+    /// Construct new default connection options
+    pub fn new() -> ConnectionOptions<'a> {
+        Default::default()
+    }
+
+    /// Construct an owned copy of the options
+    pub fn into_owned(self) -> ConnectionOptions<'static> {
+        ConnectionOptions {
+            address: self.address,
+            user: self.user.into_owned().into(),
+            password: self.password.into_owned().into(),
+            database: self.database.into_owned().into(),
+        }
+    }
+
+    /// Set the user
+    pub fn user(self, user: impl Into<Cow<'a, str>>) -> Self {
+        Self {
+            user: user.into(),
+            ..self
+        }
+    }
+
+    /// Set the password
+    pub fn password(self, password: impl Into<Cow<'a, str>>) -> Self {
+        Self {
+            password: password.into(),
+            ..self
+        }
+    }
+
+    /// Set the database to connect to
+    pub fn database(self, database: impl Into<Cow<'a, str>>) -> Self {
+        Self {
+            database: database.into(),
+            ..self
+        }
+    }
+
+    /// The address to connect to
+    pub fn address(self, address: impl std::net::ToSocketAddrs) -> Result<Self, std::io::Error> {
+        match address.to_socket_addrs()?.next() {
+            Some(v) => Ok(Self { address: v, ..self }),
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "No host resolved",
+            )),
+        }
+    }
 }
 
 impl<'a> Default for ConnectionOptions<'a> {
     fn default() -> Self {
         Self {
-            address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 4407),
+            address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 3306),
             user: Cow::Borrowed("root"),
             password: Cow::Borrowed("password"),
             database: Cow::Borrowed("db"),
