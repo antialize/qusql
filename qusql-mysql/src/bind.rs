@@ -269,7 +269,7 @@ impl Bind for String {
 }
 
 /// Bind a &[str] as a [type_::STRING]
-impl Bind for &str {
+impl Bind for str {
     const TYPE: u8 = type_::STRING;
     #[inline]
     fn bind(&self, writer: &mut Writer<'_>) -> BindResult<bool> {
@@ -291,7 +291,7 @@ impl Bind for Vec<u8> {
 }
 
 /// Bind a &[[u8]] as a [type_::BLOB]
-impl Bind for &[u8] {
+impl Bind for [u8] {
     const TYPE: u8 = type_::BLOB;
     #[inline]
     fn bind(&self, writer: &mut Writer<'_>) -> BindResult<bool> {
@@ -312,5 +312,16 @@ impl<T: Bind> Bind for Option<T> {
             Some(v) => v.bind(writer),
             None => Ok(false),
         }
+    }
+}
+
+/// Bind arbitrary references
+impl<T: Bind + ?Sized> Bind for &T {
+    const TYPE: u8 = T::TYPE;
+    const UNSIGNED: bool = T::UNSIGNED;
+
+    #[inline]
+    fn bind(&self, writer: &mut Writer<'_>) -> BindResult<bool> {
+        (*self).bind(writer)
     }
 }

@@ -1385,7 +1385,7 @@ pub struct Query<'a> {
 impl<'a> Query<'a> {
     /// Bind the next argument to the query
     #[inline]
-    pub fn bind<T: Bind>(mut self, v: &T) -> ConnectionResult<Self> {
+    pub fn bind<T: Bind + ?Sized>(mut self, v: &T) -> ConnectionResult<Self> {
         if self.cur_param == self.statement.num_params {
             return Err(ConnectionErrorContent::Bind(
                 self.cur_param,
