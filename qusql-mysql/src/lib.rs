@@ -42,6 +42,7 @@
 //!
 //! Feature flags:
 //! --------------
+//! * stats: Add query count and timing statistics to the [Connection]
 //! * chrono: Add bind and decode support for chrono DateTime and Time
 //!
 //! Example:

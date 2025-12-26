@@ -16,6 +16,7 @@ missing_docs_in_private_items = "deny"
 
 [features]
 cancel_testing = []
+stats = []
 chrono = ["dep:chrono"]
 
 [dependencies]

@@ -527,7 +527,9 @@ impl<'a> QueryIterator<'a> {
         }
         // safety-cancel: The cleanup on the connection will skip the remaining rows
         self.connection.test_cancel()?;
+        let start_instant = self.connection.stats.get_instant();
         let package = self.connection.reader.read().await?;
+        self.connection.stats.add_fetch(start_instant);
         let mut pp = PackageParser::new(package);
         match pp.get_u8().loc("Row first byte")? {
             0x00 => Ok(Some(Row::new(&self.connection.columns, package))),
@@ -576,7 +578,9 @@ where
         }
         // safety-cancel: The cleanup on the connection will skip the remaining rows
         self.connection.test_cancel()?;
+        let start_instant = self.connection.stats.get_instant();
         let package = self.connection.reader.read().await?;
+        self.connection.stats.add_fetch(start_instant);
         let mut pp = PackageParser::new(package);
         match pp.get_u8().loc("Row first byte")? {
             0x00 => Ok(Some(M::map(Row::new(&self.connection.columns, package))?)),
@@ -651,6 +655,76 @@ enum ConnectionState {
     Broken,
 }
 
+/// Interface implemented by [Stats] and [NoStats]
+trait IStats {
+    /// Instant in time
+    type Instant: Sized;
+    /// Get the current instant in time
+    fn get_instant(&self) -> Self::Instant;
+    /// Register a prepare
+    fn add_prepare(&mut self, start_instant: Self::Instant);
+    /// Register an execute
+    fn add_execute(&mut self, start_instant: Self::Instant);
+    /// Register som fetching
+    fn add_fetch(&mut self, start_instant: Self::Instant);
+}
+
+/// Statistics about a connection
+#[allow(unused)]
+#[derive(Default, Debug)]
+pub struct Stats {
+    /// Number of statements prepared
+    pub prepare_counts: usize,
+    /// Time used preparing statements
+    pub prepare_time: std::time::Duration,
+    /// Number of statements executed
+    pub execute_counts: usize,
+    /// Time used in executing statements
+    pub execute_time: std::time::Duration,
+    /// Time used fetching statement results
+    pub fetch_time: std::time::Duration,
+}
+
+impl IStats for Stats {
+    type Instant = std::time::Instant;
+
+    fn get_instant(&self) -> Self::Instant {
+        std::time::Instant::now()
+    }
+
+    fn add_prepare(&mut self, start_instant: Self::Instant) {
+        self.prepare_counts += 1;
+        self.prepare_time += start_instant.elapsed();
+    }
+
+    fn add_execute(&mut self, start_instant: Self::Instant) {
+        self.execute_counts += 1;
+        self.execute_time += start_instant.elapsed()
+    }
+
+    fn add_fetch(&mut self, start_instant: Self::Instant) {
+        self.fetch_time += start_instant.elapsed();
+    }
+}
+/// Statistics about a connection
+#[allow(unused)]
+#[derive(Default)]
+struct NoStats;
+
+impl IStats for NoStats {
+    type Instant = NoStats;
+
+    fn get_instant(&self) -> Self::Instant {
+        NoStats
+    }
+
+    fn add_prepare(&mut self, _: Self::Instant) {}
+
+    fn add_execute(&mut self, _: Self::Instant) {}
+
+    fn add_fetch(&mut self, _: Self::Instant) {}
+}
+
 /// A raw connection to Mariadb/Mysql. This is split from [Connection] to that connection
 /// can handle the caching of prepared statement
 struct RawConnection {
@@ -667,6 +741,12 @@ struct RawConnection {
     #[cfg(feature = "cancel_testing")]
     /// Return TestCancelled after this many sends
     cancel_count: Option<usize>,
+    #[cfg(feature = "stats")]
+    /// Connection statistics
+    stats: Stats,
+    #[cfg(not(feature = "stats"))]
+    /// Connection statistics
+    stats: NoStats,
 }
 
 /// Parse a column definition package
@@ -856,6 +936,7 @@ impl RawConnection {
             ranges: Vec::new(),
             #[cfg(feature = "cancel_testing")]
             cancel_count: None,
+            stats: Default::default(),
         })
     }
 
@@ -1063,6 +1144,7 @@ impl RawConnection {
         p.put_bytes(stmt.as_bytes());
         p.finalize();
 
+        let start_instant = self.stats.get_instant();
         self.state = ConnectionState::PrepareStatementSend;
         // safety-cancel: We set the state so that cleanup will get us in a good state
         self.test_cancel()?;
@@ -1108,6 +1190,7 @@ impl RawConnection {
                 }
 
                 self.state = ConnectionState::Clean;
+                self.stats.add_prepare(start_instant);
                 Ok(Statement {
                     stmt_id,
                     num_params,
@@ -1171,6 +1254,7 @@ impl RawConnection {
         };
         p.finalize();
 
+        let start_instant = self.stats.get_instant();
         self.state = ConnectionState::QuerySend;
         // safety-cancel: We have set the state so that clean can finish up
         self.test_cancel()?;
@@ -1187,6 +1271,7 @@ impl RawConnection {
                     handle_mysql_error(&mut pp)?;
                 }
                 0 => {
+                    self.stats.add_execute(start_instant);
                     self.state = ConnectionState::Clean;
                     let affected_rows = pp.get_lenenc().loc("affected_rows")?;
                     let last_insert_id = pp.get_lenenc().loc("last_insert_id")?;
@@ -1214,6 +1299,7 @@ impl RawConnection {
             let mut p = PackageParser::new(package);
             self.columns.push(parse_column_definition(&mut p)?);
         }
+        self.stats.add_execute(start_instant);
 
         self.state = ConnectionState::QueryReadRows;
         Ok(QueryResult::WithColumns)
@@ -1237,6 +1323,7 @@ impl RawConnection {
         self.state = ConnectionState::UnpreparedSend;
 
         async move {
+            let start_time = self.stats.get_instant();
             self.test_cancel()?;
             self.writer.send().await?;
 
@@ -1248,21 +1335,22 @@ impl RawConnection {
                 match pp.get_u8().loc("first_byte")? {
                     255 => {
                         handle_mysql_error(&mut pp)?;
+                        unreachable!()
                     }
                     0 => {
+                        self.stats.add_execute(start_time);
                         self.state = ConnectionState::Clean;
-                        return Ok(());
+                        Ok(())
                     }
                     v => {
                         self.state = ConnectionState::Broken;
-                        return Err(ConnectionErrorContent::ProtocolError(format!(
+                        Err(ConnectionErrorContent::ProtocolError(format!(
                             "Unexpected response type {v} to row package"
                         ))
-                        .into());
+                        .into())
                     }
                 }
             }
-            Ok(())
         }
     }
 }
@@ -1344,6 +1432,7 @@ impl<'a> Query<'a> {
             }
         }
 
+        let start_instant = self.connection.stats.get_instant();
         // safety-cancel: The cleanup on the connection will skip the remaining rows
         self.connection.test_cancel()?;
         let p1 = self.connection.reader.read_raw().await?;
@@ -1399,6 +1488,7 @@ impl<'a> Query<'a> {
             }
         }
 
+        self.connection.stats.add_fetch(start_instant);
         let row = Row::new(&self.connection.columns, self.connection.reader.bytes(p1));
         Ok(Some(M::map(row)?))
     }
@@ -1438,6 +1528,7 @@ impl<'a> Query<'a> {
             ))
             .into());
         }
+        let start_instant = self.connection.stats.get_instant();
         match self.connection.query_send().await? {
             QueryResult::WithColumns => (),
             QueryResult::ExecuteResult(_) => {
@@ -1476,6 +1567,7 @@ impl<'a> Query<'a> {
             self.connection.reader.buffer_packages = true;
         }
 
+        self.connection.stats.add_fetch(start_instant);
         let mut ans = Vec::with_capacity(self.connection.ranges.len());
         for p in &self.connection.ranges {
             let row = Row::new(
@@ -1568,6 +1660,7 @@ impl<'a> Transaction<'a> {
     /// be rolled back or committed the next time the underlying
     /// connection is used
     pub async fn commit(self) -> ConnectionResult<()> {
+        self.connection.cleanup().await?;
         let mut this = ManuallyDrop::new(self);
         this.connection.commit_impl().await?;
         Ok(())
@@ -2125,6 +2218,22 @@ impl Connection {
     /// Set the cancel counts for testing
     pub fn set_cancel_count(&mut self, cnt: Option<usize>) {
         self.raw.cancel_count = cnt;
+    }
+
+    #[cfg(feature = "stats")]
+    /// Return statistics for the connection
+    ///
+    /// Only available if the "stats" feature is enabled
+    pub fn stats(&self) -> &Stats {
+        &self.raw.stats
+    }
+
+    /// Clear the connection stats
+    ///
+    /// Only available if the "stats" feature is enabled
+    #[cfg(feature = "stats")]
+    pub fn clear_stats(&mut self) {
+        self.raw.stats = Default::default()
     }
 }
 
