@@ -17,7 +17,7 @@ use tokio::{
 
 use crate::{
     args::Args,
-    auth::compute_auth,
+    auth::{AuthPlugin, compute_auth},
     bind::{Bind, BindError},
     constants::{client, com},
     decode::Column,
@@ -1035,8 +1035,19 @@ impl RawConnection {
             .get_bytes(auth_plugin_data_len as usize - 9)
             .loc("nonce2")?;
         p.get_u8().ev("nonce2_end", 0)?;
-        p.get_null_str()
-            .ev("auth_plugin", "mysql_native_password")?;
+
+        let auth_plugin = p.get_null_str().loc("auth_plugin")?;
+        let auth_method = match auth_plugin {
+            "mysql_native_password" => AuthPlugin::NativePassword,
+            #[cfg(feature = "sha2_auth")]
+            "caching_sha2_password" => AuthPlugin::CachingSha2Password,
+            v => {
+                return Err(ConnectionErrorContent::ProtocolError(format!(
+                    "Unhandled auth plugin {v}"
+                ))
+                .into());
+            }
+        };
 
         // Compose and send handshake response
         let mut p = writer.compose();
@@ -1061,36 +1072,85 @@ impl RawConnection {
             p.put_u8(0);
         }
         p.put_str_null(&options.user);
-        let mut auth = [0; 20];
-        compute_auth(&options.password, nonce1, nonce2, &mut auth);
+
+        let mut nonce = Vec::with_capacity(nonce1.len() + nonce2.len());
+        nonce.extend_from_slice(nonce1);
+        nonce.extend_from_slice(nonce2);
+
+        let auth = compute_auth(&options.password, &nonce, auth_method);
+        let auth = auth.as_slice();
         p.put_u8(auth.len() as u8);
         for v in auth {
-            p.put_u8(v);
+            p.put_u8(*v);
         }
         if let Some(database) = &options.database {
             p.put_str_null(database);
         }
         // mysql_native_password
-        p.put_str_null("mysql_native_password");
+        p.put_str_null(auth_plugin);
         p.finalize();
 
         writer.send().await?;
 
-        let p = reader.read().await?;
-        let mut pp = PackageParser::new(p);
-        match pp.get_u8().loc("response type")? {
-            0xFF => {
-                handle_mysql_error(&mut pp)?;
-            }
-            0x00 => {
-                let _rows = pp.get_lenenc().loc("rows")?;
-                let _last_inserted_id = pp.get_lenenc().loc("last_inserted_id")?;
-            }
-            v => {
-                return Err(ConnectionErrorContent::ProtocolError(format!(
-                    "Unexpected response type {v} to handshake response"
-                ))
-                .into());
+        loop {
+            let p = reader.read().await?;
+            let mut pp = PackageParser::new(p);
+            match pp.get_u8().loc("response type")? {
+                0xFF => {
+                    handle_mysql_error(&mut pp)?;
+                }
+                0x00 => {
+                    let _rows = pp.get_lenenc().loc("rows")?;
+                    let _last_inserted_id = pp.get_lenenc().loc("last_inserted_id")?;
+                    break;
+                }
+                0xFE => {
+                    return Err(ConnectionErrorContent::ProtocolError(
+                        "Unexpected auth switch".into(),
+                    )
+                    .into());
+                }
+                #[cfg(feature = "sha2_auth")]
+                0x01 if matches!(auth_method, AuthPlugin::CachingSha2Password) => {
+                    match pp.get_u8().loc("auth_status")? {
+                        // AUTH_OK
+                        0x03 => break,
+                        // AUTH_CONTINUE
+                        0x04 => {
+                            // https://mariadb.com/kb/en/caching_sha2_password-authentication-plugin/
+                            writer.seq = 3;
+                            let mut p = writer.compose();
+                            p.put_u8(0x02);
+                            p.finalize();
+                            writer.send().await?;
+
+                            let p = reader.read().await?;
+                            let mut pp = PackageParser::new(p);
+                            pp.get_u8().ev("first", 1)?;
+                            let pem = pp.get_eof_str().loc("pem")?;
+
+                            let pwd = crate::auth::encrypt_rsa(pem, &options.password, &nonce)?;
+
+                            writer.seq = 5;
+                            let mut p = writer.compose();
+                            p.put_bytes(&pwd);
+                            p.finalize();
+                            writer.send().await?;
+                        }
+                        v => {
+                            return Err(ConnectionErrorContent::ProtocolError(format!(
+                                "Unexpected auth status {v} to handshake response"
+                            ))
+                            .into());
+                        }
+                    }
+                }
+                v => {
+                    return Err(ConnectionErrorContent::ProtocolError(format!(
+                        "Unexpected response type {v} to handshake response"
+                    ))
+                    .into());
+                }
             }
         }
         writer.seq = 0;
