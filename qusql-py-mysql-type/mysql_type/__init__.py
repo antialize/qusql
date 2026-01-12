@@ -80,7 +80,7 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
 
     Arguments in the query are expected to be presented as %s or _LIST_
     . For list arguments the coresponding entry in args is assumed to be a list
-    and the _LIST_ in the query is replaced by %s,%s,...,%s with where
+    or a tuple and the _LIST_ in the query is replaced by %s,%s,...,%s with where
     the number of $s's is equal to the list length
     """
     if "_LIST_" not in sql:
@@ -94,6 +94,8 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
                 a = rargs.pop()
                 if a is None:
                     raise Exception("Number of _LIST_ arguments do not match")
+                if isinstance(a, tuple):
+                    a = list(a)
                 if isinstance(a, list):
                     flatargs += a
                     if not a:
@@ -103,7 +105,7 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
         sql = re.sub("_LIST_", replace_arg, sql)
         while rargs:
             a = rargs.pop()
-            if isinstance(a, list):
+            if isinstance(a, list | tuple):
                 raise Exception("Number of _LIST_ arguments do not match")
             flatargs.append(a)
         c.execute(sql, flatargs)
