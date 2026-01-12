@@ -32,7 +32,7 @@
 //! This schema can then be used to type queries:
 //!
 //! ``` no_run
-//! use {std::env, sqlx::MySqlPool, sqlx_type::query};
+//! use {std::env, sqlx::MySqlPool, qusql_sqlx_type::query};
 //!
 //! async fn test() -> Result<(), sqlx::Error> {
 //!     let pool = MySqlPool::connect(&env::var("DATABASE_URL").unwrap()).await?;
@@ -52,9 +52,9 @@
 //! ```
 #![forbid(unsafe_code)]
 #[allow(clippy::single_component_path_imports)]
-use sqlx_type_macro;
+use qusql_sqlx_type_macro;
 
-pub use crate::sqlx_type_macro::{query, query_as};
+pub use crate::qusql_sqlx_type_macro::{query, query_as};
 
 /// Tag type for integer input
 #[doc(hidden)]
@@ -87,8 +87,11 @@ pub struct Any;
 /// If ArgIn<T> is implemented for J, it means that J can be used as for arguments of type T
 #[doc(hidden)]
 pub trait ArgIn<T> {}
+
+/// If ArgOut<T> is implemented for J, it means that J can be used to read output of type T
 pub trait ArgOut<T, const IDX: usize> {}
 
+/// Implement ArgIn and ArgOut for the given types
 macro_rules! arg_io {
     ( $dst: ty, $t: ty ) => {
         impl ArgIn<$dst> for $t {}

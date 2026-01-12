@@ -1,3 +1,7 @@
+//! Implementation of typed db query macros
+//!
+//! Used the exposed macros from the qusql-sqlx-type crate
+//!
 #![forbid(unsafe_code)]
 
 use std::ops::Deref;
@@ -8,11 +12,12 @@ use once_cell::sync::Lazy;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote, quote_spanned};
-use sql_type::schema::{parse_schemas, Schemas};
-use sql_type::{type_statement, Issue, SQLArguments, SQLDialect, SelectTypeColumn, TypeOptions};
+use qusql_type::schema::{parse_schemas, Schemas};
+use qusql_type::{type_statement, Issue, SQLArguments, SQLDialect, SelectTypeColumn, TypeOptions};
 use syn::spanned::Spanned;
 use syn::{parse::Parse, punctuated::Punctuated, Expr, Ident, LitStr, Token};
 
+/// Path where the sqlx-type-schema.sql file can be found
 static SCHEMA_PATH: Lazy<PathBuf> = Lazy::new(|| {
     let mut schema_path: PathBuf = std::env::var("CARGO_MANIFEST_DIR")
         .expect("`CARGO_schema_path` must be set")
@@ -34,8 +39,10 @@ static SCHEMA_PATH: Lazy<PathBuf> = Lazy::new(|| {
             .output()
             .expect("Could not fetch metadata");
 
+        /// Struct used to deserialize the cargo betadata
         #[derive(Deserialize)]
         struct CargoMetadata {
+            /// The root of the workspace
             workspace_root: PathBuf,
         }
 
@@ -51,6 +58,7 @@ static SCHEMA_PATH: Lazy<PathBuf> = Lazy::new(|| {
     schema_path
 });
 
+/// Source of the sqlx-type-schema.sql
 // If we are in a workspace, lookup `workspace_root` since `CARGO_MANIFEST_DIR` won't
 // reflect the workspace dir: https://github.com/rust-lang/cargo/issues/3946
 static SCHEMA_SRC: Lazy<String> =
@@ -63,11 +71,12 @@ static SCHEMA_SRC: Lazy<String> =
         ),
     });
 
+/// Construct a none color report for an issue
 fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
     let mut builder = Report::build(
         match issue.level {
-            sql_type::Level::Warning => ReportKind::Warning,
-            sql_type::Level::Error => ReportKind::Error,
+            qusql_type::Level::Warning => ReportKind::Warning,
+            qusql_type::Level::Error => ReportKind::Error,
         },
         issue.span.clone(),
     )
@@ -84,19 +93,20 @@ fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
     builder.finish()
 }
 
+/// Construct a color report for an issue
 fn issue_to_report_color(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
     let mut builder = Report::build(
         match issue.level {
-            sql_type::Level::Warning => ReportKind::Warning,
-            sql_type::Level::Error => ReportKind::Error,
+            qusql_type::Level::Warning => ReportKind::Warning,
+            qusql_type::Level::Error => ReportKind::Error,
         },
         issue.span.clone(),
     )
     .with_label(
         Label::new(issue.span)
             .with_color(match issue.level {
-                sql_type::Level::Warning => Color::Yellow,
-                sql_type::Level::Error => Color::Red,
+                qusql_type::Level::Warning => Color::Yellow,
+                qusql_type::Level::Error => Color::Red,
             })
             .with_order(-1)
             .with_priority(-1)
@@ -112,6 +122,7 @@ fn issue_to_report_color(issue: Issue) -> Report<'static, std::ops::Range<usize>
     builder.finish()
 }
 
+/// Source name adaptor for ariadne
 struct NamedSource<'a>(&'a str, Source<&'a str>);
 
 impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
@@ -126,6 +137,7 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
     }
 }
 
+/// Parsed version of the sqlx-type-schema.sql
 static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
     let schema_src = SCHEMA_SRC.as_str();
     let dialect = if let Some(first_line) = schema_src.lines().next() {
@@ -141,13 +153,13 @@ static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
     };
 
     let options = TypeOptions::new().dialect(dialect.clone());
-    let mut issues = sql_type::Issues::new(schema_src);
+    let mut issues = qusql_type::Issues::new(schema_src);
     let schemas = parse_schemas(schema_src, &mut issues, &options);
     if !issues.is_ok() {
         let source = NamedSource("sqlx-type-schema.sql", Source::from(schema_src));
         let mut err = false;
         for issue in issues.into_vec() {
-            if issue.level == sql_type::Level::Error {
+            if issue.level == qusql_type::Level::Error {
                 err = true;
             }
             let r = issue_to_report_color(issue);
@@ -160,12 +172,13 @@ static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
     (schemas, dialect)
 });
 
+/// Produce quoted arguments for a query
 fn quote_args(
     errors: &mut Vec<proc_macro2::TokenStream>,
     query: &str,
     last_span: Span,
     args: &[Expr],
-    arguments: &[(sql_type::ArgumentKey<'_>, sql_type::FullType)],
+    arguments: &[(qusql_type::ArgumentKey<'_>, qusql_type::FullType)],
     dialect: &SQLDialect,
 ) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
     let cls = match dialect {
@@ -175,16 +188,16 @@ fn quote_args(
     };
 
     let mut at = Vec::new();
-    let inv = sql_type::FullType::invalid();
+    let inv = qusql_type::FullType::invalid();
     for (k, v) in arguments {
         match k {
-            sql_type::ArgumentKey::Index(i) => {
+            qusql_type::ArgumentKey::Index(i) => {
                 while at.len() <= *i {
                     at.push(&inv);
                 }
                 at[*i] = v;
             }
-            sql_type::ArgumentKey::Identifier(_) => {
+            qusql_type::ArgumentKey::Identifier(_) => {
                 errors.push(
                     syn::Error::new(last_span.span(), "Named arguments not supported")
                         .to_compile_error(),
@@ -220,33 +233,39 @@ fn quote_args(
 
     for ((qa, ta), name) in args.iter().zip(at).zip(&arg_names) {
         let mut t = match ta.t {
-            sql_type::Type::U8 => quote! {u8},
-            sql_type::Type::I8 => quote! {i8},
-            sql_type::Type::U16 => quote! {u16},
-            sql_type::Type::I16 => quote! {i16},
-            sql_type::Type::U32 => quote! {u32},
-            sql_type::Type::I32 => quote! {i32},
-            sql_type::Type::U64 => quote! {u64},
-            sql_type::Type::I64 => quote! {i64},
-            sql_type::Type::Base(sql_type::BaseType::Any) => quote! {sqlx_type::Any},
-            sql_type::Type::Base(sql_type::BaseType::Bool) => quote! {bool},
-            sql_type::Type::Base(sql_type::BaseType::Bytes) => quote! {&[u8]},
-            sql_type::Type::Base(sql_type::BaseType::Date) => quote! {sqlx_type::Date},
-            sql_type::Type::Base(sql_type::BaseType::DateTime) => quote! {sqlx_type::DateTime},
-            sql_type::Type::Base(sql_type::BaseType::Float) => quote! {sqlx_type::Float},
-            sql_type::Type::Base(sql_type::BaseType::Integer) => quote! {sqlx_type::Integer},
-            sql_type::Type::Base(sql_type::BaseType::String) => quote! {&str},
-            sql_type::Type::Base(sql_type::BaseType::Time) => quote! {sqlx_type::Time},
-            sql_type::Type::Base(sql_type::BaseType::TimeInterval) => todo!("time_interval"),
-            sql_type::Type::Base(sql_type::BaseType::TimeStamp) => quote! {sqlx_type::Timestamp},
-            sql_type::Type::Null => todo!("null"),
-            sql_type::Type::Invalid => quote! {std::convert::Infallible},
-            sql_type::Type::Enum(_) => quote! {&str},
-            sql_type::Type::Set(_) => quote! {&str},
-            sql_type::Type::Args(_, _) => todo!("args"),
-            sql_type::Type::F32 => quote! {f32},
-            sql_type::Type::F64 => quote! {f64},
-            sql_type::Type::JSON => quote! {sqlx_type::Any},
+            qusql_type::Type::U8 => quote! {u8},
+            qusql_type::Type::I8 => quote! {i8},
+            qusql_type::Type::U16 => quote! {u16},
+            qusql_type::Type::I16 => quote! {i16},
+            qusql_type::Type::U32 => quote! {u32},
+            qusql_type::Type::I32 => quote! {i32},
+            qusql_type::Type::U64 => quote! {u64},
+            qusql_type::Type::I64 => quote! {i64},
+            qusql_type::Type::Base(qusql_type::BaseType::Any) => quote! {qusql_sqlx_type::Any},
+            qusql_type::Type::Base(qusql_type::BaseType::Bool) => quote! {bool},
+            qusql_type::Type::Base(qusql_type::BaseType::Bytes) => quote! {&[u8]},
+            qusql_type::Type::Base(qusql_type::BaseType::Date) => quote! {qusql_sqlx_type::Date},
+            qusql_type::Type::Base(qusql_type::BaseType::DateTime) => {
+                quote! {qusql_sqlx_type::DateTime}
+            }
+            qusql_type::Type::Base(qusql_type::BaseType::Float) => quote! {qusql_sqlx_type::Float},
+            qusql_type::Type::Base(qusql_type::BaseType::Integer) => {
+                quote! {qusql_sqlx_type::Integer}
+            }
+            qusql_type::Type::Base(qusql_type::BaseType::String) => quote! {&str},
+            qusql_type::Type::Base(qusql_type::BaseType::Time) => quote! {qusql_sqlx_type::Time},
+            qusql_type::Type::Base(qusql_type::BaseType::TimeInterval) => todo!("time_interval"),
+            qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
+                quote! {qusql_sqlx_type::Timestamp}
+            }
+            qusql_type::Type::Null => todo!("null"),
+            qusql_type::Type::Invalid => quote! {std::convert::Infallible},
+            qusql_type::Type::Enum(_) => quote! {&str},
+            qusql_type::Type::Set(_) => quote! {&str},
+            qusql_type::Type::Args(_, _) => todo!("args"),
+            qusql_type::Type::F32 => quote! {f32},
+            qusql_type::Type::F64 => quote! {f64},
+            qusql_type::Type::JSON => quote! {qusql_sqlx_type::Any},
         };
         if !ta.not_null {
             t = quote! {Option<#t>}
@@ -261,7 +280,7 @@ fn quote_args(
                     size_hints += ::sqlx::encode::Encode::<#cls>::size_hint(v);
                 }
                 if false {
-                    sqlx_type::check_arg_list_hack::<#t, _>(#name);
+                    qusql_sqlx_type::check_arg_list_hack::<#t, _>(#name);
                     ::std::panic!();
                 }
             });
@@ -276,7 +295,7 @@ fn quote_args(
                 args_count += 1;
                 size_hints += ::sqlx::encode::Encode::<#cls>::size_hint(#name);
                 if false {
-                    sqlx_type::check_arg::<#t, _>(#name);
+                    qusql_sqlx_type::check_arg::<#t, _>(#name);
                     ::std::panic!();
                 }
             });
@@ -288,7 +307,7 @@ fn quote_args(
         quote!(#query)
     } else {
         quote!(
-            &sqlx_type::convert_list_query(#query, &[#(#list_lengths),*])
+            &qusql_sqlx_type::convert_list_query(#query, &[#(#list_lengths),*])
         )
     };
 
@@ -308,13 +327,14 @@ fn quote_args(
     )
 }
 
+/// Output an [Issue] as a compile error
 fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_macro2::TokenStream> {
     if !issues.is_empty() {
         let source = NamedSource("", Source::from(source));
         let mut err = false;
         let mut out = Vec::new();
         for issue in issues {
-            if issue.level == sql_type::Level::Error {
+            if issue.level == qusql_type::Level::Error {
                 err = true;
             }
             let r = issue_to_report(issue);
@@ -327,6 +347,7 @@ fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_ma
     Vec::new()
 }
 
+/// Construct row struct members, and fill in statements
 fn construct_row(
     columns: &[SelectTypeColumn],
 ) -> (Vec<proc_macro2::TokenStream>, Vec<proc_macro2::TokenStream>) {
@@ -334,35 +355,39 @@ fn construct_row(
     let mut row_construct = Vec::new();
     for (i, c) in columns.iter().enumerate() {
         let mut t = match c.type_.t {
-            sql_type::Type::U8 => quote! {u8},
-            sql_type::Type::I8 => quote! {i8},
-            sql_type::Type::U16 => quote! {u16},
-            sql_type::Type::I16 => quote! {i16},
-            sql_type::Type::U32 => quote! {u32},
-            sql_type::Type::I32 => quote! {i32},
-            sql_type::Type::U64 => quote! {u64},
-            sql_type::Type::I64 => quote! {i64},
-            sql_type::Type::Base(sql_type::BaseType::Any) => todo!("from_any"),
-            sql_type::Type::Base(sql_type::BaseType::Bool) => quote! {bool},
-            sql_type::Type::Base(sql_type::BaseType::Bytes) => quote! {Vec<u8>},
-            sql_type::Type::Base(sql_type::BaseType::Date) => quote! {chrono::NaiveDate},
-            sql_type::Type::Base(sql_type::BaseType::DateTime) => quote! {chrono::NaiveDateTime},
-            sql_type::Type::Base(sql_type::BaseType::Float) => quote! {f64},
-            sql_type::Type::Base(sql_type::BaseType::Integer) => quote! {i64},
-            sql_type::Type::Base(sql_type::BaseType::String) => quote! {String},
-            sql_type::Type::Base(sql_type::BaseType::Time) => todo!("from_time"),
-            sql_type::Type::Base(sql_type::BaseType::TimeInterval) => todo!("from_time_interval"),
-            sql_type::Type::Base(sql_type::BaseType::TimeStamp) => {
+            qusql_type::Type::U8 => quote! {u8},
+            qusql_type::Type::I8 => quote! {i8},
+            qusql_type::Type::U16 => quote! {u16},
+            qusql_type::Type::I16 => quote! {i16},
+            qusql_type::Type::U32 => quote! {u32},
+            qusql_type::Type::I32 => quote! {i32},
+            qusql_type::Type::U64 => quote! {u64},
+            qusql_type::Type::I64 => quote! {i64},
+            qusql_type::Type::Base(qusql_type::BaseType::Any) => todo!("from_any"),
+            qusql_type::Type::Base(qusql_type::BaseType::Bool) => quote! {bool},
+            qusql_type::Type::Base(qusql_type::BaseType::Bytes) => quote! {Vec<u8>},
+            qusql_type::Type::Base(qusql_type::BaseType::Date) => quote! {chrono::NaiveDate},
+            qusql_type::Type::Base(qusql_type::BaseType::DateTime) => {
+                quote! {chrono::NaiveDateTime}
+            }
+            qusql_type::Type::Base(qusql_type::BaseType::Float) => quote! {f64},
+            qusql_type::Type::Base(qusql_type::BaseType::Integer) => quote! {i64},
+            qusql_type::Type::Base(qusql_type::BaseType::String) => quote! {String},
+            qusql_type::Type::Base(qusql_type::BaseType::Time) => todo!("from_time"),
+            qusql_type::Type::Base(qusql_type::BaseType::TimeInterval) => {
+                todo!("from_time_interval")
+            }
+            qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
-            sql_type::Type::Null => todo!("from_null"),
-            sql_type::Type::Invalid => quote! {i64},
-            sql_type::Type::Enum(_) => quote! {String},
-            sql_type::Type::Set(_) => quote! {String},
-            sql_type::Type::Args(_, _) => todo!("from_args"),
-            sql_type::Type::F32 => quote! {f32},
-            sql_type::Type::F64 => quote! {f64},
-            sql_type::Type::JSON => quote! {String},
+            qusql_type::Type::Null => todo!("from_null"),
+            qusql_type::Type::Invalid => quote! {i64},
+            qusql_type::Type::Enum(_) => quote! {String},
+            qusql_type::Type::Set(_) => quote! {String},
+            qusql_type::Type::Args(_, _) => todo!("from_args"),
+            qusql_type::Type::F32 => quote! {f32},
+            qusql_type::Type::F64 => quote! {f64},
+            qusql_type::Type::JSON => quote! {String},
         };
         let name = match &c.name {
             Some(v) => v,
@@ -391,10 +416,15 @@ fn construct_row(
     (row_members, row_construct)
 }
 
+/// Parsed query! macro
 struct Query {
+    /// The query expression
     query: String,
+    /// The span of the query expression
     query_span: Span,
+    /// The arguments to supply to the query
     args: Vec<Expr>,
+    /// The last span parsed
     last_span: Span,
 }
 
@@ -438,13 +468,13 @@ pub fn query(input: TokenStream) -> TokenStream {
             SQLDialect::PostgreSQL => SQLArguments::Dollar,
         })
         .list_hack(true);
-    let mut issues = sql_type::Issues::new(&query.query);
+    let mut issues = qusql_type::Issues::new(&query.query);
     let stmt = type_statement(schemas, &query.query, &mut issues, &options);
     let sp = SCHEMA_PATH.as_path().to_str().unwrap();
 
     let mut errors = issues_to_errors(issues.into_vec(), &query.query, query.query_span);
     match &stmt {
-        sql_type::StatementType::Select { columns, arguments } => {
+        qusql_type::StatementType::Select { columns, arguments } => {
             let (args_tokens, q) = quote_args(
                 &mut errors,
                 &query.query,
@@ -471,7 +501,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             }};
             s.into()
         }
-        sql_type::StatementType::Delete {
+        qusql_type::StatementType::Delete {
             arguments,
             returning,
         } => {
@@ -512,7 +542,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             };
             s.into()
         }
-        sql_type::StatementType::Insert {
+        qusql_type::StatementType::Insert {
             arguments,
             returning,
             ..
@@ -554,7 +584,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             };
             s.into()
         }
-        sql_type::StatementType::Update {
+        qusql_type::StatementType::Update {
             arguments,
             returning,
         } => {
@@ -596,7 +626,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             };
             s.into()
         }
-        sql_type::StatementType::Replace {
+        qusql_type::StatementType::Replace {
             arguments,
             returning,
         } => {
@@ -637,7 +667,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             };
             s.into()
         }
-        sql_type::StatementType::Invalid => {
+        qusql_type::StatementType::Invalid => {
             let s = quote! { {
                 #(#errors; )*;
                 todo!("Invalid")
@@ -647,39 +677,44 @@ pub fn query(input: TokenStream) -> TokenStream {
     }
 }
 
+/// Fill in row values in a query_as struct
 fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream> {
     let mut row_construct = Vec::new();
     for (i, c) in columns.iter().enumerate() {
         let mut t = match c.type_.t {
-            sql_type::Type::U8 => quote! {u8},
-            sql_type::Type::I8 => quote! {i8},
-            sql_type::Type::U16 => quote! {u16},
-            sql_type::Type::I16 => quote! {i16},
-            sql_type::Type::U32 => quote! {u32},
-            sql_type::Type::I32 => quote! {i32},
-            sql_type::Type::U64 => quote! {u64},
-            sql_type::Type::I64 => quote! {i64},
-            sql_type::Type::Base(sql_type::BaseType::Any) => todo!("from_any"),
-            sql_type::Type::Base(sql_type::BaseType::Bool) => quote! {bool},
-            sql_type::Type::Base(sql_type::BaseType::Bytes) => quote! {Vec<u8>},
-            sql_type::Type::Base(sql_type::BaseType::Date) => quote! {chrono::NaiveDate},
-            sql_type::Type::Base(sql_type::BaseType::DateTime) => quote! {chrono::NaiveDateTime},
-            sql_type::Type::Base(sql_type::BaseType::Float) => quote! {f64},
-            sql_type::Type::Base(sql_type::BaseType::Integer) => quote! {i64},
-            sql_type::Type::Base(sql_type::BaseType::String) => quote! {String},
-            sql_type::Type::Base(sql_type::BaseType::Time) => todo!("from_time"),
-            sql_type::Type::Base(sql_type::BaseType::TimeInterval) => todo!("from_time_interval"),
-            sql_type::Type::Base(sql_type::BaseType::TimeStamp) => {
+            qusql_type::Type::U8 => quote! {u8},
+            qusql_type::Type::I8 => quote! {i8},
+            qusql_type::Type::U16 => quote! {u16},
+            qusql_type::Type::I16 => quote! {i16},
+            qusql_type::Type::U32 => quote! {u32},
+            qusql_type::Type::I32 => quote! {i32},
+            qusql_type::Type::U64 => quote! {u64},
+            qusql_type::Type::I64 => quote! {i64},
+            qusql_type::Type::Base(qusql_type::BaseType::Any) => todo!("from_any"),
+            qusql_type::Type::Base(qusql_type::BaseType::Bool) => quote! {bool},
+            qusql_type::Type::Base(qusql_type::BaseType::Bytes) => quote! {Vec<u8>},
+            qusql_type::Type::Base(qusql_type::BaseType::Date) => quote! {chrono::NaiveDate},
+            qusql_type::Type::Base(qusql_type::BaseType::DateTime) => {
+                quote! {chrono::NaiveDateTime}
+            }
+            qusql_type::Type::Base(qusql_type::BaseType::Float) => quote! {f64},
+            qusql_type::Type::Base(qusql_type::BaseType::Integer) => quote! {i64},
+            qusql_type::Type::Base(qusql_type::BaseType::String) => quote! {String},
+            qusql_type::Type::Base(qusql_type::BaseType::Time) => todo!("from_time"),
+            qusql_type::Type::Base(qusql_type::BaseType::TimeInterval) => {
+                todo!("from_time_interval")
+            }
+            qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
-            sql_type::Type::Null => todo!("from_null"),
-            sql_type::Type::Invalid => quote! {i64},
-            sql_type::Type::Enum(_) => quote! {String},
-            sql_type::Type::Set(_) => quote! {String},
-            sql_type::Type::Args(_, _) => todo!("from_args"),
-            sql_type::Type::F32 => quote! {f32},
-            sql_type::Type::F64 => quote! {f64},
-            sql_type::Type::JSON => quote! {String},
+            qusql_type::Type::Null => todo!("from_null"),
+            qusql_type::Type::Invalid => quote! {i64},
+            qusql_type::Type::Enum(_) => quote! {String},
+            qusql_type::Type::Set(_) => quote! {String},
+            qusql_type::Type::Args(_, _) => todo!("from_args"),
+            qusql_type::Type::F32 => quote! {f32},
+            qusql_type::Type::F64 => quote! {f64},
+            qusql_type::Type::JSON => quote! {String},
         };
         let name = match &c.name {
             Some(v) => v,
@@ -699,17 +734,23 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             t = quote! {Option<#t>};
         }
         row_construct.push(quote! {
-            #ident: sqlx_type::arg_out::<#t, _, #i>(sqlx::Row::get(&row, #i))
+            #ident: qusql_sqlx_type::arg_out::<#t, _, #i>(sqlx::Row::get(&row, #i))
         });
     }
     row_construct
 }
 
+/// Parse result of a query_as! macro
 struct QueryAs {
+    /// Name of output type
     as_: Ident,
+    /// The query to execute
     query: String,
+    /// The span of the query to execute
     query_span: Span,
+    /// The arguments to supply
     args: Vec<Expr>,
+    /// The last span parsed
     last_span: Span,
 }
 
@@ -758,12 +799,12 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             SQLDialect::PostgreSQL => SQLArguments::Dollar,
         })
         .list_hack(true);
-    let mut issues = sql_type::Issues::new(&query_as.query);
+    let mut issues = qusql_type::Issues::new(&query_as.query);
     let stmt = type_statement(schemas, &query_as.query, &mut issues, &options);
 
     let mut errors = issues_to_errors(issues.into_vec(), &query_as.query, query_as.query_span);
     match &stmt {
-        sql_type::StatementType::Select { columns, arguments } => {
+        qusql_type::StatementType::Select { columns, arguments } => {
             let (args_tokens, q) = quote_args(
                 &mut errors,
                 &query_as.query,
@@ -788,7 +829,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             //println!("TOKENS: {}", s);
             s.into()
         }
-        sql_type::StatementType::Delete { .. } => {
+        qusql_type::StatementType::Delete { .. } => {
             errors.push(
                 syn::Error::new(query_as.query_span, "DELETE not support in query_as")
                     .to_compile_error(),
@@ -799,7 +840,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             }}
             .into()
         }
-        sql_type::StatementType::Insert {
+        qusql_type::StatementType::Insert {
             returning: None, ..
         } => {
             errors.push(
@@ -815,7 +856,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             }}
             .into()
         }
-        sql_type::StatementType::Insert {
+        qusql_type::StatementType::Insert {
             arguments,
             returning: Some(returning),
             ..
@@ -843,7 +884,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             }};
             s.into()
         }
-        sql_type::StatementType::Update { .. } => {
+        qusql_type::StatementType::Update { .. } => {
             errors.push(
                 syn::Error::new(query_as.query_span, "UPDATE not support in query_as")
                     .to_compile_error(),
@@ -854,7 +895,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             }}
             .into()
         }
-        sql_type::StatementType::Replace {
+        qusql_type::StatementType::Replace {
             returning: None, ..
         } => {
             errors.push(
@@ -870,7 +911,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             }}
             .into()
         }
-        sql_type::StatementType::Replace {
+        qusql_type::StatementType::Replace {
             arguments,
             returning: Some(returning),
             ..
@@ -898,7 +939,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             }};
             s.into()
         }
-        sql_type::StatementType::Invalid => quote! { {
+        qusql_type::StatementType::Invalid => quote! { {
             #(#errors; )*;
             todo!("invalid")
         }}

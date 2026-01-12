@@ -8,10 +8,13 @@ resolver = "3"
 members = [
     "benchmark",
     "qusql-mysql-test",
-    "qusql-mysql-type",
     "qusql-mysql-type-macro",
+    "qusql-mysql-type",
     "qusql-mysql",
     "qusql-parse",
+    "qusql-sqlx-type-macro",
+    "qusql-sqlx-type",
     "qusql-type",
     "qusql-type/mariadb_test"
+
 ]

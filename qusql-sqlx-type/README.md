@@ -1,8 +1,7 @@
 # sqlx-type
-[![crates.io](https://img.shields.io/crates/v/sqlx-type.svg)](https://crates.io/crates/sqlx-type)
-[![crates.io](https://docs.rs/sqlx-type/badge.svg)](https://docs.rs/sqlx-type)
-[![License](https://img.shields.io/crates/l/sqlx-type.svg)](https://github.com/antialize/sqlx-type)
-[![actions-badge](https://github.com/antialize/sqlx-type/workflows/Rust/badge.svg?branch=main)](https://github.com/antialize/sqlx-type/actions)
+[![crates.io](https://img.shields.io/crates/v/qusql-sqlx-type.svg)](https://crates.io/crates/qusql-sqlx-type)
+[![crates.io](https://docs.rs/qusql-sqlx-type/badge.svg)](https://docs.rs/qusql-sqlx-type)
+[![License](https://img.shields.io/crates/l/qusql-sqlx-type.svg)](https://github.com/antialize/qusql)
 
 Proc macros to perform type sql queries similarly to sqlx::query, but without the need
 to run `cargo sqlx prepare`
@@ -38,7 +37,7 @@ See [sql_type::schema] for a detailed description.
 This schema can then be used to type queries:
 
 ```rust
-use std::env, sqlx::MySqlPool, sqlx_type::query;
+use {std::env, sqlx::MySqlPool, qusql_sqlx_type::query};
 
 async fn test() -> Result<(), sqlx::Error> {
     let pool = MySqlPool::connect(&env::var("DATABASE_URL").unwrap()).await?;

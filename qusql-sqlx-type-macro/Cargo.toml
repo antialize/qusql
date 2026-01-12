@@ -1,6 +1,6 @@
 [package]
-name = "sqlx-type-macro"
-version = "0.4.16"
+name = "qusql-sqlx-type-macro"
+version = "0.1.0"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -9,6 +9,17 @@ repository = "https://github.com/antialize/sqlx-type/"
 homepage = "https://github.com/antialize/sqlx-type/"
 description = "Proc macros for sqlx-type"
 
+[lints.rust]
+missing_docs = "deny"
+
+[lints.clippy]
+missing_safety_doc = "deny"
+unnecessary_safety_comment = "deny"
+unnecessary_safety_doc = "deny"
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "deny"
+missing_docs_in_private_items = "deny"
+
 [lib]
 proc-macro = true
 
@@ -16,8 +27,8 @@ proc-macro = true
 quote = "1"
 syn = { version = "2", features = ["full", "parsing"] }
 proc-macro2 = "1"
-sql-type = "0.29.0"
+qusql-type = { path = "../qusql-type"}
 once_cell = "1"
-ariadne = "0.5"
+ariadne = "0.6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
