@@ -15,15 +15,13 @@ from mypy.types import (
     UnionType,
     NoneType,
     TupleType,
-    is_named_instance,
     Instance,
     TypedDictType,
     ARG_POS,
 )
 from mypy.nodes import StrExpr, OpExpr, Expression, Context
 from mypy.errorcodes import ErrorCode
-import re
-import mysql_type_plugin.mysql_type_plugin as rs  # type: ignore
+import qusql_mysql_type_plugin.mysql_type_plugin as rs  # type: ignore
 
 
 def get_str_value(e: Expression) -> Optional[str]:
@@ -167,13 +165,10 @@ class CustomPlugin(Plugin):
         self, fullname: str
     ) -> Optional[Callable[[FunctionSigContext], CallableType]]:
         if fullname in (
-            "mysql_type.execute",
-            "aiomysql_type.execute",
-            "aiomysql_type.fetchone",
-            "aiomysql_type.fetchall",
+            "qusql_mysql_type.execute"
         ):
             many = False
-        elif fullname in ("mysql_type.executemany", "aiomysql_type.executemany"):
+        elif fullname in ("qusql_mysql_type.executemany"):
             many = True
         else:
             return None
@@ -233,16 +228,8 @@ class CustomPlugin(Plugin):
         self, fullname: str
     ) -> Optional[Callable[[FunctionContext], Type]]:
         method = "execute"
-        if fullname in ("mysql_type.execute", "mysql_type.executemany"):
+        if fullname in ("qusql_mysql_type.execute", "qusql_mysql_type.executemany"):
             aio = False
-        elif fullname in ("aiomysql_type.execute", "aiomysql_type.executemany"):
-            aio = True
-        elif fullname == "aiomysql_type.fetchone":
-            aio = True
-            method = "fetchone"
-        elif fullname == "aiomysql_type.fetchall":
-            aio = True
-            method = "fetchall"
         else:
             return None
 
@@ -252,24 +239,12 @@ class CustomPlugin(Plugin):
                 ct = context.arg_types[0][0]
                 dc = False
                 try:
-                    if aio:
-                        if ct.type.has_base(
-                            "aiomysql.cursors.DictCursor"
-                        ) or ct.type.has_base("aiomysql.DictCursor"):
-                            dc = True
-                        elif ct.type.has_base(
-                            "aiomysql.cursors.Cursor"
-                        ) or ct.type.has_base("aiomysql.Cursor"):
-                            pass
-                        else:
-                            context.api.fail(f"Unknown cursor {ct}", context.context)
+                    if ct.type.has_base("MySQLdb.cursors.DictCursor"):
+                        dc = True
+                    elif ct.type.has_base("MySQLdb.cursors.Cursor"):
+                        pass
                     else:
-                        if ct.type.has_base("MySQLdb.cursors.DictCursor"):
-                            dc = True
-                        elif ct.type.has_base("MySQLdb.cursors.Cursor"):
-                            pass
-                        else:
-                            context.api.fail(f"Unknown cursor {ct}", context.context)
+                        context.api.fail(f"Unknown cursor {ct}", context.context)
                 except AttributeError:
                     context.api.fail(f"Unknown cursor {ct}", context.context)
 
@@ -282,7 +257,7 @@ class CustomPlugin(Plugin):
                 if stmt is None:
                     return context.default_return_type
 
-                pkg = "aiomysql_type" if aio else "mysql_type"
+                pkg = "qusql_mysql_type"
                 nrt = NoneType()
                 if method in ("fetchall", "fetchone"):
                     if isinstance(stmt, rs.Select):
@@ -374,15 +349,11 @@ class CustomPlugin(Plugin):
         if fullname in (
             "MySQLdb.cursors.Cursor.execute",
             "MySQLdb.cursors.DictCursor.execute",
-            "aiomysql.cursors.Cursor.execute",
-            "aiomysql.cursors.DictCursor.execute",
         ):
             many = False
         elif fullname in (
             "MySQLdb.cursors.Cursor.executemany",
             "MySQLdb.cursors.DictCursor.executemany",
-            "aiomysql.cursors.Cursor.executemany",
-            "aiomysql.cursors.DictCursor.executemany",
         ):
             many = True
         else:

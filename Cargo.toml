@@ -12,9 +12,9 @@ members = [
     "qusql-mysql-type",
     "qusql-mysql",
     "qusql-parse",
+    "qusql-py-mysql-type-plugin",
     "qusql-sqlx-type-macro",
     "qusql-sqlx-type",
     "qusql-type",
-    "qusql-type/mariadb_test"
-
+    "qusql-type/mariadb_test",
 ]

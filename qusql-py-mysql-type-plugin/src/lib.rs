@@ -2,24 +2,23 @@ use std::collections::HashMap;
 
 use ariadne::{Label, Report, ReportKind, Source};
 use pyo3::{prelude::*, IntoPyObjectExt};
-use sql_type::{Issue, Issues, SQLArguments, SQLDialect, TypeOptions};
+use qusql_type::{Issue, Issues, SQLArguments, SQLDialect, TypeOptions};
 use yoke::{Yoke, Yokeable};
 
 #[derive(Yokeable)]
 struct SchemasAndIssues<'a> {
-    schema: sql_type::schema::Schemas<'a>,
-    issues: Issues<'a>
+    schema: qusql_type::schema::Schemas<'a>,
+    issues: Issues<'a>,
 }
 
 #[pyclass]
 struct Schemas(Yoke<SchemasAndIssues<'static>, std::string::String>);
 
-
 fn issue_to_report(issue: &Issue) -> Report<'static, std::ops::Range<usize>> {
     let mut builder = Report::build(
         match issue.level {
-            sql_type::Level::Warning => ReportKind::Warning,
-            sql_type::Level::Error => ReportKind::Error,
+            qusql_type::Level::Warning => ReportKind::Warning,
+            qusql_type::Level::Error => ReportKind::Error,
         },
         issue.span.clone(),
     )
@@ -56,7 +55,7 @@ fn issues_to_string(name: &str, source: &str, issues: &[Issue]) -> (bool, std::s
     let mut err = false;
     let mut out = Vec::new();
     for issue in issues {
-        if issue.level == sql_type::Level::Error {
+        if issue.level == qusql_type::Level::Error {
             err = true;
         }
         let r = issue_to_report(issue);
@@ -67,23 +66,19 @@ fn issues_to_string(name: &str, source: &str, issues: &[Issue]) -> (bool, std::s
 
 #[pyfunction]
 fn parse_schemas(name: &str, src: std::string::String) -> (Schemas, bool, std::string::String) {
-    let schemas = Yoke::<SchemasAndIssues<'static>, std::string::String>::attach_to_cart(src, |src: &str| {
-        let mut issues = Issues::new(src);
-        let schema = sql_type::schema::parse_schemas(
-            src,
-            &mut issues,
-            &TypeOptions::new().dialect(SQLDialect::MariaDB),
-        );
-        SchemasAndIssues{
-            schema, issues
-        }
-    });
+    let schemas =
+        Yoke::<SchemasAndIssues<'static>, std::string::String>::attach_to_cart(src, |src: &str| {
+            let mut issues = Issues::new(src);
+            let schema = qusql_type::schema::parse_schemas(
+                src,
+                &mut issues,
+                &TypeOptions::new().dialect(SQLDialect::MariaDB),
+            );
+            SchemasAndIssues { schema, issues }
+        });
 
-    let (err, messages) = issues_to_string(
-        name,
-        schemas.backing_cart(),
-        &schemas.get().issues.issues,
-    );
+    let (err, messages) =
+        issues_to_string(name, schemas.backing_cart(), &schemas.get().issues.issues);
     (Schemas(schemas), err, messages)
 }
 
@@ -224,37 +219,37 @@ struct Replace {
 #[pyclass]
 struct Invalid {}
 
-fn map_type(t: &sql_type::FullType<'_>) -> Type {
+fn map_type(t: &qusql_type::FullType<'_>) -> Type {
     let b = match &t.t {
-        sql_type::Type::Args(_, _) => Type::Any,
-        sql_type::Type::Base(v) => match v {
-            sql_type::BaseType::Any => Type::Any,
-            sql_type::BaseType::Bool => Type::Bool,
-            sql_type::BaseType::Bytes => Type::Bytes,
-            sql_type::BaseType::Date => Type::Any,
-            sql_type::BaseType::DateTime => Type::Any,
-            sql_type::BaseType::Float => Type::Float,
-            sql_type::BaseType::Integer => Type::Integer,
-            sql_type::BaseType::String => Type::String,
-            sql_type::BaseType::Time => Type::Any,
-            sql_type::BaseType::TimeStamp => Type::Any,
-            sql_type::BaseType::TimeInterval => Type::Any,
+        qusql_type::Type::Args(_, _) => Type::Any,
+        qusql_type::Type::Base(v) => match v {
+            qusql_type::BaseType::Any => Type::Any,
+            qusql_type::BaseType::Bool => Type::Bool,
+            qusql_type::BaseType::Bytes => Type::Bytes,
+            qusql_type::BaseType::Date => Type::Any,
+            qusql_type::BaseType::DateTime => Type::Any,
+            qusql_type::BaseType::Float => Type::Float,
+            qusql_type::BaseType::Integer => Type::Integer,
+            qusql_type::BaseType::String => Type::String,
+            qusql_type::BaseType::Time => Type::Any,
+            qusql_type::BaseType::TimeStamp => Type::Any,
+            qusql_type::BaseType::TimeInterval => Type::Any,
         },
-        sql_type::Type::Enum(v) => Type::Enum(v.iter().map(|v| v.to_string()).collect()),
-        sql_type::Type::F32 => Type::Float,
-        sql_type::Type::F64 => Type::Float,
-        sql_type::Type::I16 => Type::Integer,
-        sql_type::Type::I32 => Type::Integer,
-        sql_type::Type::I64 => Type::Integer,
-        sql_type::Type::I8 => Type::Integer,
-        sql_type::Type::Invalid => Type::Any,
-        sql_type::Type::JSON => Type::Any,
-        sql_type::Type::Set(_) => Type::String,
-        sql_type::Type::U16 => Type::Integer,
-        sql_type::Type::U32 => Type::Integer,
-        sql_type::Type::U64 => Type::Integer,
-        sql_type::Type::U8 => Type::Integer,
-        sql_type::Type::Null => Type::Any,
+        qusql_type::Type::Enum(v) => Type::Enum(v.iter().map(|v| v.to_string()).collect()),
+        qusql_type::Type::F32 => Type::Float,
+        qusql_type::Type::F64 => Type::Float,
+        qusql_type::Type::I16 => Type::Integer,
+        qusql_type::Type::I32 => Type::Integer,
+        qusql_type::Type::I64 => Type::Integer,
+        qusql_type::Type::I8 => Type::Integer,
+        qusql_type::Type::Invalid => Type::Any,
+        qusql_type::Type::JSON => Type::Any,
+        qusql_type::Type::Set(_) => Type::String,
+        qusql_type::Type::U16 => Type::Integer,
+        qusql_type::Type::U32 => Type::Integer,
+        qusql_type::Type::U64 => Type::Integer,
+        qusql_type::Type::U8 => Type::Integer,
+        qusql_type::Type::Null => Type::Any,
     };
     if t.list_hack {
         Type::List(Box::new(b))
@@ -264,14 +259,14 @@ fn map_type(t: &sql_type::FullType<'_>) -> Type {
 }
 
 fn map_arguments(
-    arguments: Vec<(sql_type::ArgumentKey<'_>, sql_type::FullType<'_>)>,
+    arguments: Vec<(qusql_type::ArgumentKey<'_>, qusql_type::FullType<'_>)>,
 ) -> HashMap<ArgumentKey, (Type, bool)> {
     arguments
         .into_iter()
         .map(|(k, v)| {
             let k = match k {
-                sql_type::ArgumentKey::Index(i) => ArgumentKey::Index(i),
-                sql_type::ArgumentKey::Identifier(i) => ArgumentKey::Identifier(i.to_string()),
+                qusql_type::ArgumentKey::Index(i) => ArgumentKey::Index(i),
+                qusql_type::ArgumentKey::Identifier(i) => ArgumentKey::Identifier(i.to_string()),
             };
             (k, (map_type(&v), v.not_null))
         })
@@ -298,15 +293,11 @@ fn type_statement(
             .warn_unnamed_column_in_select(true);
     }
 
-    let stmt = sql_type::type_statement(
-        &schemas.0.get().schema,
-        statement,
-        &mut issues,
-        &options,
-    );
+    let stmt =
+        qusql_type::type_statement(&schemas.0.get().schema, statement, &mut issues, &options);
 
     let res = match stmt {
-        sql_type::StatementType::Select { columns, arguments } => {
+        qusql_type::StatementType::Select { columns, arguments } => {
             let columns = columns
                 .into_iter()
                 .map(|v| {
@@ -326,7 +317,7 @@ fn type_statement(
             )?
             .into_py_any(py)?
         }
-        sql_type::StatementType::Delete {
+        qusql_type::StatementType::Delete {
             arguments,
             returning,
         } => {
@@ -345,7 +336,7 @@ fn type_statement(
             )?
             .into_py_any(py)?
         }
-        sql_type::StatementType::Insert {
+        qusql_type::StatementType::Insert {
             yield_autoincrement,
             arguments,
             returning,
@@ -358,9 +349,9 @@ fn type_statement(
                 );
             }
             let yield_autoincrement = match yield_autoincrement {
-                sql_type::AutoIncrementId::Yes => "yes",
-                sql_type::AutoIncrementId::No => "no",
-                sql_type::AutoIncrementId::Optional => "maybe",
+                qusql_type::AutoIncrementId::Yes => "yes",
+                qusql_type::AutoIncrementId::No => "no",
+                qusql_type::AutoIncrementId::Optional => "maybe",
             };
             Py::new(
                 py,
@@ -371,7 +362,7 @@ fn type_statement(
             )?
             .into_py_any(py)?
         }
-        sql_type::StatementType::Update {
+        qusql_type::StatementType::Update {
             arguments,
             returning,
         } => {
@@ -390,7 +381,7 @@ fn type_statement(
             )?
             .into_py_any(py)?
         }
-        sql_type::StatementType::Replace {
+        qusql_type::StatementType::Replace {
             arguments,
             returning,
         } => {
@@ -409,7 +400,7 @@ fn type_statement(
             )?
             .into_py_any(py)?
         }
-        sql_type::StatementType::Invalid => Py::new(py, Invalid {})?.into_py_any(py)?,
+        qusql_type::StatementType::Invalid => Py::new(py, Invalid {})?.into_py_any(py)?,
     };
 
     let (err, messages) = issues_to_string("", statement, issues.get());

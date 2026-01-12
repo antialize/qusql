@@ -5,10 +5,10 @@ def readme():
         return f.read()
 
 setup(
-    name='mysql-type',
-    version='0.1.6',
+    name='qusql-mysql-type',
+    version='0.1.0',
     packages=['mysql_type'],
-    url='https://github.com/antialize/py-mysql-type',
+    url='https://github.com/antialize/qusql',
     author='Jakob Truelsen',
     author_email='antialize@gmail.com',
     description='Functions and types to facilitate mysql typed queries',

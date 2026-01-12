@@ -1,4 +1,4 @@
-# py-mysql-type-plugin
+# qusql-py-mysql-type-plugin
 
 To test locally, run e.g.:
 ```sh
