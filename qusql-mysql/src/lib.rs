@@ -90,6 +90,7 @@ pub mod bind;
 pub mod connection;
 pub mod constants;
 pub mod decode;
+mod handle_drop;
 mod lru;
 pub mod package_parser;
 pub mod plain_types;

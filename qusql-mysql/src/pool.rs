@@ -34,10 +34,14 @@ use std::{
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
-use crate::connection::{Connection, ConnectionOptions, ConnectionResult};
+use crate::{
+    Executor,
+    connection::{Connection, ConnectionOptions, ConnectionResult},
+    handle_drop::HandleDrop,
+};
 
 /// Options used for connection pool
 pub struct PoolOptions {
@@ -49,6 +53,11 @@ pub struct PoolOptions {
     reconnect_time: Duration,
     /// The maximum number of concurrent connections allowed
     max_connections: usize,
+    /// When acquiring a connection from the pool that is older than this, ping it first
+    /// to ensure that it is still good
+    stale_connection_time: Duration,
+    /// When pinning a stale connection only wait this long
+    ping_timeout: Duration,
 }
 
 impl PoolOptions {
@@ -89,6 +98,8 @@ impl Default for PoolOptions {
         Self {
             clean_timeout: Duration::from_millis(200),
             reconnect_time: Duration::from_secs(2),
+            stale_connection_time: Duration::from_secs(10 * 60),
+            ping_timeout: Duration::from_millis(200),
             max_connections: 5,
         }
     }
@@ -97,7 +108,7 @@ impl Default for PoolOptions {
 /// Part of pool state protected by a mutex
 struct PoolProtected {
     /// Current free transactions
-    connections: Vec<Connection>,
+    connections: Vec<(Connection, Instant)>,
     /// Number of transactions we are still allowed to allocate
     unallocated_connections: usize,
 }
@@ -118,33 +129,6 @@ struct PoolInner {
 #[derive(Clone)]
 pub struct Pool(Arc<PoolInner>);
 
-/// Struct used to borrow a unallocated_connections counter from the pool
-/// while the connection is being established
-struct AddConnectionAvailableOnDrop(ManuallyDrop<Pool>);
-
-impl AddConnectionAvailableOnDrop {
-    /// Create a new AddConnectionAvailableOnDrop
-    fn new(pool: Pool) -> Self {
-        Self(ManuallyDrop::new(pool))
-    }
-
-    /// The connection has been establish successfully, release be and do not increment unallocated_connections
-    fn take(mut self) -> Pool {
-        // Safety: It is safe to take self.0 here since we explicitly forget ourselfs after
-        let pool = unsafe { ManuallyDrop::take(&mut self.0) };
-        std::mem::forget(self);
-        pool
-    }
-}
-
-impl Drop for AddConnectionAvailableOnDrop {
-    fn drop(&mut self) {
-        // Safety: We only take the value here and in take, which explicit called forget
-        let pool = unsafe { ManuallyDrop::take(&mut self.0) };
-        pool.connection_dropped();
-    }
-}
-
 impl Pool {
     /// Establish a new pool with at least one connection
     pub async fn connect(
@@ -154,7 +138,7 @@ impl Pool {
         let connection = Connection::connect(&connection_options).await?;
         Ok(Pool(Arc::new(PoolInner {
             protected: Mutex::new(PoolProtected {
-                connections: vec![connection],
+                connections: vec![(connection, std::time::Instant::now())],
                 unallocated_connections: pool_options.max_connections - 1,
             }),
             pool_options,
@@ -169,45 +153,88 @@ impl Pool {
     ///
     /// The returned future is drop safe
     pub async fn acquire(&self) -> ConnectionResult<PoolConnection> {
+        enum Res<N, R> {
+            /// Wait for a connection to become available
+            Wait,
+            /// Establish a new connection
+            New(N),
+            /// Reuse an existing connection
+            Reuse(R),
+        }
         loop {
-            let token = {
+            let res = {
                 let mut inner = self.0.protected.lock().unwrap();
-                if let Some(connection) = inner.connections.pop() {
-                    return Ok(PoolConnection {
-                        pool: self.clone(),
-                        connection: ManuallyDrop::new(connection),
-                    });
-                }
-                if inner.unallocated_connections == 0 {
-                    None
+                if let Some((connection, last_use)) = inner.connections.pop() {
+                    Res::Reuse(HandleDrop::new(
+                        (connection, last_use, self.clone()),
+                        |(connection, last_use, pool)| {
+                            let mut inner = pool.0.protected.lock().unwrap();
+                            inner.connections.push((connection, last_use));
+                        },
+                    ))
+                } else if inner.unallocated_connections == 0 {
+                    Res::Wait
                 } else {
                     inner.unallocated_connections -= 1;
-                    Some(AddConnectionAvailableOnDrop::new(self.clone()))
+                    Res::New(HandleDrop::new(self.clone(), |pool| {
+                        pool.connection_dropped();
+                    }))
                 }
             };
-            if let Some(token) = token {
-                // Safety cancel: This is cancel safe since the token will increment the unallocated_connections when dropped
-                let r = Connection::connect(&self.0.connection_options).await;
-                match r {
-                    Ok(connection) => {
-                        let pool = token.take();
-                        return Ok(PoolConnection {
-                            pool,
-                            connection: ManuallyDrop::new(connection),
-                        });
-                    }
-                    Err(e) => {
-                        // Wait a bit with releasing the token, since the next acquire will probably run into the same failure
-                        tokio::task::spawn(async move {
-                            tokio::time::sleep(token.0.0.pool_options.reconnect_time).await;
-                            std::mem::drop(token);
-                        });
-                        return Err(e);
+
+            match res {
+                Res::Wait => {
+                    // Safety cancel: We are not holding any resources
+                    self.0.connection_available.notified().await
+                }
+                Res::New(handle) => {
+                    // Safety cancel: This is cancel safe since the handle will increment the unallocated_connections when dropped
+                    let r = Connection::connect(&self.0.connection_options).await;
+                    match r {
+                        Ok(connection) => {
+                            let pool = handle.release();
+                            return Ok(PoolConnection {
+                                pool,
+                                connection: ManuallyDrop::new(connection),
+                            });
+                        }
+                        Err(e) => {
+                            // Wait a bit with releasing the handle, since the next acquire will probably run into the same failure
+                            tokio::task::spawn(async move {
+                                tokio::time::sleep((*handle).0.pool_options.reconnect_time).await;
+                                std::mem::drop(handle);
+                            });
+                            return Err(e);
+                        }
                     }
                 }
-            } else {
-                // Safety cancel: We are not holding any resources
-                self.0.connection_available.notified().await
+                Res::Reuse(mut handle) => {
+                    let (connection, last_use, pool) = &mut *handle;
+                    if last_use.elapsed() > pool.0.pool_options.stale_connection_time {
+                        // Safety cancel: This is cancel safe since the handle will put the connection back into the pool
+                        match tokio::time::timeout(
+                            pool.0.pool_options.ping_timeout,
+                            connection.ping(),
+                        )
+                        .await
+                        {
+                            Ok(Ok(())) => (),
+                            Err(_) | Ok(Err(_)) => {
+                                // Ping failed or time outed. Lets drop the connection and create a new one
+                                let (connection, _, pool) = handle.release();
+                                std::mem::drop(connection);
+                                pool.connection_dropped();
+                                continue;
+                            }
+                        }
+                    }
+                    let (connection, _, pool) = handle.release();
+                    let connection = PoolConnection {
+                        pool,
+                        connection: ManuallyDrop::new(connection),
+                    };
+                    return Ok(connection);
+                }
             }
         }
     }
@@ -215,16 +242,17 @@ impl Pool {
     /// A connection has been dropped, allow new connections to be established
     fn connection_dropped(&self) {
         let mut inner = self.0.protected.lock().unwrap();
+        inner.unallocated_connections += 1;
         self.0.connection_available.notify_one();
-        assert_ne!(inner.unallocated_connections, 0);
-        inner.unallocated_connections -= 1;
     }
 
     /// Put a connection back into the pool
     fn release(&self, connection: Connection) {
         let mut inner = self.0.protected.lock().unwrap();
         self.0.connection_available.notify_one();
-        inner.connections.push(connection);
+        inner
+            .connections
+            .push((connection, std::time::Instant::now()));
     }
 }
 
@@ -273,7 +301,7 @@ impl Drop for PoolConnection {
                         pool.connection_dropped();
                     }
                     Err(_) => {
-                        // Timeout durin cleaning
+                        // Timeout during cleaning
                         std::mem::drop(connection);
                         pool.connection_dropped();
                     }
