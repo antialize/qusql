@@ -99,4 +99,6 @@ pub(crate) mod com {
     pub const STMT_PREPARE: u8 = 0x16;
     /// Query, see https://mariadb.com/docs/server/reference/clientserver-protocol/2-text-protocol/com_query
     pub const QUERY: u8 = 0x03;
+    /// Ping, see https://mariadb.com/docs/server/reference/clientserver-protocol/2-text-protocol/com_ping
+    pub const PING: u8 = 0x0E;
 }

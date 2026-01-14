@@ -814,6 +814,10 @@ enum ConnectionState {
     UnpreparedSend,
     /// We are receiving the response of an unprepared statement
     UnpreparedRecv,
+    /// We are sending an ping
+    PingSend,
+    /// We are receiving the response to a ping
+    PingRecv,
     /// The connection is in a broken state and cannot be recovered
     Broken,
 }
@@ -1350,6 +1354,34 @@ impl RawConnection {
                         }
                     }
                 }
+                ConnectionState::PingSend => {
+                    self.test_cancel()?;
+                    self.writer.send().await?;
+                    self.state = ConnectionState::PingRecv;
+                }
+                ConnectionState::PingRecv => {
+                    self.test_cancel()?;
+                    let package = self.reader.read().await?;
+                    let mut pp = PackageParser::new(package);
+                    match pp.get_u8().loc("first_byte")? {
+                        255 => {
+                            self.state = ConnectionState::Broken;
+                            handle_mysql_error(&mut pp)?;
+                            unreachable!()
+                        }
+                        0 => {
+                            self.state = ConnectionState::Clean;
+                            return Ok(());
+                        }
+                        v => {
+                            self.state = ConnectionState::Broken;
+                            return Err(ConnectionErrorContent::ProtocolError(format!(
+                                "Unexpected response type {v} to ping"
+                            ))
+                            .into());
+                        }
+                    }
+                }
                 ConnectionState::Broken => {
                     return Err(ConnectionErrorContent::ProtocolError(
                         "Previous protocol error reported".to_string(),
@@ -1628,6 +1660,45 @@ impl RawConnection {
             self.stats.add_prepare(start_time);
             self.state = ConnectionState::Clean;
             Ok(())
+        }
+    }
+
+    /// Ping connection
+    fn ping(&mut self) -> impl Future<Output = ConnectionResult<()>> + Send {
+        assert!(matches!(self.state, ConnectionState::Clean));
+        self.writer.seq = 0;
+        let mut p = self.writer.compose();
+        p.put_u8(com::PING);
+        p.finalize();
+        self.state = ConnectionState::PingSend;
+
+        async move {
+            self.test_cancel()?;
+            self.writer.send().await?;
+
+            self.state = ConnectionState::PingRecv;
+            self.test_cancel()?;
+            let package = self.reader.read().await?;
+            {
+                let mut pp = PackageParser::new(package);
+                match pp.get_u8().loc("first_byte")? {
+                    255 => {
+                        handle_mysql_error(&mut pp)?;
+                        unreachable!()
+                    }
+                    0 => {
+                        self.state = ConnectionState::Clean;
+                        Ok(())
+                    }
+                    v => {
+                        self.state = ConnectionState::Broken;
+                        Err(ConnectionErrorContent::ProtocolError(format!(
+                            "Unexpected response type {v} to ping"
+                        ))
+                        .into())
+                    }
+                }
+            }
         }
     }
 }
@@ -1996,6 +2067,11 @@ impl<'a> Executor for Transaction<'a> {
     ) -> impl Future<Output = ConnectionResult<ExecuteResult>> + Send {
         self.connection.execute_unprepared(stmt)
     }
+
+    #[inline]
+    fn ping(&mut self) -> impl Future<Output = ConnectionResult<()>> + Send {
+        self.connection.ping()
+    }
 }
 
 impl<'a> Drop for Transaction<'a> {
@@ -2051,6 +2127,9 @@ pub trait Executor: Sized + Send {
     /// If the returned future is dropped either now transaction will have been created, or it will be
     /// dropped again [Connection::cleanup]
     fn begin(&mut self) -> impl Future<Output = ConnectionResult<Transaction<'_>>> + Send;
+
+    /// Perform ping
+    fn ping(&mut self) -> impl Future<Output = ConnectionResult<()>> + Send;
 }
 
 /// Add helper methods to Executor to facilitate common operations
@@ -2600,6 +2679,13 @@ impl Connection {
         Ok(Transaction { connection: self })
     }
 
+    /// Ping the server to ensure the connection is still good
+    async fn ping_impl(&mut self) -> ConnectionResult<()> {
+        self.cleanup().await?;
+        self.raw.ping().await?;
+        Ok(())
+    }
+
     /// Rollback the top most transaction or save point
     fn rollback_impl(&mut self) -> impl Future<Output = ConnectionResult<ExecuteResult>> + Send {
         assert!(matches!(self.raw.state, ConnectionState::Clean));
@@ -2727,5 +2813,10 @@ impl Executor for Connection {
     async fn execute_unprepared(&mut self, stmt: &str) -> ConnectionResult<ExecuteResult> {
         self.cleanup().await?;
         self.raw.execute_unprepared(stmt.into()).await
+    }
+
+    #[inline]
+    fn ping(&mut self) -> impl Future<Output = ConnectionResult<()>> + Send {
+        self.ping_impl()
     }
 }
