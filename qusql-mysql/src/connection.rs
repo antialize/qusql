@@ -2599,8 +2599,7 @@ impl Connection {
 
     /// Return false if there are partially execute queries in the connection
     pub fn is_clean(&self) -> bool {
-        matches!(self.raw.state, ConnectionState::Clean);
-        true
+        matches!(self.raw.state, ConnectionState::Clean)
     }
 
     /// Finish up any partially execute queries as quickly as possible
