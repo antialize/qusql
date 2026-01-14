@@ -698,6 +698,7 @@ pub(crate) fn type_function<'a, 'b>(
             };
             FullType::new(BaseType::DateTime, not_null)
         }
+        Function::Sleep => tf(BaseType::Integer.into(), &[BaseType::Float], &[]),
         _ => {
             typer.err("Typing for function not implemented", span);
             FullType::invalid()
