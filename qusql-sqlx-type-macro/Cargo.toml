@@ -27,7 +27,7 @@ proc-macro = true
 quote = "1"
 syn = { version = "2", features = ["full", "parsing"] }
 proc-macro2 = "1"
-qusql-type = { path = "../qusql-type"}
+qusql-type = { path = "../qusql-type", version="0.1.0"}
 once_cell = "1"
 ariadne = "0.6"
 serde = { version = "1", features = ["derive"] }

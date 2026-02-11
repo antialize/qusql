@@ -2,6 +2,13 @@
 name = "qusql-mysql"
 version = "0.1.0"
 edition = "2024"
+authors = ["Jakob Truelsen <antialize@gmail.com>"]
+keywords = [ "mysql" ]
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/antialize/qusql/"
+homepage = "https://github.com/antialize/qusql/"
+description = "Async mysql connector"
 
 [lints.rust]
 missing_docs = "deny"
@@ -23,9 +30,9 @@ sha2_auth = ["rsa", "sha2"]
 default = ["sha2_auth"]
 
 [dependencies]
-bytes = "1.11.0"
+bytes = "1.11.1"
 chrono = {version = "0.4", optional = true}
-rsa = {version = "0.9.9", optional = true}
+rsa = {version = "0.9.10", optional = true}
 sha1 = "0.10.6"
 sha2 = {version = "0.10.9", optional = true}
 thiserror = "2.0.17"

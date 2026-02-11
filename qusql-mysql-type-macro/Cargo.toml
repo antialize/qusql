@@ -6,6 +6,8 @@ edition = "2021"
 license = "Apache-2.0"
 keywords = [ "mysql", "posgresql", "qusql-mysql", "procmacro" ]
 description = "Proc macros for qusql-mysql-type"
+repository = "https://github.com/antialize/qusql/"
+homepage = "https://github.com/antialize/qusql/"
 
 [lints.rust]
 missing_docs = "deny"
@@ -28,7 +30,7 @@ list_hack = []
 quote = "1"
 syn = { version = "2", features = ["full", "parsing"] }
 proc-macro2 = "1"
-qusql-type = { path="../qusql-type" }
+qusql-type = { path="../qusql-type", version="0.1.0" }
 ariadne = "0.6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

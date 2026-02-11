@@ -2,6 +2,13 @@
 name = "qusql-mysql-type"
 version = "0.1.0"
 edition = "2024"
+license = "Apache-2.0"
+keywords = [ "mysql" ]
+description = "Typed macroes for qusql-mysql"
+readme = "README.md"
+repository = "https://github.com/antialize/qusql/"
+homepage = "https://github.com/antialize/qusql/"
+
 
 [lints.rust]
 missing_docs = "deny"
@@ -19,6 +26,6 @@ chrono = ["dep:chrono", "qusql-mysql/chrono"]
 list_hack = ["qusql-mysql/list_hack", "qusql-mysql-type-macro/list_hack"]
 
 [dependencies]
-qusql-mysql-type-macro={path="../qusql-mysql-type-macro"}
-qusql-mysql={path="../qusql-mysql"}
+qusql-mysql-type-macro={path="../qusql-mysql-type-macro", version="0.1.0"}
+qusql-mysql={path="../qusql-mysql", version="0.1.0"}
 chrono = {version = "0.4", optional=true}
