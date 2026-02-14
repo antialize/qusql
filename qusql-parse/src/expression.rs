@@ -253,6 +253,26 @@ pub enum BinaryOperator {
     NotLike,
 }
 
+/// Mode for MATCH ... AGAINST
+#[derive(Debug, Clone)]
+pub enum MatchMode {
+    InBoolean(Span),
+    InNaturalLanguage(Span),
+    InNaturalLanguageWithQueryExpansion(Span),
+    WithQueryExpansion(Span),
+}
+
+impl Spanned for MatchMode {
+    fn span(&self) -> Span {
+        match self {
+            MatchMode::InBoolean(s) => s.clone(),
+            MatchMode::InNaturalLanguage(s) => s.clone(),
+            MatchMode::InNaturalLanguageWithQueryExpansion(s) => s.clone(),
+            MatchMode::WithQueryExpansion(s) => s.clone(),
+        }
+    }
+}
+
 /// Type of is expression
 #[derive(Debug, Clone, Copy)]
 pub enum Is {
@@ -555,6 +575,14 @@ pub enum Expression<'a> {
         e1: Box<Expression<'a>>,
         e2: Box<Expression<'a>>,
     },
+    /// Full-text MATCH ... AGAINST expression
+    MatchAgainst {
+        match_span: Span,
+        columns: Vec<Expression<'a>>,
+        against_span: Span,
+        expr: Box<Expression<'a>>,
+        mode: Option<MatchMode>,
+    },
 }
 
 impl<'a> Spanned for Expression<'a> {
@@ -666,6 +694,17 @@ impl<'a> Spanned for Expression<'a> {
                 .join_span(&unit.1)
                 .join_span(e1)
                 .join_span(e2),
+            Expression::MatchAgainst {
+                match_span,
+                columns,
+                against_span,
+                expr,
+                mode,
+            } => match_span
+                .join_span(columns)
+                .join_span(against_span)
+                .join_span(expr)
+                .join_span(mode),
         }
     }
 }
@@ -1456,6 +1495,102 @@ pub(crate) fn parse_expression<'a>(
                 } else {
                     r.shift_expr(Expression::Invalid(extract_span))
                 }
+            }
+            Token::Ident(_, Keyword::MATCH) => {
+                let match_span = parser.consume_keyword(Keyword::MATCH)?;
+                parser.consume_token(Token::LParen)?;
+                let mut cols = Vec::new();
+                loop {
+                    parser.recovered(
+                        "')' or ','",
+                        &|t| matches!(t, Token::RParen | Token::Comma),
+                        |parser| {
+                            cols.push(parse_expression_paren(parser)?);
+                            Ok(())
+                        },
+                    )?;
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                parser.consume_token(Token::RParen)?;
+                let against_span = parser.consume_keyword(Keyword::AGAINST)?;
+                parser.consume_token(Token::LParen)?;
+
+                // Parse the search expression but don't treat `IN`/`WITH` as binary
+                // operators here — they are MATCH modes and may appear inside the
+                // AGAINST(...) parentheses (MySQL allows both inside and outside).
+                let expr = parse_expression(parser, true)?;
+
+                // optional mode that may appear inside the AGAINST(...) parentheses
+                let mut mode: Option<MatchMode> = None;
+                if parser.skip_keyword(Keyword::IN).is_some() {
+                    if let Some(boolean_span) = parser.skip_keyword(Keyword::BOOLEAN) {
+                        let mode_span = parser.consume_keyword(Keyword::MODE)?;
+                        mode = Some(MatchMode::InBoolean(boolean_span.join_span(&mode_span)));
+                    } else if let Some(natural_span) = parser.skip_keyword(Keyword::NATURAL) {
+                        // optional LANGUAGE after NATURAL
+                        let _language_span = parser.skip_keyword(Keyword::LANGUAGE);
+                        let mode_span = parser.consume_keyword(Keyword::MODE)?;
+                        let natural_total = natural_span.join_span(&mode_span);
+                        // optional WITH QUERY EXPANSION following NATURAL MODE inside parens
+                        if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+                            let expansion_total = with_span.join_span(
+                                &parser.consume_keywords(&[Keyword::QUERY, Keyword::EXPANSION])?,
+                            );
+                            mode = Some(MatchMode::InNaturalLanguageWithQueryExpansion(
+                                natural_total.join_span(&expansion_total),
+                            ));
+                        } else {
+                            mode = Some(MatchMode::InNaturalLanguage(natural_total));
+                        }
+                    }
+                } else if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+                    mode = Some(MatchMode::WithQueryExpansion(with_span.join_span(
+                        &parser.consume_keywords(&[Keyword::QUERY, Keyword::EXPANSION])?,
+                    )));
+                }
+
+                parser.consume_token(Token::RParen)?;
+
+                // If no mode was found inside the parens, allow it after the closing
+                // parenthesis as well (some dialects/placeholders may put it there).
+                if mode.is_none() {
+                    if parser.skip_keyword(Keyword::IN).is_some() {
+                        if let Some(boolean_span) = parser.skip_keyword(Keyword::BOOLEAN) {
+                            let mode_span = parser.consume_keyword(Keyword::MODE)?;
+                            mode = Some(MatchMode::InBoolean(boolean_span.join_span(&mode_span)));
+                        } else if let Some(natural_span) = parser.skip_keyword(Keyword::NATURAL) {
+                            let _language_span = parser.skip_keyword(Keyword::LANGUAGE);
+                            let mode_span = parser.consume_keyword(Keyword::MODE)?;
+                            let natural_total = natural_span.join_span(&mode_span);
+                            // optional WITH QUERY EXPANSION following NATURAL MODE after paren
+                            if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+                                let expansion_total = with_span.join_span(
+                                    &parser
+                                        .consume_keywords(&[Keyword::QUERY, Keyword::EXPANSION])?,
+                                );
+                                mode = Some(MatchMode::InNaturalLanguageWithQueryExpansion(
+                                    natural_total.join_span(&expansion_total),
+                                ));
+                            } else {
+                                mode = Some(MatchMode::InNaturalLanguage(natural_total));
+                            }
+                        }
+                    } else if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+                        mode = Some(MatchMode::WithQueryExpansion(with_span.join_span(
+                            &parser.consume_keywords(&[Keyword::QUERY, Keyword::EXPANSION])?,
+                        )));
+                    }
+                }
+
+                r.shift_expr(Expression::MatchAgainst {
+                    match_span,
+                    columns: cols,
+                    against_span,
+                    expr: Box::new(expr),
+                    mode,
+                })
             }
             Token::Ident(_, Keyword::LEFT) if matches!(parser.peek(), Token::LParen) => {
                 let i = parser.token.clone();

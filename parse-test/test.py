@@ -150,8 +150,8 @@ def test_mysql(args) -> None:
                     print(f"Issues:")
                     for issue in out["issues"]:
                         print(f"  {issue.replace('\n', '\n  ')}")
-                else:
                     failure_count += 1
+                else:
                     print(f"Test passed in: '{inp}'")
 
     if args.interactive:

@@ -510,5 +510,9 @@ pub(crate) fn type_expression<'a>(
             typer.ensure_datetime(e2, &t2, Restrict::Require, Restrict::Allow);
             FullType::new(BaseType::Integer, t1.not_null && t2.not_null)
         }
+        e @ Expression::MatchAgainst { .. } => {
+            issue_todo!(typer.issues, e);
+            FullType::invalid()
+        }
     }
 }
