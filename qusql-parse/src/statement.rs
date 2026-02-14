@@ -29,6 +29,7 @@ use crate::{
     keywords::Keyword,
     kill::{Kill, parse_kill},
     lexer::Token,
+    lock::{Lock, Unlock, parse_lock, parse_unlock},
     parser::{ParseError, Parser},
     rename::parse_rename_table,
     select::{OrderFlag, Select, parse_select},
@@ -399,6 +400,7 @@ pub enum Statement<'a> {
     Delete(Delete<'a>),
     InsertReplace(InsertReplace<'a>),
     Update(Update<'a>),
+    Unlock(Unlock),
     DropIndex(DropIndex<'a>),
     DropTable(DropTable<'a>),
     DropFunction(DropFunction<'a>),
@@ -432,6 +434,7 @@ pub enum Statement<'a> {
     If(If<'a>),
     /// Invalid statement produced after recovering from parse error
     Invalid(Span),
+    Lock(Lock<'a>),
     Union(Union<'a>),
     Case(CaseStatement<'a>),
     Copy(Copy<'a>),
@@ -456,6 +459,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Delete(v) => v.span(),
             Statement::InsertReplace(v) => v.span(),
             Statement::Update(v) => v.span(),
+            Statement::Unlock(v) => v.span(),
             Statement::DropIndex(v) => v.span(),
             Statement::DropTable(v) => v.span(),
             Statement::DropFunction(v) => v.span(),
@@ -470,6 +474,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Block(v) => v.opt_span().expect("Span of block"),
             Statement::If(v) => v.span(),
             Statement::Invalid(v) => v.span(),
+            Statement::Lock(v) => v.span(),
             Statement::Union(v) => v.span(),
             Statement::Case(v) => v.span(),
             Statement::Copy(v) => v.span(),
@@ -543,6 +548,8 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::CASE) => Some(Statement::Case(parse_case_statement(parser)?)),
         Token::Ident(_, Keyword::COPY) => Some(Statement::Copy(parse_copy_statement(parser)?)),
         Token::Ident(_, Keyword::DO) => Some(parse_do(parser)?),
+        Token::Ident(_, Keyword::LOCK) => Some(Statement::Lock(parse_lock(parser)?)),
+        Token::Ident(_, Keyword::UNLOCK) => Some(Statement::Unlock(parse_unlock(parser)?)),
         Token::Ident(_, Keyword::TRUNCATE) => {
             Some(Statement::TruncateTable(parse_truncate_table(parser)?))
         }
