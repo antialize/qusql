@@ -51,6 +51,7 @@ mod data_type;
 mod delete;
 mod drop;
 mod expression;
+mod flush;
 mod identifier;
 mod insert_replace;
 mod issue;

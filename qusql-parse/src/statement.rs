@@ -25,6 +25,7 @@ use crate::{
         DropTrigger, DropView, parse_drop,
     },
     expression::{Expression, parse_expression},
+    flush::{Flush, parse_flush},
     insert_replace::{InsertReplace, parse_insert_replace},
     keywords::Keyword,
     kill::{Kill, parse_kill},
@@ -445,6 +446,7 @@ pub enum Statement<'a> {
     RenameTable(RenameTable<'a>),
     WithQuery(WithQuery<'a>),
     Return(Return<'a>),
+    Flush(Flush<'a>),
 }
 
 impl<'a> Spanned for Statement<'a> {
@@ -503,6 +505,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::ShowCharacterSet(v) => v.span(),
             Statement::ShowCollation(v) => v.span(),
             Statement::ShowEngines(v) => v.span(),
+            Statement::Flush(v) => v.span(),
         }
     }
 }
@@ -557,6 +560,7 @@ pub(crate) fn parse_statement<'a>(
             Some(Statement::RenameTable(parse_rename_table(parser)?))
         }
         Token::Ident(_, Keyword::WITH) => Some(Statement::WithQuery(parse_with_query(parser)?)),
+        Token::Ident(_, Keyword::FLUSH) => Some(Statement::Flush(parse_flush(parser)?)),
         _ => None,
     })
 }

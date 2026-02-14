@@ -1272,91 +1272,58 @@
   },
   {
     "input": "FLUSH BINARY LOGS",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: None,\n        local: None,\n        options: [\n            BinaryLogs(\n                6..17,\n            ),\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "FLUSH ENGINE LOGS",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: None,\n        local: None,\n        options: [\n            EngineLogs(\n                6..17,\n            ),\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "FLUSH ERROR LOGS",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: None,\n        local: None,\n        options: [\n            ErrorLogs(\n                6..16,\n            ),\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "FLUSH LOCAL SLOW LOGS",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: None,\n        local: Some(\n            6..11,\n        ),\n        options: [\n            SlowLogs(\n                12..21,\n            ),\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "FLUSH NO_WRITE_TO_BINLOG GENERAL LOGS",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: Some(\n            6..24,\n        ),\n        local: None,\n        options: [\n            GeneralLogs(\n                25..37,\n            ),\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "FLUSH OPTIMIZER_COSTS",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: None,\n        local: None,\n        options: [\n            OptimizerCosts(\n                6..21,\n            ),\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "FLUSH RELAY LOGS FOR CHANNEL test",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: None,\n        local: None,\n        options: [\n            RelayLogsForChannel {\n                span: 6..28,\n                channel: Identifier {\n                    value: \"test\",\n                    span: 29..33,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "FLUSH TABLES WITH READ LOCK",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: None,\n        local: None,\n        options: [\n            Table {\n                span: 6..12,\n                tables: [],\n                with_read_lock: Some(\n                    13..27,\n                ),\n                for_export: None,\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "FLUSH TABLES `mek`.`table1`, table2",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: None,\n        local: None,\n        options: [\n            Table {\n                span: 6..12,\n                tables: [\n                    QualifiedName {\n                        prefix: [\n                            (\n                                Identifier {\n                                    value: \"mek\",\n                                    span: 13..18,\n                                },\n                                18..19,\n                            ),\n                        ],\n                        identifier: Identifier {\n                            value: \"table1\",\n                            span: 19..27,\n                        },\n                    },\n                    QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"table2\",\n                            span: 29..35,\n                        },\n                    },\n                ],\n                with_read_lock: None,\n                for_export: None,\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "FLUSH TABLES `mek`.`table1`, table2 FOR EXPORT",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: None,\n        local: None,\n        options: [\n            Table {\n                span: 6..12,\n                tables: [\n                    QualifiedName {\n                        prefix: [\n                            (\n                                Identifier {\n                                    value: \"mek\",\n                                    span: 13..18,\n                                },\n                                18..19,\n                            ),\n                        ],\n                        identifier: Identifier {\n                            value: \"table1\",\n                            span: 19..27,\n                        },\n                    },\n                    QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"table2\",\n                            span: 29..35,\n                        },\n                    },\n                ],\n                with_read_lock: None,\n                for_export: Some(\n                    36..46,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "FLUSH TABLES `mek`.`table1`, table2 WITH READ LOCK",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..5,\n    sql_segment: \"FLUSH\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Flush(\n    Flush {\n        flush_span: 0..5,\n        no_write_to_binlog: None,\n        local: None,\n        options: [\n            Table {\n                span: 6..12,\n                tables: [\n                    QualifiedName {\n                        prefix: [\n                            (\n                                Identifier {\n                                    value: \"mek\",\n                                    span: 13..18,\n                                },\n                                18..19,\n                            ),\n                        ],\n                        identifier: Identifier {\n                            value: \"table1\",\n                            span: 19..27,\n                        },\n                    },\n                    QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"table2\",\n                            span: 29..35,\n                        },\n                    },\n                ],\n                with_read_lock: Some(\n                    36..50,\n                ),\n                for_export: None,\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "INSERT HIGH_PRIORITY INTO tasks (title, priority) VALUES ('Test Some Inserts', 1)",
