@@ -16,8 +16,8 @@ use crate::{
     Identifier, RenameTable, Span, Spanned, WithQuery,
     alter::{AlterTable, parse_alter},
     create::{
-        CreateFunction, CreateIndex, CreateTable, CreateTrigger, CreateTypeEnum, CreateView,
-        parse_create,
+        CreateDatabase, CreateFunction, CreateIndex, CreateTable, CreateTrigger, CreateTypeEnum,
+        CreateView, parse_create,
     },
     delete::{Delete, parse_delete},
     drop::{
@@ -397,6 +397,7 @@ pub enum Statement<'a> {
     CreateView(CreateView<'a>),
     CreateTrigger(CreateTrigger<'a>),
     CreateFunction(CreateFunction<'a>),
+    CreateDatabase(CreateDatabase<'a>),
     Select(Select<'a>),
     Delete(Delete<'a>),
     InsertReplace(InsertReplace<'a>),
@@ -457,6 +458,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::CreateView(v) => v.span(),
             Statement::CreateTrigger(v) => v.span(),
             Statement::CreateFunction(v) => v.span(),
+            Statement::CreateDatabase(v) => v.span(),
             Statement::Select(v) => v.span(),
             Statement::Delete(v) => v.span(),
             Statement::InsertReplace(v) => v.span(),

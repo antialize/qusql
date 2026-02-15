@@ -1259,12 +1259,160 @@ fn parse_create_table<'a>(
     }))
 }
 
+#[derive(Clone, Debug)]
+pub enum CreateDatabaseOption<'a> {
+    CharSet {
+        identifier: Span,
+        default_span: Option<Span>,
+        value: Identifier<'a>,
+    },
+    Collate {
+        identifier: Span,
+        default_span: Option<Span>,
+        value: Identifier<'a>,
+    },
+    Encryption {
+        identifier: Span,
+        default_span: Option<Span>,
+        value: SString<'a>,
+    },
+}
+
+impl Spanned for CreateDatabaseOption<'_> {
+    fn span(&self) -> Span {
+        match self {
+            CreateDatabaseOption::CharSet {
+                identifier,
+                default_span,
+                value,
+            } => identifier.join_span(default_span).join_span(value),
+            CreateDatabaseOption::Collate {
+                identifier,
+                default_span,
+                value,
+            } => identifier.join_span(default_span).join_span(value),
+            CreateDatabaseOption::Encryption {
+                identifier,
+                default_span,
+                value,
+            } => identifier.join_span(default_span).join_span(value),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CreateDatabase<'a> {
+    /// Span of "CREATE"
+    pub create_span: Span,
+    /// Span of "DATABASE"
+    pub database_span: Span,
+    /// Span of "IF NOT EXISTS" if specified
+    pub if_not_exists: Option<Span>,
+    /// Name of the created database
+    pub name: Identifier<'a>,
+    /// Options specified for database creation
+    pub create_options: Vec<CreateDatabaseOption<'a>>,
+}
+
+impl Spanned for CreateDatabase<'_> {
+    fn span(&self) -> Span {
+        self.create_span
+            .join_span(&self.create_options)
+            .join_span(&self.database_span)
+            .join_span(&self.if_not_exists)
+            .join_span(&self.name)
+    }
+}
+
+fn parse_create_database<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<Statement<'a>, ParseError> {
+    for option in create_options {
+        parser.err("Not supported fo CREATE DATABASE", &option.span());
+    }
+
+    let database_span = parser.consume();
+
+    let if_not_exists = if let Some(if_) = parser.skip_keyword(Keyword::IF) {
+        Some(
+            parser
+                .consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?
+                .join_span(&if_),
+        )
+    } else {
+        None
+    };
+
+    let mut create_options = Vec::new();
+    let name = parser.consume_plain_identifier()?;
+    loop {
+        let default_span = parser.skip_keyword(Keyword::DEFAULT);
+        match &parser.token {
+            Token::Ident(_, Keyword::CHARSET) => {
+                let identifier = parser.consume_keyword(Keyword::CHARSET)?;
+                parser.skip_token(Token::Eq);
+                create_options.push(CreateDatabaseOption::CharSet {
+                    default_span,
+                    identifier,
+                    value: parser.consume_plain_identifier()?,
+                });
+            }
+            Token::Ident(_, Keyword::CHARACTER) => {
+                let identifier = parser.consume_keywords(&[Keyword::CHARACTER, Keyword::SET])?;
+                parser.skip_token(Token::Eq);
+                create_options.push(CreateDatabaseOption::CharSet {
+                    default_span,
+                    identifier,
+                    value: parser.consume_plain_identifier()?,
+                });
+            }
+            Token::Ident(_, Keyword::COLLATE) => {
+                let identifier = parser.consume_keyword(Keyword::COLLATE)?;
+                parser.skip_token(Token::Eq);
+                create_options.push(CreateDatabaseOption::Collate {
+                    default_span,
+                    identifier,
+                    value: parser.consume_plain_identifier()?,
+                });
+            }
+            Token::Ident(_, Keyword::ENCRYPTION) => {
+                let identifier = parser.consume_keyword(Keyword::ENCRYPTION)?;
+                parser.skip_token(Token::Eq);
+                let value = parser.consume_string()?;
+
+                create_options.push(CreateDatabaseOption::Encryption {
+                    default_span,
+                    identifier,
+                    value,
+                });
+            }
+            _ => {
+                if default_span.is_some() {
+                    parser.expected_failure("'CHARSET', 'COLLATE' or 'ENCRYPTION'")?;
+                }
+                break;
+            }
+        }
+    }
+
+    Ok(Statement::CreateDatabase(CreateDatabase {
+        create_span,
+        create_options,
+        database_span,
+        if_not_exists,
+        name,
+    }))
+}
+
 pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let create_span = parser.span.clone();
     parser.consume_keyword(Keyword::CREATE)?;
 
     let mut create_options = Vec::new();
-    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'";
+    const CREATABLE: &str =
+        "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'";
 
     parser.recovered(
         CREATABLE,
@@ -1279,6 +1427,8 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         | Keyword::FUNCTION
                         | Keyword::INDEX
                         | Keyword::TYPE
+                        | Keyword::DATABASE
+                        | Keyword::SCHEMA
                 )
             )
         },
@@ -1351,6 +1501,9 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
         Token::Ident(_, Keyword::INDEX) => parse_create_index(parser, create_span, create_options),
         Token::Ident(_, Keyword::TABLE) => parse_create_table(parser, create_span, create_options),
         Token::Ident(_, Keyword::VIEW) => parse_create_view(parser, create_span, create_options),
+        Token::Ident(_, Keyword::DATABASE | Keyword::SCHEMA) => {
+            parse_create_database(parser, create_span, create_options)
+        }
         Token::Ident(_, Keyword::FUNCTION) => {
             parse_create_function(parser, create_span, create_options)
         }

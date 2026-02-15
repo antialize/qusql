@@ -294,143 +294,104 @@
   },
   {
     "input": "CREATE DATABASE IF NOT EXISTS mydb DEFAULT CHARACTER SET utf16",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: Some(\n            16..29,\n        ),\n        name: Identifier {\n            value: \"mydb\",\n            span: 30..34,\n        },\n        create_options: [\n            CharSet {\n                identifier: 43..56,\n                default_span: Some(\n                    35..42,\n                ),\n                value: Identifier {\n                    value: \"utf16\",\n                    span: 57..62,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE IF NOT EXISTS noria DEFAULT CHARACTER SET = utf16",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: Some(\n            16..29,\n        ),\n        name: Identifier {\n            value: \"noria\",\n            span: 30..35,\n        },\n        create_options: [\n            CharSet {\n                identifier: 44..57,\n                default_span: Some(\n                    36..43,\n                ),\n                value: Identifier {\n                    value: \"utf16\",\n                    span: 60..65,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE IF NOT EXISTS noria DEFAULT CHARACTER SET utf16",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: Some(\n            16..29,\n        ),\n        name: Identifier {\n            value: \"noria\",\n            span: 30..35,\n        },\n        create_options: [\n            CharSet {\n                identifier: 44..57,\n                default_span: Some(\n                    36..43,\n                ),\n                value: Identifier {\n                    value: \"utf16\",\n                    span: 58..63,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE mydb CHARACTER SET =",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 36..36,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "CREATE DATABASE mydb CHARACTER SET utf8mb4",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mydb\",\n            span: 16..20,\n        },\n        create_options: [\n            CharSet {\n                identifier: 21..34,\n                default_span: None,\n                value: Identifier {\n                    value: \"utf8mb4\",\n                    span: 35..42,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE mydb CHARSET",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 28..28,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
-    "should_fail": true,
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE DATABASE mydb CHARSET utf8mb4",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mydb\",\n            span: 16..20,\n        },\n        create_options: [\n            CharSet {\n                identifier: 21..28,\n                default_span: None,\n                value: Identifier {\n                    value: \"utf8mb4\",\n                    span: 29..36,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE mydb COLLATE utf8mb4_unicode_ci",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mydb\",\n            span: 16..20,\n        },\n        create_options: [\n            Collate {\n                identifier: 21..28,\n                default_span: None,\n                value: Identifier {\n                    value: \"utf8mb4_unicode_ci\",\n                    span: 29..47,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE mydb COLLATE utf8mb4_unicode_ci CHARACTER SET utf8mb4",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mydb\",\n            span: 16..20,\n        },\n        create_options: [\n            Collate {\n                identifier: 21..28,\n                default_span: None,\n                value: Identifier {\n                    value: \"utf8mb4_unicode_ci\",\n                    span: 29..47,\n                },\n            },\n            CharSet {\n                identifier: 48..61,\n                default_span: None,\n                value: Identifier {\n                    value: \"utf8mb4\",\n                    span: 62..69,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE mydb DEFAULT CHARACTER SET",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 42..42,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "CREATE DATABASE mydb DEFAULT CHARACTER SET = utf8mb4",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mydb\",\n            span: 16..20,\n        },\n        create_options: [\n            CharSet {\n                identifier: 29..42,\n                default_span: Some(\n                    21..28,\n                ),\n                value: Identifier {\n                    value: \"utf8mb4\",\n                    span: 45..52,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE mydb DEFAULT CHARACTER SET utf8mb4",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mydb\",\n            span: 16..20,\n        },\n        create_options: [\n            CharSet {\n                identifier: 29..42,\n                default_span: Some(\n                    21..28,\n                ),\n                value: Identifier {\n                    value: \"utf8mb4\",\n                    span: 43..50,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE mydb DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mydb\",\n            span: 16..20,\n        },\n        create_options: [\n            CharSet {\n                identifier: 29..42,\n                default_span: Some(\n                    21..28,\n                ),\n                value: Identifier {\n                    value: \"utf8mb4\",\n                    span: 43..50,\n                },\n            },\n            Collate {\n                identifier: 59..66,\n                default_span: Some(\n                    51..58,\n                ),\n                value: Identifier {\n                    value: \"utf8mb4_unicode_ci\",\n                    span: 67..85,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE mydb DEFAULT CHARSET utf8mb4",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mydb\",\n            span: 16..20,\n        },\n        create_options: [\n            CharSet {\n                identifier: 29..36,\n                default_span: Some(\n                    21..28,\n                ),\n                value: Identifier {\n                    value: \"utf8mb4\",\n                    span: 37..44,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE mydb DEFAULT COLLATE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 36..36,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "CREATE DATABASE mydb DEFAULT COLLATE utf8mb4_unicode_ci",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mydb\",\n            span: 16..20,\n        },\n        create_options: [\n            Collate {\n                identifier: 29..36,\n                default_span: Some(\n                    21..28,\n                ),\n                value: Identifier {\n                    value: \"utf8mb4_unicode_ci\",\n                    span: 37..55,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DATABASE mydb DEFAULT COLLATE utf8mb4_unicode_ci DEFAULT CHARACTER SET utf8mb4",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'' here\",\n    span: 7..15,\n    sql_segment: \"DATABASE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mydb\",\n            span: 16..20,\n        },\n        create_options: [\n            Collate {\n                identifier: 29..36,\n                default_span: Some(\n                    21..28,\n                ),\n                value: Identifier {\n                    value: \"utf8mb4_unicode_ci\",\n                    span: 37..55,\n                },\n            },\n            CharSet {\n                identifier: 64..77,\n                default_span: Some(\n                    56..63,\n                ),\n                value: Identifier {\n                    value: \"utf8mb4\",\n                    span: 78..85,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DEFINER = 'jeffrey'@'localhost' VIEW foo AS SELECT 1",
