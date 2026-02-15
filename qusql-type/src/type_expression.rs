@@ -73,6 +73,7 @@ fn type_unary_expression<'a>(
                 Type::F32
                 | Type::F64
                 | Type::I16
+                | Type::I24
                 | Type::I32
                 | Type::I64
                 | Type::I8
@@ -84,6 +85,7 @@ fn type_unary_expression<'a>(
                     Type::Invalid
                 }
                 Type::U16 => Type::I16,
+                Type::U24 => Type::I24,
                 Type::U32 => Type::I32,
                 Type::U64 => Type::I64,
                 Type::U8 => Type::I8,
@@ -395,6 +397,7 @@ pub(crate) fn type_expression<'a>(
                             | qusql_parse::Type::TinyInt(_)
                             | qusql_parse::Type::SmallInt(_)
                             | qusql_parse::Type::BigInt(_)
+                            | qusql_parse::Type::MediumInt(_)
                             | qusql_parse::Type::VarChar(_)
                             | qusql_parse::Type::TinyText(_)
                             | qusql_parse::Type::MediumText(_)

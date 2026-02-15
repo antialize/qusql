@@ -89,6 +89,7 @@ pub enum Type<'a> {
     Boolean,
     TinyInt(Option<(usize, Span)>),
     SmallInt(Option<(usize, Span)>),
+    MediumInt(Option<(usize, Span)>),
     Integer(Option<(usize, Span)>),
     Int(Option<(usize, Span)>),
     BigInt(Option<(usize, Span)>),
@@ -129,6 +130,7 @@ impl<'a> OptSpanned for Type<'a> {
             Type::Boolean => None,
             Type::TinyInt(v) => v.opt_span(),
             Type::SmallInt(v) => v.opt_span(),
+            Type::MediumInt(v) => v.opt_span(),
             Type::Integer(v) => v.opt_span(),
             Type::Int(v) => v.opt_span(),
             Type::BigInt(v) => v.opt_span(),
@@ -235,6 +237,10 @@ pub(crate) fn parse_data_type<'a>(
         Token::Ident(_, Keyword::SMALLINT) => (
             parser.consume_keyword(Keyword::SMALLINT)?,
             Type::SmallInt(parse_width(parser)?),
+        ),
+        Token::Ident(_, Keyword::MEDIUMINT) => (
+            parser.consume_keyword(Keyword::MEDIUMINT)?,
+            Type::MediumInt(parse_width(parser)?),
         ),
         Token::Ident(_, Keyword::INTEGER) => (
             parser.consume_keyword(Keyword::INTEGER)?,

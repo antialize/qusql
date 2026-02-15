@@ -202,6 +202,13 @@ pub(crate) fn parse_column<'a>(
                 Type::I16
             }
         }
+        qusql_parse::Type::MediumInt(_) => {
+            if unsigned {
+                Type::U24
+            } else {
+                Type::I24
+            }
+        }
         qusql_parse::Type::Int(_) => {
             if unsigned {
                 Type::U32
