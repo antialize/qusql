@@ -677,6 +677,24 @@ pub fn parse_schemas<'a>(
                                 &s,
                             );
                         }
+                        s @ qusql_parse::AlterSpecification::DropIndex { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::DropForeignKey { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::DropPrimaryKey { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
                         s @ qusql_parse::AlterSpecification::RenameColumn { .. } => {
                             issues.err(
                                 alloc::format!("Unsupported statement {s:?} in schema definition"),

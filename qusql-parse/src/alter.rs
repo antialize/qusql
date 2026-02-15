@@ -284,6 +284,22 @@ pub enum AlterSpecification<'a> {
         /// Span of "CASCADE" if specified
         cascade: Option<Span>,
     },
+    DropIndex {
+        /// Span of "DROP INDEX"
+        drop_index_span: Span,
+        /// Name of index to drop
+        name: Identifier<'a>,
+    },
+    DropForeignKey {
+        /// Span of "DROP FOREIGN KEY"
+        drop_foreign_key_span: Span,
+        /// Name of foreign key to drop
+        name: Identifier<'a>,
+    },
+    DropPrimaryKey {
+        /// Span of "DROP PRIMARY KEY"
+        drop_primary_key_span: Span,
+    },
     AlterColumn {
         /// Span of "ALTER COLUMN"
         alter_column_span: Span,
@@ -426,6 +442,17 @@ impl<'a> Spanned for AlterSpecification<'a> {
                 column: col,
                 cascade,
             } => drop_column_span.join_span(col).join_span(cascade),
+            AlterSpecification::DropForeignKey {
+                drop_foreign_key_span,
+                name,
+            } => drop_foreign_key_span.join_span(name),
+            AlterSpecification::DropPrimaryKey {
+                drop_primary_key_span,
+            } => drop_primary_key_span.clone(),
+            AlterSpecification::DropIndex {
+                drop_index_span,
+                name,
+            } => drop_index_span.join_span(name),
             AlterSpecification::AlterColumn {
                 alter_column_span,
                 column: col,
@@ -817,6 +844,45 @@ fn parse_rename_alter_specification<'a>(
     }
 }
 
+fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<AlterSpecification<'a>, ParseError> {
+    let drop_span = parser.consume_keyword(Keyword::DROP)?;
+    match parser.token {
+        Token::Ident(_, Keyword::INDEX | Keyword::KEY) => {
+            let index_span = parser.consume();
+            let name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::DropIndex {
+                drop_index_span: drop_span.join_span(&index_span).join_span(&name),
+                name,
+            })
+        }
+        Token::Ident(_, Keyword::FOREIGN) => {
+            let foreign_span = parser.consume_keywords(&[Keyword::FOREIGN, Keyword::KEY])?;
+            let name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::DropForeignKey {
+                drop_foreign_key_span: drop_span.join_span(&foreign_span).join_span(&name),
+                name,
+            })
+        }
+        Token::Ident(_, Keyword::PRIMARY) => {
+            let primary_key_span = parser.consume_keywords(&[Keyword::PRIMARY, Keyword::KEY])?;
+            Ok(AlterSpecification::DropPrimaryKey {
+                drop_primary_key_span: drop_span.join_span(&primary_key_span),
+            })
+        }
+        Token::Ident(_, Keyword::COLUMN) => {
+            let drop_column_span = drop_span.join_span(&parser.consume_keyword(Keyword::COLUMN)?);
+            let column = parser.consume_plain_identifier()?;
+            let cascade = parser.skip_keyword(Keyword::CASCADE);
+            Ok(AlterSpecification::DropColumn {
+                drop_column_span,
+                column,
+                cascade,
+            })
+        }
+        _ => parser.expected_failure("'COLUMN' or 'INDEX'")?,
+    }
+}
+
 /// Represent an alter table statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, AlterTable, Statement, Issues};
@@ -945,17 +1011,7 @@ fn parse_alter_table<'a>(
                     let owner = parser.consume_plain_identifier()?;
                     AlterSpecification::OwnerTo { span, owner }
                 }
-                Token::Ident(_, Keyword::DROP) => {
-                    let drop_column_span =
-                        parser.consume_keywords(&[Keyword::DROP, Keyword::COLUMN])?;
-                    let column = parser.consume_plain_identifier()?;
-                    let cascade = parser.skip_keyword(Keyword::CASCADE);
-                    AlterSpecification::DropColumn {
-                        drop_column_span,
-                        column,
-                        cascade,
-                    }
-                }
+                Token::Ident(_, Keyword::DROP) => parse_drop(parser)?,
                 Token::Ident(_, Keyword::ALTER) => {
                     let span = parser.consume_keywords(&[Keyword::ALTER, Keyword::COLUMN])?;
                     let column = parser.consume_plain_identifier()?;

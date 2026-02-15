@@ -241,27 +241,18 @@
   },
   {
     "input": "ALTER TABLE tab DROP FOREIGN KEY foo_ibfk_1",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'COLUMN' here\",\n    span: 21..28,\n    sql_segment: \"FOREIGN\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            DropForeignKey {\n                drop_foreign_key_span: 16..43,\n                name: Identifier {\n                    value: \"foo_ibfk_1\",\n                    span: 33..43,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE tab DROP INDEX idx_index",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'COLUMN' here\",\n    span: 21..26,\n    sql_segment: \"INDEX\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            DropIndex {\n                drop_index_span: 16..36,\n                name: Identifier {\n                    value: \"idx_index\",\n                    span: 27..36,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE tab DROP PRIMARY KEY",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'COLUMN' here\",\n    span: 21..28,\n    sql_segment: \"PRIMARY\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            DropPrimaryKey {\n                drop_primary_key_span: 16..32,\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE tab LOCK = SHARED",
