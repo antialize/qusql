@@ -216,6 +216,10 @@ pub enum AlterSpecification<'a> {
         if_not_exists_span: Option<Span>,
         identifier: Identifier<'a>,
         data_type: DataType<'a>,
+        /// Optional "FIRST"
+        first: Option<Span>,
+        /// Optional "AFTER col_name"
+        after: Option<(Span, Identifier<'a>)>,
     },
     /// Add an index
     AddIndex {
@@ -359,10 +363,14 @@ impl<'a> Spanned for AlterSpecification<'a> {
                 if_not_exists_span,
                 identifier,
                 data_type,
+                first,
+                after,
             } => add_span
                 .join_span(if_not_exists_span)
                 .join_span(identifier)
-                .join_span(data_type),
+                .join_span(data_type)
+                .join_span(first)
+                .join_span(after),
             AlterSpecification::AddIndex {
                 add_span,
                 index_type,
@@ -736,10 +744,27 @@ fn parse_add_alter_specification<'a>(
 
             let identifier = parser.consume_plain_identifier()?;
             let data_type = parse_data_type(parser, false)?;
+
+            let mut first = None;
+            let mut after = None;
+            match &parser.token {
+                Token::Ident(_, Keyword::FIRST) => {
+                    first = Some(parser.consume_keyword(Keyword::FIRST)?);
+                }
+                Token::Ident(_, Keyword::AFTER) => {
+                    let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                    let after_col = parser.consume_plain_identifier()?;
+                    after = Some((after_span, after_col));
+                }
+                _ => {}
+            }
+
             Ok(AlterSpecification::AddColumn {
                 add_span,
                 if_not_exists_span,
                 identifier,
+                first,
+                after,
                 data_type,
             })
         }
