@@ -13,6 +13,10 @@ use alloc::{boxed::Box, vec::Vec};
 // limitations under the License.
 use crate::{
     DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
+    alter::{
+        ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexOption, IndexType,
+        parse_index_cols, parse_index_options,
+    },
     data_type::parse_data_type,
     expression::parse_expression,
     keywords::Keyword,
@@ -177,9 +181,54 @@ pub enum CreateDefinition<'a> {
         /// Datatype and options for column
         data_type: DataType<'a>,
     },
-    ConstraintDefinition {
-        span: Span,
-        identifier: Identifier<'a>,
+    /// Index definition (PRIMARY KEY, UNIQUE, INDEX, KEY, FULLTEXT, SPATIAL)
+    IndexDefinition {
+        /// Optional "CONSTRAINT" span
+        constraint_span: Option<Span>,
+        /// Optional constraint symbol
+        constraint_symbol: Option<Identifier<'a>>,
+        /// The type of index
+        index_type: IndexType,
+        /// Optional index name
+        index_name: Option<Identifier<'a>>,
+        /// Columns in the index
+        cols: Vec<IndexCol<'a>>,
+        /// Index options
+        index_options: Vec<IndexOption<'a>>,
+    },
+    /// Foreign key definition
+    ForeignKeyDefinition {
+        /// Optional "CONSTRAINT" span
+        constraint_span: Option<Span>,
+        /// Optional constraint symbol
+        constraint_symbol: Option<Identifier<'a>>,
+        /// Span of "FOREIGN KEY"
+        foreign_key_span: Span,
+        /// Optional index name
+        index_name: Option<Identifier<'a>>,
+        /// Columns in this table
+        cols: Vec<IndexCol<'a>>,
+        /// Span of "REFERENCES"
+        references_span: Span,
+        /// Referenced table name
+        references_table: Identifier<'a>,
+        /// Referenced columns
+        references_cols: Vec<Identifier<'a>>,
+        /// ON UPDATE/DELETE actions
+        ons: Vec<ForeignKeyOn>,
+    },
+    /// Check constraint definition
+    CheckConstraintDefinition {
+        /// Optional "CONSTRAINT" span
+        constraint_span: Option<Span>,
+        /// Optional constraint symbol
+        constraint_symbol: Option<Identifier<'a>>,
+        /// Span of "CHECK"
+        check_span: Span,
+        /// Check expression
+        expression: Expression<'a>,
+        /// Optional ENFORCED/NOT ENFORCED
+        enforced: Option<(bool, Span)>,
     },
 }
 
@@ -190,9 +239,52 @@ impl<'a> Spanned for CreateDefinition<'a> {
                 identifier,
                 data_type,
             } => identifier.span().join_span(data_type),
-            CreateDefinition::ConstraintDefinition { span, identifier } => {
-                span.join_span(identifier)
-            }
+            CreateDefinition::IndexDefinition {
+                constraint_span,
+                constraint_symbol,
+                index_type,
+                index_name,
+                cols,
+                index_options,
+            } => index_type
+                .span()
+                .join_span(constraint_span)
+                .join_span(constraint_symbol)
+                .join_span(index_name)
+                .join_span(cols)
+                .join_span(index_options),
+            CreateDefinition::ForeignKeyDefinition {
+                constraint_span,
+                constraint_symbol,
+                foreign_key_span,
+                index_name,
+                cols,
+                references_span,
+                references_table,
+                references_cols,
+                ons,
+            } => foreign_key_span
+                .span()
+                .join_span(constraint_span)
+                .join_span(constraint_symbol)
+                .join_span(index_name)
+                .join_span(cols)
+                .join_span(references_span)
+                .join_span(references_table)
+                .join_span(references_cols)
+                .join_span(ons),
+            CreateDefinition::CheckConstraintDefinition {
+                constraint_span,
+                constraint_symbol,
+                check_span,
+                expression,
+                enforced,
+            } => check_span
+                .span()
+                .join_span(constraint_span)
+                .join_span(constraint_symbol)
+                .join_span(expression)
+                .join_span(enforced),
         }
     }
 }
@@ -357,46 +449,277 @@ impl<'a> Spanned for CreateView<'a> {
     }
 }
 
+/// Parse an index definition (PRIMARY KEY, UNIQUE, INDEX, KEY, FULLTEXT, SPATIAL)
+fn parse_index_definition<'a>(
+    parser: &mut Parser<'a, '_>,
+    constraint_span: Option<Span>,
+    constraint_symbol: Option<Identifier<'a>>,
+) -> Result<CreateDefinition<'a>, ParseError> {
+    // Parse index type
+    let index_type = match &parser.token {
+        Token::Ident(_, Keyword::PRIMARY) => {
+            let span = parser.consume_keyword(Keyword::PRIMARY)?;
+            parser.consume_keyword(Keyword::KEY)?;
+            IndexType::Primary(span)
+        }
+        Token::Ident(_, Keyword::UNIQUE) => {
+            let span = parser.consume_keyword(Keyword::UNIQUE)?;
+            // UNIQUE can be followed by INDEX or KEY (optional)
+            if parser.skip_keyword(Keyword::INDEX).is_some()
+                || parser.skip_keyword(Keyword::KEY).is_some()
+            {
+                // consumed INDEX or KEY
+            }
+            IndexType::Unique(span)
+        }
+        Token::Ident(_, Keyword::FULLTEXT) => {
+            let span = parser.consume_keyword(Keyword::FULLTEXT)?;
+            // FULLTEXT can be followed by INDEX or KEY (optional)
+            if parser.skip_keyword(Keyword::INDEX).is_some()
+                || parser.skip_keyword(Keyword::KEY).is_some()
+            {
+                // consumed INDEX or KEY
+            }
+            IndexType::FullText(span)
+        }
+        Token::Ident(_, Keyword::SPATIAL) => {
+            let span = parser.consume_keyword(Keyword::SPATIAL)?;
+            // SPATIAL can be followed by INDEX or KEY (optional)
+            if parser.skip_keyword(Keyword::INDEX).is_some()
+                || parser.skip_keyword(Keyword::KEY).is_some()
+            {
+                // consumed INDEX or KEY
+            }
+            IndexType::Spatial(span)
+        }
+        Token::Ident(_, Keyword::INDEX) => {
+            IndexType::Index(parser.consume_keyword(Keyword::INDEX)?)
+        }
+        Token::Ident(_, Keyword::KEY) => IndexType::Index(parser.consume_keyword(Keyword::KEY)?),
+        _ => parser.expected_failure("PRIMARY, UNIQUE, INDEX, KEY, FULLTEXT, or SPATIAL")?,
+    };
+
+    // Parse optional index name (not for PRIMARY KEY)
+    let index_name = match &index_type {
+        IndexType::Primary(_) => {
+            // PRIMARY KEY may optionally have a name before the column list
+            if let Token::Ident(_, _) = parser.token {
+                // Check if this is not a '(' which starts the column list
+                if !matches!(parser.token, Token::LParen) {
+                    Some(parser.consume_plain_identifier()?)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+        _ => {
+            // Other index types can optionally have a name
+            if let Token::Ident(_, _) = parser.token {
+                // Check if this is not a '(' which starts the column list
+                if !matches!(parser.token, Token::LParen) {
+                    Some(parser.consume_plain_identifier()?)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+    };
+
+    // Parse index columns
+    let cols = parse_index_cols(parser)?;
+
+    // Parse index options (USING, COMMENT, etc.)
+    let mut index_options = Vec::new();
+    parse_index_options(parser, &mut index_options)?;
+
+    Ok(CreateDefinition::IndexDefinition {
+        constraint_span,
+        constraint_symbol,
+        index_type,
+        index_name,
+        cols,
+        index_options,
+    })
+}
+
+/// Parse a foreign key definition
+fn parse_foreign_key_definition<'a>(
+    parser: &mut Parser<'a, '_>,
+    constraint_span: Option<Span>,
+    constraint_symbol: Option<Identifier<'a>>,
+) -> Result<CreateDefinition<'a>, ParseError> {
+    let foreign_span = parser.consume_keyword(Keyword::FOREIGN)?;
+    let key_span = parser.consume_keyword(Keyword::KEY)?;
+    let foreign_key_span = foreign_span.join_span(&key_span);
+
+    // Parse optional index name
+    let index_name = if let Token::Ident(_, _) = parser.token {
+        if !matches!(parser.token, Token::LParen) {
+            Some(parser.consume_plain_identifier()?)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // Parse columns
+    let cols = parse_index_cols(parser)?;
+
+    // Parse REFERENCES
+    let references_span = parser.consume_keyword(Keyword::REFERENCES)?;
+    let references_table = parser.consume_plain_identifier()?;
+
+    // Parse referenced columns
+    parser.consume_token(Token::LParen)?;
+    let mut references_cols = Vec::new();
+    loop {
+        references_cols.push(parser.consume_plain_identifier()?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    parser.consume_token(Token::RParen)?;
+
+    // Parse ON UPDATE/DELETE actions
+    let mut ons = Vec::new();
+    while parser.skip_keyword(Keyword::ON).is_some() {
+        let on_type = match &parser.token {
+            Token::Ident(_, Keyword::UPDATE) => {
+                ForeignKeyOnType::Update(parser.consume_keyword(Keyword::UPDATE)?)
+            }
+            Token::Ident(_, Keyword::DELETE) => {
+                ForeignKeyOnType::Delete(parser.consume_keyword(Keyword::DELETE)?)
+            }
+            _ => parser.expected_failure("UPDATE or DELETE")?,
+        };
+
+        let on_action = match &parser.token {
+            Token::Ident(_, Keyword::CASCADE) => {
+                ForeignKeyOnAction::Cascade(parser.consume_keyword(Keyword::CASCADE)?)
+            }
+            Token::Ident(_, Keyword::RESTRICT) => {
+                ForeignKeyOnAction::Restrict(parser.consume_keyword(Keyword::RESTRICT)?)
+            }
+            Token::Ident(_, Keyword::SET) => {
+                let set_span = parser.consume_keyword(Keyword::SET)?;
+                if parser.skip_keyword(Keyword::NULL).is_some() {
+                    ForeignKeyOnAction::SetNull(set_span)
+                } else if parser.skip_keyword(Keyword::DEFAULT).is_some() {
+                    ForeignKeyOnAction::SetDefault(set_span)
+                } else {
+                    parser.expected_failure("NULL or DEFAULT after SET")?
+                }
+            }
+            Token::Ident(_, Keyword::NO) => {
+                let no_span = parser.consume_keyword(Keyword::NO)?;
+                parser.consume_keyword(Keyword::ACTION)?;
+                ForeignKeyOnAction::NoAction(no_span)
+            }
+            _ => {
+                parser.expected_failure("CASCADE, RESTRICT, SET NULL, SET DEFAULT, or NO ACTION")?
+            }
+        };
+
+        ons.push(ForeignKeyOn {
+            type_: on_type,
+            action: on_action,
+        });
+    }
+
+    Ok(CreateDefinition::ForeignKeyDefinition {
+        constraint_span,
+        constraint_symbol,
+        foreign_key_span,
+        index_name,
+        cols,
+        references_span,
+        references_table,
+        references_cols,
+        ons,
+    })
+}
+
+/// Parse a check constraint definition
+fn parse_check_constraint_definition<'a>(
+    parser: &mut Parser<'a, '_>,
+    constraint_span: Option<Span>,
+    constraint_symbol: Option<Identifier<'a>>,
+) -> Result<CreateDefinition<'a>, ParseError> {
+    let check_span = parser.consume_keyword(Keyword::CHECK)?;
+
+    // Parse the check expression
+    parser.consume_token(Token::LParen)?;
+    let expression = parse_expression(parser, false)?;
+    parser.consume_token(Token::RParen)?;
+
+    // Parse optional ENFORCED / NOT ENFORCED
+    // Note: ENFORCED keyword may not be in the keyword enum, so we skip this for now
+    let enforced = None;
+
+    Ok(CreateDefinition::CheckConstraintDefinition {
+        constraint_span,
+        constraint_symbol,
+        check_span,
+        expression,
+        enforced,
+    })
+}
+
+/// Parse a constraint definition (with CONSTRAINT keyword)
 pub(crate) fn parse_create_constraint_definition<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<CreateDefinition<'a>, ParseError> {
-    let span = parser.consume_keyword(Keyword::CONSTRAINT)?;
-    let identifier = parser.consume_plain_identifier()?;
-    parser.consume_keywords(&[Keyword::FOREIGN, Keyword::KEY])?;
-    parser.consume_token(Token::LParen)?;
-    parser.consume_plain_identifier()?;
-    while parser.skip_token(Token::Comma).is_some() {
-        parser.consume_plain_identifier()?;
-    }
-    parser.consume_token(Token::RParen)?;
-    parser.consume_keyword(Keyword::REFERENCES)?;
-    parser.consume_plain_identifier()?;
-    parser.consume_token(Token::LParen)?;
-    parser.consume_plain_identifier()?;
-    while parser.skip_token(Token::Comma).is_some() {
-        parser.consume_plain_identifier()?;
-    }
+    let constraint_span = parser.consume_keyword(Keyword::CONSTRAINT)?;
 
-    parser.consume_token(Token::RParen)?;
-    if parser.skip_keyword(Keyword::ON).is_some() {
-        parser.consume_keyword(Keyword::DELETE)?;
-        match parser.token {
-            Token::Ident(_, Keyword::CASCADE) => {
-                parser.consume_keyword(Keyword::CASCADE)?;
-            }
-            Token::Ident(_, Keyword::DELETE) => {
-                parser.consume_keyword(Keyword::DELETE)?;
-            }
-            Token::Ident(_, Keyword::RESTRICT) => {
-                parser.consume_keyword(Keyword::RESTRICT)?;
-            }
-            Token::Ident(_, Keyword::SET) => {
-                parser.consume_keywords(&[Keyword::SET, Keyword::NULL])?;
-            }
-            _ => parser.expected_failure("CASCADE, DELETE OR SET NULL")?,
+    // Parse optional constraint symbol (name)
+    let constraint_symbol = if let Token::Ident(_, keyword) = parser.token {
+        // Check if the next token is a constraint keyword, meaning no symbol was provided
+        match keyword {
+            Keyword::PRIMARY
+            | Keyword::UNIQUE
+            | Keyword::FULLTEXT
+            | Keyword::SPATIAL
+            | Keyword::INDEX
+            | Keyword::KEY
+            | Keyword::FOREIGN
+            | Keyword::CHECK => None,
+            _ => Some(parser.consume_plain_identifier()?),
         }
+    } else {
+        None
+    };
+
+    // Dispatch to the appropriate parser based on the constraint type
+    match &parser.token {
+        Token::Ident(_, Keyword::PRIMARY) => {
+            parse_index_definition(parser, Some(constraint_span), constraint_symbol)
+        }
+        Token::Ident(_, Keyword::UNIQUE) => {
+            parse_index_definition(parser, Some(constraint_span), constraint_symbol)
+        }
+        Token::Ident(_, Keyword::FULLTEXT) => {
+            parse_index_definition(parser, Some(constraint_span), constraint_symbol)
+        }
+        Token::Ident(_, Keyword::SPATIAL) => {
+            parse_index_definition(parser, Some(constraint_span), constraint_symbol)
+        }
+        Token::Ident(_, Keyword::INDEX) | Token::Ident(_, Keyword::KEY) => {
+            parse_index_definition(parser, Some(constraint_span), constraint_symbol)
+        }
+        Token::Ident(_, Keyword::FOREIGN) => {
+            parse_foreign_key_definition(parser, Some(constraint_span), constraint_symbol)
+        }
+        Token::Ident(_, Keyword::CHECK) => {
+            parse_check_constraint_definition(parser, Some(constraint_span), constraint_symbol)
+        }
+        _ => parser
+            .expected_failure("PRIMARY, UNIQUE, INDEX, KEY, FULLTEXT, SPATIAL, FOREIGN, or CHECK"),
     }
-    Ok(CreateDefinition::ConstraintDefinition { span, identifier })
 }
 
 pub(crate) fn parse_create_definition<'a>(
@@ -404,6 +727,15 @@ pub(crate) fn parse_create_definition<'a>(
 ) -> Result<CreateDefinition<'a>, ParseError> {
     match &parser.token {
         Token::Ident(_, Keyword::CONSTRAINT) => parse_create_constraint_definition(parser),
+        Token::Ident(_, Keyword::PRIMARY) => parse_index_definition(parser, None, None),
+        Token::Ident(_, Keyword::UNIQUE) => parse_index_definition(parser, None, None),
+        Token::Ident(_, Keyword::FULLTEXT) => parse_index_definition(parser, None, None),
+        Token::Ident(_, Keyword::SPATIAL) => parse_index_definition(parser, None, None),
+        Token::Ident(_, Keyword::INDEX) | Token::Ident(_, Keyword::KEY) => {
+            parse_index_definition(parser, None, None)
+        }
+        Token::Ident(_, Keyword::FOREIGN) => parse_foreign_key_definition(parser, None, None),
+        Token::Ident(_, Keyword::CHECK) => parse_check_constraint_definition(parser, None, None),
         Token::Ident(_, _) => Ok(CreateDefinition::ColumnDefinition {
             identifier: parser.consume_plain_identifier()?,
             data_type: parse_data_type(parser, false)?,

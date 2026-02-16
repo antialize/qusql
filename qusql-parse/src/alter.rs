@@ -507,7 +507,7 @@ impl<'a> Spanned for AlterSpecification<'a> {
     }
 }
 
-fn parse_index_type<'a>(
+pub(crate) fn parse_index_type<'a>(
     parser: &mut Parser<'a, '_>,
     out: &mut Vec<IndexOption<'a>>,
 ) -> Result<(), ParseError> {
@@ -527,7 +527,7 @@ fn parse_index_type<'a>(
     Ok(())
 }
 
-fn parse_index_options<'a>(
+pub(crate) fn parse_index_options<'a>(
     parser: &mut Parser<'a, '_>,
     out: &mut Vec<IndexOption<'a>>,
 ) -> Result<(), ParseError> {
@@ -544,7 +544,9 @@ fn parse_index_options<'a>(
     Ok(())
 }
 
-fn parse_index_cols<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<IndexCol<'a>>, ParseError> {
+pub(crate) fn parse_index_cols<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Vec<IndexCol<'a>>, ParseError> {
     parser.consume_token(Token::LParen)?;
     let mut ans = Vec::new();
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {

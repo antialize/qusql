@@ -354,7 +354,9 @@ pub fn parse_schemas<'a>(
                                 schema.columns.push(column);
                             }
                         }
-                        qusql_parse::CreateDefinition::ConstraintDefinition { .. } => {}
+                        qusql_parse::CreateDefinition::IndexDefinition { .. } => {}
+                        qusql_parse::CreateDefinition::ForeignKeyDefinition { .. } => {}
+                        qusql_parse::CreateDefinition::CheckConstraintDefinition { .. } => {}
                     }
                 }
                 match schemas.schemas.entry(id.clone()) {
