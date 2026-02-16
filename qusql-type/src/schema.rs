@@ -566,7 +566,7 @@ pub fn parse_schemas<'a>(
                             ..
                         } => {
                             for col in &cols {
-                                if e.get_column(&col.name).is_none() {
+                                if e.get_column(col.name.value).is_none() {
                                     issues
                                         .err("No such column in table", col)
                                         .frag("Table defined here", &a.table);
@@ -750,7 +750,7 @@ pub fn parse_schemas<'a>(
 
                 if let Some(table) = schemas.schemas.get(t) {
                     for col in &ci.column_names {
-                        if table.get_column(col).is_none() {
+                        if table.get_column(col.name.value).is_none() {
                             issues
                                 .err("No such column in table", col)
                                 .frag("Table defined here", &table.identifier_span);

@@ -1323,7 +1323,7 @@ pub struct CreateIndex<'a> {
     pub table_name: QualifiedName<'a>,
     pub index_options: Vec<CreateIndexOption>,
     pub l_paren_span: Span,
-    pub column_names: Vec<Identifier<'a>>,
+    pub column_names: Vec<IndexCol<'a>>,
     pub r_paren_span: Span,
     pub where_: Option<(Span, Expression<'a>)>,
 }
@@ -1369,7 +1369,18 @@ fn parse_create_index<'a>(
     let l_paren_span = parser.consume_token(Token::LParen)?;
     let mut column_names = Vec::new();
     loop {
-        column_names.push(parser.consume_plain_identifier()?);
+        let name = parser.consume_plain_identifier()?;
+        let size = if parser.skip_token(Token::LParen).is_some() {
+            let size = parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
+                parser.consume_int()
+            })?;
+            parser.consume_token(Token::RParen)?;
+            Some(size)
+        } else {
+            None
+        };
+        column_names.push(IndexCol { name, size });
+
         if let Token::Ident(
             _,
             Keyword::TEXT_PATTERN_OPS
