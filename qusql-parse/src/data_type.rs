@@ -202,6 +202,25 @@ fn parse_width_req(parser: &mut Parser<'_, '_>) -> Result<(usize, Span), ParseEr
     Ok(parse_width(parser)?.expect("width"))
 }
 
+fn parse_precision_scale(
+    parser: &mut Parser<'_, '_>,
+) -> Result<Option<(usize, usize, Span)>, ParseError> {
+    if !matches!(parser.token, Token::LParen) {
+        return Ok(None);
+    }
+    let left = parser.consume_token(Token::LParen)?;
+    let (precision, s1) = parser.consume_int()?;
+    let scale = if parser.skip_token(Token::Comma).is_some() {
+        let (v, _) = parser.consume_int()?;
+        v
+    } else {
+        0
+    };
+    let right = parser.consume_token(Token::RParen)?;
+    let span = left.join_span(&s1).join_span(&right);
+    Ok(Some((precision, scale, span)))
+}
+
 fn parse_enum_set_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<SString<'a>>, ParseError> {
     parser.consume_token(Token::LParen)?;
     let mut ans = Vec::new();
@@ -316,7 +335,8 @@ pub(crate) fn parse_data_type<'a>(
             }
         }
         Token::Ident(_, Keyword::FLOAT) => {
-            (parser.consume_keyword(Keyword::FLOAT)?, Type::Float(None)) // TODO
+            let i = parser.consume_keyword(Keyword::FLOAT)?;
+            (i, Type::Float(parse_precision_scale(parser)?))
         }
         Token::Ident(_, Keyword::DOUBLE) => {
             let i = if parser.options.dialect.is_postgresql() {
@@ -324,7 +344,7 @@ pub(crate) fn parse_data_type<'a>(
             } else {
                 parser.consume_keyword(Keyword::DOUBLE)?
             };
-            (i, Type::Double(None)) // TODO
+            (i, Type::Double(parse_precision_scale(parser)?))
         }
         Token::Ident(_, Keyword::NUMERIC) => {
             let numeric = parser.consume_keyword(Keyword::NUMERIC)?;
