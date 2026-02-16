@@ -31,7 +31,7 @@ use crate::{
 pub enum TableOption<'a> {
     AutoExtendSize {
         identifier: Span,
-        value: Identifier<'a>,
+        value: (usize, Span),
     },
     AutoIncrement {
         identifier: Span,
@@ -39,7 +39,7 @@ pub enum TableOption<'a> {
     },
     AvgRowLength {
         identifier: Span,
-        value: Identifier<'a>,
+        value: (usize, Span),
     },
     CharSet {
         identifier: Span,
@@ -113,7 +113,10 @@ pub enum TableOption<'a> {
         identifier: Span,
         value: (usize, Span),
     },
-    // PACK_KEYS
+    PackKeys {
+        identifier: Span,
+        value: (usize, Span),
+    },
     Password {
         identifier: Span,
         value: SString<'a>,
@@ -126,14 +129,36 @@ pub enum TableOption<'a> {
         identifier: Span,
         value: SString<'a>,
     },
+    StartTransaction {
+        identifier: Span,
+    },
+    StatsAutoRecalc {
+        identifier: Span,
+        value: (usize, Span),
+    },
+    StatsPersistent {
+        identifier: Span,
+        value: (usize, Span),
+    },
+    StatsSamplePages {
+        identifier: Span,
+        value: (usize, Span),
+    },
+    Storage {
+        identifier: Span,
+        value: Identifier<'a>,
+    },
     Strict {
         identifier: Span,
     },
-    //StatsAutoRecalc
-    //StatsPersistance
-    //StatsSamplePages
-    //TABLESPACE
-    //UNION
+    Tablespace {
+        identifier: Span,
+        value: Identifier<'a>,
+    },
+    Union {
+        identifier: Span,
+        value: Vec<Identifier<'a>>,
+    },
 }
 
 impl<'a> Spanned for TableOption<'a> {
@@ -162,12 +187,32 @@ impl<'a> Spanned for TableOption<'a> {
             TableOption::KeyBlockSize { identifier, value } => identifier.span().join_span(value),
             TableOption::MaxRows { identifier, value } => identifier.span().join_span(value),
             TableOption::MinRows { identifier, value } => identifier.span().join_span(value),
+            TableOption::PackKeys { identifier, value } => identifier.span().join_span(value),
             TableOption::Password { identifier, value } => identifier.span().join_span(value),
             TableOption::RowFormat { identifier, value } => identifier.span().join_span(value),
             TableOption::SecondaryEngineAttribute { identifier, value } => {
                 identifier.span().join_span(value)
             }
+            TableOption::StartTransaction { identifier } => identifier.span(),
+            TableOption::StatsAutoRecalc { identifier, value } => {
+                identifier.span().join_span(value)
+            }
+            TableOption::StatsPersistent { identifier, value } => {
+                identifier.span().join_span(value)
+            }
+            TableOption::StatsSamplePages { identifier, value } => {
+                identifier.span().join_span(value)
+            }
+            TableOption::Storage { identifier, value } => identifier.span().join_span(value),
             TableOption::Strict { identifier } => identifier.span(),
+            TableOption::Tablespace { identifier, value } => identifier.span().join_span(value),
+            TableOption::Union { identifier, value } => {
+                if let Some(last) = value.last() {
+                    identifier.span().join_span(last)
+                } else {
+                    identifier.span()
+                }
+            }
         }
     }
 }
@@ -1642,6 +1687,201 @@ fn parse_create_table<'a>(
                         options.push(TableOption::DataDirectory {
                             identifier,
                             value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::INDEX) => {
+                        let identifier =
+                            parser.consume_keywords(&[Keyword::INDEX, Keyword::DIRECTORY])?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::IndexDirectory {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::INSERT_METHOD) => {
+                        let identifier = parser.consume_keyword(Keyword::INSERT_METHOD)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::InsertMethod {
+                            identifier,
+                            value: parser.consume_plain_identifier()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::PACK_KEYS) => {
+                        let identifier = parser.consume_keyword(Keyword::PACK_KEYS)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::PackKeys {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::STATS_AUTO_RECALC) => {
+                        let identifier = parser.consume_keyword(Keyword::STATS_AUTO_RECALC)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::StatsAutoRecalc {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::STATS_PERSISTENT) => {
+                        let identifier = parser.consume_keyword(Keyword::STATS_PERSISTENT)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::StatsPersistent {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::STATS_SAMPLE_PAGES) => {
+                        let identifier = parser.consume_keyword(Keyword::STATS_SAMPLE_PAGES)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::StatsSamplePages {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::DELAY_KEY_WRITE) => {
+                        let identifier = parser.consume_keyword(Keyword::DELAY_KEY_WRITE)?;
+                        parser.skip_token(Token::Eq);
+                        let (val, span) = parser.consume_int::<usize>()?;
+                        options.push(TableOption::DelayKeyWrite {
+                            identifier,
+                            value: (val != 0, span),
+                        });
+                    }
+                    Token::Ident(_, Keyword::COMPRESSION) => {
+                        let identifier = parser.consume_keyword(Keyword::COMPRESSION)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::Compression {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::ENCRYPTION) => {
+                        let identifier = parser.consume_keyword(Keyword::ENCRYPTION)?;
+                        parser.skip_token(Token::Eq);
+                        // ENCRYPTION can be 'Y'/'N' string or YES/NO keyword
+                        let value = match &parser.token {
+                            Token::SingleQuotedString(_) | Token::DoubleQuotedString(_) => {
+                                let s = parser.consume_string()?;
+                                let is_yes = s.as_str().eq_ignore_ascii_case("y")
+                                    || s.as_str().eq_ignore_ascii_case("yes");
+                                (is_yes, s.span())
+                            }
+                            _ => {
+                                let id = parser.consume_plain_identifier()?;
+                                let is_yes = id.value.eq_ignore_ascii_case("yes");
+                                (is_yes, id.span())
+                            }
+                        };
+                        options.push(TableOption::Encryption { identifier, value });
+                    }
+                    Token::Ident(_, Keyword::MAX_ROWS) => {
+                        let identifier = parser.consume_keyword(Keyword::MAX_ROWS)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::MaxRows {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::MIN_ROWS) => {
+                        let identifier = parser.consume_keyword(Keyword::MIN_ROWS)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::MinRows {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::AUTOEXTEND_SIZE) => {
+                        let identifier = parser.consume_keyword(Keyword::AUTOEXTEND_SIZE)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::AutoExtendSize {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::AVG_ROW_LENGTH) => {
+                        let identifier = parser.consume_keyword(Keyword::AVG_ROW_LENGTH)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::AvgRowLength {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::CHECKSUM) => {
+                        let identifier = parser.consume_keyword(Keyword::CHECKSUM)?;
+                        parser.skip_token(Token::Eq);
+                        let (val, span) = parser.consume_int::<usize>()?;
+                        options.push(TableOption::Checksum {
+                            identifier,
+                            value: (val != 0, span),
+                        });
+                    }
+                    Token::Ident(_, Keyword::CONNECTION) => {
+                        let identifier = parser.consume_keyword(Keyword::CONNECTION)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::Connection {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::ENGINE_ATTRIBUTE) => {
+                        let identifier = parser.consume_keyword(Keyword::ENGINE_ATTRIBUTE)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::EngineAttribute {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::PASSWORD) => {
+                        let identifier = parser.consume_keyword(Keyword::PASSWORD)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::Password {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::SECONDARY_ENGINE_ATTRIBUTE) => {
+                        let identifier =
+                            parser.consume_keyword(Keyword::SECONDARY_ENGINE_ATTRIBUTE)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::SecondaryEngineAttribute {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::START) => {
+                        let identifier =
+                            parser.consume_keywords(&[Keyword::START, Keyword::TRANSACTION])?;
+                        options.push(TableOption::StartTransaction { identifier });
+                    }
+                    Token::Ident(_, Keyword::TABLESPACE) => {
+                        let identifier = parser.consume_keyword(Keyword::TABLESPACE)?;
+                        options.push(TableOption::Tablespace {
+                            identifier,
+                            value: parser.consume_plain_identifier()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::STORAGE) => {
+                        let identifier = parser.consume_keyword(Keyword::STORAGE)?;
+                        options.push(TableOption::Storage {
+                            identifier,
+                            value: parser.consume_plain_identifier()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::UNION) => {
+                        let identifier = parser.consume_keyword(Keyword::UNION)?;
+                        parser.skip_token(Token::Eq);
+                        parser.consume_token(Token::LParen)?;
+                        let mut tables = Vec::new();
+                        loop {
+                            tables.push(parser.consume_plain_identifier()?);
+                            if parser.skip_token(Token::Comma).is_none() {
+                                break;
+                            }
+                        }
+                        parser.consume_token(Token::RParen)?;
+                        options.push(TableOption::Union {
+                            identifier,
+                            value: tables,
                         });
                     }
                     t if t == &parser.delimiter => break,
