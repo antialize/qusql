@@ -1886,6 +1886,9 @@ fn parse_create_table<'a>(
                             value: tables,
                         });
                     }
+                    Token::Comma => {
+                        parser.consume_token(Token::Comma)?;
+                    }
                     t if t == &parser.delimiter => break,
                     Token::Eof => break,
                     _ => {
