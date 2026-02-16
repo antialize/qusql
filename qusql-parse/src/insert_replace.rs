@@ -238,6 +238,8 @@ pub struct InsertReplace<'a> {
     pub on_duplicate_key_update: Option<InsertReplaceOnDuplicateKeyUpdate<'a>>,
     /// Action to take on duplicate keys (postgresql)
     pub on_conflict: Option<OnConflict<'a>>,
+    /// AS alias with optional column list (MySQL/MariaDB): AS alias [(col1, col2, ...)]
+    pub as_alias: Option<(Span, Identifier<'a>, Option<Vec<Identifier<'a>>>)>,
     /// Span of "RETURNING" and select expressions after "RETURNING", if "RETURNING" is present
     pub returning: Option<(Span, Vec<SelectExpr<'a>>)>,
 }
@@ -251,6 +253,7 @@ impl<'a> Spanned for InsertReplace<'a> {
             .join_span(&self.values)
             .join_span(&self.select)
             .join_span(&self.set)
+            .join_span(&self.as_alias)
             .join_span(&self.on_duplicate_key_update)
             .join_span(&self.on_conflict)
             .join_span(&self.returning)
@@ -310,15 +313,18 @@ pub(crate) fn parse_insert_replace<'a>(
 
     let mut columns = Vec::new();
     if parser.skip_token(Token::LParen).is_some() {
-        parser.recovered(")", &|t| t == &Token::RParen, |parser| {
-            loop {
-                columns.push(parser.consume_plain_identifier()?);
-                if parser.skip_token(Token::Comma).is_none() {
-                    break;
+        // Check for empty column list ()
+        if !matches!(parser.token, Token::RParen) {
+            parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+                loop {
+                    columns.push(parser.consume_plain_identifier()?);
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
                 }
-            }
-            Ok(())
-        })?;
+                Ok(())
+            })?;
+        }
         parser.consume_token(Token::RParen)?;
     }
 
@@ -335,15 +341,18 @@ pub(crate) fn parse_insert_replace<'a>(
             loop {
                 let mut vals = Vec::new();
                 parser.consume_token(Token::LParen)?;
-                parser.recovered(")", &|t| t == &Token::RParen, |parser| {
-                    loop {
-                        vals.push(parse_expression(parser, false)?);
-                        if parser.skip_token(Token::Comma).is_none() {
-                            break;
+                // Check for empty VALUES ()
+                if !matches!(parser.token, Token::RParen) {
+                    parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+                        loop {
+                            vals.push(parse_expression(parser, false)?);
+                            if parser.skip_token(Token::Comma).is_none() {
+                                break;
+                            }
                         }
-                    }
-                    Ok(())
-                })?;
+                        Ok(())
+                    })?;
+                }
                 parser.consume_token(Token::RParen)?;
                 values_items.push(vals);
                 if parser.skip_token(Token::Comma).is_none() {
@@ -501,6 +510,30 @@ pub(crate) fn parse_insert_replace<'a>(
             (None, None)
         };
 
+    // Parse AS alias (MySQL/MariaDB): AS alias [(col1, col2, ...)]
+    let as_alias = if let Some(as_span) = parser.skip_keyword(Keyword::AS) {
+        let alias = parser.consume_plain_identifier()?;
+        let columns = if parser.skip_token(Token::LParen).is_some() {
+            let mut cols = Vec::new();
+            // Check for empty column list ()
+            if !matches!(parser.token, Token::RParen) {
+                loop {
+                    cols.push(parser.consume_plain_identifier()?);
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+            }
+            parser.consume_token(Token::RParen)?;
+            Some(cols)
+        } else {
+            None
+        };
+        Some((as_span, alias, columns))
+    } else {
+        None
+    };
+
     let returning = if let Some(returning_span) = parser.skip_keyword(Keyword::RETURNING) {
         let mut returning_exprs = Vec::new();
         loop {
@@ -523,6 +556,7 @@ pub(crate) fn parse_insert_replace<'a>(
         values,
         select,
         set,
+        as_alias,
         on_duplicate_key_update,
         on_conflict,
         returning,
