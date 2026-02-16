@@ -479,11 +479,8 @@
   },
   {
     "input": "CREATE TABLE foo (`modification_time` DATETIME ON UPDATE CURRENT_TIMESTAMP())",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 13..16,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"modification_time\",\n                    span: 18..37,\n                },\n                data_type: DataType {\n                    identifier: 38..46,\n                    type_: DateTime(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected '')' or ','' here\",\n    span: 47..49,\n    sql_segment: \"ON\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 13..16,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"modification_time\",\n                    span: 18..37,\n                },\n                data_type: DataType {\n                    identifier: 38..46,\n                    type_: DateTime(\n                        None,\n                    ),\n                    properties: [\n                        OnUpdate(\n                            (\n                                47..56,\n                                Function(\n                                    CurrentTimestamp,\n                                    [],\n                                    57..74,\n                                ),\n                            ),\n                        ),\n                    ],\n                },\n            },\n        ],\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TABLE foo (bar DOUBLE(11, 0))",

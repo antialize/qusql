@@ -43,6 +43,7 @@ pub enum DataTypeProperty<'a> {
     PrimaryKey(Span),
     As((Span, Box<Expression<'a>>)),
     Check((Span, Box<Expression<'a>>)),
+    OnUpdate((Span, Box<Expression<'a>>)),
 }
 
 impl<'a> Spanned for DataTypeProperty<'a> {
@@ -67,6 +68,7 @@ impl<'a> Spanned for DataTypeProperty<'a> {
             DataTypeProperty::As((s, v)) => s.join_span(v),
             DataTypeProperty::Check((s, v)) => s.join_span(v),
             DataTypeProperty::PrimaryKey(v) => v.span(),
+            DataTypeProperty::OnUpdate((s, v)) => s.join_span(v),
         }
     }
 }
@@ -515,6 +517,11 @@ pub(crate) fn parse_data_type<'a>(
                 let s2 = parser.consume_token(Token::RParen)?;
                 let e = e.unwrap_or_else(|| Expression::Invalid(s1.join_span(&s2)));
                 properties.push(DataTypeProperty::Check((span, Box::new(e))));
+            }
+            Token::Ident(_, Keyword::ON) => {
+                let span = parser.consume_keywords(&[Keyword::ON, Keyword::UPDATE])?;
+                let expr = parse_expression(parser, true)?;
+                properties.push(DataTypeProperty::OnUpdate((span, Box::new(expr))));
             }
             _ => break,
         }
