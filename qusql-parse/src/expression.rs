@@ -1598,6 +1598,19 @@ pub(crate) fn parse_expression<'a>(
                 parser.consume();
                 r.shift_expr(parse_function(parser, i, s)?)
             }
+            // Handle charset-prefixed strings like _utf8mb4 'abc' or _binary 'data'
+            Token::Ident(charset, _)
+                if charset.starts_with('_')
+                    && matches!(
+                        parser.peek(),
+                        Token::SingleQuotedString(_) | Token::DoubleQuotedString(_)
+                    ) =>
+            {
+                // Consume the charset prefix
+                parser.consume();
+                // Parse the string literal
+                r.shift_expr(Expression::String(parser.consume_string()?))
+            }
             Token::Ident(_, k) if k.expr_ident() => {
                 let i = parser.token.clone();
                 let s = parser.span.clone();
