@@ -92,7 +92,7 @@ pub(crate) fn decode_hex_string(s: &str) -> Cow<'_, str> {
 
 impl<'a, 'b> Parser<'a, 'b> {
     pub(crate) fn new(src: &'a str, issues: &'b mut Issues<'a>, options: &'b ParseOptions) -> Self {
-        let mut lexer = Lexer::new(src);
+        let mut lexer = Lexer::new(src, &options.dialect);
         let (token, span) = lexer.next_token();
         Self {
             token,

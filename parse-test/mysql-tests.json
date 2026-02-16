@@ -1112,11 +1112,8 @@
   },
   {
     "input": "INSERT INTO s1.t1 (123col_$@length123) VALUES (67.654)",
-    "output": "InsertReplace(\n    InsertReplace {\n        type_: Insert(\n            0..6,\n        ),\n        flags: [],\n        into_span: Some(\n            7..11,\n        ),\n        table: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"s1\",\n                        span: 12..14,\n                    },\n                    14..15,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"t1\",\n                span: 15..17,\n            },\n        },\n        columns: [],\n        values: Some(\n            (\n                39..45,\n                [\n                    [\n                        Float(\n                            (\n                                67.654,\n                                47..53,\n                            ),\n                        ),\n                    ],\n                ],\n            ),\n        ),\n        select: None,\n        set: None,\n        on_duplicate_key_update: None,\n        on_conflict: None,\n        as_alias: None,\n        returning: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 19..22,\n    sql_segment: \"123\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "InsertReplace(\n    InsertReplace {\n        type_: Insert(\n            0..6,\n        ),\n        flags: [],\n        into_span: Some(\n            7..11,\n        ),\n        table: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"s1\",\n                        span: 12..14,\n                    },\n                    14..15,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"t1\",\n                span: 15..17,\n            },\n        },\n        columns: [\n            Identifier {\n                value: \"123col_$@length123\",\n                span: 19..37,\n            },\n        ],\n        values: Some(\n            (\n                39..45,\n                [\n                    [\n                        Float(\n                            (\n                                67.654,\n                                47..53,\n                            ),\n                        ),\n                    ],\n                ],\n            ),\n        ),\n        select: None,\n        set: None,\n        on_duplicate_key_update: None,\n        on_conflict: None,\n        as_alias: None,\n        returning: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "INSERT INTO tasks (title, priority) VALUES ('Test Some Inserts', 1), ('Test Entry 2', 2), ('Test Entry 3', 3)",
@@ -1479,7 +1476,7 @@
     "input": "SELECT 123col_$@123abc FROM \"table\"",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 14..15,\n    sql_segment: \"$\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'subquery or identifier' here\",\n    span: 28..35,\n    sql_segment: \"\\\"table\\\"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1488,18 +1485,15 @@
     "input": "SELECT 123e4, 123col_$@123abc FROM \"table\"",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 12..13,\n    sql_segment: \",\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'subquery or identifier' here\",\n    span: 35..42,\n    sql_segment: \"\\\"table\\\"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "SELECT 15e29 FROM my_table",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 13..17,\n    sql_segment: \"FROM\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Float(\n                    (\n                        1.5e30,\n                        7..12,\n                    ),\n                ),\n                as_: None,\n            },\n        ],\n        from_span: Some(\n            13..17,\n        ),\n        table_references: Some(\n            [\n                Table {\n                    identifier: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"my_table\",\n                            span: 18..26,\n                        },\n                    },\n                    as_span: None,\n                    as_: None,\n                    index_hints: [],\n                },\n            ],\n        ),\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT 17 MEMBER OF('[23, \"abc\", 17, \"ab\", 10]')",
@@ -1513,7 +1507,7 @@
     "input": "SELECT 1db.1table.1column",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 10..12,\n    sql_segment: \".1\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 12..17,\n    sql_segment: \"table\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true

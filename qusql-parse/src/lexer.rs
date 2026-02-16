@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Span, keywords::Keyword};
+use crate::{SQLDialect, Span, keywords::Keyword};
 
 /// SQL Token enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -139,13 +139,15 @@ impl<'a> Token<'a> {
 pub(crate) struct Lexer<'a> {
     src: &'a str,
     chars: core::iter::Peekable<core::str::CharIndices<'a>>,
+    dialect: SQLDialect,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(src: &'a str) -> Self {
+    pub fn new(src: &'a str, dialect: &SQLDialect) -> Self {
         Self {
             src,
             chars: src.char_indices().peekable(),
+            dialect: dialect.clone(),
         }
     }
 
@@ -157,6 +159,10 @@ impl<'a> Lexer<'a> {
         let end = loop {
             match self.chars.peek() {
                 Some((_, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9')) => {
+                    self.chars.next();
+                }
+                // For MariaDB, allow $ and @ in identifiers
+                Some((_, '$' | '@')) if self.dialect.is_maria() => {
                     self.chars.next();
                 }
                 Some((i, _)) => break *i,
@@ -505,33 +511,156 @@ impl<'a> Lexer<'a> {
                         None => break Token::Invalid,
                     }
                 },
-                '0'..='9' => loop {
-                    match self.chars.peek() {
-                        Some((_, '0'..='9')) => {
-                            self.chars.next();
+                '0'..='9' => {
+                    // For MariaDB, identifiers can start with digits
+                    // We need to peek ahead to determine if this is a number or identifier
+                    if self.dialect.is_maria() {
+                        // Lookahead to see if this could be an identifier
+                        let mut temp_chars = self.chars.clone();
+                        let mut is_identifier = false;
+
+                        // Skip over digits
+                        while matches!(temp_chars.peek(), Some((_, '0'..='9'))) {
+                            temp_chars.next();
                         }
-                        Some((_, '.')) => {
-                            self.chars.next();
-                            break loop {
+
+                        // Check what comes after the digits
+                        match temp_chars.peek() {
+                            Some((_, 'e' | 'E')) => {
+                                // Could be scientific notation, check further
+                                temp_chars.next();
+                                if let Some((_, '+' | '-')) = temp_chars.peek() {
+                                    temp_chars.next();
+                                };
+                                // If followed by digits, it's a number
+                                // If followed by other identifier chars, it's an identifier
+                                if !matches!(temp_chars.peek(), Some((_, '0'..='9'))) {
+                                    is_identifier = true;
+                                }
+                            }
+                            Some((_, '_' | 'a'..='z' | 'A'..='Z' | '$' | '@')) => {
+                                is_identifier = true;
+                            }
+                            Some((_, '.')) => {
+                                // Could be a float, check if followed by digits
+                                temp_chars.next();
+                                if matches!(temp_chars.peek(), Some((_, '0'..='9'))) {
+                                    // It's a float
+                                    is_identifier = false;
+                                } else {
+                                    // Period not followed by digit, could be end of number
+                                    is_identifier = false;
+                                }
+                            }
+                            _ => is_identifier = false,
+                        }
+
+                        if is_identifier {
+                            self.simple_literal(start)
+                        } else {
+                            // Parse as number (integer, float, or scientific notation)
+                            let mut is_float = false;
+                            loop {
                                 match self.chars.peek() {
                                     Some((_, '0'..='9')) => {
                                         self.chars.next();
                                     }
-                                    Some((i, _)) => {
-                                        let i = *i;
-                                        break Token::Float(self.s(start..i));
+                                    Some((_, '.')) => {
+                                        self.chars.next();
+                                        is_float = true;
+                                        // Consume fractional part
+                                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                            self.chars.next();
+                                        }
+                                        // Check for exponent
+                                        if matches!(self.chars.peek(), Some((_, 'e' | 'E'))) {
+                                            self.chars.next();
+                                            if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                                self.chars.next();
+                                            }
+                                            while matches!(self.chars.peek(), Some((_, '0'..='9')))
+                                            {
+                                                self.chars.next();
+                                            }
+                                        }
+                                        break;
                                     }
-                                    None => break Token::Float(self.s(start..self.src.len())),
+                                    Some((_, 'e' | 'E')) => {
+                                        self.chars.next();
+                                        is_float = true;
+                                        if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                            self.chars.next();
+                                        }
+                                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                            self.chars.next();
+                                        }
+                                        break;
+                                    }
+                                    _ => break,
                                 }
+                            }
+                            let end = match self.chars.peek() {
+                                Some((i, _)) => *i,
+                                None => self.src.len(),
                             };
+                            if is_float {
+                                Token::Float(self.s(start..end))
+                            } else {
+                                Token::Integer(self.s(start..end))
+                            }
                         }
-                        Some((i, _)) => {
-                            let i = *i;
-                            break Token::Integer(self.s(start..i));
+                    } else {
+                        // Non-MariaDB: parse as number only (never as identifier)
+                        let mut is_float = false;
+                        loop {
+                            match self.chars.peek() {
+                                Some((_, '0'..='9')) => {
+                                    self.chars.next();
+                                }
+                                Some((_, '.')) => {
+                                    self.chars.next();
+                                    is_float = true;
+                                    // Consume fractional part
+                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                        self.chars.next();
+                                    }
+                                    // Check for exponent
+                                    if matches!(self.chars.peek(), Some((_, 'e' | 'E'))) {
+                                        self.chars.next();
+                                        if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                            self.chars.next();
+                                        }
+                                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                            self.chars.next();
+                                        }
+                                    }
+                                    break;
+                                }
+                                Some((_, 'e' | 'E')) => {
+                                    self.chars.next();
+                                    is_float = true;
+                                    if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                        self.chars.next();
+                                    }
+                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                        self.chars.next();
+                                    }
+                                    break;
+                                }
+                                _ => break,
+                            }
                         }
-                        None => break Token::Integer(self.s(start..self.src.len())),
+                        let end = match self.chars.peek() {
+                            Some((i, _)) => *i,
+                            None => self.src.len(),
+                        };
+                        if is_float {
+                            Token::Float(self.s(start..end))
+                        } else {
+                            Token::Integer(self.s(start..end))
+                        }
                     }
-                },
+                }
                 '.' => match self.chars.peek() {
                     Some((_, '0'..='9')) => loop {
                         match self.chars.peek() {
