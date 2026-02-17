@@ -31,7 +31,7 @@ pub enum TableOption<'a> {
     },
     AutoIncrement {
         identifier: Span,
-        value: Identifier<'a>,
+        value: (u64, Span),
     },
     AvgRowLength {
         identifier: Span,
@@ -1218,6 +1218,14 @@ fn parse_create_table<'a>(
                     Token::Ident(_, Keyword::STRICT) => {
                         parser.consume_keyword(Keyword::STRICT)?;
                         options.push(TableOption::Strict { identifier });
+                    }
+                    Token::Ident(_, Keyword::AUTO_INCREMENT) => {
+                        let identifier = parser.consume_keyword(Keyword::AUTO_INCREMENT)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::AutoIncrement {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
                     }
                     t if t == &parser.delimiter => break,
                     Token::Eof => break,

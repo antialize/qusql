@@ -694,6 +694,12 @@ pub fn parse_schemas<'a>(
                                 &s,
                             );
                         }
+                        s @ qusql_parse::AlterSpecification::AutoIncrement { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
                     }
                 }
             }

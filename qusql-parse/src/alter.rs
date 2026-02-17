@@ -322,6 +322,13 @@ pub enum AlterSpecification<'a> {
         algorithm_span: Span,
         algorithm: AlterAlgorithm,
     },
+    AutoIncrement {
+        /// Span of "AUTO_INCREMENT"
+        auto_increment_span: Span,
+        value_span: Span,
+        /// New value for auto_increment
+        value: u64,
+    },
 }
 
 impl<'a> Spanned for AlterSpecification<'a> {
@@ -417,6 +424,11 @@ impl<'a> Spanned for AlterSpecification<'a> {
                 algorithm_span,
                 algorithm,
             } => algorithm_span.join_span(algorithm),
+            AlterSpecification::AutoIncrement {
+                auto_increment_span,
+                value_span,
+                ..
+            } => auto_increment_span.join_span(value_span),
         }
     }
 }
@@ -963,6 +975,16 @@ fn parse_alter_table<'a>(
                     AlterSpecification::Algorithm {
                         algorithm_span,
                         algorithm,
+                    }
+                }
+                Token::Ident(_, Keyword::AUTO_INCREMENT) => {
+                    let auto_increment_span = parser.consume_keyword(Keyword::AUTO_INCREMENT)?;
+                    parser.skip_token(Token::Eq);
+                    let (value, value_span) = parser.consume_int()?;
+                    AlterSpecification::AutoIncrement {
+                        auto_increment_span,
+                        value_span,
+                        value,
                     }
                 }
                 Token::Ident(_, Keyword::RENAME) => parse_rename_alter_specification(parser)?,
