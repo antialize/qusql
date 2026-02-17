@@ -58,6 +58,7 @@ pub(crate) enum Token<'a> {
     ShiftRight,
     SingleQuotedString(&'a str),
     DoubleQuotedString(&'a str),
+    HexString(&'a str),
     Spaceship,
     Tilde,
     PercentS,
@@ -125,6 +126,7 @@ impl<'a> Token<'a> {
             Token::DollarArg(_) => "'$i'",
             Token::SingleQuotedString(_) => "String",
             Token::DoubleQuotedString(_) => "String",
+            Token::HexString(_) => "HexString",
             Token::Spaceship => "'<=>'",
             Token::Tilde => "'~'",
             Token::PercentS => "'%s'",
@@ -437,7 +439,15 @@ impl<'a> Lexer<'a> {
                 },
                 'x' | 'X' => match self.chars.peek() {
                     Some((_, '\'')) => {
-                        todo!("Hex literal")
+                        self.chars.next(); // consume the '
+                        loop {
+                            match self.chars.next() {
+                                Some((i, '\'')) => break Token::HexString(self.s(start + 2..i)),
+                                Some((_, '0'..='9' | 'a'..='f' | 'A'..='F')) => (),
+                                Some((_, _)) => break Token::Invalid,
+                                None => break Token::Invalid,
+                            }
+                        }
                     }
                     _ => self.simple_literal(start),
                 },

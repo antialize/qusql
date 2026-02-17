@@ -1867,7 +1867,8 @@
   },
   {
     "input": "SELECT _latin1 X'4D7953514C'",
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"MySQL\",\n                        span: 15..28,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT _utf8 'abc'",
