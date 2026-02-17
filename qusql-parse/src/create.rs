@@ -1199,6 +1199,14 @@ fn parse_create_table<'a>(
                         });
                         //TODO validate raw format is in the keyword set
                     }
+                    Token::Ident(_, Keyword::KEY_BLOCK_SIZE) => {
+                        parser.consume_keywords(&[Keyword::KEY_BLOCK_SIZE])?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::KeyBlockSize {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
                     Token::Ident(_, Keyword::COMMENT) => {
                         parser.consume_keyword(Keyword::COMMENT)?;
                         parser.skip_token(Token::Eq);

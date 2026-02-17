@@ -170,6 +170,44 @@ impl<'a> Spanned for AlterColumnAction<'a> {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum AlterLock {
+    Default(Span),
+    None(Span),
+    Shared(Span),
+    Exclusive(Span),
+}
+
+impl Spanned for AlterLock {
+    fn span(&self) -> Span {
+        match self {
+            AlterLock::Default(v) => v.span(),
+            AlterLock::None(v) => v.span(),
+            AlterLock::Shared(v) => v.span(),
+            AlterLock::Exclusive(v) => v.span(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum AlterAlgorithm {
+    Default(Span),
+    Instant(Span),
+    Inplace(Span),
+    Copy(Span),
+}
+
+impl Spanned for AlterAlgorithm {
+    fn span(&self) -> Span {
+        match self {
+            AlterAlgorithm::Default(v) => v.span(),
+            AlterAlgorithm::Instant(v) => v.span(),
+            AlterAlgorithm::Inplace(v) => v.span(),
+            AlterAlgorithm::Copy(v) => v.span(),
+        }
+    }
+}
+
 /// Enum of alterations to perform on a table
 #[derive(Clone, Debug)]
 pub enum AlterSpecification<'a> {
@@ -252,6 +290,38 @@ pub enum AlterSpecification<'a> {
         /// Name of owner
         owner: Identifier<'a>,
     },
+    Lock {
+        /// Span of "LOCK"
+        lock_span: Span,
+        lock: AlterLock,
+    },
+    RenameColumn {
+        /// Span of "RENAME COLUMN"
+        rename_column_span: Span,
+        /// Old name of column
+        old_col_name: Identifier<'a>,
+        /// New name of column
+        new_col_name: Identifier<'a>,
+    },
+    RenameIndex {
+        /// Span of "RENAME INDEX" "or RENAME KEY"
+        rename_index_span: Span,
+        /// Old name of index
+        old_index_name: Identifier<'a>,
+        /// New name of index
+        new_index_name: Identifier<'a>,
+    },
+    RenameTo {
+        /// Span of "RENAME TO"
+        rename_to_span: Span,
+        /// New name of table
+        new_table_name: Identifier<'a>,
+    },
+    Algorithm {
+        /// Span of "ALGORITHM"
+        algorithm_span: Span,
+        algorithm: AlterAlgorithm,
+    },
 }
 
 impl<'a> Spanned for AlterSpecification<'a> {
@@ -324,6 +394,29 @@ impl<'a> Spanned for AlterSpecification<'a> {
             } => alter_column_span
                 .join_span(col)
                 .join_span(alter_column_action),
+            AlterSpecification::Lock { lock_span, lock } => lock_span.join_span(lock),
+            AlterSpecification::RenameColumn {
+                rename_column_span,
+                old_col_name,
+                new_col_name,
+            } => rename_column_span
+                .join_span(old_col_name)
+                .join_span(new_col_name),
+            AlterSpecification::RenameIndex {
+                rename_index_span,
+                old_index_name,
+                new_index_name,
+            } => rename_index_span
+                .join_span(old_index_name)
+                .join_span(new_index_name),
+            AlterSpecification::RenameTo {
+                rename_to_span,
+                new_table_name,
+            } => rename_to_span.join_span(new_table_name),
+            AlterSpecification::Algorithm {
+                algorithm_span,
+                algorithm,
+            } => algorithm_span.join_span(algorithm),
         }
     }
 }
@@ -603,6 +696,51 @@ fn parse_add_alter_specification<'a>(
     }
 }
 
+fn parse_rename_alter_specification<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<AlterSpecification<'a>, ParseError> {
+    let rename_span = parser.consume_keyword(Keyword::RENAME)?;
+
+    match parser.token {
+        Token::Ident(_, Keyword::COLUMN) => {
+            parser.consume_keyword(Keyword::COLUMN)?;
+            let old_col_name = parser.consume_plain_identifier()?;
+            parser.consume_keyword(Keyword::TO)?;
+            let new_col_name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::RenameColumn {
+                rename_column_span: rename_span
+                    .join_span(&old_col_name)
+                    .join_span(&new_col_name),
+                old_col_name,
+                new_col_name,
+            })
+        }
+        Token::Ident(_, Keyword::INDEX | Keyword::KEY) => {
+            let index_span = parser.consume();
+            let old_index_name = parser.consume_plain_identifier()?;
+            parser.consume_keyword(Keyword::TO)?;
+            let new_index_name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::RenameIndex {
+                rename_index_span: rename_span
+                    .join_span(&index_span)
+                    .join_span(&old_index_name)
+                    .join_span(&new_index_name),
+                old_index_name,
+                new_index_name,
+            })
+        }
+        Token::Ident(_, Keyword::TO) | Token::Ident(_, Keyword::AS) => {
+            let to_span = parser.consume();
+            let new_table_name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::RenameTo {
+                rename_to_span: rename_span.join_span(&to_span),
+                new_table_name,
+            })
+        }
+        _ => parser.expected_failure("'COLUMN', 'INDEX' or 'TO'")?,
+    }
+}
+
 /// Represent an alter table statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, AlterTable, Statement, Issues};
@@ -780,6 +918,54 @@ fn parse_alter_table<'a>(
                         alter_column_action,
                     }
                 }
+                Token::Ident(_, Keyword::LOCK) => {
+                    let lock_span = parser.consume_keyword(Keyword::LOCK)?;
+                    parser.skip_token(Token::Eq);
+                    let lock = match &parser.token {
+                        Token::Ident(_, Keyword::DEFAULT) => {
+                            AlterLock::Default(parser.consume_keyword(Keyword::DEFAULT)?)
+                        }
+                        Token::Ident(_, Keyword::NONE) => {
+                            AlterLock::None(parser.consume_keyword(Keyword::NONE)?)
+                        }
+                        Token::Ident(_, Keyword::SHARED) => {
+                            AlterLock::Shared(parser.consume_keyword(Keyword::SHARED)?)
+                        }
+                        Token::Ident(_, Keyword::EXCLUSIVE) => {
+                            AlterLock::Exclusive(parser.consume_keyword(Keyword::EXCLUSIVE)?)
+                        }
+                        _ => {
+                            parser.expected_failure("'DEFAULT', 'NONE', 'SHARED' or 'EXCLUSIVE'")?
+                        }
+                    };
+                    AlterSpecification::Lock { lock_span, lock }
+                }
+                Token::Ident(_, Keyword::ALGORITHM) => {
+                    let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
+                    parser.skip_token(Token::Eq);
+                    let algorithm = match &parser.token {
+                        Token::Ident(_, Keyword::DEFAULT) => {
+                            AlterAlgorithm::Default(parser.consume_keyword(Keyword::DEFAULT)?)
+                        }
+                        Token::Ident(_, Keyword::INSTANT) => {
+                            AlterAlgorithm::Instant(parser.consume_keyword(Keyword::INSTANT)?)
+                        }
+                        Token::Ident(_, Keyword::INPLACE) => {
+                            AlterAlgorithm::Inplace(parser.consume_keyword(Keyword::INPLACE)?)
+                        }
+                        Token::Ident(_, Keyword::COPY) => {
+                            AlterAlgorithm::Copy(parser.consume_keyword(Keyword::COPY)?)
+                        }
+                        _ => {
+                            parser.expected_failure("'DEFAULT', 'INSTANT', 'INPLACE' or 'COPY'")?
+                        }
+                    };
+                    AlterSpecification::Algorithm {
+                        algorithm_span,
+                        algorithm,
+                    }
+                }
+                Token::Ident(_, Keyword::RENAME) => parse_rename_alter_specification(parser)?,
                 _ => parser.expected_failure("alter specification")?,
             });
             if parser.skip_token(Token::Comma).is_none() {

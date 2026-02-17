@@ -1,67 +1,43 @@
 [
   {
     "input": "ALTER TABLE `users` ALGORITHM = COPY",
-    "failure": true,
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..29,\n    sql_segment: \"ALGORITHM\",\n    fragments: [],\n}"
-    ]
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Algorithm {\n                algorithm_span: 20..29,\n                algorithm: Copy(\n                    32..36,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` ALGORITHM = DEFAULT",
-    "failure": true,
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..29,\n    sql_segment: \"ALGORITHM\",\n    fragments: [],\n}"
-    ]
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Algorithm {\n                algorithm_span: 20..29,\n                algorithm: Default(\n                    32..39,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` ALGORITHM = INPLACE",
-    "failure": true,
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..29,\n    sql_segment: \"ALGORITHM\",\n    fragments: [],\n}"
-    ]
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Algorithm {\n                algorithm_span: 20..29,\n                algorithm: Inplace(\n                    32..39,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` ALGORITHM = INSTANT",
-    "failure": true,
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..29,\n    sql_segment: \"ALGORITHM\",\n    fragments: [],\n}"
-    ]
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Algorithm {\n                algorithm_span: 20..29,\n                algorithm: Instant(\n                    32..39,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` ALGORITHM COPY",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..29,\n    sql_segment: \"ALGORITHM\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Algorithm {\n                algorithm_span: 20..29,\n                algorithm: Copy(\n                    30..34,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` ALGORITHM DEFAULT",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..29,\n    sql_segment: \"ALGORITHM\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Algorithm {\n                algorithm_span: 20..29,\n                algorithm: Default(\n                    30..37,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` ALGORITHM INPLACE",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..29,\n    sql_segment: \"ALGORITHM\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Algorithm {\n                algorithm_span: 20..29,\n                algorithm: Inplace(\n                    30..37,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` ALGORITHM INSTANT",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..29,\n    sql_segment: \"ALGORITHM\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Algorithm {\n                algorithm_span: 20..29,\n                algorithm: Instant(\n                    30..37,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` AUTO_INCREMENT 42",
@@ -73,67 +49,43 @@
   },
   {
     "input": "ALTER TABLE `users` LOCK = DEFAULT",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..24,\n    sql_segment: \"LOCK\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Lock {\n                lock_span: 20..24,\n                lock: Default(\n                    27..34,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` LOCK = EXCLUSIVE",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..24,\n    sql_segment: \"LOCK\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Lock {\n                lock_span: 20..24,\n                lock: Exclusive(\n                    27..36,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` LOCK = NONE",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..24,\n    sql_segment: \"LOCK\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Lock {\n                lock_span: 20..24,\n                lock: None(\n                    27..31,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` LOCK = SHARED",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..24,\n    sql_segment: \"LOCK\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Lock {\n                lock_span: 20..24,\n                lock: Shared(\n                    27..33,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` LOCK DEFAULT",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..24,\n    sql_segment: \"LOCK\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Lock {\n                lock_span: 20..24,\n                lock: Default(\n                    25..32,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` LOCK EXCLUSIVE",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..24,\n    sql_segment: \"LOCK\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Lock {\n                lock_span: 20..24,\n                lock: Exclusive(\n                    25..34,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` LOCK NONE",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..24,\n    sql_segment: \"LOCK\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Lock {\n                lock_span: 20..24,\n                lock: None(\n                    25..29,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE `users` LOCK SHARED",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 20..24,\n    sql_segment: \"LOCK\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Lock {\n                lock_span: 20..24,\n                lock: Shared(\n                    25..31,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE foo ADD KEY idx_name {columns} {using}",
@@ -306,11 +258,8 @@
   },
   {
     "input": "ALTER TABLE tab ALGORITHM = COPY",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 16..25,\n    sql_segment: \"ALGORITHM\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            Algorithm {\n                algorithm_span: 16..25,\n                algorithm: Copy(\n                    28..32,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE tab AUTO_INCREMENT = 42",
@@ -346,27 +295,18 @@
   },
   {
     "input": "ALTER TABLE tab LOCK = SHARED",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 16..20,\n    sql_segment: \"LOCK\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            Lock {\n                lock_span: 16..20,\n                lock: Shared(\n                    23..29,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE users DROP COLUMN password_digest, ALGORITHM = COPY, RENAME COLUMN name TO username",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..17,\n            },\n        },\n        alter_specifications: [\n            DropColumn {\n                drop_column_span: 18..29,\n                column: Identifier {\n                    value: \"password_digest\",\n                    span: 30..45,\n                },\n                cascade: None,\n            },\n        ],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 47..56,\n    sql_segment: \"ALGORITHM\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..17,\n            },\n        },\n        alter_specifications: [\n            DropColumn {\n                drop_column_span: 18..29,\n                column: Identifier {\n                    value: \"password_digest\",\n                    span: 30..45,\n                },\n                cascade: None,\n            },\n            Algorithm {\n                algorithm_span: 47..56,\n                algorithm: Copy(\n                    59..63,\n                ),\n            },\n            RenameColumn {\n                rename_column_span: 65..95,\n                old_col_name: Identifier {\n                    value: \"name\",\n                    span: 79..83,\n                },\n                new_col_name: Identifier {\n                    value: \"username\",\n                    span: 87..95,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE users DROP COLUMN password_digest, LOCK = EXCLUSIVE, RENAME COLUMN name TO username",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..17,\n            },\n        },\n        alter_specifications: [\n            DropColumn {\n                drop_column_span: 18..29,\n                column: Identifier {\n                    value: \"password_digest\",\n                    span: 30..45,\n                },\n                cascade: None,\n            },\n        ],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alter specification' here\",\n    span: 47..51,\n    sql_segment: \"LOCK\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..17,\n            },\n        },\n        alter_specifications: [\n            DropColumn {\n                drop_column_span: 18..29,\n                column: Identifier {\n                    value: \"password_digest\",\n                    span: 30..45,\n                },\n                cascade: None,\n            },\n            Lock {\n                lock_span: 47..51,\n                lock: Exclusive(\n                    54..63,\n                ),\n            },\n            RenameColumn {\n                rename_column_span: 65..95,\n                old_col_name: Identifier {\n                    value: \"name\",\n                    span: 79..83,\n                },\n                new_col_name: Identifier {\n                    value: \"username\",\n                    span: 87..95,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE ALGORITHM = MERGE VIEW foo AS SELECT 1",
@@ -876,27 +816,18 @@
   },
   {
     "input": "CREATE TABLE mytable (id INT) ENGINE=InnoDB ROW_FORMAT=DYNAMIC KEY_BLOCK_SIZE=8 COMMENT='abc'",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"mytable\",\n                span: 13..20,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 22..24,\n                },\n                data_type: DataType {\n                    identifier: 25..28,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [\n            Engine {\n                identifier: 30..36,\n                value: Identifier {\n                    value: \"InnoDB\",\n                    span: 37..43,\n                },\n            },\n            RowFormat {\n                identifier: 44..54,\n                value: Identifier {\n                    value: \"DYNAMIC\",\n                    span: 55..62,\n                },\n            },\n        ],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'table option or delimiter' here\",\n    span: 63..77,\n    sql_segment: \"KEY_BLOCK_SIZE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"mytable\",\n                span: 13..20,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 22..24,\n                },\n                data_type: DataType {\n                    identifier: 25..28,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [\n            Engine {\n                identifier: 30..36,\n                value: Identifier {\n                    value: \"InnoDB\",\n                    span: 37..43,\n                },\n            },\n            RowFormat {\n                identifier: 44..54,\n                value: Identifier {\n                    value: \"DYNAMIC\",\n                    span: 55..62,\n                },\n            },\n            KeyBlockSize {\n                identifier: 63..77,\n                value: (\n                    8,\n                    78..79,\n                ),\n            },\n            Comment {\n                identifier: 80..87,\n                value: SString {\n                    value: \"abc\",\n                    span: 88..93,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TABLE mytable (id INT) KEY_BLOCK_SIZE=8 COMMENT='abc' ENGINE=InnoDB ROW_FORMAT=DYNAMIC",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"mytable\",\n                span: 13..20,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 22..24,\n                },\n                data_type: DataType {\n                    identifier: 25..28,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'table option or delimiter' here\",\n    span: 30..44,\n    sql_segment: \"KEY_BLOCK_SIZE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"mytable\",\n                span: 13..20,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 22..24,\n                },\n                data_type: DataType {\n                    identifier: 25..28,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [\n            KeyBlockSize {\n                identifier: 30..44,\n                value: (\n                    8,\n                    45..46,\n                ),\n            },\n            Comment {\n                identifier: 47..54,\n                value: SString {\n                    value: \"abc\",\n                    span: 55..60,\n                },\n            },\n            Engine {\n                identifier: 61..67,\n                value: Identifier {\n                    value: \"InnoDB\",\n                    span: 68..74,\n                },\n            },\n            RowFormat {\n                identifier: 75..85,\n                value: Identifier {\n                    value: \"DYNAMIC\",\n                    span: 86..93,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TABLE mytable (id INT) ROW_FORMAT=DYNAMIC KEY_BLOCK_SIZE=8 COMMENT='abc' ENGINE=InnoDB",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"mytable\",\n                span: 13..20,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 22..24,\n                },\n                data_type: DataType {\n                    identifier: 25..28,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [\n            RowFormat {\n                identifier: 30..40,\n                value: Identifier {\n                    value: \"DYNAMIC\",\n                    span: 41..48,\n                },\n            },\n        ],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'table option or delimiter' here\",\n    span: 49..63,\n    sql_segment: \"KEY_BLOCK_SIZE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"mytable\",\n                span: 13..20,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 22..24,\n                },\n                data_type: DataType {\n                    identifier: 25..28,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [\n            RowFormat {\n                identifier: 30..40,\n                value: Identifier {\n                    value: \"DYNAMIC\",\n                    span: 41..48,\n                },\n            },\n            KeyBlockSize {\n                identifier: 49..63,\n                value: (\n                    8,\n                    64..65,\n                ),\n            },\n            Comment {\n                identifier: 66..73,\n                value: SString {\n                    value: \"abc\",\n                    span: 74..79,\n                },\n            },\n            Engine {\n                identifier: 80..86,\n                value: Identifier {\n                    value: \"InnoDB\",\n                    span: 87..93,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TABLE orders (customer_id INT, INDEX idx_customer (customer_id), CONSTRAINT fk_customer FOREIGN KEY idx_customer (customer_id) REFERENCES customers(id))",

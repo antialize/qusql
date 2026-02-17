@@ -664,6 +664,36 @@ pub fn parse_schemas<'a>(
                                 }
                             }
                         }
+                        s @ qusql_parse::AlterSpecification::Lock { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::RenameColumn { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::RenameIndex { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::RenameTo { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::Algorithm { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
                     }
                 }
             }
