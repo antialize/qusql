@@ -64,10 +64,7 @@ fn type_unary_expression<'a>(
     flags: ExpressionFlags,
 ) -> FullType<'a> {
     match op {
-        UnaryOperator::Binary
-        | UnaryOperator::Collate
-        | UnaryOperator::LogicalNot
-        | UnaryOperator::Minus => {
+        UnaryOperator::Binary | UnaryOperator::LogicalNot | UnaryOperator::Minus => {
             let op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Any);
             let t = match &op_type.t {
                 Type::F32

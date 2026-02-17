@@ -251,6 +251,7 @@ pub enum BinaryOperator {
     Mult,
     Like,
     NotLike,
+    Collate,
 }
 
 /// Mode for MATCH ... AGAINST
@@ -290,7 +291,6 @@ pub enum Is {
 #[derive(Debug, Clone, Copy)]
 pub enum UnaryOperator {
     Binary,
-    Collate,
     LogicalNot,
     Minus,
     Not,
@@ -1035,6 +1035,7 @@ impl Priority for BinaryOperator {
             BinaryOperator::Div => 60,
             BinaryOperator::Mod => 60,
             BinaryOperator::Mult => 60,
+            BinaryOperator::Collate => 20,
         }
     }
 }
@@ -1043,7 +1044,6 @@ impl Priority for UnaryOperator {
     fn priority(&self) -> usize {
         match self {
             UnaryOperator::Binary => 20,
-            UnaryOperator::Collate => 20,
             UnaryOperator::LogicalNot => 30,
             UnaryOperator::Minus => 40,
             UnaryOperator::Not => 130,
@@ -1168,8 +1168,18 @@ pub(crate) fn parse_expression<'a>(
             Token::Ident(_, Keyword::BINARY) if !inner => {
                 r.shift_unary(parser.consume(), UnaryOperator::Binary)
             }
-            Token::Ident(_, Keyword::COLLATE) if !inner => {
-                r.shift_unary(parser.consume(), UnaryOperator::Collate)
+            Token::Ident(_, Keyword::COLLATE)
+                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                // COLLATE is a binary operator: expr COLLATE collation_name
+                let collate_span = parser.consume_keyword(Keyword::COLLATE)?;
+                let collation = parser.consume_plain_identifier()?;
+                if let Err(e) = r.shift_binop(collate_span, BinaryOperator::Collate) {
+                    parser.err_here(e)?;
+                }
+                r.shift_expr(Expression::Identifier(vec![IdentifierPart::Name(
+                    collation,
+                )]))
             }
             Token::ExclamationMark if !inner => {
                 r.shift_unary(parser.consume(), UnaryOperator::LogicalNot)

@@ -77,6 +77,7 @@ pub(crate) fn type_binary_expression<'a>(
                 (flags, BaseType::Integer)
             }
         }
+        BinaryOperator::Collate => (flags, BaseType::String),
     };
 
     let lhs_type = type_expression(typer, lhs, flags, context);
@@ -182,6 +183,12 @@ pub(crate) fn type_binary_expression<'a>(
             typer.ensure_base(lhs, &lhs_type, BaseType::String);
             typer.ensure_base(rhs, &rhs_type, BaseType::String);
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::Collate => {
+            // COLLATE: LHS is the expression, RHS is the collation name (identifier)
+            // Just return the LHS type as the collation doesn't change the type
+            typer.ensure_base(lhs, &lhs_type, BaseType::String);
+            lhs_type
         }
     }
 }

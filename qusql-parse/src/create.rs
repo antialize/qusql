@@ -14,8 +14,8 @@ use alloc::{boxed::Box, vec::Vec};
 use crate::{
     DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
     alter::{
-        ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexOption, IndexType,
-        parse_index_cols, parse_index_options,
+        ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption,
+        IndexType, parse_index_cols, parse_index_options,
     },
     data_type::parse_data_type,
     expression::parse_expression,
@@ -1434,7 +1434,19 @@ fn parse_create_index<'a>(
     let l_paren_span = parser.consume_token(Token::LParen)?;
     let mut column_names = Vec::new();
     loop {
-        let name = parser.consume_plain_identifier()?;
+        // Check if this is a functional index expression (starts with '(')
+        let expr = if parser.token == Token::LParen {
+            // Functional index: parse expression
+            parser.consume_token(Token::LParen)?;
+            let expression = parse_expression(parser, false)?;
+            parser.consume_token(Token::RParen)?;
+            IndexColExpr::Expression(expression)
+        } else {
+            // Regular column name
+            let name = parser.consume_plain_identifier()?;
+            IndexColExpr::Column(name)
+        };
+
         let size = if parser.skip_token(Token::LParen).is_some() {
             let size = parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
                 parser.consume_int()
@@ -1444,7 +1456,21 @@ fn parse_create_index<'a>(
         } else {
             None
         };
-        column_names.push(IndexCol { name, size });
+
+        // Parse optional ASC | DESC
+        let asc = parser.skip_keyword(Keyword::ASC);
+        let desc = if asc.is_none() {
+            parser.skip_keyword(Keyword::DESC)
+        } else {
+            None
+        };
+
+        column_names.push(IndexCol {
+            expr,
+            size,
+            asc,
+            desc,
+        });
 
         if let Token::Ident(
             _,

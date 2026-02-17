@@ -118,18 +118,43 @@ impl Spanned for ForeignKeyOn {
     }
 }
 
+/// Column or expression specification for an index
+#[derive(Clone, Debug)]
+pub enum IndexColExpr<'a> {
+    /// Regular column name
+    Column(Identifier<'a>),
+    /// Functional index expression (wrapped in parentheses)
+    Expression(Expression<'a>),
+}
+
+impl<'a> Spanned for IndexColExpr<'a> {
+    fn span(&self) -> Span {
+        match self {
+            IndexColExpr::Column(id) => id.span(),
+            IndexColExpr::Expression(expr) => expr.span(),
+        }
+    }
+}
+
 /// Specify a column for an index, together with a with
 #[derive(Clone, Debug)]
 pub struct IndexCol<'a> {
-    /// The name of the column
-    pub name: Identifier<'a>,
+    /// The column name or expression
+    pub expr: IndexColExpr<'a>,
     /// Optional width of index together with its span
     pub size: Option<(u32, Span)>,
+    /// Optional ASC ordering
+    pub asc: Option<Span>,
+    /// Optional DESC ordering
+    pub desc: Option<Span>,
 }
 
 impl<'a> Spanned for IndexCol<'a> {
     fn span(&self) -> Span {
-        self.name.join_span(&self.size)
+        self.expr
+            .join_span(&self.size)
+            .join_span(&self.asc)
+            .join_span(&self.desc)
     }
 }
 
@@ -551,7 +576,19 @@ pub(crate) fn parse_index_cols<'a>(
     let mut ans = Vec::new();
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
         loop {
-            let name = parser.consume_plain_identifier()?;
+            // Check if this is a functional index expression (starts with '(')
+            let expr = if parser.token == Token::LParen {
+                // Functional index: parse expression
+                parser.consume_token(Token::LParen)?;
+                let expression = parse_expression(parser, false)?;
+                parser.consume_token(Token::RParen)?;
+                IndexColExpr::Expression(expression)
+            } else {
+                // Regular column name
+                let name = parser.consume_plain_identifier()?;
+                IndexColExpr::Column(name)
+            };
+
             let size = if parser.skip_token(Token::LParen).is_some() {
                 let size = parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
                     parser.consume_int()
@@ -562,9 +599,20 @@ pub(crate) fn parse_index_cols<'a>(
                 None
             };
 
-            // TODO [ASC | DESC]
+            // Parse optional ASC | DESC
+            let asc = parser.skip_keyword(Keyword::ASC);
+            let desc = if asc.is_none() {
+                parser.skip_keyword(Keyword::DESC)
+            } else {
+                None
+            };
 
-            ans.push(IndexCol { name, size });
+            ans.push(IndexCol {
+                expr,
+                size,
+                asc,
+                desc,
+            });
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }

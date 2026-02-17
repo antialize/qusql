@@ -81,7 +81,7 @@ pub use statement::{Statement, Union, UnionType, UnionWith};
 
 pub use alter::{
     AlterColumnAction, AlterSpecification, AlterTable, ForeignKeyOn, ForeignKeyOnAction,
-    ForeignKeyOnType, IndexCol, IndexOption, IndexType,
+    ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption, IndexType,
 };
 pub use create::{
     CreateAlgorithm, CreateDefinition, CreateFunction, CreateOption, CreateTable, CreateTrigger,

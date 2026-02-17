@@ -568,7 +568,9 @@ pub fn parse_schemas<'a>(
                             ..
                         } => {
                             for col in &cols {
-                                if e.get_column(col.name.value).is_none() {
+                                if let qusql_parse::IndexColExpr::Column(ident) = &col.expr
+                                    && e.get_column(ident.value).is_none()
+                                {
                                     issues
                                         .err("No such column in table", col)
                                         .frag("Table defined here", &a.table);
@@ -752,7 +754,9 @@ pub fn parse_schemas<'a>(
 
                 if let Some(table) = schemas.schemas.get(t) {
                     for col in &ci.column_names {
-                        if table.get_column(col.name.value).is_none() {
+                        if let qusql_parse::IndexColExpr::Column(ident) = &col.expr
+                            && table.get_column(ident.value).is_none()
+                        {
                             issues
                                 .err("No such column in table", col)
                                 .frag("Table defined here", &table.identifier_span);
