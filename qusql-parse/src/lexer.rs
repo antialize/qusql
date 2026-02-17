@@ -513,68 +513,120 @@ impl<'a> Lexer<'a> {
                 },
                 '0'..='9' => {
                     // For MariaDB, identifiers can start with digits
-                    // We need to peek ahead to determine if this is a number or identifier
                     if self.dialect.is_maria() {
-                        // Lookahead to see if this could be an identifier
-                        let mut temp_chars = self.chars.clone();
-                        let mut is_identifier = false;
-
-                        // Skip over digits
-                        while matches!(temp_chars.peek(), Some((_, '0'..='9'))) {
-                            temp_chars.next();
+                        // Consume initial digits
+                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                            self.chars.next();
                         }
 
-                        // Check what comes after the digits
-                        match temp_chars.peek() {
-                            Some((_, 'e' | 'E')) => {
-                                // Could be scientific notation, check further
-                                temp_chars.next();
-                                if let Some((_, '+' | '-')) = temp_chars.peek() {
-                                    temp_chars.next();
+                        // Now make the decision about what kind of token this is
+                        match self.chars.peek() {
+                            // If followed by identifier char (not e/E or .), it's an identifier
+                            Some((
+                                _,
+                                '_' | 'a'..='d' | 'f'..='z' | 'A'..='D' | 'F'..='Z' | '$' | '@',
+                            )) => {
+                                // It's an identifier - consume remaining identifier chars
+                                while matches!(
+                                    self.chars.peek(),
+                                    Some((_, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '@'))
+                                ) {
+                                    self.chars.next();
+                                }
+                                let end = match self.chars.peek() {
+                                    Some((i, _)) => *i,
+                                    None => self.src.len(),
                                 };
-                                // If followed by digits, it's a number
-                                // If followed by other identifier chars, it's an identifier
-                                if !matches!(temp_chars.peek(), Some((_, '0'..='9'))) {
-                                    is_identifier = true;
+                                let s = self.s(start..end);
+                                let ss = s.to_ascii_uppercase();
+                                Token::Ident(s, ss.as_str().into())
+                            }
+                            // Check for exponent notation
+                            Some((_, 'e' | 'E')) => {
+                                // Peek ahead to see if this is a valid exponent or identifier char
+                                let mut temp = self.chars.clone();
+                                temp.next(); // skip 'e'/'E'
+                                if matches!(temp.peek(), Some((_, '+' | '-'))) {
+                                    temp.next();
                                 }
-                            }
-                            Some((_, '_' | 'a'..='z' | 'A'..='Z' | '$' | '@')) => {
-                                is_identifier = true;
-                            }
-                            Some((_, '.')) => {
-                                // Could be a float, check if followed by digits
-                                temp_chars.next();
-                                if matches!(temp_chars.peek(), Some((_, '0'..='9'))) {
-                                    // It's a float
-                                    is_identifier = false;
-                                } else {
-                                    // Period not followed by digit, could be end of number
-                                    is_identifier = false;
-                                }
-                            }
-                            _ => is_identifier = false,
-                        }
-
-                        if is_identifier {
-                            self.simple_literal(start)
-                        } else {
-                            // Parse as number (integer, float, or scientific notation)
-                            let mut is_float = false;
-                            loop {
-                                match self.chars.peek() {
-                                    Some((_, '0'..='9')) => {
+                                if matches!(temp.peek(), Some((_, '0'..='9'))) {
+                                    // Valid exponent - check if identifier chars follow after exponent
+                                    self.chars.next(); // consume 'e'/'E'
+                                    if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
                                         self.chars.next();
                                     }
-                                    Some((_, '.')) => {
+                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
                                         self.chars.next();
-                                        is_float = true;
-                                        // Consume fractional part
-                                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                    }
+                                    // Now check if identifier chars follow the exponent
+                                    if matches!(
+                                        self.chars.peek(),
+                                        Some((_, '_' | 'a'..='z' | 'A'..='Z' | '$' | '@'))
+                                    ) {
+                                        // Identifier chars follow - it's an identifier
+                                        while matches!(
+                                            self.chars.peek(),
+                                            Some((
+                                                _,
+                                                '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '@',
+                                            ))
+                                        ) {
                                             self.chars.next();
                                         }
-                                        // Check for exponent
-                                        if matches!(self.chars.peek(), Some((_, 'e' | 'E'))) {
-                                            self.chars.next();
+                                        let end = match self.chars.peek() {
+                                            Some((i, _)) => *i,
+                                            None => self.src.len(),
+                                        };
+                                        let s = self.s(start..end);
+                                        let ss = s.to_ascii_uppercase();
+                                        Token::Ident(s, ss.as_str().into())
+                                    } else {
+                                        // No identifier chars - it's a float
+                                        let end = match self.chars.peek() {
+                                            Some((i, _)) => *i,
+                                            None => self.src.len(),
+                                        };
+                                        Token::Float(self.s(start..end))
+                                    }
+                                } else {
+                                    // Not a valid exponent - treat 'e'/'E' as identifier char
+                                    while matches!(
+                                        self.chars.peek(),
+                                        Some((
+                                            _,
+                                            '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '@',
+                                        ))
+                                    ) {
+                                        self.chars.next();
+                                    }
+                                    let end = match self.chars.peek() {
+                                        Some((i, _)) => *i,
+                                        None => self.src.len(),
+                                    };
+                                    let s = self.s(start..end);
+                                    let ss = s.to_ascii_uppercase();
+                                    Token::Ident(s, ss.as_str().into())
+                                }
+                            }
+                            // Check for decimal point
+                            Some((_, '.')) => {
+                                let mut temp = self.chars.clone();
+                                temp.next();
+                                if matches!(temp.peek(), Some((_, '0'..='9'))) {
+                                    // Valid float - consume decimal part
+                                    self.chars.next(); // consume '.'
+                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                        self.chars.next();
+                                    }
+                                    // Check for exponent
+                                    if matches!(self.chars.peek(), Some((_, 'e' | 'E'))) {
+                                        let mut temp2 = self.chars.clone();
+                                        temp2.next();
+                                        if matches!(temp2.peek(), Some((_, '+' | '-'))) {
+                                            temp2.next();
+                                        }
+                                        if matches!(temp2.peek(), Some((_, '0'..='9'))) {
+                                            self.chars.next(); // consume 'e'/'E'
                                             if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
                                                 self.chars.next();
                                             }
@@ -583,29 +635,27 @@ impl<'a> Lexer<'a> {
                                                 self.chars.next();
                                             }
                                         }
-                                        break;
                                     }
-                                    Some((_, 'e' | 'E')) => {
-                                        self.chars.next();
-                                        is_float = true;
-                                        if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
-                                            self.chars.next();
-                                        }
-                                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
-                                            self.chars.next();
-                                        }
-                                        break;
-                                    }
-                                    _ => break,
+                                    let end = match self.chars.peek() {
+                                        Some((i, _)) => *i,
+                                        None => self.src.len(),
+                                    };
+                                    Token::Float(self.s(start..end))
+                                } else {
+                                    // Period not followed by digit - just an integer
+                                    let end = match self.chars.peek() {
+                                        Some((i, _)) => *i,
+                                        None => self.src.len(),
+                                    };
+                                    Token::Integer(self.s(start..end))
                                 }
                             }
-                            let end = match self.chars.peek() {
-                                Some((i, _)) => *i,
-                                None => self.src.len(),
-                            };
-                            if is_float {
-                                Token::Float(self.s(start..end))
-                            } else {
+                            // No special chars - just an integer
+                            _ => {
+                                let end = match self.chars.peek() {
+                                    Some((i, _)) => *i,
+                                    None => self.src.len(),
+                                };
                                 Token::Integer(self.s(start..end))
                             }
                         }
@@ -1072,20 +1122,34 @@ mod tests {
         let dialect = SQLDialect::MariaDB;
 
         // MariaDB allows identifiers starting with digits
-        // Note: "123abc" is lexed as an identifier only if the MariaDB flag is properly set
-        let token = lex_single("123abc", &dialect);
-        match token {
-            Token::Ident(name, Keyword::NOT_A_KEYWORD) => {
-                assert_eq!(name, "123abc");
-            }
-            Token::Integer(_) => {
-                // In some cases, this might be lexed as just an integer
-                // This is acceptable for now
-            }
-            _ => panic!("Expected identifier or integer, got {:?}", token),
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("123abc", &dialect) {
+            assert_eq!(name, "123abc");
+        } else {
+            panic!(
+                "Expected identifier '123abc' in MariaDB, got {:?}",
+                lex_single("123abc", &dialect)
+            );
         }
 
-        // But these should definitely be numbers
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("1e5test", &dialect) {
+            assert_eq!(name, "1e5test");
+        } else {
+            panic!(
+                "Expected identifier '1e5test' in MariaDB, got {:?}",
+                lex_single("1e5test", &dialect)
+            );
+        }
+
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("9column", &dialect) {
+            assert_eq!(name, "9column");
+        } else {
+            panic!(
+                "Expected identifier '9column' in MariaDB, got {:?}",
+                lex_single("9column", &dialect)
+            );
+        }
+
+        // But these should definitely be numbers (no letters after)
         assert!(matches!(lex_single("123", &dialect), Token::Integer(_)));
         assert!(matches!(lex_single("123.456", &dialect), Token::Float(_)));
         assert!(matches!(lex_single("1e5", &dialect), Token::Float(_)));
@@ -1214,5 +1278,215 @@ mod tests {
             lex_single("DESC", &dialect),
             Token::Ident(_, Keyword::DESC)
         ));
+    }
+
+    #[test]
+    fn test_mariadb_number_identifier_edge_cases() {
+        let dialect = SQLDialect::MariaDB;
+
+        // Pure numbers (no identifier chars after)
+        assert!(matches!(lex_single("123", &dialect), Token::Integer("123")));
+        assert!(matches!(lex_single("0", &dialect), Token::Integer("0")));
+        assert!(matches!(
+            lex_single("999999", &dialect),
+            Token::Integer("999999")
+        ));
+
+        // Float numbers (no identifier chars after)
+        assert!(matches!(
+            lex_single("123.456", &dialect),
+            Token::Float("123.456")
+        ));
+        assert!(matches!(lex_single("0.5", &dialect), Token::Float("0.5")));
+        assert!(matches!(lex_single("1.0", &dialect), Token::Float("1.0")));
+
+        // Scientific notation (no identifier chars after)
+        assert!(matches!(lex_single("1e5", &dialect), Token::Float("1e5")));
+        assert!(matches!(lex_single("1E5", &dialect), Token::Float("1E5")));
+        assert!(matches!(lex_single("1e+5", &dialect), Token::Float("1e+5")));
+        assert!(matches!(lex_single("1e-5", &dialect), Token::Float("1e-5")));
+        assert!(matches!(
+            lex_single("1.5e10", &dialect),
+            Token::Float("1.5e10")
+        ));
+        assert!(matches!(
+            lex_single("2.5E-3", &dialect),
+            Token::Float("2.5E-3")
+        ));
+
+        // Identifiers starting with numbers
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("123abc", &dialect) {
+            assert_eq!(name, "123abc");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("1_test", &dialect) {
+            assert_eq!(name, "1_test");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("1$col", &dialect) {
+            assert_eq!(name, "1$col");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("1@var", &dialect) {
+            assert_eq!(name, "1@var");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        // Numbers with period not followed by digit remain as integers
+        // (the period becomes a separate token)
+        assert!(matches!(lex_single("123", &dialect), Token::Integer("123")));
+        let tokens = lex_all("123.abc", &dialect);
+        assert!(matches!(tokens[0], Token::Integer("123")));
+        assert_eq!(tokens[1], Token::Period);
+
+        // Float numbers consume decimal part, next token is identifier
+        let tokens = lex_all("123.456abc", &dialect);
+        assert!(matches!(tokens[0], Token::Float("123.456")));
+        if let Token::Ident(name, _) = &tokens[1] {
+            assert_eq!(*name, "abc");
+        }
+
+        // Scientific notation with identifier chars after
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("1e5test", &dialect) {
+            assert_eq!(name, "1e5test");
+        } else {
+            panic!(
+                "Expected identifier, got {:?}",
+                lex_single("1e5test", &dialect)
+            );
+        }
+
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("1E5TEST", &dialect) {
+            assert_eq!(name, "1E5TEST");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("1e+5x", &dialect) {
+            assert_eq!(name, "1e+5x");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("1e-5_col", &dialect) {
+            assert_eq!(name, "1e-5_col");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        // Edge case: just 'e' or 'E' after digits should not be treated as exponent if not followed by digits
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("123e", &dialect) {
+            assert_eq!(name, "123e");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("123E_test", &dialect) {
+            assert_eq!(name, "123E_test");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        // Complex identifiers with mixed patterns
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("9column", &dialect) {
+            assert_eq!(name, "9column");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("0x_not_hex", &dialect) {
+            assert_eq!(name, "0x_not_hex");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("123_456_789", &dialect) {
+            assert_eq!(name, "123_456_789");
+        } else {
+            panic!("Expected identifier");
+        }
+    }
+
+    #[test]
+    fn test_mariadb_single_pass_correctness() {
+        let dialect = SQLDialect::MariaDB;
+
+        // Test that we get the same results with the single-pass optimization
+        // as we would with the old two-pass approach
+
+        // Numbers should end at the right place
+        let tokens = lex_all("123 456", &dialect);
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0], Token::Integer("123")));
+        assert!(matches!(tokens[1], Token::Integer("456")));
+
+        // Identifiers should consume all valid chars
+        let tokens = lex_all("123abc 456def", &dialect);
+        assert_eq!(tokens.len(), 2);
+        if let Token::Ident(name, _) = &tokens[0] {
+            assert_eq!(*name, "123abc");
+        } else {
+            panic!("Expected identifier");
+        }
+        if let Token::Ident(name, _) = &tokens[1] {
+            assert_eq!(*name, "456def");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        // Float then identifier
+        let tokens = lex_all("123.456 789xyz", &dialect);
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0], Token::Float("123.456")));
+        if let Token::Ident(name, _) = &tokens[1] {
+            assert_eq!(*name, "789xyz");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        // Scientific notation then identifier
+        let tokens = lex_all("1e5 2e3test", &dialect);
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0], Token::Float("1e5")));
+        if let Token::Ident(name, _) = &tokens[1] {
+            assert_eq!(*name, "2e3test");
+        } else {
+            panic!("Expected identifier");
+        }
+
+        // Mixed in a realistic query
+        let tokens = lex_all(
+            "SELECT 123abc, 1e5, 1e5test FROM 9table WHERE col > 123.456",
+            &dialect,
+        );
+        // SELECT, 123abc, comma, 1e5, comma, 1e5test, FROM, 9table, WHERE, col, >, 123.456
+        assert_eq!(tokens.len(), 12);
+        assert!(matches!(tokens[0], Token::Ident(_, Keyword::SELECT)));
+        if let Token::Ident(name, _) = &tokens[1] {
+            assert_eq!(*name, "123abc");
+        }
+        assert_eq!(tokens[2], Token::Comma);
+        assert!(matches!(tokens[3], Token::Float("1e5")));
+        assert_eq!(tokens[4], Token::Comma);
+        if let Token::Ident(name, _) = &tokens[5] {
+            assert_eq!(*name, "1e5test");
+        }
+        assert!(matches!(tokens[6], Token::Ident(_, Keyword::FROM)));
+        if let Token::Ident(name, _) = &tokens[7] {
+            assert_eq!(*name, "9table");
+        }
+        assert!(matches!(tokens[8], Token::Ident(_, Keyword::WHERE)));
+        if let Token::Ident(name, _) = &tokens[9] {
+            assert_eq!(*name, "col");
+        }
+        assert_eq!(tokens[10], Token::Gt);
+        assert!(matches!(tokens[11], Token::Float("123.456")));
     }
 }
