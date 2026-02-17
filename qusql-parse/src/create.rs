@@ -386,6 +386,23 @@ impl<'a> Spanned for CreateOption<'a> {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct CreateTableAs<'a> {
+    pub ignore_span: Option<Span>,
+    pub replace_span: Option<Span>,
+    pub as_span: Span,
+    pub query: Box<Statement<'a>>,
+}
+
+impl Spanned for CreateTableAs<'_> {
+    fn span(&self) -> Span {
+        self.as_span
+            .join_span(&self.replace_span)
+            .join_span(&self.ignore_span)
+            .join_span(&self.query)
+    }
+}
+
 /// Represent a create table statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, CreateTable, Statement, Issues};
@@ -427,6 +444,8 @@ pub struct CreateTable<'a> {
     pub create_definitions: Vec<CreateDefinition<'a>>,
     /// Options specified after the table creation
     pub options: Vec<TableOption<'a>>,
+    /// Create table as
+    pub table_as: Option<CreateTableAs<'a>>,
 }
 
 impl<'a> Spanned for CreateTable<'a> {
@@ -438,6 +457,7 @@ impl<'a> Spanned for CreateTable<'a> {
             .join_span(&self.if_not_exists)
             .join_span(&self.create_definitions)
             .join_span(&self.options)
+            .join_span(&self.table_as)
     }
 }
 
@@ -1631,6 +1651,7 @@ fn parse_create_table<'a>(
     parser.consume_token(Token::RParen)?;
 
     let mut options = Vec::new();
+    let mut table_as: Option<CreateTableAs<'_>> = None;
     let delimiter = parser.delimiter.clone();
     parser.recovered(
         delimiter.name(),
@@ -1927,6 +1948,25 @@ fn parse_create_table<'a>(
                             value: tables,
                         });
                     }
+                    Token::Ident(_, Keyword::IGNORE)
+                    | Token::Ident(_, Keyword::REPLACE)
+                    | Token::Ident(_, Keyword::AS) => {
+                        let ignore_span = parser.skip_keyword(Keyword::IGNORE);
+                        let replace_span = parser.skip_keyword(Keyword::REPLACE);
+                        let as_span = parser.consume_keyword(Keyword::AS)?;
+
+                        if let Some(table_as) = &table_as {
+                            parser.err("Multiple AS clauses not supported", table_as);
+                        }
+
+                        let query = Box::new(parse_compound_query(parser)?);
+                        table_as = Some(CreateTableAs {
+                            as_span,
+                            replace_span,
+                            ignore_span,
+                            query,
+                        });
+                    }
                     Token::Comma => {
                         parser.consume_token(Token::Comma)?;
                     }
@@ -1949,6 +1989,7 @@ fn parse_create_table<'a>(
         if_not_exists,
         options,
         create_definitions,
+        table_as,
     }))
 }
 
