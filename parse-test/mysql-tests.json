@@ -1001,11 +1001,8 @@
   },
   {
     "input": "DELETE FROM customers ORDER BY id DESC",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 38..38,\n    sql_segment: \"\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Delete(\n    Delete {\n        delete_span: 0..6,\n        flags: [],\n        from_span: 7..11,\n        tables: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"customers\",\n                    span: 12..21,\n                },\n            },\n        ],\n        using: [],\n        where_: None,\n        order_by: Some(\n            (\n                22..30,\n                [\n                    (\n                        Identifier(\n                            [\n                                Name(\n                                    Identifier {\n                                        value: \"id\",\n                                        span: 31..33,\n                                    },\n                                ),\n                            ],\n                        ),\n                        Desc(\n                            34..38,\n                        ),\n                    ),\n                ],\n            ),\n        ),\n        limit: None,\n        returning: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP INDEX idx_name ON table_name",
