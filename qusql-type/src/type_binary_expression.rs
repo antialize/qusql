@@ -83,6 +83,8 @@ pub(crate) fn type_binary_expression<'a>(
             }
         }
         BinaryOperator::Collate => (flags, BaseType::String),
+        BinaryOperator::JsonExtract => (flags, BaseType::String), // JSON value returned
+        BinaryOperator::JsonExtractUnquote => (flags, BaseType::String), // Unquoted string
     };
 
     let lhs_type = type_expression(typer, lhs, flags, context);
@@ -199,6 +201,12 @@ pub(crate) fn type_binary_expression<'a>(
             // Just return the LHS type as the collation doesn't change the type
             typer.ensure_base(lhs, &lhs_type, BaseType::String);
             lhs_type
+        }
+        BinaryOperator::JsonExtract | BinaryOperator::JsonExtractUnquote => {
+            // JSON operators: -> returns JSON, ->> returns unquoted string
+            // LHS is the JSON document, RHS is the path (string)
+            typer.ensure_base(rhs, &rhs_type, BaseType::String);
+            FullType::new(BaseType::String, lhs_type.not_null && rhs_type.not_null)
         }
     }
 }

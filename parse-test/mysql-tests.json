@@ -706,7 +706,7 @@
     "input": "CREATE TABLE t (jsoncol JSON, PRIMARY KEY ((CAST(col ->> '$.fields' AS UNSIGNED ARRAY)) ASC))",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"t\",\n                span: 13..14,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"jsoncol\",\n                    span: 16..23,\n                },\n                data_type: DataType {\n                    identifier: 24..28,\n                    type_: Json,\n                    properties: [],\n                },\n            },\n            IndexDefinition {\n                constraint_span: None,\n                constraint_symbol: None,\n                index_type: Primary(\n                    30..37,\n                ),\n                index_name: None,\n                cols: [\n                    IndexCol {\n                        expr: Expression(\n                            Invalid(\n                                44..48,\n                            ),\n                        ),\n                        size: None,\n                        asc: Some(\n                            88..91,\n                        ),\n                        desc: None,\n                    },\n                ],\n                index_options: [],\n            },\n        ],\n        options: [],\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression before here\",\n    span: 57..67,\n    sql_segment: \"'$.fields'\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 71..79,\n    sql_segment: \"UNSIGNED\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -715,7 +715,7 @@
     "input": "CREATE TABLE t (jsoncol JSON, PRIMARY KEY ((CAST(col ->> '$.id' AS UNSIGNED)) ASC))",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"t\",\n                span: 13..14,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"jsoncol\",\n                    span: 16..23,\n                },\n                data_type: DataType {\n                    identifier: 24..28,\n                    type_: Json,\n                    properties: [],\n                },\n            },\n            IndexDefinition {\n                constraint_span: None,\n                constraint_symbol: None,\n                index_type: Primary(\n                    30..37,\n                ),\n                index_name: None,\n                cols: [\n                    IndexCol {\n                        expr: Expression(\n                            Invalid(\n                                44..48,\n                            ),\n                        ),\n                        size: None,\n                        asc: Some(\n                            78..81,\n                        ),\n                        desc: None,\n                    },\n                ],\n                index_options: [],\n            },\n        ],\n        options: [],\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression before here\",\n    span: 57..63,\n    sql_segment: \"'$.id'\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 67..75,\n    sql_segment: \"UNSIGNED\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1282,11 +1282,8 @@
   },
   {
     "input": "SELECT 'ab' MEMBER OF('[23, \"abc\", 17, \"ab\", 10]')",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 19..21,\n    sql_segment: \"OF\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: MemberOf {\n                    lhs: String(\n                        SString {\n                            value: \"ab\",\n                            span: 7..11,\n                        },\n                    ),\n                    rhs: String(\n                        SString {\n                            value: \"[23, \\\"abc\\\", 17, \\\"ab\\\", 10]\",\n                            span: 22..49,\n                        },\n                    ),\n                    member_of_span: 12..21,\n                },\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT 'single', \"double\"",
@@ -1472,11 +1469,8 @@
   },
   {
     "input": "SELECT 17 MEMBER OF('[23, \"abc\", 17, \"ab\", 10]')",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 17..19,\n    sql_segment: \"OF\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: MemberOf {\n                    lhs: Integer(\n                        (\n                            17,\n                            7..9,\n                        ),\n                    ),\n                    rhs: String(\n                        SString {\n                            value: \"[23, \\\"abc\\\", 17, \\\"ab\\\", 10]\",\n                            span: 20..47,\n                        },\n                    ),\n                    member_of_span: 10..19,\n                },\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT 1db.1table.1column",

@@ -49,6 +49,8 @@ pub(crate) enum Token<'a> {
     Plus,
     QuestionMark,
     RArrow,
+    RArrowJson,
+    RDoubleArrowJson,
     RBrace,
     RBracket,
     RParen,
@@ -107,6 +109,8 @@ impl<'a> Token<'a> {
             Token::Plus => "'+'",
             Token::QuestionMark => "'?'",
             Token::RArrow => "'=>'",
+            Token::RArrowJson => "'->'",
+            Token::RDoubleArrowJson => "->>'",
             Token::RBrace => "'}'",
             Token::RBracket => "']'",
             Token::RParen => "')'",
@@ -415,6 +419,16 @@ impl<'a> Lexer<'a> {
                     Some((_, '-')) => {
                         while !matches!(self.chars.next(), Some((_, '\r' | '\n')) | None) {}
                         continue;
+                    }
+                    Some((_, '>')) => {
+                        self.chars.next();
+                        match self.chars.peek() {
+                            Some((_, '>')) => {
+                                self.chars.next();
+                                Token::RDoubleArrowJson
+                            }
+                            _ => Token::RArrowJson,
+                        }
                     }
                     _ => Token::Minus,
                 },
@@ -1084,6 +1098,8 @@ mod tests {
         assert_eq!(lex_single("@", &dialect), Token::At);
         assert_eq!(lex_single("#", &dialect), Token::Sharp);
         assert_eq!(lex_single("=>", &dialect), Token::RArrow);
+        assert_eq!(lex_single("->", &dialect), Token::RArrowJson);
+        assert_eq!(lex_single("->>", &dialect), Token::RDoubleArrowJson);
         assert_eq!(lex_single("\\", &dialect), Token::Backslash);
     }
 

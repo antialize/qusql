@@ -288,6 +288,12 @@ pub(crate) fn type_expression<'a>(
             }
             FullType::new(BaseType::Bool, not_null)
         }
+        Expression::MemberOf { lhs, rhs, .. } => {
+            let lhs_type = type_expression(typer, lhs, flags, BaseType::Any);
+            let rhs_type = type_expression(typer, rhs, flags, BaseType::String); // JSON array as string
+            // MEMBER OF returns boolean
+            FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+        }
         Expression::Is(e, is, _) => {
             let (flags, base_type) = match is {
                 qusql_parse::Is::Null => (flags.without_values(), BaseType::Any),

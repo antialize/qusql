@@ -256,6 +256,8 @@ pub enum BinaryOperator {
     Rlike,
     NotRlike,
     Collate,
+    JsonExtract,
+    JsonExtractUnquote,
 }
 
 /// Mode for MATCH ... AGAINST
@@ -506,6 +508,15 @@ pub enum Expression<'a> {
         /// True if not in
         not_in: bool,
     },
+    /// Member of expression
+    MemberOf {
+        /// Left hand side expression (value to check)
+        lhs: Box<Expression<'a>>,
+        /// Right hand side expression (JSON array)
+        rhs: Box<Expression<'a>>,
+        /// Span of "MEMBER OF"
+        member_of_span: Span,
+    },
     /// Is expression
     Is(Box<Expression<'a>>, Is, Span),
     /// Invalid expression, returned on recovery of a parse error
@@ -623,6 +634,11 @@ impl<'a> Spanned for Expression<'a> {
             Expression::In {
                 lhs, rhs, in_span, ..
             } => in_span.join_span(lhs).join_span(rhs),
+            Expression::MemberOf {
+                lhs,
+                rhs,
+                member_of_span,
+            } => member_of_span.join_span(lhs).join_span(rhs),
             Expression::Is(a, _, b) => b.join_span(a),
             Expression::Invalid(s) => s.span(),
             Expression::Case {
@@ -1044,6 +1060,8 @@ impl Priority for BinaryOperator {
             BinaryOperator::Mod => 60,
             BinaryOperator::Mult => 60,
             BinaryOperator::Collate => 20,
+            BinaryOperator::JsonExtract => 30,
+            BinaryOperator::JsonExtractUnquote => 30,
         }
     }
 }
@@ -1335,6 +1353,33 @@ pub(crate) fn parse_expression<'a>(
             }
             Token::Ident(_, Keyword::RLIKE) if !inner => {
                 r.shift_binop(parser.consume(), BinaryOperator::Rlike)
+            }
+            Token::RArrowJson if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::JsonExtract)
+            }
+            Token::RDoubleArrowJson if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::JsonExtractUnquote)
+            }
+            Token::Ident(_, Keyword::MEMBER)
+                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                if let Err(e) = r.reduce(IN_PRIORITY) {
+                    parser.err_here(e)?;
+                }
+                let lhs = match r.stack.pop() {
+                    Some(ReduceMember::Expression(e)) => e,
+                    _ => parser.err_here("Expected expression before here")?,
+                };
+                let member_span = parser.consume_keyword(Keyword::MEMBER)?;
+                let of_span = parser.consume_keyword(Keyword::OF)?;
+                parser.consume_token(Token::LParen)?;
+                let rhs = parse_expression_paren(parser)?;
+                parser.consume_token(Token::RParen)?;
+                r.shift_expr(Expression::MemberOf {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    member_of_span: member_span.join_span(&of_span),
+                })
             }
             Token::Ident(_, Keyword::INTERVAL) => {
                 let interval_span = parser.consume();
