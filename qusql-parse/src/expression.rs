@@ -251,6 +251,10 @@ pub enum BinaryOperator {
     Mult,
     Like,
     NotLike,
+    Regexp,
+    NotRegexp,
+    Rlike,
+    NotRlike,
     Collate,
 }
 
@@ -1024,6 +1028,10 @@ impl Priority for BinaryOperator {
             BinaryOperator::Neq => 110,
             BinaryOperator::Like => 110,
             BinaryOperator::NotLike => 110,
+            BinaryOperator::Regexp => 110,
+            BinaryOperator::NotRegexp => 110,
+            BinaryOperator::Rlike => 110,
+            BinaryOperator::NotRlike => 110,
             BinaryOperator::ShiftLeft => 80,
             BinaryOperator::ShiftRight => 80,
             BinaryOperator::BitAnd => 90,
@@ -1308,11 +1316,25 @@ pub(crate) fn parse_expression<'a>(
                         r.stack.push(ReduceMember::Expression(lhs));
                         r.shift_binop(parser.consume().join_span(&op), BinaryOperator::NotLike)
                     }
-                    _ => parser.expected_failure("'IN' or 'LIKE'")?,
+                    Token::Ident(_, Keyword::REGEXP) => {
+                        r.stack.push(ReduceMember::Expression(lhs));
+                        r.shift_binop(parser.consume().join_span(&op), BinaryOperator::NotRegexp)
+                    }
+                    Token::Ident(_, Keyword::RLIKE) => {
+                        r.stack.push(ReduceMember::Expression(lhs));
+                        r.shift_binop(parser.consume().join_span(&op), BinaryOperator::NotRlike)
+                    }
+                    _ => parser.expected_failure("'IN', 'LIKE', 'REGEXP' or 'RLIKE'")?,
                 }
             }
             Token::Ident(_, Keyword::LIKE) if !inner => {
                 r.shift_binop(parser.consume(), BinaryOperator::Like)
+            }
+            Token::Ident(_, Keyword::REGEXP) if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::Regexp)
+            }
+            Token::Ident(_, Keyword::RLIKE) if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::Rlike)
             }
             Token::Ident(_, Keyword::INTERVAL) => {
                 let interval_span = parser.consume();

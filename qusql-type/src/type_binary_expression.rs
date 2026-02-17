@@ -56,7 +56,12 @@ pub(crate) fn type_binary_expression<'a>(
                 (flags, BaseType::Any)
             }
         }
-        BinaryOperator::Like | BinaryOperator::NotLike => {
+        BinaryOperator::Like
+        | BinaryOperator::NotLike
+        | BinaryOperator::Regexp
+        | BinaryOperator::NotRegexp
+        | BinaryOperator::Rlike
+        | BinaryOperator::NotRlike => {
             if flags.true_ {
                 (flags.with_not_null(true).with_true(false), BaseType::String)
             } else {
@@ -179,7 +184,12 @@ pub(crate) fn type_binary_expression<'a>(
                 FullType::invalid()
             }
         }
-        BinaryOperator::Like | BinaryOperator::NotLike => {
+        BinaryOperator::Like
+        | BinaryOperator::NotLike
+        | BinaryOperator::Regexp
+        | BinaryOperator::NotRegexp
+        | BinaryOperator::Rlike
+        | BinaryOperator::NotRlike => {
             typer.ensure_base(lhs, &lhs_type, BaseType::String);
             typer.ensure_base(rhs, &rhs_type, BaseType::String);
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
