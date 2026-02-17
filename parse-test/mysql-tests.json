@@ -281,9 +281,9 @@
   },
   {
     "input": "CREATE ALGORITHM = UNDEFINED DEFINER = `root`@`%` SQL SECURITY INVOKER VIEW foo AS SELECT 1",
-    "output": "CreateView(\n    CreateView {\n        create_span: 0..6,\n        create_options: [\n            Algorithm(\n                7..16,\n                Undefined(\n                    19..28,\n                ),\n            ),\n        ],\n        view_span: 71..75,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 76..79,\n            },\n        },\n        as_span: 80..82,\n        select: Select(\n            Select {\n                select_span: 83..89,\n                flags: [],\n                select_exprs: [\n                    SelectExpr {\n                        expr: Integer(\n                            (\n                                1,\n                                90..91,\n                            ),\n                        ),\n                        as_: None,\n                    },\n                ],\n                from_span: None,\n                table_references: None,\n                where_: None,\n                group_by: None,\n                having: None,\n                window_span: None,\n                order_by: None,\n                limit: None,\n                locking: None,\n            },\n        ),\n    },\n)",
+    "output": "CreateView(\n    CreateView {\n        create_span: 0..6,\n        create_options: [\n            Algorithm(\n                7..16,\n                Undefined(\n                    19..28,\n                ),\n            ),\n            Definer {\n                definer_span: 29..36,\n                user: Identifier {\n                    value: \"root\",\n                    span: 39..45,\n                },\n                host: Identifier {\n                    value: \"%\",\n                    span: 46..49,\n                },\n            },\n        ],\n        view_span: 71..75,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 76..79,\n            },\n        },\n        as_span: 80..82,\n        select: Select(\n            Select {\n                select_span: 83..89,\n                flags: [],\n                select_exprs: [\n                    SelectExpr {\n                        expr: Integer(\n                            (\n                                1,\n                                90..91,\n                            ),\n                        ),\n                        as_: None,\n                    },\n                ],\n                from_span: None,\n                table_references: None,\n                where_: None,\n                group_by: None,\n                having: None,\n                window_span: None,\n                order_by: None,\n                limit: None,\n                locking: None,\n            },\n        ),\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 46..47,\n    sql_segment: \"`\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''DEFINER', 'USER'' here\",\n    span: 63..70,\n    sql_segment: \"INVOKER\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1899,19 +1899,13 @@
   },
   {
     "input": "SELECT ```quoted identifier```",
-    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Identifier(\n                    [\n                        Name(\n                            Identifier {\n                                value: \"\",\n                                span: 7..9,\n                            },\n                        ),\n                    ],\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 9..16,\n    sql_segment: \"`quoted\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Identifier(\n                    [\n                        Name(\n                            Identifier {\n                                value: \"``quoted identifier``\",\n                                span: 7..30,\n                            },\n                        ),\n                    ],\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT `quoted `` identifier`",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..14,\n    sql_segment: \"`quoted\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Identifier(\n                    [\n                        Name(\n                            Identifier {\n                                value: \"quoted `` identifier\",\n                                span: 7..29,\n                            },\n                        ),\n                    ],\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT a, c FROM (VALUES ROW(1, true, 'a'), ROW(2, false, 'b'), ROW(3, false, 'c')) AS t (a, b, c)",

@@ -453,19 +453,26 @@ impl<'a> Lexer<'a> {
                 },
                 '_' | 'a'..='z' | 'A'..='Z' => self.simple_literal(start),
                 '`' => {
-                    while matches!(
-                        self.chars.peek(),
-                        Some((_, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' | '-'))
-                    ) {
-                        self.chars.next();
-                    }
-                    match self.chars.peek() {
-                        Some((i, '`')) => {
-                            let i = *i;
-                            self.chars.next();
-                            Token::Ident(self.s(start + 1..i), Keyword::QUOTED_IDENTIFIER)
+                    // MySQL backtick-quoted identifiers can contain any character except backticks
+                    // Backticks can be escaped by doubling them
+                    loop {
+                        match self.chars.next() {
+                            Some((i, '`')) => {
+                                // Check if it's a doubled backtick (escape sequence)
+                                if matches!(self.chars.peek(), Some((_, '`'))) {
+                                    self.chars.next(); // consume the second backtick
+                                    continue;
+                                } else {
+                                    // End of identifier
+                                    break Token::Ident(
+                                        self.s(start + 1..i),
+                                        Keyword::QUOTED_IDENTIFIER,
+                                    );
+                                }
+                            }
+                            Some((_, _)) => continue,
+                            None => break Token::Invalid,
                         }
-                        _ => Token::Invalid,
                     }
                 }
                 '\'' => loop {
