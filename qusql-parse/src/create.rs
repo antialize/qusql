@@ -1142,10 +1142,9 @@ fn parse_create_table<'a>(
         &|t| t == &Token::Eof || t == &delimiter,
         |parser| {
             loop {
-                let identifier = parser.span.clone();
                 match &parser.token {
                     Token::Ident(_, Keyword::ENGINE) => {
-                        parser.consume_keyword(Keyword::ENGINE)?;
+                        let identifier = parser.consume_keyword(Keyword::ENGINE)?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::Engine {
                             identifier,
@@ -1153,10 +1152,11 @@ fn parse_create_table<'a>(
                         });
                     }
                     Token::Ident(_, Keyword::DEFAULT) => {
-                        parser.consume_keyword(Keyword::DEFAULT)?;
+                        let default_span = parser.consume_keyword(Keyword::DEFAULT)?;
                         match &parser.token {
                             Token::Ident(_, Keyword::CHARSET) => {
-                                parser.consume_keyword(Keyword::CHARSET)?;
+                                let identifier = default_span
+                                    .join_span(&parser.consume_keyword(Keyword::CHARSET)?);
                                 parser.skip_token(Token::Eq);
                                 options.push(TableOption::DefaultCharSet {
                                     identifier,
@@ -1164,7 +1164,8 @@ fn parse_create_table<'a>(
                                 });
                             }
                             Token::Ident(_, Keyword::COLLATE) => {
-                                parser.consume_keyword(Keyword::COLLATE)?;
+                                let identifier = default_span
+                                    .join_span(&parser.consume_keyword(Keyword::COLLATE)?);
                                 parser.skip_token(Token::Eq);
                                 options.push(TableOption::DefaultCollate {
                                     identifier,
@@ -1175,7 +1176,7 @@ fn parse_create_table<'a>(
                         }
                     }
                     Token::Ident(_, Keyword::CHARSET) => {
-                        parser.consume_keyword(Keyword::CHARSET)?;
+                        let identifier = parser.consume_keyword(Keyword::CHARSET)?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::CharSet {
                             identifier,
@@ -1183,7 +1184,7 @@ fn parse_create_table<'a>(
                         });
                     }
                     Token::Ident(_, Keyword::COLLATE) => {
-                        parser.consume_keyword(Keyword::COLLATE)?;
+                        let identifier = parser.consume_keyword(Keyword::COLLATE)?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::Collate {
                             identifier,
@@ -1191,7 +1192,7 @@ fn parse_create_table<'a>(
                         });
                     }
                     Token::Ident(_, Keyword::ROW_FORMAT) => {
-                        parser.consume_keyword(Keyword::ROW_FORMAT)?;
+                        let identifier = parser.consume_keyword(Keyword::ROW_FORMAT)?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::RowFormat {
                             identifier,
@@ -1200,7 +1201,7 @@ fn parse_create_table<'a>(
                         //TODO validate raw format is in the keyword set
                     }
                     Token::Ident(_, Keyword::KEY_BLOCK_SIZE) => {
-                        parser.consume_keywords(&[Keyword::KEY_BLOCK_SIZE])?;
+                        let identifier = parser.consume_keywords(&[Keyword::KEY_BLOCK_SIZE])?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::KeyBlockSize {
                             identifier,
@@ -1208,7 +1209,7 @@ fn parse_create_table<'a>(
                         });
                     }
                     Token::Ident(_, Keyword::COMMENT) => {
-                        parser.consume_keyword(Keyword::COMMENT)?;
+                        let identifier = parser.consume_keyword(Keyword::COMMENT)?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::Comment {
                             identifier,
@@ -1216,7 +1217,7 @@ fn parse_create_table<'a>(
                         });
                     }
                     Token::Ident(_, Keyword::STRICT) => {
-                        parser.consume_keyword(Keyword::STRICT)?;
+                        let identifier = parser.consume_keyword(Keyword::STRICT)?;
                         options.push(TableOption::Strict { identifier });
                     }
                     Token::Ident(_, Keyword::AUTO_INCREMENT) => {
@@ -1225,6 +1226,15 @@ fn parse_create_table<'a>(
                         options.push(TableOption::AutoIncrement {
                             identifier,
                             value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::DATA) => {
+                        let identifier =
+                            parser.consume_keywords(&[Keyword::DATA, Keyword::DIRECTORY])?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::DataDirectory {
+                            identifier,
+                            value: parser.consume_string()?,
                         });
                     }
                     t if t == &parser.delimiter => break,
