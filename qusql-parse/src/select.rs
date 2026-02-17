@@ -704,33 +704,20 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
 
     // TODO [into_option]
 
-    let from_span = match parser.skip_keyword(Keyword::FROM) {
-        Some(v) => Some(v),
-        None => {
-            return Ok(Select {
-                select_span,
-                flags,
-                select_exprs,
-                from_span: None,
-                table_references: None,
-                where_: None,
-                group_by: None,
-                having: None,
-                window_span: None,
-                order_by: None,
-                limit: None,
-                locking: None,
-            });
-        }
-    };
+    let from_span = parser.skip_keyword(Keyword::FROM);
 
-    let mut table_references = Vec::new();
-    loop {
-        table_references.push(parse_table_reference(parser)?);
-        if parser.skip_token(Token::Comma).is_none() {
-            break;
+    let table_references = if from_span.is_some() {
+        let mut table_references = Vec::new();
+        loop {
+            table_references.push(parse_table_reference(parser)?);
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
         }
-    }
+        Some(table_references)
+    } else {
+        None
+    };
 
     // TODO PARTITION partition_list;
     let where_ = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
@@ -877,7 +864,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         flags,
         select_exprs,
         from_span,
-        table_references: Some(table_references),
+        table_references,
         where_,
         group_by,
         having,
