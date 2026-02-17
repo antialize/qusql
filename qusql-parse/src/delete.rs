@@ -19,7 +19,7 @@ use crate::{
     lexer::Token,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
-    select::{parse_select_expr, parse_table_reference},
+    select::{OrderFlag, parse_select_expr, parse_table_reference},
 };
 
 /// Flags for deletion
@@ -78,6 +78,10 @@ pub struct Delete<'a> {
     pub using: Vec<TableReference<'a>>,
     /// Where expression and Span of "WHERE" if specified
     pub where_: Option<(Expression<'a>, Span)>,
+    /// Span of "ORDER BY" and order expressions if specified
+    pub order_by: Option<(Span, Vec<(Expression<'a>, OrderFlag)>)>,
+    /// Span of "LIMIT", optional offset expression, and limit expression
+    pub limit: Option<(Span, Option<Expression<'a>>, Expression<'a>)>,
     /// Span of "RETURNING" and select expressions after "RETURNING", if "RETURNING" is present
     pub returning: Option<(Span, Vec<SelectExpr<'a>>)>,
 }
@@ -90,6 +94,8 @@ impl<'a> Spanned for Delete<'a> {
             .join_span(&self.tables)
             .join_span(&self.using)
             .join_span(&self.where_)
+            .join_span(&self.order_by)
+            .join_span(&self.limit)
             .join_span(&self.returning)
     }
 }
@@ -163,8 +169,43 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
     } else {
         None
     };
-    //TODO [ORDER BY ...]
-    //TODO LIMIT row_count]
+
+    let order_by = if let Some(span) = parser.skip_keyword(Keyword::ORDER) {
+        let span = parser.consume_keyword(Keyword::BY)?.join_span(&span);
+        let mut order = Vec::new();
+        loop {
+            let e = parse_expression(parser, false)?;
+            let f = match &parser.token {
+                Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
+                Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
+                _ => OrderFlag::None,
+            };
+            order.push((e, f));
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        Some((span, order))
+    } else {
+        None
+    };
+
+    let limit = if let Some(span) = parser.skip_keyword(Keyword::LIMIT) {
+        let n = parse_expression(parser, true)?;
+        match parser.token {
+            Token::Comma => {
+                parser.consume();
+                Some((span, Some(n), parse_expression(parser, true)?))
+            }
+            Token::Ident(_, Keyword::OFFSET) => {
+                parser.consume();
+                Some((span, Some(parse_expression(parser, true)?), n))
+            }
+            _ => Some((span, None, n)),
+        }
+    } else {
+        None
+    };
 
     let returning = if let Some(returning_span) = parser.skip_keyword(Keyword::RETURNING) {
         let mut returning_exprs = Vec::new();
@@ -186,6 +227,8 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
         using,
         from_span,
         where_,
+        order_by,
+        limit,
         returning,
     })
 }
