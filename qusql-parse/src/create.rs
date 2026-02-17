@@ -2143,9 +2143,22 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         let definer_span = parser.consume_keyword(Keyword::DEFINER)?;
                         parser.consume_token(Token::Eq)?;
                         // TODO user | CURRENT_USER | role | CURRENT_ROLE
-                        let user = parser.consume_plain_identifier()?;
+                        // Accept both plain identifiers and string literals
+                        let user = match &parser.token {
+                            Token::SingleQuotedString(v) => {
+                                let v = *v;
+                                Identifier::new(v, parser.consume())
+                            }
+                            _ => parser.consume_plain_identifier()?,
+                        };
                         parser.consume_token(Token::At)?;
-                        let host = parser.consume_plain_identifier()?;
+                        let host = match &parser.token {
+                            Token::SingleQuotedString(v) => {
+                                let v = *v;
+                                Identifier::new(v, parser.consume())
+                            }
+                            _ => parser.consume_plain_identifier()?,
+                        };
                         CreateOption::Definer {
                             definer_span,
                             user,
