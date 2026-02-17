@@ -1436,12 +1436,19 @@
     "should_fail": true
   },
   {
+    "input": "SELECT 5 % 2",
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Binary {\n                    op: Mod,\n                    op_span: 9..10,\n                    lhs: Integer(\n                        (\n                            5,\n                            7..8,\n                        ),\n                    ),\n                    rhs: Integer(\n                        (\n                            2,\n                            11..12,\n                        ),\n                    ),\n                },\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
+  },
+  {
     "input": "SELECT 5 DIV 2",
-    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Integer(\n                    (\n                        5,\n                        7..8,\n                    ),\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 9..12,\n    sql_segment: \"DIV\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Binary {\n                    op: Div,\n                    op_span: 9..12,\n                    lhs: Integer(\n                        (\n                            5,\n                            7..8,\n                        ),\n                    ),\n                    rhs: Integer(\n                        (\n                            2,\n                            13..14,\n                        ),\n                    ),\n                },\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
+  },
+  {
+    "input": "SELECT 5 MOD 2",
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Binary {\n                    op: Mod,\n                    op_span: 9..12,\n                    lhs: Integer(\n                        (\n                            5,\n                            7..8,\n                        ),\n                    ),\n                    rhs: Integer(\n                        (\n                            2,\n                            13..14,\n                        ),\n                    ),\n                },\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT @price := price, @tax := price * 0.1 FROM products WHERE id = 1",

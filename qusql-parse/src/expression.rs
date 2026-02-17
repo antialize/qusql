@@ -1470,6 +1470,9 @@ pub(crate) fn parse_expression<'a>(
             }
             Token::Plus if !inner => r.shift_binop(parser.consume(), BinaryOperator::Add),
             Token::Div if !inner => r.shift_binop(parser.consume(), BinaryOperator::Divide),
+            Token::Ident(_, Keyword::DIV) if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::Div)
+            }
             Token::Minus if !inner => r.shift_binop(parser.consume(), BinaryOperator::Subtract),
             Token::Ident(_, Keyword::LIKE) if !inner => {
                 r.shift_binop(parser.consume(), BinaryOperator::Like)
@@ -1480,6 +1483,10 @@ pub(crate) fn parse_expression<'a>(
                 )])),
             Token::Mul if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) => {
                 r.shift_binop(parser.consume(), BinaryOperator::Mult)
+            }
+            Token::Mod if !inner => r.shift_binop(parser.consume(), BinaryOperator::Mod),
+            Token::Ident(_, Keyword::MOD) if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::Mod)
             }
             Token::Ident(_, Keyword::TRUE) => r.shift_expr(Expression::Bool(
                 true,
