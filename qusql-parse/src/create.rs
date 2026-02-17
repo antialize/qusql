@@ -1259,12 +1259,27 @@ fn parse_create_trigger<'a>(
 
     // TODO [{ FOLLOWS | PRECEDES } other_trigger_name ]
 
-    let old = core::mem::replace(&mut parser.permit_compound_statements, true);
-    let statement = match parse_statement(parser)? {
-        Some(v) => v,
-        None => parser.expected_failure("statement")?,
+    // PostgreSQL allows EXECUTE FUNCTION func_name() instead of a statement block
+    let statement = if matches!(parser.token, Token::Ident(_, Keyword::EXECUTE)) {
+        // Parse EXECUTE FUNCTION func_name()
+        let _execute_span = parser.consume_keyword(Keyword::EXECUTE)?;
+        parser.consume_keyword(Keyword::FUNCTION)?;
+        parser.consume_plain_identifier()?;
+        parser.consume_token(Token::LParen)?;
+        // TODO: parse function arguments if needed
+        parser.consume_token(Token::RParen)?;
+
+        // Use an empty block as a placeholder for EXECUTE FUNCTION
+        Statement::Block(Vec::new())
+    } else {
+        let old = core::mem::replace(&mut parser.permit_compound_statements, true);
+        let statement = match parse_statement(parser)? {
+            Some(v) => v,
+            None => parser.expected_failure("statement")?,
+        };
+        parser.permit_compound_statements = old;
+        statement
     };
-    parser.permit_compound_statements = old;
 
     Ok(Statement::CreateTrigger(CreateTrigger {
         create_span,

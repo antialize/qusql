@@ -969,19 +969,13 @@
   },
   {
     "input": "CREATE TRIGGER emp_stamp BEFORE INSERT ON emp FOR EACH ROW EXECUTE FUNCTION emp_stamp()",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'statement' here\",\n    span: 59..66,\n    sql_segment: \"EXECUTE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateTrigger(\n    CreateTrigger {\n        create_span: 0..6,\n        create_options: [],\n        trigger_span: 7..14,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"emp_stamp\",\n            span: 15..24,\n        },\n        trigger_time: Before(\n            25..31,\n        ),\n        trigger_event: Insert(\n            32..38,\n        ),\n        on_span: 39..41,\n        table: Identifier {\n            value: \"emp\",\n            span: 42..45,\n        },\n        for_each_row_span: 46..58,\n        statement: Block(\n            [],\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TRIGGER mytrigger BEFORE INSERT ON mytable FOR EACH ROW BEGIN SET NEW.a = 1; SET NEW.b = 2; END",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''='' here\",\n    span: 76..77,\n    sql_segment: \".\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateTrigger(\n    CreateTrigger {\n        create_span: 0..6,\n        create_options: [],\n        trigger_span: 7..14,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"mytrigger\",\n            span: 15..24,\n        },\n        trigger_time: Before(\n            25..31,\n        ),\n        trigger_event: Insert(\n            32..38,\n        ),\n        on_span: 39..41,\n        table: Identifier {\n            value: \"mytable\",\n            span: 42..49,\n        },\n        for_each_row_span: 50..62,\n        statement: Block(\n            [\n                Set(\n                    Set {\n                        set_span: 69..72,\n                        values: [\n                            (\n                                QualifiedName {\n                                    prefix: [\n                                        (\n                                            Identifier {\n                                                value: \"NEW\",\n                                                span: 73..76,\n                                            },\n                                            76..77,\n                                        ),\n                                    ],\n                                    identifier: Identifier {\n                                        value: \"a\",\n                                        span: 77..78,\n                                    },\n                                },\n                                Integer(\n                                    (\n                                        1,\n                                        81..82,\n                                    ),\n                                ),\n                            ),\n                        ],\n                    },\n                ),\n                Set(\n                    Set {\n                        set_span: 84..87,\n                        values: [\n                            (\n                                QualifiedName {\n                                    prefix: [\n                                        (\n                                            Identifier {\n                                                value: \"NEW\",\n                                                span: 88..91,\n                                            },\n                                            91..92,\n                                        ),\n                                    ],\n                                    identifier: Identifier {\n                                        value: \"b\",\n                                        span: 92..93,\n                                    },\n                                },\n                                Integer(\n                                    (\n                                        2,\n                                        96..97,\n                                    ),\n                                ),\n                            ),\n                        ],\n                    },\n                ),\n            ],\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TRIGGER tr AFTER INSERT ON t1 FOR EACH ROW BEGIN INSERT INTO t2 VALUES (NEW.id); END",

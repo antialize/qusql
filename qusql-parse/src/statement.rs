@@ -13,7 +13,7 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    Identifier, RenameTable, Span, Spanned, WithQuery,
+    Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
     alter::{AlterTable, parse_alter},
     create::{
         CreateDatabase, CreateFunction, CreateIndex, CreateTable, CreateTrigger, CreateTypeEnum,
@@ -32,6 +32,7 @@ use crate::{
     lexer::Token,
     lock::{Lock, Unlock, parse_lock, parse_unlock},
     parser::{ParseError, Parser},
+    qualified_name::parse_qualified_name,
     rename::parse_rename_table,
     select::{OrderFlag, Select, parse_select},
     show::{
@@ -48,7 +49,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct Set<'a> {
     pub set_span: Span,
-    pub values: Vec<(Identifier<'a>, Expression<'a>)>,
+    pub values: Vec<(QualifiedName<'a>, Expression<'a>)>,
 }
 
 impl<'a> Spanned for Set<'a> {
@@ -61,7 +62,7 @@ fn parse_set<'a>(parser: &mut Parser<'a, '_>) -> Result<Set<'a>, ParseError> {
     let set_span = parser.consume_keyword(Keyword::SET)?;
     let mut values = Vec::new();
     loop {
-        let name = parser.consume_plain_identifier()?;
+        let name = parse_qualified_name(parser)?;
         parser.consume_token(Token::Eq)?;
         let val = parse_expression(parser, false)?;
         values.push((name, val));
