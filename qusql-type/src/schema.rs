@@ -707,6 +707,12 @@ pub fn parse_schemas<'a>(
                                 &s,
                             );
                         }
+                        s @ qusql_parse::AlterSpecification::Change { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
                     }
                 }
             }

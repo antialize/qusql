@@ -329,6 +329,22 @@ pub enum AlterSpecification<'a> {
         /// New value for auto_increment
         value: u64,
     },
+    Change {
+        /// Span of "CHANGE"
+        change_span: Span,
+        /// Optional span of "COLUMN"
+        column_span: Option<Span>,
+        /// Old name of column
+        column: Identifier<'a>,
+        /// New name of column
+        new_column: Identifier<'a>,
+        /// New definition of column
+        definition: DataType<'a>,
+        // Optional "FIRST"
+        first: Option<Span>,
+        // Optional "AFTER col_name"
+        after: Option<(Span, Identifier<'a>)>,
+    },
 }
 
 impl<'a> Spanned for AlterSpecification<'a> {
@@ -429,6 +445,21 @@ impl<'a> Spanned for AlterSpecification<'a> {
                 value_span,
                 ..
             } => auto_increment_span.join_span(value_span),
+            AlterSpecification::Change {
+                change_span,
+                column_span,
+                column,
+                new_column,
+                definition,
+                first,
+                after,
+            } => change_span
+                .join_span(column_span)
+                .join_span(column)
+                .join_span(new_column)
+                .join_span(definition)
+                .join_span(first)
+                .join_span(after),
         }
     }
 }
@@ -988,6 +1019,37 @@ fn parse_alter_table<'a>(
                     }
                 }
                 Token::Ident(_, Keyword::RENAME) => parse_rename_alter_specification(parser)?,
+                Token::Ident(_, Keyword::CHANGE) => {
+                    let change_span = parser.consume_keyword(Keyword::CHANGE)?;
+                    let column_span = parser.skip_keyword(Keyword::COLUMN);
+
+                    let column = parser.consume_plain_identifier()?;
+                    let new_column = parser.consume_plain_identifier()?;
+                    let definition = parse_data_type(parser, false)?;
+
+                    let mut first = None;
+                    let mut after = None;
+                    match &parser.token {
+                        Token::Ident(_, Keyword::FIRST) => {
+                            first = Some(parser.consume_keyword(Keyword::FIRST)?);
+                        }
+                        Token::Ident(_, Keyword::AFTER) => {
+                            let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                            let after_col = parser.consume_plain_identifier()?;
+                            after = Some((after_span, after_col));
+                        }
+                        _ => (),
+                    }
+                    AlterSpecification::Change {
+                        change_span,
+                        column_span,
+                        column,
+                        new_column,
+                        definition,
+                        first,
+                        after,
+                    }
+                }
                 _ => parser.expected_failure("alter specification")?,
             });
             if parser.skip_token(Token::Comma).is_none() {
