@@ -267,6 +267,10 @@ pub enum AlterSpecification<'a> {
         col: Identifier<'a>,
         /// New definition of column
         definition: DataType<'a>,
+        /// Optional "FIRST"
+        first: Option<Span>,
+        /// Optional "AFTER col_name"
+        after: Option<(Span, Identifier<'a>)>,
     },
     DropColumn {
         /// Span of "DROP COLUMN"
@@ -400,10 +404,14 @@ impl<'a> Spanned for AlterSpecification<'a> {
                 if_exists,
                 col,
                 definition,
+                first,
+                after,
             } => modify_span
                 .join_span(if_exists)
                 .join_span(col)
-                .join_span(definition),
+                .join_span(definition)
+                .join_span(first)
+                .join_span(after),
             AlterSpecification::OwnerTo { span, owner } => span.join_span(owner),
             AlterSpecification::DropColumn {
                 drop_column_span,
@@ -883,12 +891,28 @@ fn parse_alter_table<'a>(
                     };
                     let col = parser.consume_plain_identifier()?;
                     let definition = parse_data_type(parser, false)?;
-                    // TODO [FIRST | AFTER col_name]
+
+                    let mut first = None;
+                    let mut after = None;
+                    match parser.token {
+                        Token::Ident(_, Keyword::FIRST) => {
+                            first = Some(parser.consume_keyword(Keyword::FIRST)?);
+                        }
+                        Token::Ident(_, Keyword::AFTER) => {
+                            let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                            let col = parser.consume_plain_identifier()?;
+                            after = Some((after_span, col));
+                        }
+                        _ => {}
+                    }
+
                     AlterSpecification::Modify {
                         modify_span,
                         if_exists,
                         col,
                         definition,
+                        first,
+                        after,
                     }
                 }
                 Token::Ident(_, Keyword::OWNER) => {
