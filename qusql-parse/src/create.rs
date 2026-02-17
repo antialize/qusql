@@ -1300,14 +1300,24 @@ fn parse_create_type<'a>(
 }
 
 #[derive(Clone, Debug)]
-pub enum CreateIndexOption {
+pub enum CreateIndexOption<'a> {
     UsingGist(Span),
+    UsingBTree(Span),
+    UsingHash(Span),
+    UsingRTree(Span),
+    Algorithm(Span, Identifier<'a>),
+    Lock(Span, Identifier<'a>),
 }
 
-impl Spanned for CreateIndexOption {
+impl<'a> Spanned for CreateIndexOption<'a> {
     fn span(&self) -> Span {
         match self {
             CreateIndexOption::UsingGist(s) => s.clone(),
+            CreateIndexOption::UsingBTree(s) => s.clone(),
+            CreateIndexOption::UsingHash(s) => s.clone(),
+            CreateIndexOption::UsingRTree(s) => s.clone(),
+            CreateIndexOption::Algorithm(s, i) => s.join_span(i),
+            CreateIndexOption::Lock(s, i) => s.join_span(i),
         }
     }
 }
@@ -1321,7 +1331,7 @@ pub struct CreateIndex<'a> {
     pub if_not_exists: Option<Span>,
     pub on_span: Span,
     pub table_name: QualifiedName<'a>,
-    pub index_options: Vec<CreateIndexOption>,
+    pub index_options: Vec<CreateIndexOption<'a>>,
     pub l_paren_span: Span,
     pub column_names: Vec<IndexCol<'a>>,
     pub r_paren_span: Span,
@@ -1358,12 +1368,20 @@ fn parse_create_index<'a>(
     let index_name = parser.consume_plain_identifier()?;
     let on_span = parser.consume_keyword(Keyword::ON)?;
     let table_name = parse_qualified_name(parser)?;
+
+    // PostgreSQL: USING GIST before column list
     let mut index_options = Vec::new();
     if let Some(using_span) = parser.skip_keyword(Keyword::USING) {
-        let gist_span = parser.consume_keyword(Keyword::GIST)?;
-        index_options.push(CreateIndexOption::UsingGist(
-            gist_span.join_span(&using_span),
-        ));
+        if let Token::Ident(_, Keyword::GIST) = &parser.token {
+            let gist_span = parser.consume_keyword(Keyword::GIST)?;
+            index_options.push(CreateIndexOption::UsingGist(
+                using_span.join_span(&gist_span),
+            ));
+        } else {
+            // Error - USING before column list requires GIST for PostgreSQL
+            parser
+                .err_here("Expected GIST after USING (or use USING after column list for MySQL)")?;
+        }
     }
 
     let l_paren_span = parser.consume_token(Token::LParen)?;
@@ -1402,6 +1420,52 @@ fn parse_create_index<'a>(
     }
 
     let r_paren_span = parser.consume_token(Token::RParen)?;
+
+    // Parse index options after column list (MySQL/MariaDB)
+    loop {
+        match &parser.token {
+            Token::Ident(_, Keyword::USING) => {
+                let using_span = parser.consume_keyword(Keyword::USING)?;
+                match &parser.token {
+                    Token::Ident(_, Keyword::BTREE) => {
+                        let btree_span = parser.consume_keyword(Keyword::BTREE)?;
+                        index_options.push(CreateIndexOption::UsingBTree(
+                            using_span.join_span(&btree_span),
+                        ));
+                    }
+                    Token::Ident(_, Keyword::HASH) => {
+                        let hash_span = parser.consume_keyword(Keyword::HASH)?;
+                        index_options.push(CreateIndexOption::UsingHash(
+                            using_span.join_span(&hash_span),
+                        ));
+                    }
+                    Token::Ident(_, Keyword::RTREE) => {
+                        let rtree_span = parser.consume_keyword(Keyword::RTREE)?;
+                        index_options.push(CreateIndexOption::UsingRTree(
+                            using_span.join_span(&rtree_span),
+                        ));
+                    }
+                    _ => parser.err_here("Expected BTREE, HASH, or RTREE after USING")?,
+                }
+            }
+            Token::Ident(_, Keyword::ALGORITHM) => {
+                let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
+                parser.skip_token(Token::Eq); // Optional =
+                let algorithm_value = parser.consume_plain_identifier()?;
+                index_options.push(CreateIndexOption::Algorithm(
+                    algorithm_span,
+                    algorithm_value,
+                ));
+            }
+            Token::Ident(_, Keyword::LOCK) => {
+                let lock_span = parser.consume_keyword(Keyword::LOCK)?;
+                parser.skip_token(Token::Eq); // Optional =
+                let lock_value = parser.consume_plain_identifier()?;
+                index_options.push(CreateIndexOption::Lock(lock_span, lock_value));
+            }
+            _ => break,
+        }
+    }
 
     let mut where_ = None;
     if let Some(where_span) = parser.skip_keyword(Keyword::WHERE) {
