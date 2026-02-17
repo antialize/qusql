@@ -525,5 +525,9 @@ pub(crate) fn type_expression<'a>(
             issue_todo!(typer.issues, e);
             FullType::invalid()
         }
+        e @ Expression::UserVariable { .. } => {
+            issue_todo!(typer.issues, e);
+            FullType::invalid()
+        }
     }
 }

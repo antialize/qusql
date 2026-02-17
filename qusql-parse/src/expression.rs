@@ -258,6 +258,7 @@ pub enum BinaryOperator {
     Collate,
     JsonExtract,
     JsonExtractUnquote,
+    Assignment,
 }
 
 /// Mode for MATCH ... AGAINST
@@ -587,6 +588,13 @@ pub enum Expression<'a> {
         // Span of variable
         variable_span: Span,
     },
+    /// User variable expression (@variable_name)
+    UserVariable {
+        /// The variable name
+        name: Identifier<'a>,
+        /// Span of '@'
+        at_span: Span,
+    },
     /// Timestampadd call
     TimestampAdd {
         timestamp_add_span: Span,
@@ -690,6 +698,7 @@ impl<'a> Spanned for Expression<'a> {
                 .join_span(global)
                 .join_span(session)
                 .join_span(dot),
+            Expression::UserVariable { name, at_span } => at_span.join_span(name),
             Expression::WindowFunction {
                 function: _,
                 args,
@@ -1032,6 +1041,7 @@ trait Priority {
 impl Priority for BinaryOperator {
     fn priority(&self) -> usize {
         match self {
+            BinaryOperator::Assignment => 200,
             BinaryOperator::Or => 140,
             BinaryOperator::Xor => 150,
             BinaryOperator::And => 160,
@@ -1165,6 +1175,7 @@ pub(crate) fn parse_expression<'a>(
     let mut r = Reducer { stack: Vec::new() };
     loop {
         let e = match parser.token.clone() {
+            Token::ColonEq if !inner => r.shift_binop(parser.consume(), BinaryOperator::Assignment),
             Token::Ident(_, Keyword::OR) | Token::DoublePipe if !inner => {
                 r.shift_binop(parser.consume(), BinaryOperator::Or)
             }
@@ -1895,6 +1906,12 @@ pub(crate) fn parse_expression<'a>(
                     variable,
                     variable_span,
                 })
+            }
+            Token::At => {
+                // User variable: @variable_name
+                let at_span = parser.consume_token(Token::At)?;
+                let name = parser.consume_plain_identifier()?;
+                r.shift_expr(Expression::UserVariable { name, at_span })
             }
             _ => break,
         };

@@ -20,6 +20,7 @@ pub(crate) enum Token<'a> {
     Backslash,
     Caret,
     Colon,
+    ColonEq,
     Comma,
     Div,
     DoubleColon,
@@ -79,6 +80,7 @@ impl<'a> Token<'a> {
             Token::Backslash => "'\\'",
             Token::Caret => "'^'",
             Token::Colon => "':'",
+            Token::ColonEq => "':='",
             Token::Comma => "','",
             Token::Div => "'/'",
             Token::DoubleColon => "'::'",
@@ -342,6 +344,10 @@ impl<'a> Lexer<'a> {
                     Some((_, ':')) => {
                         self.chars.next();
                         Token::DoubleColon
+                    }
+                    Some((_, '=')) => {
+                        self.chars.next();
+                        Token::ColonEq
                     }
                     _ => Token::Colon,
                 },
