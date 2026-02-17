@@ -64,6 +64,8 @@ def test_mysql(args) -> None:
     failure_count = 0
 
     for inp, test in tests.items():
+        if args.filter and args.filter not in inp:
+            continue
         result = subprocess.run(
             [
                 "cargo",
@@ -170,6 +172,11 @@ if __name__ == "__main__":
         "--interactive",
         action="store_true",
         help="Update expected outputs for MySQL tests",
+    )
+    test_mysql_args.add_argument(
+        "--filter",
+        type=str,
+        help="Only run tests whose input contains this string",
     )
 
     args = parser.parse_args()

@@ -55,6 +55,7 @@ mod identifier;
 mod insert_replace;
 mod issue;
 mod keywords;
+mod kill;
 mod lexer;
 mod parser;
 mod qualified_name;

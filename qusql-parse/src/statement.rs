@@ -27,6 +27,7 @@ use crate::{
     expression::{Expression, parse_expression},
     insert_replace::{InsertReplace, parse_insert_replace},
     keywords::Keyword,
+    kill::{Kill, parse_kill},
     lexer::Token,
     parser::{ParseError, Parser},
     rename::parse_rename_table,
@@ -404,6 +405,7 @@ pub enum Statement<'a> {
     DropView(DropView<'a>),
     Set(Set<'a>),
     Signal(Signal<'a>),
+    Kill(Kill<'a>),
     AlterTable(AlterTable<'a>),
     Block(Vec<Statement<'a>>), //TODO we should include begin and end
     Begin(Span),
@@ -466,6 +468,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::WithQuery(v) => v.span(),
             Statement::Return(v) => v.span(),
             Statement::Signal(v) => v.span(),
+            Statement::Kill(v) => v.span(),
         }
     }
 }
@@ -493,6 +496,7 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::UPDATE) => Some(Statement::Update(parse_update(parser)?)),
         Token::Ident(_, Keyword::SET) => Some(Statement::Set(parse_set(parser)?)),
         Token::Ident(_, Keyword::SIGNAL) => Some(Statement::Signal(parse_signal(parser)?)),
+        Token::Ident(_, Keyword::KILL) => Some(Statement::Kill(parse_kill(parser)?)),
         Token::Ident(_, Keyword::BEGIN) => Some(if parser.permit_compound_statements {
             Statement::Block(parse_block(parser)?)
         } else {

@@ -1541,27 +1541,18 @@
   },
   {
     "input": "KILL 5",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"KILL\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Kill(\n    Kill {\n        kill_span: 0..4,\n        kill_type: None,\n        id: Integer(\n            (\n                5,\n                5..6,\n            ),\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "KILL CONNECTION 5",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"KILL\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Kill(\n    Kill {\n        kill_span: 0..4,\n        kill_type: Some(\n            Connection(\n                5..15,\n            ),\n        ),\n        id: Integer(\n            (\n                5,\n                16..17,\n            ),\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "KILL QUERY 5",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"KILL\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Kill(\n    Kill {\n        kill_span: 0..4,\n        kill_type: Some(\n            Query(\n                5..10,\n            ),\n        ),\n        id: Integer(\n            (\n                5,\n                11..12,\n            ),\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "LOCK TABLES trans AS t READ LOCAL, customer WRITE",
