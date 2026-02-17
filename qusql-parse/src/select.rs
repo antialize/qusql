@@ -9,12 +9,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 
 use crate::QualifiedName;
 use crate::qualified_name::parse_qualified_name;
 use crate::{
-    Identifier, Span, Spanned, Statement,
+    DataType, Identifier, SString, Span, Spanned, Statement,
+    data_type::parse_data_type,
     expression::{Expression, parse_expression},
     keywords::Keyword,
     lexer::Token,
@@ -167,6 +168,92 @@ impl<'a> Spanned for IndexHint<'a> {
     }
 }
 
+/// JSON_TABLE ON EMPTY/ERROR behavior
+#[derive(Debug, Clone)]
+pub enum JsonTableOnErrorEmpty<'a> {
+    /// DEFAULT value
+    Default(Box<Expression<'a>>),
+    /// ERROR
+    Error(Span),
+    /// NULL
+    Null(Span),
+}
+
+impl<'a> Spanned for JsonTableOnErrorEmpty<'a> {
+    fn span(&self) -> Span {
+        match self {
+            JsonTableOnErrorEmpty::Default(expr) => expr.span(),
+            JsonTableOnErrorEmpty::Error(s) => s.clone(),
+            JsonTableOnErrorEmpty::Null(s) => s.clone(),
+        }
+    }
+}
+
+/// JSON_TABLE column definition
+#[derive(Debug, Clone)]
+pub enum JsonTableColumn<'a> {
+    /// Regular column: name data_type PATH 'path' [options]
+    Column {
+        name: Identifier<'a>,
+        data_type: DataType<'a>,
+        path_span: Span,
+        path: Box<Expression<'a>>,
+        /// ON EMPTY clause
+        on_empty: Option<(JsonTableOnErrorEmpty<'a>, Span)>,
+        /// ON ERROR clause
+        on_error: Option<(JsonTableOnErrorEmpty<'a>, Span)>,
+    },
+    /// Ordinality column: name FOR ORDINALITY
+    Ordinality {
+        name: Identifier<'a>,
+        for_ordinality_span: Span,
+    },
+    /// Nested path: NESTED PATH 'path' COLUMNS (...)
+    Nested {
+        nested_span: Span,
+        path_span: Span,
+        path: Box<Expression<'a>>,
+        columns_span: Span,
+        columns: Vec<JsonTableColumn<'a>>,
+    },
+}
+
+impl<'a> Spanned for JsonTableColumn<'a> {
+    fn span(&self) -> Span {
+        match self {
+            JsonTableColumn::Column {
+                name,
+                data_type,
+                path_span,
+                path,
+                on_empty,
+                on_error,
+            } => name
+                .span()
+                .join_span(data_type)
+                .join_span(path_span)
+                .join_span(path)
+                .join_span(on_empty)
+                .join_span(on_error),
+            JsonTableColumn::Ordinality {
+                name,
+                for_ordinality_span,
+            } => name.span().join_span(for_ordinality_span),
+            JsonTableColumn::Nested {
+                nested_span,
+                path_span,
+                path,
+                columns_span,
+                columns,
+            } => nested_span
+                .join_span(path_span)
+                .join_span(path)
+                .join_span(columns_span)
+                .join_span(columns),
+        }
+    }
+}
+
 /// Reference to table in select
 #[derive(Debug, Clone)]
 pub enum TableReference<'a> {
@@ -190,6 +277,23 @@ pub enum TableReference<'a> {
         /// Alias for table if specified
         as_: Option<Identifier<'a>>,
         //TODO collist
+    },
+    /// JSON_TABLE function
+    JsonTable {
+        /// Span of "JSON_TABLE"
+        json_table_span: Span,
+        /// JSON data expression
+        json_expr: Box<Expression<'a>>,
+        /// JSON path expression
+        path: Box<Expression<'a>>,
+        /// COLUMNS keyword span
+        columns_keyword_span: Span,
+        /// Column definitions
+        columns: Vec<JsonTableColumn<'a>>,
+        /// Span of "AS" if specified
+        as_span: Option<Span>,
+        /// Alias for table if specified
+        as_: Option<Identifier<'a>>,
     },
     /// Join
     Join {
@@ -222,6 +326,21 @@ impl<'a> Spanned for TableReference<'a> {
                 as_span,
                 as_,
             } => query.join_span(as_span).join_span(as_),
+            TableReference::JsonTable {
+                json_table_span,
+                json_expr,
+                path,
+                columns_keyword_span,
+                columns,
+                as_span,
+                as_,
+            } => json_table_span
+                .join_span(json_expr)
+                .join_span(path)
+                .join_span(columns_keyword_span)
+                .join_span(columns)
+                .join_span(as_span)
+                .join_span(as_),
             TableReference::Join {
                 join,
                 left,
@@ -264,6 +383,93 @@ pub(crate) fn parse_table_reference_inner<'a>(
         }
         Token::Ident(_, _) => {
             let identifier = parse_qualified_name(parser)?;
+
+            // Check if this is JSON_TABLE (identifier followed by '(')
+            if matches!(parser.token, Token::LParen) && identifier.prefix.is_empty() {
+                let name = identifier.identifier;
+                let json_table_span = name.span.clone();
+
+                // Only parse JSON_TABLE for now
+                if name.value.eq_ignore_ascii_case("JSON_TABLE") {
+                    parser.consume_token(Token::LParen)?;
+
+                    // Parse JSON data expression (first argument)
+                    let json_expr = parse_expression(parser, true)?;
+
+                    // Expect comma
+                    parser.consume_token(Token::Comma)?;
+
+                    // Parse JSON path - just a simple string for now
+                    let path = match &parser.token {
+                        Token::SingleQuotedString(s) => {
+                            let val = *s;
+                            let span = parser.consume();
+                            Expression::String(SString::new(Cow::Borrowed(val), span))
+                        }
+                        Token::DoubleQuotedString(s) => {
+                            let val = *s;
+                            let span = parser.consume();
+                            Expression::String(SString::new(Cow::Borrowed(val), span))
+                        }
+                        _ => {
+                            // Fall back to expression parsing
+                            parse_expression(parser, true)?
+                        }
+                    };
+
+                    // Parse COLUMNS clause (no comma before COLUMNS)
+                    let columns_keyword_span = parser.consume_keyword(Keyword::COLUMNS)?;
+                    parser.consume_token(Token::LParen)?;
+
+                    let columns = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+                        // Parse column definitions
+                        parse_json_table_columns(parser)
+                    })?;
+
+                    parser.consume_token(Token::RParen)?;
+
+                    // Closing parenthesis of JSON_TABLE
+                    parser.consume_token(Token::RParen)?;
+
+                    // Parse AS and alias
+                    let as_span = parser.skip_keyword(Keyword::AS);
+                    let as_ = if as_span.is_some()
+                        || (matches!(&parser.token, Token::Ident(_, k) if !k.reserved()))
+                    {
+                        Some(parser.consume_plain_identifier()?)
+                    } else {
+                        None
+                    };
+
+                    return Ok(TableReference::JsonTable {
+                        json_table_span,
+                        json_expr: Box::new(json_expr),
+                        path: Box::new(path),
+                        columns_keyword_span,
+                        columns,
+                        as_span,
+                        as_,
+                    });
+                } else {
+                    // For other functions, skip them (future extension point)
+                    let mut depth = 1;
+                    while depth > 0 && !matches!(parser.token, Token::Eof) {
+                        match parser.token {
+                            Token::LParen => depth += 1,
+                            Token::RParen => depth -= 1,
+                            _ => {}
+                        }
+                        if depth > 0 {
+                            parser.consume();
+                        }
+                    }
+                    parser.consume_token(Token::RParen)?;
+
+                    // For now, return an error for non-JSON_TABLE functions
+                    parser.expected_failure("JSON_TABLE function")?;
+                    unreachable!();
+                }
+            }
 
             // TODO [PARTITION (partition_names)] [[AS] alias]
             let as_span = parser.skip_keyword(Keyword::AS);
@@ -346,6 +552,153 @@ pub(crate) fn parse_table_reference_inner<'a>(
         }
         _ => parser.expected_failure("subquery or identifier"),
     }
+}
+
+fn parse_json_table_columns<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Vec<JsonTableColumn<'a>>, ParseError> {
+    let mut columns = Vec::new();
+
+    loop {
+        // Check for NESTED PATH
+        if let Some(nested_span) = parser.skip_keyword(Keyword::NESTED) {
+            let path_span = parser.consume_keyword(Keyword::PATH)?;
+            let path = match &parser.token {
+                Token::SingleQuotedString(s) => {
+                    let val = *s;
+                    let span = parser.consume();
+                    Expression::String(SString::new(Cow::Borrowed(val), span))
+                }
+                Token::DoubleQuotedString(s) => {
+                    let val = *s;
+                    let span = parser.consume();
+                    Expression::String(SString::new(Cow::Borrowed(val), span))
+                }
+                _ => parse_expression(parser, true)?,
+            };
+            let columns_span = parser.consume_keyword(Keyword::COLUMNS)?;
+            parser.consume_token(Token::LParen)?;
+            let nested_columns = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+                parse_json_table_columns(parser)
+            })?;
+            parser.consume_token(Token::RParen)?;
+
+            columns.push(JsonTableColumn::Nested {
+                nested_span,
+                path_span,
+                path: Box::new(path),
+                columns_span,
+                columns: nested_columns,
+            });
+        } else {
+            // Parse column name
+            let name = parser.consume_plain_identifier()?;
+
+            // Check if this is FOR ORDINALITY
+            if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
+                let ordinality_span = parser.consume_keyword(Keyword::ORDINALITY)?;
+                let for_ordinality_span = for_span.join_span(&ordinality_span);
+
+                columns.push(JsonTableColumn::Ordinality {
+                    name,
+                    for_ordinality_span,
+                });
+            } else {
+                // Parse data type
+                let data_type = parse_data_type(parser, true)?;
+
+                // Check for EXISTS before PATH
+                let _ = parser.skip_keyword(Keyword::EXISTS);
+
+                // Parse PATH keyword and path expression
+                let path_span = parser.consume_keyword(Keyword::PATH)?;
+                let path = match &parser.token {
+                    Token::SingleQuotedString(s) => {
+                        let val = *s;
+                        let span = parser.consume();
+                        Expression::String(SString::new(Cow::Borrowed(val), span))
+                    }
+                    Token::DoubleQuotedString(s) => {
+                        let val = *s;
+                        let span = parser.consume();
+                        Expression::String(SString::new(Cow::Borrowed(val), span))
+                    }
+                    _ => parse_expression(parser, true)?,
+                };
+
+                // Parse ON EMPTY and ON ERROR clauses
+                // These can appear in various orders: DEFAULT '...' ON EMPTY, ERROR ON ERROR, etc.
+                let mut on_empty = None;
+                let mut on_error = None;
+
+                loop {
+                    let behavior_start = parser.span.span().start;
+                    let behavior = match &parser.token {
+                        Token::Ident(_, Keyword::DEFAULT) => {
+                            parser.consume();
+                            // Parse the default value
+                            let default_val = parse_expression(parser, true)?;
+                            Some(JsonTableOnErrorEmpty::Default(Box::new(default_val)))
+                        }
+                        Token::Ident(_, Keyword::ERROR) => {
+                            let error_span = parser.consume();
+                            Some(JsonTableOnErrorEmpty::Error(error_span))
+                        }
+                        Token::Ident(_, Keyword::NULL) => {
+                            let null_span = parser.consume();
+                            Some(JsonTableOnErrorEmpty::Null(null_span))
+                        }
+                        _ => None,
+                    };
+
+                    if let Some(behavior) = behavior {
+                        parser.consume_keyword(Keyword::ON)?;
+                        let clause_end = parser.span.span().end;
+                        match &parser.token {
+                            Token::Ident(_, Keyword::EMPTY) => {
+                                parser.consume();
+                                let span = behavior_start..clause_end;
+                                on_empty = Some((behavior, span));
+                            }
+                            Token::Ident(_, Keyword::ERROR) => {
+                                parser.consume();
+                                let span = behavior_start..clause_end;
+                                on_error = Some((behavior, span));
+                            }
+                            _ => {
+                                // Not EMPTY or ERROR, emit an error
+                                parser.expected_failure("EMPTY or ERROR")?;
+                            }
+                        }
+                    } else {
+                        // No behavior keyword, we're done
+                        break;
+                    }
+                }
+
+                columns.push(JsonTableColumn::Column {
+                    name,
+                    data_type,
+                    path_span,
+                    path: Box::new(path),
+                    on_empty,
+                    on_error,
+                });
+            }
+        }
+
+        // Check if there are more columns
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+
+        // Check if we've reached the end of the column list
+        if matches!(parser.token, Token::RParen) {
+            break;
+        }
+    }
+
+    Ok(columns)
 }
 
 pub(crate) fn parse_table_reference<'a>(
