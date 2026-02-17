@@ -32,6 +32,11 @@ use crate::{
     parser::{ParseError, Parser},
     rename::parse_rename_table,
     select::{OrderFlag, Select, parse_select},
+    show::{
+        ShowCharacterSet, ShowCollation, ShowColumns, ShowCreateDatabase, ShowCreateTable,
+        ShowCreateView, ShowDatabases, ShowEngines, ShowProcessList, ShowStatus, ShowTables,
+        ShowVariables, parse_show,
+    },
     span::OptSpanned,
     truncate::{TruncateTable, parse_truncate_table},
     update::{Update, parse_update},
@@ -406,6 +411,18 @@ pub enum Statement<'a> {
     Set(Set<'a>),
     Signal(Signal<'a>),
     Kill(Kill<'a>),
+    ShowTables(ShowTables<'a>),
+    ShowDatabases(ShowDatabases),
+    ShowProcessList(ShowProcessList),
+    ShowVariables(ShowVariables<'a>),
+    ShowStatus(ShowStatus<'a>),
+    ShowColumns(ShowColumns<'a>),
+    ShowCreateTable(ShowCreateTable<'a>),
+    ShowCreateDatabase(ShowCreateDatabase<'a>),
+    ShowCreateView(ShowCreateView<'a>),
+    ShowCharacterSet(ShowCharacterSet<'a>),
+    ShowCollation(ShowCollation<'a>),
+    ShowEngines(ShowEngines),
     AlterTable(AlterTable<'a>),
     Block(Vec<Statement<'a>>), //TODO we should include begin and end
     Begin(Span),
@@ -469,6 +486,18 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Return(v) => v.span(),
             Statement::Signal(v) => v.span(),
             Statement::Kill(v) => v.span(),
+            Statement::ShowTables(v) => v.span(),
+            Statement::ShowDatabases(v) => v.span(),
+            Statement::ShowProcessList(v) => v.span(),
+            Statement::ShowVariables(v) => v.span(),
+            Statement::ShowStatus(v) => v.span(),
+            Statement::ShowColumns(v) => v.span(),
+            Statement::ShowCreateTable(v) => v.span(),
+            Statement::ShowCreateDatabase(v) => v.span(),
+            Statement::ShowCreateView(v) => v.span(),
+            Statement::ShowCharacterSet(v) => v.span(),
+            Statement::ShowCollation(v) => v.span(),
+            Statement::ShowEngines(v) => v.span(),
         }
     }
 }
@@ -497,6 +526,7 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::SET) => Some(Statement::Set(parse_set(parser)?)),
         Token::Ident(_, Keyword::SIGNAL) => Some(Statement::Signal(parse_signal(parser)?)),
         Token::Ident(_, Keyword::KILL) => Some(Statement::Kill(parse_kill(parser)?)),
+        Token::Ident(_, Keyword::SHOW) => Some(parse_show(parser)?),
         Token::Ident(_, Keyword::BEGIN) => Some(if parser.permit_compound_statements {
             Statement::Block(parse_block(parser)?)
         } else {

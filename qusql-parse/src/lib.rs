@@ -61,6 +61,7 @@ mod parser;
 mod qualified_name;
 mod rename;
 mod select;
+mod show;
 mod span;
 mod sstring;
 mod statement;

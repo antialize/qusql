@@ -2416,332 +2416,221 @@
   },
   {
     "input": "SHOW CHARACTER SET",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowCharacterSet(\n    ShowCharacterSet {\n        show_span: 0..4,\n        character_span: Some(\n            5..14,\n        ),\n        set_span: 15..18,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW CHARACTER SET LIKE 'utf8mb4%'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowCharacterSet(\n    ShowCharacterSet {\n        show_span: 0..4,\n        character_span: Some(\n            5..14,\n        ),\n        set_span: 15..18,\n        like: Some(\n            SString {\n                value: \"utf8mb4%\",\n                span: 24..34,\n            },\n        ),\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW CHARSET LIKE 'utf8mb4%'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowCharacterSet(\n    ShowCharacterSet {\n        show_span: 0..4,\n        character_span: None,\n        set_span: 5..12,\n        like: Some(\n            SString {\n                value: \"utf8mb4%\",\n                span: 18..28,\n            },\n        ),\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW CHARSET WHERE charset = 'utf8mb4%'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowCharacterSet(\n    ShowCharacterSet {\n        show_span: 0..4,\n        character_span: None,\n        set_span: 5..12,\n        like: None,\n        where_expr: Some(\n            Binary {\n                op: Eq,\n                op_span: 27..28,\n                lhs: Identifier(\n                    [\n                        Name(\n                            Identifier {\n                                value: \"charset\",\n                                span: 19..26,\n                            },\n                        ),\n                    ],\n                ),\n                rhs: String(\n                    SString {\n                        value: \"utf8mb4%\",\n                        span: 29..39,\n                    },\n                ),\n            },\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW COLLATION",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowCollation(\n    ShowCollation {\n        show_span: 0..4,\n        collation_span: 5..14,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW COLLATION LIKE 'pattern'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowCollation(\n    ShowCollation {\n        show_span: 0..4,\n        collation_span: 5..14,\n        like: Some(\n            SString {\n                value: \"pattern\",\n                span: 20..29,\n            },\n        ),\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW COLLATION WHERE 1 = 2",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowCollation(\n    ShowCollation {\n        show_span: 0..4,\n        collation_span: 5..14,\n        like: None,\n        where_expr: Some(\n            Binary {\n                op: Eq,\n                op_span: 23..24,\n                lhs: Integer(\n                    (\n                        1,\n                        21..22,\n                    ),\n                ),\n                rhs: Integer(\n                    (\n                        2,\n                        25..26,\n                    ),\n                ),\n            },\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW COLUMNS FROM mydb.mytable",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 5..12,\n        extended: None,\n        full: None,\n        table: Some(\n            QualifiedName {\n                prefix: [\n                    (\n                        Identifier {\n                            value: \"mydb\",\n                            span: 18..22,\n                        },\n                        22..23,\n                    ),\n                ],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 23..30,\n                },\n            },\n        ),\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW COLUMNS FROM mytable",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 5..12,\n        extended: None,\n        full: None,\n        table: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 18..25,\n                },\n            },\n        ),\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW COLUMNS FROM mytable FROM mydb",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 5..12,\n        extended: None,\n        full: None,\n        table: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 18..25,\n                },\n            },\n        ),\n        db: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mydb\",\n                    span: 31..35,\n                },\n            },\n        ),\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW COLUMNS FROM mytable LIKE 'pattern'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 5..12,\n        extended: None,\n        full: None,\n        table: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 18..25,\n                },\n            },\n        ),\n        db: None,\n        like: Some(\n            SString {\n                value: \"pattern\",\n                span: 31..40,\n            },\n        ),\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW COLUMNS FROM mytable WHERE 1 = 2",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 5..12,\n        extended: None,\n        full: None,\n        table: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 18..25,\n                },\n            },\n        ),\n        db: None,\n        like: None,\n        where_expr: Some(\n            Binary {\n                op: Eq,\n                op_span: 34..35,\n                lhs: Integer(\n                    (\n                        1,\n                        32..33,\n                    ),\n                ),\n                rhs: Integer(\n                    (\n                        2,\n                        36..37,\n                    ),\n                ),\n            },\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW COLUMNS IN mytable",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 5..12,\n        extended: None,\n        full: None,\n        table: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 16..23,\n                },\n            },\n        ),\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW CREATE {obj_type} myident",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'DATABASE' | 'VIEW'' here\",\n    span: 12..13,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "SHOW EXTENDED COLUMNS FROM mytable",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 14..21,\n        extended: Some(\n            5..13,\n        ),\n        full: None,\n        table: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 27..34,\n                },\n            },\n        ),\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW EXTENDED FULL COLLATION",
-    "output": null,
+    "output": "ShowCollation(\n    ShowCollation {\n        show_span: 0..4,\n        collation_span: 19..28,\n        like: None,\n        where_expr: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+      "Issue {\n    level: Warning,\n    message: \"Modifier EXTENDED not supported for this SHOW variant\",\n    span: 5..13,\n    sql_segment: \"EXTENDED\",\n    fragments: [],\n}",
+      "Issue {\n    level: Warning,\n    message: \"Modifier FULL not supported for this SHOW variant\",\n    span: 14..18,\n    sql_segment: \"FULL\",\n    fragments: [],\n}"
+    ]
   },
   {
     "input": "SHOW EXTENDED FULL COLUMNS FROM mytable",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 19..26,\n        extended: Some(\n            5..13,\n        ),\n        full: Some(\n            14..18,\n        ),\n        table: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 32..39,\n                },\n            },\n        ),\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW EXTENDED FULL CREATE TABLE mytable",
-    "output": null,
+    "output": "ShowCreateTable(\n    ShowCreateTable {\n        show_span: 0..4,\n        create_span: 19..25,\n        object_span: 26..31,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"mytable\",\n                span: 32..39,\n            },\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+      "Issue {\n    level: Warning,\n    message: \"Modifier EXTENDED not supported for this SHOW variant\",\n    span: 5..13,\n    sql_segment: \"EXTENDED\",\n    fragments: [],\n}",
+      "Issue {\n    level: Warning,\n    message: \"Modifier FULL not supported for this SHOW variant\",\n    span: 14..18,\n    sql_segment: \"FULL\",\n    fragments: [],\n}"
+    ]
   },
   {
     "input": "SHOW EXTENDED FULL TABLES",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowTables(\n    ShowTables {\n        show_span: 0..4,\n        tables_span: 19..25,\n        extended: Some(\n            5..13,\n        ),\n        full: Some(\n            14..18,\n        ),\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW EXTENDED FULL VARIABLES",
-    "output": null,
+    "output": "ShowVariables(\n    ShowVariables {\n        show_span: 0..4,\n        variables_span: 19..28,\n        global_span: None,\n        session_span: None,\n        like: None,\n        where_expr: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+      "Issue {\n    level: Warning,\n    message: \"Modifier EXTENDED not supported for this SHOW variant\",\n    span: 5..13,\n    sql_segment: \"EXTENDED\",\n    fragments: [],\n}",
+      "Issue {\n    level: Warning,\n    message: \"Modifier FULL not supported for this SHOW variant\",\n    span: 14..18,\n    sql_segment: \"FULL\",\n    fragments: [],\n}"
+    ]
   },
   {
     "input": "SHOW EXTENDED TABLES",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowTables(\n    ShowTables {\n        show_span: 0..4,\n        tables_span: 14..20,\n        extended: Some(\n            5..13,\n        ),\n        full: None,\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW FIELDS FROM mytable",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 5..11,\n        extended: None,\n        full: None,\n        table: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 17..24,\n                },\n            },\n        ),\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW FIELDS IN mytable",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 5..11,\n        extended: None,\n        full: None,\n        table: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 15..22,\n                },\n            },\n        ),\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW FULL COLUMNS FROM mytable",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowColumns(\n    ShowColumns {\n        show_span: 0..4,\n        columns_span: 10..17,\n        extended: None,\n        full: Some(\n            5..9,\n        ),\n        table: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mytable\",\n                    span: 23..30,\n                },\n            },\n        ),\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW FULL TABLES",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowTables(\n    ShowTables {\n        show_span: 0..4,\n        tables_span: 10..16,\n        extended: None,\n        full: Some(\n            5..9,\n        ),\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW GLOBAL STATUS LIKE 'ssl_cipher'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowStatus(\n    ShowStatus {\n        show_span: 0..4,\n        status_span: 12..18,\n        global_span: Some(\n            5..11,\n        ),\n        session_span: None,\n        like: Some(\n            SString {\n                value: \"ssl_cipher\",\n                span: 24..36,\n            },\n        ),\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW GLOBAL VARIABLES",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowVariables(\n    ShowVariables {\n        show_span: 0..4,\n        variables_span: 12..21,\n        global_span: Some(\n            5..11,\n        ),\n        session_span: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW GLOBAL VARIABLES LIKE 'admin%'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowVariables(\n    ShowVariables {\n        show_span: 0..4,\n        variables_span: 12..21,\n        global_span: Some(\n            5..11,\n        ),\n        session_span: None,\n        like: Some(\n            SString {\n                value: \"admin%\",\n                span: 27..35,\n            },\n        ),\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW GLOBAL VARIABLES WHERE value = '3306'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowVariables(\n    ShowVariables {\n        show_span: 0..4,\n        variables_span: 12..21,\n        global_span: Some(\n            5..11,\n        ),\n        session_span: None,\n        like: None,\n        where_expr: Some(\n            Binary {\n                op: Eq,\n                op_span: 34..35,\n                lhs: Identifier(\n                    [\n                        Name(\n                            Identifier {\n                                value: \"value\",\n                                span: 28..33,\n                            },\n                        ),\n                    ],\n                ),\n                rhs: String(\n                    SString {\n                        value: \"3306\",\n                        span: 36..42,\n                    },\n                ),\n            },\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW SESSION STATUS LIKE 'ssl_cipher'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowStatus(\n    ShowStatus {\n        show_span: 0..4,\n        status_span: 13..19,\n        global_span: None,\n        session_span: Some(\n            5..12,\n        ),\n        like: Some(\n            SString {\n                value: \"ssl_cipher\",\n                span: 25..37,\n            },\n        ),\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW SESSION VARIABLES",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowVariables(\n    ShowVariables {\n        show_span: 0..4,\n        variables_span: 13..22,\n        global_span: None,\n        session_span: Some(\n            5..12,\n        ),\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW SESSION VARIABLES LIKE 'admin%'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowVariables(\n    ShowVariables {\n        show_span: 0..4,\n        variables_span: 13..22,\n        global_span: None,\n        session_span: Some(\n            5..12,\n        ),\n        like: Some(\n            SString {\n                value: \"admin%\",\n                span: 28..36,\n            },\n        ),\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW STATUS WHERE value = 2",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowStatus(\n    ShowStatus {\n        show_span: 0..4,\n        status_span: 5..11,\n        global_span: None,\n        session_span: None,\n        like: None,\n        where_expr: Some(\n            Binary {\n                op: Eq,\n                op_span: 24..25,\n                lhs: Identifier(\n                    [\n                        Name(\n                            Identifier {\n                                value: \"value\",\n                                span: 18..23,\n                            },\n                        ),\n                    ],\n                ),\n                rhs: Integer(\n                    (\n                        2,\n                        26..27,\n                    ),\n                ),\n            },\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW TABLES",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowTables(\n    ShowTables {\n        show_span: 0..4,\n        tables_span: 5..11,\n        extended: None,\n        full: None,\n        db: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW TABLES FROM mydb",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowTables(\n    ShowTables {\n        show_span: 0..4,\n        tables_span: 5..11,\n        extended: None,\n        full: None,\n        db: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mydb\",\n                    span: 17..21,\n                },\n            },\n        ),\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW TABLES IN mydb",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowTables(\n    ShowTables {\n        show_span: 0..4,\n        tables_span: 5..11,\n        extended: None,\n        full: None,\n        db: Some(\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"mydb\",\n                    span: 15..19,\n                },\n            },\n        ),\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW TABLES LIKE 'pattern'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowTables(\n    ShowTables {\n        show_span: 0..4,\n        tables_span: 5..11,\n        extended: None,\n        full: None,\n        db: None,\n        like: Some(\n            SString {\n                value: \"pattern\",\n                span: 17..26,\n            },\n        ),\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW TABLES WHERE 1 = 2",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowTables(\n    ShowTables {\n        show_span: 0..4,\n        tables_span: 5..11,\n        extended: None,\n        full: None,\n        db: None,\n        like: None,\n        where_expr: Some(\n            Binary {\n                op: Eq,\n                op_span: 20..21,\n                lhs: Integer(\n                    (\n                        1,\n                        18..19,\n                    ),\n                ),\n                rhs: Integer(\n                    (\n                        2,\n                        22..23,\n                    ),\n                ),\n            },\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW VARIABLES",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowVariables(\n    ShowVariables {\n        show_span: 0..4,\n        variables_span: 5..14,\n        global_span: None,\n        session_span: None,\n        like: None,\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW VARIABLES LIKE 'admin%'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowVariables(\n    ShowVariables {\n        show_span: 0..4,\n        variables_span: 5..14,\n        global_span: None,\n        session_span: None,\n        like: Some(\n            SString {\n                value: \"admin%\",\n                span: 20..28,\n            },\n        ),\n        where_expr: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SHOW VARIABLES WHERE value = '3306'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..4,\n    sql_segment: \"SHOW\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "ShowVariables(\n    ShowVariables {\n        show_span: 0..4,\n        variables_span: 5..14,\n        global_span: None,\n        session_span: None,\n        like: None,\n        where_expr: Some(\n            Binary {\n                op: Eq,\n                op_span: 27..28,\n                lhs: Identifier(\n                    [\n                        Name(\n                            Identifier {\n                                value: \"value\",\n                                span: 21..26,\n                            },\n                        ),\n                    ],\n                ),\n                rhs: String(\n                    SString {\n                        value: \"3306\",\n                        span: 29..35,\n                    },\n                ),\n            },\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "UNLOCK TABLES",
