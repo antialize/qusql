@@ -106,8 +106,8 @@ pub enum Type<'a> {
     Float8,
     Float(Option<(usize, usize, Span)>),
     Double(Option<(usize, usize, Span)>),
-    Numeric(usize, usize, Span),
-    Decimal(usize, usize, Span),
+    Numeric(Option<(usize, usize, Span)>),
+    Decimal(Option<(usize, usize, Span)>),
     DateTime(Option<(usize, Span)>),
     Timestamp(Timestamp),
     Timestamptz,
@@ -148,8 +148,8 @@ impl<'a> OptSpanned for Type<'a> {
             Type::Float8 => None,
             Type::Float(v) => v.opt_span(),
             Type::Double(v) => v.opt_span(),
-            Type::Numeric(_, _, v) => v.opt_span(),
-            Type::Decimal(_, _, v) => v.opt_span(),
+            Type::Numeric(v) => v.opt_span(),
+            Type::Decimal(v) => v.opt_span(),
             Type::DateTime(v) => v.opt_span(),
             Type::Timestamp(v) => v.opt_span(),
             Type::Time(v) => v.opt_span(),
@@ -346,47 +346,27 @@ pub(crate) fn parse_data_type<'a>(
             let i = if parser.options.dialect.is_postgresql() {
                 parser.consume_keywords(&[Keyword::DOUBLE, Keyword::PRECISION])?
             } else {
-                parser.consume_keyword(Keyword::DOUBLE)?
+                let double_span = parser.consume_keyword(Keyword::DOUBLE)?;
+                // MySQL also supports optional PRECISION keyword
+                if let Some(precision_span) = parser.skip_keyword(Keyword::PRECISION) {
+                    double_span.join_span(&precision_span)
+                } else {
+                    double_span
+                }
             };
             (i, Type::Double(parse_precision_scale(parser)?))
         }
         Token::Ident(_, Keyword::NUMERIC) => {
             let numeric = parser.consume_keyword(Keyword::NUMERIC)?;
-            let left = parser.consume_token(Token::LParen)?;
-            let (v1, s1) = parser.consume_int()?;
-            let comma = parser.consume_token(Token::Comma)?;
-            let (v2, s2) = parser.consume_int()?;
-            let right = parser.consume_token(Token::RParen)?;
-            (
-                numeric,
-                Type::Numeric(
-                    v1,
-                    v2,
-                    left.join_span(&s1)
-                        .join_span(&comma)
-                        .join_span(&s2)
-                        .join_span(&right),
-                ),
-            )
+            (numeric, Type::Numeric(parse_precision_scale(parser)?))
         }
         Token::Ident(_, Keyword::DECIMAL) => {
             let decimal = parser.consume_keyword(Keyword::DECIMAL)?;
-            let left = parser.consume_token(Token::LParen)?;
-            let (v1, s1) = parser.consume_int()?;
-            let comma = parser.consume_token(Token::Comma)?;
-            let (v2, s2) = parser.consume_int()?;
-            let right = parser.consume_token(Token::RParen)?;
-            (
-                decimal,
-                Type::Decimal(
-                    v1,
-                    v2,
-                    left.join_span(&s1)
-                        .join_span(&comma)
-                        .join_span(&s2)
-                        .join_span(&right),
-                ),
-            )
+            (decimal, Type::Decimal(parse_precision_scale(parser)?))
+        }
+        Token::Ident(_, Keyword::DEC) => {
+            let dec = parser.consume_keyword(Keyword::DEC)?;
+            (dec, Type::Decimal(parse_precision_scale(parser)?))
         }
         Token::Ident(_, Keyword::DATETIME) => (
             parser.consume_keyword(Keyword::DATETIME)?,

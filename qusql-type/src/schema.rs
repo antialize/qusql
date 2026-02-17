@@ -253,8 +253,8 @@ pub(crate) fn parse_column<'a>(
             BaseType::Integer.into()
         }
         qusql_parse::Type::Float8 => BaseType::Float.into(),
-        qusql_parse::Type::Numeric(_, _, _) => todo!("Numeric"),
-        qusql_parse::Type::Decimal(_, _, _) => todo!("Decimal"),
+        qusql_parse::Type::Numeric(_) => todo!("Numeric"),
+        qusql_parse::Type::Decimal(_) => todo!("Decimal"),
         qusql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
         qusql_parse::Type::Json => BaseType::String.into(),
         qusql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
