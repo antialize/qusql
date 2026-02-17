@@ -1114,11 +1114,8 @@
   },
   {
     "input": "LOCK TABLES trans AS t READ, customer LOW_PRIORITY WRITE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''READ' | 'WRITE'' here\",\n    span: 38..50,\n    sql_segment: \"LOW_PRIORITY\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Lock(\n    Lock {\n        lock_span: 0..4,\n        tables_span: 5..11,\n        members: [\n            LockMember {\n                table_name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"trans\",\n                        span: 12..17,\n                    },\n                },\n                alias: Some(\n                    Identifier {\n                        value: \"t\",\n                        span: 21..22,\n                    },\n                ),\n                lock_type: Read,\n            },\n            LockMember {\n                table_name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"customer\",\n                        span: 29..37,\n                    },\n                },\n                alias: None,\n                lock_type: LowPriorityWrite,\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "LOCK TABLES trans AS t READ, customer WRITE",
@@ -1127,11 +1124,8 @@
   },
   {
     "input": "LOCK TABLES trans t READ, customer WRITE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''READ' | 'WRITE'' here\",\n    span: 18..19,\n    sql_segment: \"t\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Lock(\n    Lock {\n        lock_span: 0..4,\n        tables_span: 5..11,\n        members: [\n            LockMember {\n                table_name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"trans\",\n                        span: 12..17,\n                    },\n                },\n                alias: Some(\n                    Identifier {\n                        value: \"t\",\n                        span: 18..19,\n                    },\n                ),\n                lock_type: Read,\n            },\n            LockMember {\n                table_name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"customer\",\n                        span: 26..34,\n                    },\n                },\n                alias: None,\n                lock_type: Write,\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "REPLACE DELAYED INTO tasks (title, priority) VALUES ('Test Some Inserts', 1)",

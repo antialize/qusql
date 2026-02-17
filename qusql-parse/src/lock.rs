@@ -10,9 +10,21 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub enum LockType {
-    Read,
-    ReadLocal,
-    Write,
+    Read(Span),
+    ReadLocal(Span),
+    Write(Span),
+    LowPriorityWrite(Span),
+}
+
+impl Spanned for LockType {
+    fn span(&self) -> Span {
+        match self {
+            LockType::Read(s) => s.clone(),
+            LockType::ReadLocal(s) => s.clone(),
+            LockType::Write(s) => s.clone(),
+            LockType::LowPriorityWrite(s) => s.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -24,7 +36,10 @@ pub struct LockMember<'a> {
 
 impl Spanned for LockMember<'_> {
     fn span(&self) -> Span {
-        self.table_name.span().join_span(&self.alias)
+        self.table_name
+            .span()
+            .join_span(&self.alias)
+            .join_span(&self.lock_type)
     }
 }
 
@@ -72,22 +87,32 @@ pub(crate) fn parse_lock<'a>(parser: &mut Parser<'a, '_>) -> Result<Lock<'a>, Pa
 
         let alias = if parser.skip_keyword(Keyword::AS).is_some() {
             Some(parser.consume_plain_identifier()?)
+        } else if matches!(
+            parser.token,
+            Token::Ident(_, kw) if !matches!(kw, Keyword::READ | Keyword::WRITE | Keyword::LOW_PRIORITY)
+        ) {
+            // Optional AS: consume identifier if it's not a lock type keyword
+            Some(parser.consume_plain_identifier()?)
         } else {
             None
         };
 
         let lock_type = match &parser.token {
             Token::Ident(_, Keyword::READ) => {
-                parser.consume_keyword(Keyword::READ)?;
-                if parser.skip_keyword(Keyword::LOCAL).is_some() {
-                    LockType::ReadLocal
+                let read_span = parser.consume_keyword(Keyword::READ)?;
+                if let Some(local_span) = parser.skip_keyword(Keyword::LOCAL) {
+                    LockType::ReadLocal(read_span.join_span(&local_span))
                 } else {
-                    LockType::Read
+                    LockType::Read(read_span)
                 }
             }
+            Token::Ident(_, Keyword::LOW_PRIORITY) => {
+                let span = parser.consume_keywords(&[Keyword::LOW_PRIORITY, Keyword::WRITE])?;
+                LockType::LowPriorityWrite(span)
+            }
             Token::Ident(_, Keyword::WRITE) => {
-                parser.consume_keyword(Keyword::WRITE)?;
-                LockType::Write
+                let write_span = parser.consume_keyword(Keyword::WRITE)?;
+                LockType::Write(write_span)
             }
             _ => return parser.expected_failure("'READ' | 'WRITE'"),
         };
