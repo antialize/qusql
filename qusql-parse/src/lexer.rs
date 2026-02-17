@@ -171,6 +171,10 @@ impl<'a> Lexer<'a> {
                 Some((_, '$' | '@')) if self.dialect.is_maria() => {
                     self.chars.next();
                 }
+                // MySQL allows Unicode characters (U+0080 and above) in identifiers
+                Some((_, c)) if self.dialect.is_maria() && (*c as u32) >= 0x80 => {
+                    self.chars.next();
+                }
                 Some((i, _)) => break *i,
                 None => break self.src.len(),
             }
@@ -346,7 +350,7 @@ impl<'a> Lexer<'a> {
                         self.chars.next();
                         Token::DoubleDollar
                     }
-                    Some((_, '1'..='9')) => {
+                    Some((_, '1'..='9')) if self.dialect.is_postgresql() => {
                         let mut v = self.chars.peek().unwrap().1.to_digit(10).unwrap() as usize;
                         self.chars.next();
                         while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
@@ -355,6 +359,10 @@ impl<'a> Lexer<'a> {
                             self.chars.next();
                         }
                         Token::DollarArg(v)
+                    }
+                    _ if self.dialect.is_maria() => {
+                        // In MariaDB, $ can start an identifier
+                        self.simple_literal(start)
                     }
                     _ => Token::Invalid,
                 },
@@ -756,6 +764,8 @@ impl<'a> Lexer<'a> {
                     },
                     _ => Token::Period,
                 },
+                // In MariaDB, Unicode characters (U+0080 and above) can start identifiers
+                c if self.dialect.is_maria() && (c as u32) >= 0x80 => self.simple_literal(start),
                 _ => Token::Invalid,
             };
 

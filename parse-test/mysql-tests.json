@@ -1160,11 +1160,8 @@
   },
   {
     "input": "SELECT $a$, \u00c3\u00a0\u00c3",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..8,\n    sql_segment: \"$\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Identifier(\n                    [\n                        Name(\n                            Identifier {\n                                value: \"$a$\",\n                                span: 7..10,\n                            },\n                        ),\n                    ],\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: Identifier(\n                    [\n                        Name(\n                            Identifier {\n                                value: \"\u00c3\\u{a0}\u00c3\",\n                                span: 12..18,\n                            },\n                        ),\n                    ],\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT '%\\_\\%' LIKE '%\\_\\%'",
