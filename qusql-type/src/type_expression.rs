@@ -409,6 +409,7 @@ pub(crate) fn type_expression<'a>(
                             | qusql_parse::Type::Enum(_)
                             | qusql_parse::Type::Set(_)
                             | qusql_parse::Type::Numeric(_, _, _)
+                            | qusql_parse::Type::Decimal(_, _, _)
                             | qusql_parse::Type::Timestamp(_)
                             | qusql_parse::Type::TinyBlob(_)
                             | qusql_parse::Type::MediumBlob(_)

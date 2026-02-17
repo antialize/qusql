@@ -107,6 +107,7 @@ pub enum Type<'a> {
     Float(Option<(usize, usize, Span)>),
     Double(Option<(usize, usize, Span)>),
     Numeric(usize, usize, Span),
+    Decimal(usize, usize, Span),
     DateTime(Option<(usize, Span)>),
     Timestamp(Timestamp),
     Timestamptz,
@@ -148,6 +149,7 @@ impl<'a> OptSpanned for Type<'a> {
             Type::Float(v) => v.opt_span(),
             Type::Double(v) => v.opt_span(),
             Type::Numeric(_, _, v) => v.opt_span(),
+            Type::Decimal(_, _, v) => v.opt_span(),
             Type::DateTime(v) => v.opt_span(),
             Type::Timestamp(v) => v.opt_span(),
             Type::Time(v) => v.opt_span(),
@@ -358,6 +360,25 @@ pub(crate) fn parse_data_type<'a>(
             (
                 numeric,
                 Type::Numeric(
+                    v1,
+                    v2,
+                    left.join_span(&s1)
+                        .join_span(&comma)
+                        .join_span(&s2)
+                        .join_span(&right),
+                ),
+            )
+        }
+        Token::Ident(_, Keyword::DECIMAL) => {
+            let decimal = parser.consume_keyword(Keyword::DECIMAL)?;
+            let left = parser.consume_token(Token::LParen)?;
+            let (v1, s1) = parser.consume_int()?;
+            let comma = parser.consume_token(Token::Comma)?;
+            let (v2, s2) = parser.consume_int()?;
+            let right = parser.consume_token(Token::RParen)?;
+            (
+                decimal,
+                Type::Decimal(
                     v1,
                     v2,
                     left.join_span(&s1)
