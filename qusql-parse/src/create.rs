@@ -15,7 +15,7 @@ use crate::{
     DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
     alter::{
         ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption,
-        IndexType, parse_index_cols, parse_index_options,
+        IndexType, parse_index_cols, parse_index_options, parse_index_type,
     },
     data_type::parse_data_type,
     expression::parse_expression,
@@ -516,103 +516,6 @@ impl<'a> Spanned for CreateView<'a> {
     }
 }
 
-/// Parse an index definition (PRIMARY KEY, UNIQUE, INDEX, KEY, FULLTEXT, SPATIAL)
-fn parse_index_definition<'a>(
-    parser: &mut Parser<'a, '_>,
-    constraint_span: Option<Span>,
-    constraint_symbol: Option<Identifier<'a>>,
-) -> Result<CreateDefinition<'a>, ParseError> {
-    // Parse index type
-    let index_type = match &parser.token {
-        Token::Ident(_, Keyword::PRIMARY) => {
-            let span = parser.consume_keyword(Keyword::PRIMARY)?;
-            parser.consume_keyword(Keyword::KEY)?;
-            IndexType::Primary(span)
-        }
-        Token::Ident(_, Keyword::UNIQUE) => {
-            let span = parser.consume_keyword(Keyword::UNIQUE)?;
-            // UNIQUE can be followed by INDEX or KEY (optional)
-            if parser.skip_keyword(Keyword::INDEX).is_some()
-                || parser.skip_keyword(Keyword::KEY).is_some()
-            {
-                // consumed INDEX or KEY
-            }
-            IndexType::Unique(span)
-        }
-        Token::Ident(_, Keyword::FULLTEXT) => {
-            let span = parser.consume_keyword(Keyword::FULLTEXT)?;
-            // FULLTEXT can be followed by INDEX or KEY (optional)
-            if parser.skip_keyword(Keyword::INDEX).is_some()
-                || parser.skip_keyword(Keyword::KEY).is_some()
-            {
-                // consumed INDEX or KEY
-            }
-            IndexType::FullText(span)
-        }
-        Token::Ident(_, Keyword::SPATIAL) => {
-            let span = parser.consume_keyword(Keyword::SPATIAL)?;
-            // SPATIAL can be followed by INDEX or KEY (optional)
-            if parser.skip_keyword(Keyword::INDEX).is_some()
-                || parser.skip_keyword(Keyword::KEY).is_some()
-            {
-                // consumed INDEX or KEY
-            }
-            IndexType::Spatial(span)
-        }
-        Token::Ident(_, Keyword::INDEX) => {
-            IndexType::Index(parser.consume_keyword(Keyword::INDEX)?)
-        }
-        Token::Ident(_, Keyword::KEY) => IndexType::Index(parser.consume_keyword(Keyword::KEY)?),
-        _ => parser.expected_failure("PRIMARY, UNIQUE, INDEX, KEY, FULLTEXT, or SPATIAL")?,
-    };
-
-    // Parse optional index name (not for PRIMARY KEY)
-    let index_name = match &index_type {
-        IndexType::Primary(_) => {
-            // PRIMARY KEY may optionally have a name before the column list
-            if let Token::Ident(_, _) = parser.token {
-                // Check if this is not a '(' which starts the column list
-                if !matches!(parser.token, Token::LParen) {
-                    Some(parser.consume_plain_identifier()?)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-        _ => {
-            // Other index types can optionally have a name
-            if let Token::Ident(_, _) = parser.token {
-                // Check if this is not a '(' which starts the column list
-                if !matches!(parser.token, Token::LParen) {
-                    Some(parser.consume_plain_identifier()?)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-    };
-
-    // Parse index columns
-    let cols = parse_index_cols(parser)?;
-
-    // Parse index options (USING, COMMENT, etc.)
-    let mut index_options = Vec::new();
-    parse_index_options(parser, &mut index_options)?;
-
-    Ok(CreateDefinition::IndexDefinition {
-        constraint_span,
-        constraint_symbol,
-        index_type,
-        index_name,
-        cols,
-        index_options,
-    })
-}
-
 /// Parse a foreign key definition
 fn parse_foreign_key_definition<'a>(
     parser: &mut Parser<'a, '_>,
@@ -737,78 +640,154 @@ fn parse_check_constraint_definition<'a>(
     })
 }
 
-/// Parse a constraint definition (with CONSTRAINT keyword)
-pub(crate) fn parse_create_constraint_definition<'a>(
+pub(crate) fn parse_create_definition<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<CreateDefinition<'a>, ParseError> {
-    let constraint_span = parser.consume_keyword(Keyword::CONSTRAINT)?;
+    // Check for optional CONSTRAINT keyword
+    let constraint_span = parser.skip_keyword(Keyword::CONSTRAINT);
 
-    // Parse optional constraint symbol (name)
-    let constraint_symbol = if let Token::Ident(_, keyword) = parser.token {
-        // Check if the next token is a constraint keyword, meaning no symbol was provided
-        match keyword {
-            Keyword::PRIMARY
-            | Keyword::UNIQUE
-            | Keyword::FULLTEXT
-            | Keyword::SPATIAL
-            | Keyword::INDEX
-            | Keyword::KEY
-            | Keyword::FOREIGN
-            | Keyword::CHECK => None,
-            _ => Some(parser.consume_plain_identifier()?),
+    // Parse optional constraint symbol (name) if CONSTRAINT was present
+    let constraint_symbol = if constraint_span.is_some() {
+        if let Token::Ident(_, keyword) = parser.token {
+            // Check if the next token is a constraint keyword, meaning no symbol was provided
+            match keyword {
+                Keyword::PRIMARY
+                | Keyword::UNIQUE
+                | Keyword::FULLTEXT
+                | Keyword::SPATIAL
+                | Keyword::INDEX
+                | Keyword::KEY
+                | Keyword::FOREIGN
+                | Keyword::CHECK => None,
+                _ => Some(parser.consume_plain_identifier()?),
+            }
+        } else {
+            None
         }
     } else {
         None
     };
 
-    // Dispatch to the appropriate parser based on the constraint type
-    match &parser.token {
+    let index_type = match &parser.token {
         Token::Ident(_, Keyword::PRIMARY) => {
-            parse_index_definition(parser, Some(constraint_span), constraint_symbol)
+            let span = parser.consume_keywords(&[Keyword::PRIMARY, Keyword::KEY])?;
+            IndexType::Primary(span)
         }
         Token::Ident(_, Keyword::UNIQUE) => {
-            parse_index_definition(parser, Some(constraint_span), constraint_symbol)
+            let span = parser.consume_keyword(Keyword::UNIQUE)?;
+            let span = if let Some(s) = parser.skip_keyword(Keyword::INDEX) {
+                span.join_span(&s)
+            } else if let Some(s) = parser.skip_keyword(Keyword::KEY) {
+                span.join_span(&s)
+            } else {
+                span
+            };
+            IndexType::Unique(span)
         }
         Token::Ident(_, Keyword::FULLTEXT) => {
-            parse_index_definition(parser, Some(constraint_span), constraint_symbol)
+            let span = parser.consume_keyword(Keyword::FULLTEXT)?;
+            let span = if let Some(s) = parser.skip_keyword(Keyword::INDEX) {
+                span.join_span(&s)
+            } else if let Some(s) = parser.skip_keyword(Keyword::KEY) {
+                span.join_span(&s)
+            } else {
+                span
+            };
+            IndexType::FullText(span)
         }
         Token::Ident(_, Keyword::SPATIAL) => {
-            parse_index_definition(parser, Some(constraint_span), constraint_symbol)
+            let span = parser.consume_keyword(Keyword::SPATIAL)?;
+            let span = if let Some(s) = parser.skip_keyword(Keyword::INDEX) {
+                span.join_span(&s)
+            } else if let Some(s) = parser.skip_keyword(Keyword::KEY) {
+                span.join_span(&s)
+            } else {
+                span
+            };
+            IndexType::Spatial(span)
         }
-        Token::Ident(_, Keyword::INDEX) | Token::Ident(_, Keyword::KEY) => {
-            parse_index_definition(parser, Some(constraint_span), constraint_symbol)
+        Token::Ident(_, Keyword::INDEX) => {
+            IndexType::Index(parser.consume_keyword(Keyword::INDEX)?)
         }
+        Token::Ident(_, Keyword::KEY) => IndexType::Index(parser.consume_keyword(Keyword::KEY)?),
         Token::Ident(_, Keyword::FOREIGN) => {
-            parse_foreign_key_definition(parser, Some(constraint_span), constraint_symbol)
+            return parse_foreign_key_definition(parser, constraint_span, constraint_symbol);
         }
         Token::Ident(_, Keyword::CHECK) => {
-            parse_check_constraint_definition(parser, Some(constraint_span), constraint_symbol)
+            return parse_check_constraint_definition(parser, constraint_span, constraint_symbol);
         }
-        _ => parser
-            .expected_failure("PRIMARY, UNIQUE, INDEX, KEY, FULLTEXT, SPATIAL, FOREIGN, or CHECK"),
-    }
-}
+        Token::Ident(_, _) => {
+            // If we had CONSTRAINT keyword, this is an error
+            if constraint_span.is_some() {
+                parser.expected_failure(
+                    "PRIMARY, UNIQUE, INDEX, KEY, FULLTEXT, SPATIAL, FOREIGN, or CHECK",
+                )?
+            }
+            return Ok(CreateDefinition::ColumnDefinition {
+                identifier: parser.consume_plain_identifier()?,
+                data_type: parse_data_type(parser, false)?,
+            });
+        }
+        _ => return parser.expected_failure("identifier"),
+    };
 
-pub(crate) fn parse_create_definition<'a>(
-    parser: &mut Parser<'a, '_>,
-) -> Result<CreateDefinition<'a>, ParseError> {
-    match &parser.token {
-        Token::Ident(_, Keyword::CONSTRAINT) => parse_create_constraint_definition(parser),
-        Token::Ident(_, Keyword::PRIMARY) => parse_index_definition(parser, None, None),
-        Token::Ident(_, Keyword::UNIQUE) => parse_index_definition(parser, None, None),
-        Token::Ident(_, Keyword::FULLTEXT) => parse_index_definition(parser, None, None),
-        Token::Ident(_, Keyword::SPATIAL) => parse_index_definition(parser, None, None),
-        Token::Ident(_, Keyword::INDEX) | Token::Ident(_, Keyword::KEY) => {
-            parse_index_definition(parser, None, None)
+    // Parse optional index name
+    let index_name = match &index_type {
+        IndexType::Primary(_) => {
+            // PRIMARY KEY may optionally have a name before the column list
+            match &parser.token {
+                Token::Ident(_, _) if !matches!(parser.token, Token::LParen) => {
+                    Some(parser.consume_plain_identifier()?)
+                }
+                Token::SingleQuotedString(s) | Token::DoubleQuotedString(s) => {
+                    let val = *s;
+                    let span = parser.consume();
+                    Some(Identifier { value: val, span })
+                }
+                _ => None,
+            }
         }
-        Token::Ident(_, Keyword::FOREIGN) => parse_foreign_key_definition(parser, None, None),
-        Token::Ident(_, Keyword::CHECK) => parse_check_constraint_definition(parser, None, None),
-        Token::Ident(_, _) => Ok(CreateDefinition::ColumnDefinition {
-            identifier: parser.consume_plain_identifier()?,
-            data_type: parse_data_type(parser, false)?,
-        }),
-        _ => parser.expected_failure("identifier"),
+        _ => {
+            // Other index types can optionally have a name
+            match &parser.token {
+                Token::Ident(_, _)
+                    if !matches!(
+                        parser.token,
+                        Token::LParen | Token::Ident(_, Keyword::USING)
+                    ) =>
+                {
+                    Some(parser.consume_plain_identifier()?)
+                }
+                Token::SingleQuotedString(s) | Token::DoubleQuotedString(s) => {
+                    let val = *s;
+                    let span = parser.consume();
+                    Some(Identifier { value: val, span })
+                }
+                _ => None,
+            }
+        }
+    };
+
+    // Parse optional USING BTREE/HASH/RTREE before column list
+    let mut index_options = Vec::new();
+    if matches!(parser.token, Token::Ident(_, Keyword::USING)) {
+        parse_index_type(parser, &mut index_options)?;
     }
+
+    // Parse index columns
+    let cols = parse_index_cols(parser)?;
+
+    // Parse index options (USING, COMMENT, etc.) after column list
+    parse_index_options(parser, &mut index_options)?;
+
+    Ok(CreateDefinition::IndexDefinition {
+        constraint_span,
+        constraint_symbol,
+        index_type,
+        index_name,
+        cols,
+        index_options,
+    })
 }
 
 fn parse_create_view<'a>(
