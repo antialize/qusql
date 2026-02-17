@@ -90,6 +90,33 @@ pub(crate) fn decode_hex_string(s: &str) -> Cow<'_, str> {
     Cow::Owned(String::from_utf8_lossy(&bytes).into_owned())
 }
 
+pub(crate) fn decode_binary_string(s: &str) -> Cow<'_, str> {
+    let mut bytes = Vec::new();
+    let mut bits = 0u8;
+    let mut count = 0;
+
+    for c in s.chars() {
+        if c == '0' || c == '1' {
+            bits = (bits << 1) | (c as u8 - b'0');
+            count += 1;
+            if count == 8 {
+                bytes.push(bits);
+                bits = 0;
+                count = 0;
+            }
+        }
+    }
+
+    // If there are remaining bits, pad with zeros on the right
+    if count > 0 {
+        bits <<= 8 - count;
+        bytes.push(bits);
+    }
+
+    // MySQL binary strings are binary, so we use lossy UTF-8 conversion
+    Cow::Owned(String::from_utf8_lossy(&bytes).into_owned())
+}
+
 impl<'a, 'b> Parser<'a, 'b> {
     pub(crate) fn new(src: &'a str, issues: &'b mut Issues<'a>, options: &'b ParseOptions) -> Self {
         let mut lexer = Lexer::new(src, &options.dialect);
@@ -365,6 +392,12 @@ impl<'a, 'b> Parser<'a, 'b> {
                 let span = self.span.clone();
                 self.next();
                 (decode_hex_string(v), span)
+            }
+            Token::BinaryString(v) => {
+                let v = *v;
+                let span = self.span.clone();
+                self.next();
+                (decode_binary_string(v), span)
             }
             _ => self.expected_failure("string")?,
         };

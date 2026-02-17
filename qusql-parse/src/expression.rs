@@ -1341,7 +1341,8 @@ pub(crate) fn parse_expression<'a>(
                 let time_interval = match parser.token {
                     Token::SingleQuotedString(_)
                     | Token::DoubleQuotedString(_)
-                    | Token::HexString(_) => {
+                    | Token::HexString(_)
+                    | Token::BinaryString(_) => {
                         let v = parser.consume_string()?;
                         let mut r = Vec::new();
                         for part in v.split([':', '!', ',', '.', '-', ' ']) {
@@ -1454,9 +1455,10 @@ pub(crate) fn parse_expression<'a>(
                     parser.consume_keyword(Keyword::_LIST_)?,
                 )))
             }
-            Token::SingleQuotedString(_) | Token::DoubleQuotedString(_) | Token::HexString(_) => {
-                r.shift_expr(Expression::String(parser.consume_string()?))
-            }
+            Token::SingleQuotedString(_)
+            | Token::DoubleQuotedString(_)
+            | Token::HexString(_)
+            | Token::BinaryString(_) => r.shift_expr(Expression::String(parser.consume_string()?)),
             Token::Integer(_) => r.shift_expr(Expression::Integer(parser.consume_int()?)),
             Token::Float(_) => r.shift_expr(Expression::Float(parser.consume_float()?)),
 
@@ -1690,6 +1692,7 @@ pub(crate) fn parse_expression<'a>(
                         Token::SingleQuotedString(_)
                             | Token::DoubleQuotedString(_)
                             | Token::HexString(_)
+                            | Token::BinaryString(_)
                     ) =>
             {
                 // Consume the charset prefix

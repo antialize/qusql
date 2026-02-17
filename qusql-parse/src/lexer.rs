@@ -59,6 +59,7 @@ pub(crate) enum Token<'a> {
     SingleQuotedString(&'a str),
     DoubleQuotedString(&'a str),
     HexString(&'a str),
+    BinaryString(&'a str),
     Spaceship,
     Tilde,
     PercentS,
@@ -127,6 +128,7 @@ impl<'a> Token<'a> {
             Token::SingleQuotedString(_) => "String",
             Token::DoubleQuotedString(_) => "String",
             Token::HexString(_) => "HexString",
+            Token::BinaryString(_) => "BinaryString",
             Token::Spaceship => "'<=>'",
             Token::Tilde => "'~'",
             Token::PercentS => "'%s'",
@@ -450,6 +452,20 @@ impl<'a> Lexer<'a> {
                             match self.chars.next() {
                                 Some((i, '\'')) => break Token::HexString(self.s(start + 2..i)),
                                 Some((_, '0'..='9' | 'a'..='f' | 'A'..='F')) => (),
+                                Some((_, _)) => break Token::Invalid,
+                                None => break Token::Invalid,
+                            }
+                        }
+                    }
+                    _ => self.simple_literal(start),
+                },
+                'b' | 'B' => match self.chars.peek() {
+                    Some((_, '\'')) => {
+                        self.chars.next(); // consume the '
+                        loop {
+                            match self.chars.next() {
+                                Some((i, '\'')) => break Token::BinaryString(self.s(start + 2..i)),
+                                Some((_, '0' | '1')) => (),
                                 Some((_, _)) => break Token::Invalid,
                                 None => break Token::Invalid,
                             }
@@ -1004,6 +1020,19 @@ mod tests {
             assert_eq!(value, "ABCDEF");
         } else {
             panic!("Expected hex string");
+        }
+
+        // Binary strings
+        if let Token::BinaryString(value) = lex_single("b'101010'", &dialect) {
+            assert_eq!(value, "101010");
+        } else {
+            panic!("Expected binary string");
+        }
+
+        if let Token::BinaryString(value) = lex_single("B'111'", &dialect) {
+            assert_eq!(value, "111");
+        } else {
+            panic!("Expected binary string");
         }
     }
 
