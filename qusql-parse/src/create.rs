@@ -364,6 +364,7 @@ pub enum CreateOption<'a> {
         host: Identifier<'a>,
     },
     SqlSecurityDefiner(Span, Span),
+    SqlSecurityInvoker(Span, Span),
     SqlSecurityUser(Span, Span),
 }
 impl<'a> Spanned for CreateOption<'a> {
@@ -378,6 +379,7 @@ impl<'a> Spanned for CreateOption<'a> {
                 host,
             } => definer_span.join_span(user).join_span(host),
             CreateOption::SqlSecurityDefiner(a, b) => a.join_span(b),
+            CreateOption::SqlSecurityInvoker(a, b) => a.join_span(b),
             CreateOption::SqlSecurityUser(a, b) => a.join_span(b),
             CreateOption::Unique(v) => v.span(),
         }
@@ -2129,11 +2131,15 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                                 sql_security,
                                 parser.consume_keyword(Keyword::DEFINER)?,
                             ),
+                            Token::Ident(_, Keyword::INVOKER) => CreateOption::SqlSecurityInvoker(
+                                sql_security,
+                                parser.consume_keyword(Keyword::INVOKER)?,
+                            ),
                             Token::Ident(_, Keyword::USER) => CreateOption::SqlSecurityUser(
                                 sql_security,
                                 parser.consume_keyword(Keyword::USER)?,
                             ),
-                            _ => parser.expected_failure("'DEFINER', 'USER'")?,
+                            _ => parser.expected_failure("'DEFINER', 'INVOKER', 'USER'")?,
                         }
                     }
                     _ => break,

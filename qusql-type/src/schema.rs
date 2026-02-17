@@ -335,6 +335,7 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateOption::Definer { .. } => {}
                         qusql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
                         qusql_parse::CreateOption::SqlSecurityUser(_, _) => {}
+                        qusql_parse::CreateOption::SqlSecurityInvoker(_, _) => {}
                     }
                 }
                 // TODO: do we care about table options
@@ -396,6 +397,7 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateOption::Definer { .. } => {}
                         qusql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
                         qusql_parse::CreateOption::SqlSecurityUser(_, _) => {}
+                        qusql_parse::CreateOption::SqlSecurityInvoker(_, _) => {}
                     }
                 }
 
