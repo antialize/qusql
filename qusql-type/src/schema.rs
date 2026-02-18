@@ -729,6 +729,12 @@ pub fn parse_schemas<'a>(
                                 &s,
                             );
                         }
+                        s @ qusql_parse::AlterSpecification::RenameConstraint { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
                         s @ qusql_parse::AlterSpecification::RenameTo { .. } => {
                             issues.err(
                                 alloc::format!("Unsupported statement {s:?} in schema definition"),

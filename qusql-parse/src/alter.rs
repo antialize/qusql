@@ -376,6 +376,8 @@ pub enum AlterSpecification<'a> {
         rename_column_span: Span,
         /// Old name of column
         old_col_name: Identifier<'a>,
+        /// Span of "TO"
+        to_span: Span,
         /// New name of column
         new_col_name: Identifier<'a>,
     },
@@ -384,12 +386,26 @@ pub enum AlterSpecification<'a> {
         rename_index_span: Span,
         /// Old name of index
         old_index_name: Identifier<'a>,
+        /// Span of "TO"
+        to_span: Span,
         /// New name of index
         new_index_name: Identifier<'a>,
     },
+    RenameConstraint {
+        /// Span of "RENAME CONSTRAINT"
+        rename_constraint_span: Span,
+        /// Old name of constraint
+        old_constraint_name: Identifier<'a>,
+        /// Span of "TO"
+        to_span: Span,
+        /// New name of constraint
+        new_constraint_name: Identifier<'a>,
+    },
     RenameTo {
-        /// Span of "RENAME TO"
-        rename_to_span: Span,
+        /// Span of "RENAME"
+        rename_span: Span,
+        /// Span of "TO" or "AS"
+        to_span: Span,
         /// New name of table
         new_table_name: Identifier<'a>,
     },
@@ -516,21 +532,35 @@ impl<'a> Spanned for AlterSpecification<'a> {
             AlterSpecification::RenameColumn {
                 rename_column_span,
                 old_col_name,
+                to_span,
                 new_col_name,
             } => rename_column_span
                 .join_span(old_col_name)
+                .join_span(to_span)
                 .join_span(new_col_name),
             AlterSpecification::RenameIndex {
                 rename_index_span,
                 old_index_name,
+                to_span,
                 new_index_name,
             } => rename_index_span
                 .join_span(old_index_name)
+                .join_span(to_span)
                 .join_span(new_index_name),
+            AlterSpecification::RenameConstraint {
+                rename_constraint_span,
+                old_constraint_name,
+                to_span,
+                new_constraint_name,
+            } => rename_constraint_span
+                .join_span(old_constraint_name)
+                .join_span(to_span)
+                .join_span(new_constraint_name),
             AlterSpecification::RenameTo {
-                rename_to_span,
+                rename_span,
+                to_span,
                 new_table_name,
-            } => rename_to_span.join_span(new_table_name),
+            } => rename_span.join_span(to_span).join_span(new_table_name),
             AlterSpecification::Algorithm {
                 algorithm_span,
                 algorithm,
@@ -934,41 +964,52 @@ fn parse_rename_alter_specification<'a>(
 
     match parser.token {
         Token::Ident(_, Keyword::COLUMN) => {
-            parser.consume_keyword(Keyword::COLUMN)?;
+            let column_span = parser.consume_keyword(Keyword::COLUMN)?;
             let old_col_name = parser.consume_plain_identifier()?;
-            parser.consume_keyword(Keyword::TO)?;
+            let to_span = parser.consume_keyword(Keyword::TO)?;
             let new_col_name = parser.consume_plain_identifier()?;
             Ok(AlterSpecification::RenameColumn {
-                rename_column_span: rename_span
-                    .join_span(&old_col_name)
-                    .join_span(&new_col_name),
+                rename_column_span: rename_span.join_span(&column_span),
                 old_col_name,
+                to_span,
                 new_col_name,
             })
         }
         Token::Ident(_, Keyword::INDEX | Keyword::KEY) => {
             let index_span = parser.consume();
             let old_index_name = parser.consume_plain_identifier()?;
-            parser.consume_keyword(Keyword::TO)?;
+            let to_span = parser.consume_keyword(Keyword::TO)?;
             let new_index_name = parser.consume_plain_identifier()?;
             Ok(AlterSpecification::RenameIndex {
-                rename_index_span: rename_span
-                    .join_span(&index_span)
-                    .join_span(&old_index_name)
-                    .join_span(&new_index_name),
+                rename_index_span: rename_span.join_span(&index_span),
                 old_index_name,
+                to_span,
                 new_index_name,
+            })
+        }
+        Token::Ident(_, Keyword::CONSTRAINT) => {
+            let constraint_span = parser.consume_keyword(Keyword::CONSTRAINT)?;
+            parser.postgres_only(&constraint_span);
+            let old_constraint_name = parser.consume_plain_identifier()?;
+            let to_span = parser.consume_keyword(Keyword::TO)?;
+            let new_constraint_name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::RenameConstraint {
+                rename_constraint_span: rename_span.join_span(&constraint_span),
+                old_constraint_name,
+                to_span,
+                new_constraint_name,
             })
         }
         Token::Ident(_, Keyword::TO) | Token::Ident(_, Keyword::AS) => {
             let to_span = parser.consume();
             let new_table_name = parser.consume_plain_identifier()?;
             Ok(AlterSpecification::RenameTo {
-                rename_to_span: rename_span.join_span(&to_span),
+                rename_span,
+                to_span,
                 new_table_name,
             })
         }
-        _ => parser.expected_failure("'COLUMN', 'INDEX' or 'TO'")?,
+        _ => parser.expected_failure("'COLUMN', 'INDEX', 'CONSTRAINT' or 'TO'")?,
     }
 }
 

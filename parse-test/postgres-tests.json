@@ -1062,11 +1062,8 @@
   },
   {
     "input": "ALTER TABLE tab RENAME CONSTRAINT old_name TO new_name",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''COLUMN', 'INDEX' or 'TO'' here\",\n    span: 23..33,\n    sql_segment: \"CONSTRAINT\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            RenameConstraint {\n                rename_constraint_span: 16..33,\n                old_constraint_name: Identifier {\n                    value: \"old_name\",\n                    span: 34..42,\n                },\n                to_span: 43..45,\n                new_constraint_name: Identifier {\n                    value: \"new_name\",\n                    span: 46..54,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TYPE public.my_type ADD VALUE 'label3.5' AFTER 'label3'",
