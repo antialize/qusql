@@ -236,6 +236,30 @@ impl Spanned for AlterAlgorithm {
     }
 }
 
+/// Owner value for ALTER TABLE OWNER TO
+#[derive(Clone, Debug)]
+pub enum AlterTableOwner<'a> {
+    /// Regular identifier (role name)
+    Identifier(Identifier<'a>),
+    /// CURRENT_ROLE keyword
+    CurrentRole(Span),
+    /// CURRENT_USER keyword
+    CurrentUser(Span),
+    /// SESSION_USER keyword
+    SessionUser(Span),
+}
+
+impl<'a> Spanned for AlterTableOwner<'a> {
+    fn span(&self) -> Span {
+        match self {
+            AlterTableOwner::Identifier(i) => i.span(),
+            AlterTableOwner::CurrentRole(s) => s.span(),
+            AlterTableOwner::CurrentUser(s) => s.span(),
+            AlterTableOwner::SessionUser(s) => s.span(),
+        }
+    }
+}
+
 /// Enum of alterations to perform on a table
 #[derive(Clone, Debug)]
 pub enum AlterSpecification<'a> {
@@ -340,7 +364,7 @@ pub enum AlterSpecification<'a> {
         // Span of "OWNER TO"
         span: Span,
         /// Name of owner
-        owner: Identifier<'a>,
+        owner: AlterTableOwner<'a>,
     },
     Lock {
         /// Span of "LOCK"
@@ -1230,7 +1254,19 @@ fn parse_alter_table<'a>(
                 }
                 Token::Ident(_, Keyword::OWNER) => {
                     let span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
-                    let owner = parser.consume_plain_identifier()?;
+                    // In PostgreSQL, CURRENT_ROLE, CURRENT_USER, and SESSION_USER are valid without quotes
+                    let owner = match &parser.token {
+                        Token::Ident(_, Keyword::CURRENT_ROLE) => {
+                            AlterTableOwner::CurrentRole(parser.consume())
+                        }
+                        Token::Ident(_, Keyword::CURRENT_USER) => {
+                            AlterTableOwner::CurrentUser(parser.consume())
+                        }
+                        Token::Ident(_, Keyword::SESSION_USER) => {
+                            AlterTableOwner::SessionUser(parser.consume())
+                        }
+                        _ => AlterTableOwner::Identifier(parser.consume_plain_identifier()?),
+                    };
                     AlterSpecification::OwnerTo { span, owner }
                 }
                 Token::Ident(_, Keyword::DROP) => parse_drop(parser)?,
