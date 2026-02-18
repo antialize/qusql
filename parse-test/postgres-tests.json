@@ -3049,115 +3049,73 @@
   },
   {
     "input": "DROP SEQUENCE  name0 CASCADE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: None,\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name0\",\n                    span: 15..20,\n                },\n            },\n        ],\n        cascade: Some(\n            21..28,\n        ),\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE  name1 RESTRICT",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: None,\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name1\",\n                    span: 15..20,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: Some(\n            21..29,\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE  name1, name2, name3",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: None,\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name1\",\n                    span: 15..20,\n                },\n            },\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name2\",\n                    span: 22..27,\n                },\n            },\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name3\",\n                    span: 29..34,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE  name2",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: None,\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name2\",\n                    span: 15..20,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE  name2 CASCADE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: None,\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name2\",\n                    span: 15..20,\n                },\n            },\n        ],\n        cascade: Some(\n            21..28,\n        ),\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE IF EXISTS  name0 CASCADE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: Some(\n            14..23,\n        ),\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name0\",\n                    span: 25..30,\n                },\n            },\n        ],\n        cascade: Some(\n            31..38,\n        ),\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE IF EXISTS  name1 RESTRICT",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: Some(\n            14..23,\n        ),\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name1\",\n                    span: 25..30,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: Some(\n            31..39,\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE IF EXISTS name0 CASCADE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: Some(\n            14..23,\n        ),\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name0\",\n                    span: 24..29,\n                },\n            },\n        ],\n        cascade: Some(\n            30..37,\n        ),\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE IF EXISTS name1 RESTRICT",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: Some(\n            14..23,\n        ),\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name1\",\n                    span: 24..29,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: Some(\n            30..38,\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE name0 CASCADE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: None,\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name0\",\n                    span: 14..19,\n                },\n            },\n        ],\n        cascade: Some(\n            20..27,\n        ),\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE name1 RESTRICT",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: None,\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name1\",\n                    span: 14..19,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: Some(\n            20..28,\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE name1, name2, name3",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: None,\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name1\",\n                    span: 14..19,\n                },\n            },\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name2\",\n                    span: 21..26,\n                },\n            },\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name3\",\n                    span: 28..33,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE name2",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: None,\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name2\",\n                    span: 14..19,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP SEQUENCE name2 CASCADE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Not yet implemented at qusql-parse/src/drop.rs:469\",\n    span: 5..13,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropSequence(\n    DropSequence {\n        drop_span: 0..4,\n        sequence_span: 5..13,\n        if_exists: None,\n        sequences: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"name2\",\n                    span: 14..19,\n                },\n            },\n        ],\n        cascade: Some(\n            20..27,\n        ),\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP TRIGGER check_update ON table_name CASCADE CASCADE",
