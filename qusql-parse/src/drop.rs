@@ -450,6 +450,7 @@ fn parse_drop_sequence<'a>(
 ) -> Result<Statement<'a>, ParseError> {
     // DROP SEQUENCE [IF EXISTS] sequence_name [, sequence_name] ... [CASCADE | RESTRICT]
     let sequence_span = parser.consume_keyword(Keyword::SEQUENCE)?;
+    parser.postgres_only(&sequence_span);
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
     } else {
@@ -523,6 +524,7 @@ fn parse_drop_server<'a>(
 ) -> Result<Statement<'a>, ParseError> {
     // TODO complain about temporary
     let server_span = parser.consume_keyword(Keyword::SERVER)?;
+    parser.postgres_only(&server_span);
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
     } else {
