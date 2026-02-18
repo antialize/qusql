@@ -14,7 +14,7 @@ use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
-    alter::{AlterTable, parse_alter},
+    alter::{AlterRole, AlterTable, parse_alter},
     create::{
         CreateDatabase, CreateFunction, CreateIndex, CreateTable, CreateTrigger, CreateTypeEnum,
         CreateView, parse_create,
@@ -429,6 +429,7 @@ pub enum Statement<'a> {
     ShowCollation(ShowCollation<'a>),
     ShowEngines(ShowEngines),
     AlterTable(AlterTable<'a>),
+    AlterRole(AlterRole<'a>),
     Block(Vec<Statement<'a>>), //TODO we should include begin and end
     Begin(Span),
     End(Span),
@@ -476,6 +477,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::DropView(v) => v.span(),
             Statement::Set(v) => v.span(),
             Statement::AlterTable(v) => v.span(),
+            Statement::AlterRole(v) => v.span(),
             Statement::Block(v) => v.opt_span().expect("Span of block"),
             Statement::If(v) => v.span(),
             Statement::Invalid(v) => v.span(),

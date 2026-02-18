@@ -650,73 +650,49 @@
   },
   {
     "input": "ALTER ROLE old_name RENAME TO new_name",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterRole(\n    AlterRole {\n        alter_span: 0..5,\n        role_span: 6..10,\n        role_name: Identifier {\n            value: \"old_name\",\n            span: 11..19,\n        },\n        action: RenameTo {\n            rename_to_span: 20..29,\n            new_name: Identifier {\n                value: \"new_name\",\n                span: 30..38,\n            },\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER ROLE role_name IN DATABASE database_name RESET maintenance_work_mem",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterRole(\n    AlterRole {\n        alter_span: 0..5,\n        role_span: 6..10,\n        role_name: Identifier {\n            value: \"role_name\",\n            span: 11..20,\n        },\n        action: ResetInDatabase {\n            in_database_span: 21..32,\n            database_name: Identifier {\n                value: \"database_name\",\n                span: 33..46,\n            },\n            reset_span: 47..52,\n            parameter: Identifier {\n                value: \"maintenance_work_mem\",\n                span: 53..73,\n            },\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER ROLE role_name IN DATABASE database_name SET maintenance_work_mem = 100000",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterRole(\n    AlterRole {\n        alter_span: 0..5,\n        role_span: 6..10,\n        role_name: Identifier {\n            value: \"role_name\",\n            span: 11..20,\n        },\n        action: SetInDatabase {\n            in_database_span: 21..32,\n            database_name: Identifier {\n                value: \"database_name\",\n                span: 33..46,\n            },\n            set_span: 47..50,\n            parameter: Identifier {\n                value: \"maintenance_work_mem\",\n                span: 51..71,\n            },\n            value: Value(\n                Integer(\n                    (\n                        100000,\n                        74..80,\n                    ),\n                ),\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER ROLE role_name IN DATABASE database_name SET maintenance_work_mem TO 100000",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterRole(\n    AlterRole {\n        alter_span: 0..5,\n        role_span: 6..10,\n        role_name: Identifier {\n            value: \"role_name\",\n            span: 11..20,\n        },\n        action: SetInDatabase {\n            in_database_span: 21..32,\n            database_name: Identifier {\n                value: \"database_name\",\n                span: 33..46,\n            },\n            set_span: 47..50,\n            parameter: Identifier {\n                value: \"maintenance_work_mem\",\n                span: 51..71,\n            },\n            value: Value(\n                Integer(\n                    (\n                        100000,\n                        75..81,\n                    ),\n                ),\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER ROLE role_name IN DATABASE database_name SET maintenance_work_mem TO DEFAULT",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterRole(\n    AlterRole {\n        alter_span: 0..5,\n        role_span: 6..10,\n        role_name: Identifier {\n            value: \"role_name\",\n            span: 11..20,\n        },\n        action: SetInDatabase {\n            in_database_span: 21..32,\n            database_name: Identifier {\n                value: \"database_name\",\n                span: 33..46,\n            },\n            set_span: 47..50,\n            parameter: Identifier {\n                value: \"maintenance_work_mem\",\n                span: 51..71,\n            },\n            value: Default(\n                72..82,\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER ROLE role_name RESET ALL",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterRole(\n    AlterRole {\n        alter_span: 0..5,\n        role_span: 6..10,\n        role_name: Identifier {\n            value: \"role_name\",\n            span: 11..20,\n        },\n        action: ResetAll {\n            reset_all_span: 21..30,\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER ROLE role_name SET maintenance_work_mem FROM CURRENT",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterRole(\n    AlterRole {\n        alter_span: 0..5,\n        role_span: 6..10,\n        role_name: Identifier {\n            value: \"role_name\",\n            span: 11..20,\n        },\n        action: Set {\n            set_span: 21..24,\n            parameter: Identifier {\n                value: \"maintenance_work_mem\",\n                span: 25..45,\n            },\n            value: FromCurrent(\n                46..58,\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER ROLE role_name WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOLOGIN NOREPLICATION NOBYPASSRLS PASSWORD NULL",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterRole(\n    AlterRole {\n        alter_span: 0..5,\n        role_span: 6..10,\n        role_name: Identifier {\n            value: \"role_name\",\n            span: 11..20,\n        },\n        action: With {\n            with_span: 21..25,\n            options: [\n                (\n                    Identifier {\n                        value: \"NOSUPERUSER\",\n                        span: 26..37,\n                    },\n                    None,\n                ),\n                (\n                    Identifier {\n                        value: \"NOCREATEDB\",\n                        span: 38..48,\n                    },\n                    None,\n                ),\n                (\n                    Identifier {\n                        value: \"NOCREATEROLE\",\n                        span: 49..61,\n                    },\n                    None,\n                ),\n                (\n                    Identifier {\n                        value: \"NOINHERIT\",\n                        span: 62..71,\n                    },\n                    None,\n                ),\n                (\n                    Identifier {\n                        value: \"NOLOGIN\",\n                        span: 72..79,\n                    },\n                    None,\n                ),\n                (\n                    Identifier {\n                        value: \"NOREPLICATION\",\n                        span: 80..93,\n                    },\n                    None,\n                ),\n                (\n                    Identifier {\n                        value: \"NOBYPASSRLS\",\n                        span: 94..105,\n                    },\n                    None,\n                ),\n                (\n                    Identifier {\n                        value: \"PASSWORD\",\n                        span: 106..114,\n                    },\n                    None,\n                ),\n            ],\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER ROLE role_name WITH SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN REPLICATION BYPASSRLS CONNECTION LIMIT 100 PASSWORD 'abcdef' VALID UNTIL '2025-01-01'",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 122..130,\n    sql_segment: \"'abcdef'\",\n    fragments: [],\n}"
     ],
     "failure": true
   },

@@ -83,8 +83,9 @@ pub use statement::{
 };
 
 pub use alter::{
-    AlterAlgorithm, AlterColumnAction, AlterLock, AlterSpecification, AlterTable, ForeignKeyOn,
-    ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption, IndexType,
+    AlterAlgorithm, AlterColumnAction, AlterLock, AlterRole, AlterRoleAction, AlterRoleValue,
+    AlterSpecification, AlterTable, ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol,
+    IndexColExpr, IndexOption, IndexType,
 };
 pub use create::{
     CreateAlgorithm, CreateDatabase, CreateDatabaseOption, CreateDefinition, CreateFunction,
