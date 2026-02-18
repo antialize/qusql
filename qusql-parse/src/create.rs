@@ -159,6 +159,10 @@ pub enum TableOption<'a> {
         identifier: Span,
         value: Vec<Identifier<'a>>,
     },
+    Inherits {
+        identifier: Span,
+        value: Vec<QualifiedName<'a>>,
+    },
 }
 
 impl<'a> Spanned for TableOption<'a> {
@@ -207,6 +211,13 @@ impl<'a> Spanned for TableOption<'a> {
             TableOption::Strict { identifier } => identifier.span(),
             TableOption::Tablespace { identifier, value } => identifier.span().join_span(value),
             TableOption::Union { identifier, value } => {
+                if let Some(last) = value.last() {
+                    identifier.span().join_span(last)
+                } else {
+                    identifier.span()
+                }
+            }
+            TableOption::Inherits { identifier, value } => {
                 if let Some(last) = value.last() {
                     identifier.span().join_span(last)
                 } else {
@@ -1923,6 +1934,28 @@ fn parse_create_table<'a>(
                         }
                         parser.consume_token(Token::RParen)?;
                         options.push(TableOption::Union {
+                            identifier,
+                            value: tables,
+                        });
+                    }
+                    Token::Ident(_, Keyword::INHERITS) => {
+                        let identifier = parser.consume_keyword(Keyword::INHERITS)?;
+                        if !parser.options.dialect.is_postgresql() {
+                            parser.err("INHERITS only supported by PostgreSQL", &identifier);
+                        }
+                        parser.consume_token(Token::LParen)?;
+                        let mut tables = Vec::new();
+                        parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
+                            loop {
+                                tables.push(parse_qualified_name(parser)?);
+                                if parser.skip_token(Token::Comma).is_none() {
+                                    break;
+                                }
+                            }
+                            Ok(())
+                        })?;
+                        parser.consume_token(Token::RParen)?;
+                        options.push(TableOption::Inherits {
                             identifier,
                             value: tables,
                         });
