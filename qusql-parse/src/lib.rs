@@ -121,7 +121,7 @@ pub use show::{
     ShowCreateView, ShowDatabases, ShowEngines, ShowProcessList, ShowStatus, ShowTables,
     ShowVariables,
 };
-pub use truncate::TruncateTable;
+pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
 pub use with_query::{WithBlock, WithQuery};
 
