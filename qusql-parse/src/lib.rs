@@ -89,9 +89,10 @@ pub use alter::{
 };
 pub use create::{
     CreateAlgorithm, CreateDatabase, CreateDatabaseOption, CreateDefinition, CreateFunction,
-    CreateIndex, CreateIndexOption, CreateOption, CreateRole, CreateTable, CreateTableAs,
-    CreateTrigger, CreateTypeEnum, CreateView, FunctionCharacteristic, FunctionParamDirection,
-    RoleMembership, RoleMembershipType, RoleOption, TableOption, TriggerEvent, TriggerTime,
+    CreateIndex, CreateIndexOption, CreateOption, CreateRole, CreateSchema, CreateTable,
+    CreateTableAs, CreateTrigger, CreateTypeEnum, CreateView, FunctionCharacteristic,
+    FunctionParamDirection, RoleMembership, RoleMembershipType, RoleOption, TableOption,
+    TriggerEvent, TriggerTime,
 };
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
