@@ -106,7 +106,7 @@ pub use select::{
     IndexHint, IndexHintFor, IndexHintType, IndexHintUse, JoinSpecification, JoinType, Select,
     SelectExpr, SelectFlag, TableReference,
 };
-pub use truncate::TruncateTable;
+pub use truncate::{CascadeOption, IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
 pub use with_query::{WithBlock, WithQuery};
 
