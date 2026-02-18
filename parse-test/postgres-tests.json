@@ -2056,33 +2056,24 @@
   },
   {
     "input": "CREATE SEQUENCE  IF NOT EXISTS  name0",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateSequence(\n    CreateSequence {\n        create_span: 0..6,\n        temporary: None,\n        sequence_span: 7..15,\n        if_not_exists: Some(\n            17..30,\n        ),\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"name0\",\n                span: 32..37,\n            },\n        },\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE SEQUENCE  name0",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateSequence(\n    CreateSequence {\n        create_span: 0..6,\n        temporary: None,\n        sequence_span: 7..15,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"name0\",\n                span: 17..22,\n            },\n        },\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE SEQUENCE IF NOT EXISTS name0",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateSequence(\n    CreateSequence {\n        create_span: 0..6,\n        temporary: None,\n        sequence_span: 7..15,\n        if_not_exists: Some(\n            16..29,\n        ),\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"name0\",\n                span: 30..35,\n            },\n        },\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE SEQUENCE IF NOT EXISTS name2 AS BIGINT INCREMENT 1 MINVALUE 1 MAXVALUE 20 START WITH 10 CACHE 2 NO CYCLE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 67..68,\n    sql_segment: \"1\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2090,23 +2081,20 @@
     "input": "CREATE SEQUENCE foo INCREMENT 1 NO MINVALUE NO",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 35..43,\n    sql_segment: \"MINVALUE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "CREATE SEQUENCE name0",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateSequence(\n    CreateSequence {\n        create_span: 0..6,\n        temporary: None,\n        sequence_span: 7..15,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"name0\",\n                span: 16..21,\n            },\n        },\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE SEQUENCE name4 AS BIGINT INCREMENT -15 MINVALUE -2000 MAXVALUE -50 START WITH -60",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 55..56,\n    sql_segment: \"-\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2114,7 +2102,7 @@
     "input": "CREATE SEQUENCE name5 AS BIGINT INCREMENT +10 MINVALUE +30 MAXVALUE +5000 START WITH +45",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 42..43,\n    sql_segment: \"+\",\n    fragments: [],\n}"
     ],
     "failure": true
   },

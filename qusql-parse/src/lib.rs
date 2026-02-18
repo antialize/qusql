@@ -85,8 +85,8 @@ pub use alter::{
 };
 pub use create::{
     CreateAlgorithm, CreateDefinition, CreateFunction, CreateOption, CreateRole, CreateSchema,
-    CreateTable, CreateTrigger, CreateView, RoleMembership, RoleMembershipType, RoleOption,
-    TableOption,
+    CreateSequence, CreateTable, CreateTrigger, CreateView, RoleMembership, RoleMembershipType,
+    RoleOption, SequenceOption, TableOption,
 };
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
