@@ -143,6 +143,8 @@ pub struct IndexCol<'a> {
     pub expr: IndexColExpr<'a>,
     /// Optional width of index together with its span
     pub size: Option<(u32, Span)>,
+    /// Optional operator class (PostgreSQL)
+    pub opclass: Option<QualifiedName<'a>>,
     /// Optional ASC ordering
     pub asc: Option<Span>,
     /// Optional DESC ordering
@@ -153,6 +155,7 @@ impl<'a> Spanned for IndexCol<'a> {
     fn span(&self) -> Span {
         self.expr
             .join_span(&self.size)
+            .join_span(&self.opclass)
             .join_span(&self.asc)
             .join_span(&self.desc)
     }
@@ -569,6 +572,53 @@ pub(crate) fn parse_index_options<'a>(
     Ok(())
 }
 
+/// Parse optional operator class (PostgreSQL)
+/// This can be a qualified name like public.vector_cosine_ops or a known pattern_ops keyword
+pub(crate) fn parse_operator_class<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Option<QualifiedName<'a>>, ParseError> {
+    if matches!(
+        parser.token,
+        Token::Ident(
+            _,
+            Keyword::TEXT_PATTERN_OPS
+                | Keyword::VARCHAR_PATTERN_OPS
+                | Keyword::BPCHAR_PATTERN_OPS
+                | Keyword::INT8_OPS
+                | Keyword::INT4_OPS
+                | Keyword::INT2_OPS
+        )
+    ) {
+        // Known pattern_ops keywords
+        match parser.token {
+            Token::Ident(v, _) => {
+                let value = v;
+                let span = parser.consume();
+                parser.postgres_only(&span);
+                Ok(Some(QualifiedName {
+                    prefix: Vec::new(),
+                    identifier: Identifier { value, span },
+                }))
+            }
+            _ => Ok(None),
+        }
+    } else if matches!(parser.token, Token::Ident(_, _))
+        && !matches!(
+            parser.token,
+            Token::Ident(_, Keyword::ASC | Keyword::DESC | Keyword::NULLS)
+        )
+        && *parser.peek() != Token::Comma
+        && *parser.peek() != Token::RParen
+    {
+        // Try to parse as qualified name (for things like public.vector_cosine_ops)
+        let qname = parse_qualified_name(parser)?;
+        parser.postgres_only(&qname);
+        Ok(Some(qname))
+    } else {
+        Ok(None)
+    }
+}
+
 pub(crate) fn parse_index_cols<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<Vec<IndexCol<'a>>, ParseError> {
@@ -599,6 +649,9 @@ pub(crate) fn parse_index_cols<'a>(
                 None
             };
 
+            // Parse optional operator class (PostgreSQL)
+            let opclass = parse_operator_class(parser)?;
+
             // Parse optional ASC | DESC
             let asc = parser.skip_keyword(Keyword::ASC);
             let desc = if asc.is_none() {
@@ -610,6 +663,7 @@ pub(crate) fn parse_index_cols<'a>(
             ans.push(IndexCol {
                 expr,
                 size,
+                opclass,
                 asc,
                 desc,
             });

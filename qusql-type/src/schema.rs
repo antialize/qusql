@@ -334,6 +334,9 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateOption::Materialized(s) => {
                             issues.err("Not supported", &s);
                         }
+                        qusql_parse::CreateOption::Concurrently(s) => {
+                            issues.err("Not supported", &s);
+                        }
                         qusql_parse::CreateOption::Unique(s) => {
                             issues.err("Not supported", &s);
                         }
@@ -397,6 +400,9 @@ pub fn parse_schemas<'a>(
                             issues.err("Not supported", &temporary_span);
                         }
                         qusql_parse::CreateOption::Materialized(s) => {
+                            issues.err("Not supported", &s);
+                        }
+                        qusql_parse::CreateOption::Concurrently(s) => {
                             issues.err("Not supported", &s);
                         }
                         qusql_parse::CreateOption::Unique(s) => {
@@ -778,15 +784,21 @@ pub fn parse_schemas<'a>(
                     issues.err("No such table", &ci.table_name);
                 }
 
+                // Skip unnamed indexes (PostgreSQL allows CREATE INDEX without a name)
+                let index_name = match &ci.index_name {
+                    Some(name) => name.clone(),
+                    None => continue,
+                };
+
                 let ident = if options.parse_options.get_dialect().is_postgresql() {
                     IndexKey {
                         table: None,
-                        index: ci.index_name.clone(),
+                        index: index_name.clone(),
                     }
                 } else {
                     IndexKey {
                         table: Some(t.clone()),
-                        index: ci.index_name.clone(),
+                        index: index_name.clone(),
                     }
                 };
 
