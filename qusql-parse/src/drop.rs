@@ -258,6 +258,50 @@ impl<'a> Spanned for DropProcedure<'a> {
     }
 }
 
+/// Represent a drop sequence statement (PostgreSQL)
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropSequence, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP SEQUENCE myseq CASCADE;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+///
+/// # assert!(issues.is_ok());
+/// let s: DropSequence = match stmts.pop() {
+///     Some(Statement::DropSequence(s)) => s,
+///     _ => panic!("We should get a drop sequence statement")
+/// };
+///
+/// assert!(s.sequences.get(0).unwrap().identifier.as_str() == "myseq");
+/// ```
+#[derive(Debug, Clone)]
+pub struct DropSequence<'a> {
+    /// Span of "DROP"
+    pub drop_span: Span,
+    /// Span of "SEQUENCE"
+    pub sequence_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// List of sequences to drop
+    pub sequences: Vec<QualifiedName<'a>>,
+    /// Span of "CASCADE" if specified
+    pub cascade: Option<Span>,
+    /// Span of "RESTRICT" if specified
+    pub restrict: Option<Span>,
+}
+
+impl<'a> Spanned for DropSequence<'a> {
+    fn span(&self) -> Span {
+        self.drop_span
+            .join_span(&self.sequence_span)
+            .join_span(&self.if_exists)
+            .join_span(&self.sequences)
+            .join_span(&self.cascade)
+            .join_span(&self.restrict)
+    }
+}
+
 /// Represent a drop server statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropServer, Statement, Issues};
@@ -465,8 +509,34 @@ pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a
             }))
         }
         Token::Ident(_, Keyword::SEQUENCE) => {
-            // DROP [TEMPORARY] SEQUENCE [IF EXISTS] [/*COMMENT TO SAVE*/] sequence_name [, sequence_name] ...
-            parser.todo(file!(), line!())
+            // DROP SEQUENCE [IF EXISTS] sequence_name [, sequence_name] ... [CASCADE | RESTRICT]
+            let sequence_span = parser.consume_keyword(Keyword::SEQUENCE)?;
+            let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+                Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+            } else {
+                None
+            };
+            let mut sequences = Vec::new();
+            loop {
+                sequences.push(parse_qualified_name(parser)?);
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+            let cascade = parser.skip_keyword(Keyword::CASCADE);
+            let restrict = if cascade.is_none() {
+                parser.skip_keyword(Keyword::RESTRICT)
+            } else {
+                None
+            };
+            Ok(Statement::DropSequence(DropSequence {
+                drop_span,
+                sequence_span,
+                if_exists,
+                sequences,
+                cascade,
+                restrict,
+            }))
         }
         Token::Ident(_, Keyword::SERVER) => {
             // TODO complain about temporary
