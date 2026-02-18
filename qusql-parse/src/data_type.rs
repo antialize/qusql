@@ -417,9 +417,7 @@ pub(crate) fn parse_data_type<'a>(
         }
         Token::Ident(_, Keyword::VARBIT) => {
             let t = parser.consume_keyword(Keyword::VARBIT)?;
-            if !parser.options.dialect.is_postgresql() {
-                parser.err("VARBIT only supported by PostgreSQL", &t);
-            }
+            parser.postgres_only(&t);
             (t, Type::VarBit(parse_width(parser)?))
         }
         Token::Ident(_, _) if parser.options.dialect.is_postgresql() => {

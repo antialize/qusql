@@ -145,9 +145,7 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
                 break;
             }
         }
-        if !parser.options.dialect.is_postgresql() {
-            parser.err("Only support by postgesql", &returning_span);
-        }
+        parser.postgres_only(&returning_span);
         Some((returning_span, returning_exprs))
     } else {
         None

@@ -1339,9 +1339,7 @@ fn parse_create_type<'a>(
     create_options: Vec<CreateOption<'a>>,
 ) -> Result<Statement<'a>, ParseError> {
     let type_span = parser.consume_keyword(Keyword::TYPE)?;
-    if !parser.options.dialect.is_postgresql() {
-        parser.err("CREATE TYPE only supported by postgresql", &type_span);
-    }
+    parser.postgres_only(&type_span);
     let name = parser.consume_plain_identifier()?;
     let as_enum_span = parser.consume_keywords(&[Keyword::AS, Keyword::ENUM])?;
     parser.consume_token(Token::LParen)?;
@@ -1508,9 +1506,7 @@ fn parse_create_index<'a>(
         ) = &parser.token
         {
             let range = parser.consume();
-            if !parser.options.dialect.is_postgresql() {
-                parser.err("Opclasses not supporetd", &range);
-            }
+            parser.postgres_only(&range);
         }
         if parser.skip_token(Token::Comma).is_none() {
             break;
@@ -1940,9 +1936,7 @@ fn parse_create_table<'a>(
                     }
                     Token::Ident(_, Keyword::INHERITS) => {
                         let identifier = parser.consume_keyword(Keyword::INHERITS)?;
-                        if !parser.options.dialect.is_postgresql() {
-                            parser.err("INHERITS only supported by PostgreSQL", &identifier);
-                        }
+                        parser.postgres_only(&identifier);
                         parser.consume_token(Token::LParen)?;
                         let mut tables = Vec::new();
                         parser.recovered("')'", &|t| t == &Token::RParen, |parser| {

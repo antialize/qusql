@@ -144,8 +144,6 @@ pub(crate) fn parse_with_query<'a>(
         with_blocks,
         statement,
     };
-    if !parser.options.dialect.is_postgresql() {
-        parser.err("WITH statements only supported by postgresql", &res.span());
-    }
+    parser.postgres_only(&res);
     Ok(res)
 }
