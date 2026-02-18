@@ -1062,11 +1062,8 @@
   },
   {
     "input": "ALTER TABLE tab RENAME CONSTRAINT old_name TO new_name",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''COLUMN', 'INDEX' or 'TO'' here\",\n    span: 23..33,\n    sql_segment: \"CONSTRAINT\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            RenameConstraint {\n                rename_constraint_span: 16..33,\n                old_constraint_name: Identifier {\n                    value: \"old_name\",\n                    span: 34..42,\n                },\n                to_span: 43..45,\n                new_constraint_name: Identifier {\n                    value: \"new_name\",\n                    span: 46..54,\n                },\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TYPE public.my_type ADD VALUE 'label3.5' AFTER 'label3'",
@@ -1297,7 +1294,7 @@
     "input": "CREATE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 6..6,\n    sql_segment: \"\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 6..6,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1306,7 +1303,7 @@
     "input": "CREATE CONSTRAINT TRIGGER check_multiple_events BEFORE INSERT OR UPDATE OR DELETE ON accounts DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_account_changes",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..17,\n    sql_segment: \"CONSTRAINT\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..17,\n    sql_segment: \"CONSTRAINT\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'ON' here\",\n    span: 62..64,\n    sql_segment: \"OR\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1315,7 +1312,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1323,7 +1320,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER COLLATE \"en_US\" CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1331,7 +1328,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER COLLATE \"en_US\" DEFAULT 1 CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1339,7 +1336,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER CONSTRAINT my_constraint CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1347,7 +1344,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER DEFAULT 1 CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1355,7 +1352,7 @@
     "input": "CREATE EXTENSION extension_name",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1363,41 +1360,41 @@
     "input": "CREATE EXTENSION extension_name WITH CASCADE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name",
-    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 37..43,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"schema_name\",\n            span: 44..55,\n        },\n        create_options: [],\n    },\n)",
+    "output": "CreateSchema(\n    CreateSchema {\n        create_span: 0..6,\n        schema_span: 37..43,\n        if_not_exists: None,\n        name: Some(\n            Identifier {\n                value: \"schema_name\",\n                span: 44..55,\n            },\n        ),\n        authorization: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name CASCADE",
-    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 37..43,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"schema_name\",\n            span: 44..55,\n        },\n        create_options: [],\n    },\n)",
+    "output": "CreateSchema(\n    CreateSchema {\n        create_span: 0..6,\n        schema_span: 37..43,\n        if_not_exists: None,\n        name: Some(\n            Identifier {\n                value: \"schema_name\",\n                span: 44..55,\n            },\n        ),\n        authorization: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 56..63,\n    sql_segment: \"CASCADE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name VERSION version",
-    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 37..43,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"schema_name\",\n            span: 44..55,\n        },\n        create_options: [],\n    },\n)",
+    "output": "CreateSchema(\n    CreateSchema {\n        create_span: 0..6,\n        schema_span: 37..43,\n        if_not_exists: None,\n        name: Some(\n            Identifier {\n                value: \"schema_name\",\n                span: 44..55,\n            },\n        ),\n        authorization: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 56..63,\n    sql_segment: \"VERSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name VERSION version CASCADE",
-    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 37..43,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"schema_name\",\n            span: 44..55,\n        },\n        create_options: [],\n    },\n)",
+    "output": "CreateSchema(\n    CreateSchema {\n        create_span: 0..6,\n        schema_span: 37..43,\n        if_not_exists: None,\n        name: Some(\n            Identifier {\n                value: \"schema_name\",\n                span: 44..55,\n            },\n        ),\n        authorization: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 56..63,\n    sql_segment: \"VERSION\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1406,7 +1403,7 @@
     "input": "CREATE EXTENSION extension_name WITH VERSION version",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1414,7 +1411,7 @@
     "input": "CREATE EXTENSION extension_name WITH VERSION version CASCADE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1569,37 +1566,37 @@
   },
   {
     "input": "CREATE INDEX CONCURRENTLY IF NOT EXISTS my_index ON my_table(col1, col2)",
-    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [\n            Concurrently(\n                13..25,\n            ),\n        ],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"my_index\",\n                span: 40..48,\n            },\n        ),\n        if_not_exists: Some(\n            26..39,\n        ),\n        on_span: 49..51,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 52..60,\n            },\n        },\n        index_options: [],\n        l_paren_span: 60..61,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 61..65,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 67..71,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 71..72,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: None,\n    },\n)",
+    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [\n            Concurrently(\n                13..25,\n            ),\n        ],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"my_index\",\n                span: 40..48,\n            },\n        ),\n        if_not_exists: Some(\n            26..39,\n        ),\n        on_span: 49..51,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 52..60,\n            },\n        },\n        index_options: [],\n        l_paren_span: 60..61,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 61..65,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 67..71,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 71..72,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: None,\n    },\n)",
     "issues": []
   },
   {
     "input": "CREATE INDEX IF NOT EXISTS my_index ON my_table(col1, col2)",
-    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Identifier {\n            value: \"my_index\",\n            span: 27..35,\n        },\n        if_not_exists: Some(\n            13..26,\n        ),\n        on_span: 36..38,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 39..47,\n            },\n        },\n        index_options: [],\n        l_paren_span: 47..48,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 48..52,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 54..58,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 58..59,\n        where_: None,\n    },\n)",
+    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"my_index\",\n                span: 27..35,\n            },\n        ),\n        if_not_exists: Some(\n            13..26,\n        ),\n        on_span: 36..38,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 39..47,\n            },\n        },\n        index_options: [],\n        l_paren_span: 47..48,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 48..52,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 54..58,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 58..59,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: None,\n    },\n)",
     "issues": []
   },
   {
     "input": "CREATE INDEX IF NOT EXISTS my_index ON my_table(col1, col2) INCLUDE (col3, col4)",
-    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"my_index\",\n                span: 27..35,\n            },\n        ),\n        if_not_exists: Some(\n            13..26,\n        ),\n        on_span: 36..38,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 39..47,\n            },\n        },\n        index_options: [],\n        l_paren_span: 47..48,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 48..52,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 54..58,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 58..59,\n        include_clause: Some(\n            IncludeClause {\n                include_span: 60..67,\n                l_paren_span: 68..69,\n                columns: [\n                    Identifier {\n                        value: \"col3\",\n                        span: 69..73,\n                    },\n                    Identifier {\n                        value: \"col4\",\n                        span: 75..79,\n                    },\n                ],\n                r_paren_span: 79..80,\n            },\n        ),\n        where_: None,\n        nulls_distinct: None,\n    },\n)",
+    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"my_index\",\n                span: 27..35,\n            },\n        ),\n        if_not_exists: Some(\n            13..26,\n        ),\n        on_span: 36..38,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 39..47,\n            },\n        },\n        index_options: [],\n        l_paren_span: 47..48,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 48..52,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 54..58,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 58..59,\n        include_clause: Some(\n            IncludeClause {\n                include_span: 60..67,\n                l_paren_span: 68..69,\n                columns: [\n                    Identifier {\n                        value: \"col3\",\n                        span: 69..73,\n                    },\n                    Identifier {\n                        value: \"col4\",\n                        span: 75..79,\n                    },\n                ],\n                r_paren_span: 79..80,\n            },\n        ),\n        where_: None,\n        nulls_distinct: None,\n    },\n)",
     "issues": []
   },
   {
     "input": "CREATE INDEX IF NOT EXISTS my_index ON my_table(col1, col2) NULLS DISTINCT",
-    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"my_index\",\n                span: 27..35,\n            },\n        ),\n        if_not_exists: Some(\n            13..26,\n        ),\n        on_span: 36..38,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 39..47,\n            },\n        },\n        index_options: [],\n        l_paren_span: 47..48,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 48..52,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 54..58,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 58..59,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: Some(\n            (\n                60..65,\n                None,\n            ),\n        ),\n    },\n)",
+    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"my_index\",\n                span: 27..35,\n            },\n        ),\n        if_not_exists: Some(\n            13..26,\n        ),\n        on_span: 36..38,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 39..47,\n            },\n        },\n        index_options: [],\n        l_paren_span: 47..48,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 48..52,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 54..58,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 58..59,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: Some(\n            (\n                60..65,\n                None,\n            ),\n        ),\n    },\n)",
     "issues": []
   },
   {
     "input": "CREATE INDEX IF NOT EXISTS my_index ON my_table(col1, col2) NULLS NOT DISTINCT",
-    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"my_index\",\n                span: 27..35,\n            },\n        ),\n        if_not_exists: Some(\n            13..26,\n        ),\n        on_span: 36..38,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 39..47,\n            },\n        },\n        index_options: [],\n        l_paren_span: 47..48,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 48..52,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 54..58,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 58..59,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: Some(\n            (\n                60..65,\n                Some(\n                    66..69,\n                ),\n            ),\n        ),\n    },\n)",
+    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"my_index\",\n                span: 27..35,\n            },\n        ),\n        if_not_exists: Some(\n            13..26,\n        ),\n        on_span: 36..38,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 39..47,\n            },\n        },\n        index_options: [],\n        l_paren_span: 47..48,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 48..52,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 54..58,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 58..59,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: Some(\n            (\n                60..65,\n                Some(\n                    66..69,\n                ),\n            ),\n        ),\n    },\n)",
     "issues": []
   },
   {
     "input": "CREATE INDEX IF NOT EXISTS my_index ON my_table(col1, col2) WHERE col3 IS NULL",
-    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Identifier {\n            value: \"my_index\",\n            span: 27..35,\n        },\n        if_not_exists: Some(\n            13..26,\n        ),\n        on_span: 36..38,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 39..47,\n            },\n        },\n        index_options: [],\n        l_paren_span: 47..48,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 48..52,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 54..58,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 58..59,\n        where_: Some(\n            (\n                60..65,\n                Is(\n                    Identifier(\n                        [\n                            Name(\n                                Identifier {\n                                    value: \"col3\",\n                                    span: 66..70,\n                                },\n                            ),\n                        ],\n                    ),\n                    Null,\n                    71..78,\n                ),\n            ),\n        ),\n    },\n)",
+    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"my_index\",\n                span: 27..35,\n            },\n        ),\n        if_not_exists: Some(\n            13..26,\n        ),\n        on_span: 36..38,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 39..47,\n            },\n        },\n        index_options: [],\n        l_paren_span: 47..48,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 48..52,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 54..58,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 58..59,\n        include_clause: None,\n        where_: Some(\n            (\n                60..65,\n                Is(\n                    Identifier(\n                        [\n                            Name(\n                                Identifier {\n                                    value: \"col3\",\n                                    span: 66..70,\n                                },\n                            ),\n                        ],\n                    ),\n                    Null,\n                    71..78,\n                ),\n            ),\n        ),\n        nulls_distinct: None,\n    },\n)",
     "issues": []
   },
   {
     "input": "CREATE INDEX ON my_table(col1, col2)",
-    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: None,\n        if_not_exists: None,\n        on_span: 13..15,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 16..24,\n            },\n        },\n        index_options: [],\n        l_paren_span: 24..25,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 25..29,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 31..35,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 35..36,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: None,\n    },\n)",
+    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: None,\n        if_not_exists: None,\n        on_span: 13..15,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_table\",\n                span: 16..24,\n            },\n        },\n        index_options: [],\n        l_paren_span: 24..25,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col1\",\n                        span: 25..29,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"col2\",\n                        span: 31..35,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 35..36,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: None,\n    },\n)",
     "issues": []
   },
   {
@@ -1612,7 +1609,7 @@
   },
   {
     "input": "CREATE INDEX brin_sensor_data_recorded_at ON sensor_data USING BRIN (recorded_at)",
-    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"brin_sensor_data_recorded_at\",\n                span: 13..41,\n            },\n        ),\n        if_not_exists: None,\n        on_span: 42..44,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"sensor_data\",\n                span: 45..56,\n            },\n        },\n        index_options: [\n            UsingBrin(\n                57..67,\n            ),\n        ],\n        l_paren_span: 68..69,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"recorded_at\",\n                        span: 69..80,\n                    },\n                ),\n                size: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 80..81,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: None,\n    },\n)",
+    "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"brin_sensor_data_recorded_at\",\n                span: 13..41,\n            },\n        ),\n        if_not_exists: None,\n        on_span: 42..44,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"sensor_data\",\n                span: 45..56,\n            },\n        },\n        index_options: [\n            UsingBrin(\n                57..67,\n            ),\n        ],\n        l_paren_span: 68..69,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"recorded_at\",\n                        span: 69..80,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 80..81,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: None,\n    },\n)",
     "issues": []
   },
   {
@@ -1624,7 +1621,7 @@
     "input": "CREATE INDEX the_index_name ON users USING {expected_index_type} (column_name, concat_users_name(first_name, last_name){})",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected GIST after USING (or use USING after column list for MySQL)\",\n    span: 43..44,\n    sql_segment: \"{\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected GIST, BLOOM, BRIN, or HNSW after USING (or use USING after column list for MySQL)\",\n    span: 43..44,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1633,7 +1630,7 @@
     "input": "CREATE INDEX the_index_name ON users USING {expected_index_type} (concat_users_name(first_name, last_name){})",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected GIST after USING (or use USING after column list for MySQL)\",\n    span: 43..44,\n    sql_segment: \"{\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected GIST, BLOOM, BRIN, or HNSW after USING (or use USING after column list for MySQL)\",\n    span: 43..44,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1660,7 +1657,7 @@
     "input": "CREATE OPERATOR != (FUNCTION = func)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1668,7 +1665,7 @@
     "input": "CREATE OPERATOR + ()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1677,7 +1674,7 @@
     "input": "CREATE OPERATOR + (FUNCTION = f, COMMUTATOR = >, NEGATOR = >=)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1685,7 +1682,7 @@
     "input": "CREATE OPERATOR + (FUNCTION = f, COMMUTATOR = OPERATOR(>), NEGATOR = OPERATOR(>=))",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1693,7 +1690,7 @@
     "input": "CREATE OPERATOR + (FUNCTION = f, {field})",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1701,7 +1698,7 @@
     "input": "CREATE OPERATOR + (LEFTARG = INT4)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1709,7 +1706,7 @@
     "input": "CREATE OPERATOR <> (FUNCTION = func)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1717,7 +1714,7 @@
     "input": "CREATE OPERATOR > (()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1726,7 +1723,7 @@
     "input": "CREATE OPERATOR > ())",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1735,7 +1732,7 @@
     "input": "CREATE OPERATOR CLASS CAS_btree_ops DEFAULT FOR TYPE CAS USING btree FAMILY CAS_btree_ops AS OPERATOR 1 <, OPERATOR 2 <=, OPERATOR 3 =, OPERATOR 4 >=, OPERATOR 5 >, FUNCTION 1 cas_cmp(CAS, CAS)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 57..62,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1744,7 +1741,7 @@
     "input": "CREATE OPERATOR CLASS gist_ops FOR TYPE geometry USING gist AS OPERATOR 1 <<, FUNCTION 1 gist_consistent(internal, geometry, INT4), STORAGE box",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 49..54,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1753,7 +1750,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 (INT4, INT4) btcmp(INT4, INT4)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1763,7 +1760,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 cas_cmp(()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1774,7 +1771,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 my_func",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1784,7 +1781,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 my_func()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1795,7 +1792,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING gist AS OPERATOR 1 < (INT4, INT4)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1805,7 +1802,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING gist AS OPERATOR 1 < FOR SEARCH",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1815,7 +1812,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING gist AS OPERATOR 2 <<-> FOR ORDER BY float_ops",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1825,7 +1822,7 @@
     "input": "CREATE OPERATOR CLASS {class_name} {default_clause}FOR TYPE INT4 USING btree{family_clause} AS OPERATOR 1 <",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 60..64,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 65..70,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1835,7 +1832,7 @@
     "input": "CREATE OPERATOR FAMILY my_family USING {index_method}",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1843,7 +1840,7 @@
     "input": "CREATE OPERATOR FAMILY myschema.test_family USING {index_method}",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1851,7 +1848,7 @@
     "input": "CREATE OPERATOR myschema.@@ (PROCEDURE = myschema.my_proc, LEFTARG = TIMESTAMP WITH TIME ZONE, RIGHTARG = VARCHAR(255), COMMUTATOR = schema.>, NEGATOR = schema.<=, RESTRICT = myschema.sel_func, JOIN = myschema.join_func, HASHES, MERGES)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1859,7 +1856,7 @@
     "input": "CREATE OPERATOR {name} (FUNCTION = f)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1867,7 +1864,7 @@
     "input": "CREATE OPERATOR {op_symbol} (FUNCTION = f)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2206,7 +2203,7 @@
   },
   {
     "input": "CREATE TABLE orders (order_id INT REFERENCES another_table (id) MATCH FULL ON DELETE CASCADE ON UPDATE RESTRICT, customer_id INT, CONSTRAINT fk_customer FOREIGN KEY (customer_id) REFERENCES customers(customer_id) MATCH SIMPLE ON DELETE SET NULL ON UPDATE CASCADE)",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"orders\",\n                span: 13..19,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"order_id\",\n                    span: 21..29,\n                },\n                data_type: DataType {\n                    identifier: 30..33,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"customer_id\",\n                    span: 113..124,\n                },\n                data_type: DataType {\n                    identifier: 125..128,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            ForeignKeyDefinition {\n                constraint_span: Some(\n                    130..140,\n                ),\n                constraint_symbol: Some(\n                    Identifier {\n                        value: \"fk_customer\",\n                        span: 141..152,\n                    },\n                ),\n                foreign_key_span: 153..164,\n                index_name: None,\n                cols: [\n                    IndexCol {\n                        expr: Column(\n                            Identifier {\n                                value: \"customer_id\",\n                                span: 166..177,\n                            },\n                        ),\n                        size: None,\n                        asc: None,\n                        desc: None,\n                    },\n                ],\n                references_span: 179..189,\n                references_table: Identifier {\n                    value: \"customers\",\n                    span: 190..199,\n                },\n                references_cols: [\n                    Identifier {\n                        value: \"customer_id\",\n                        span: 200..211,\n                    },\n                ],\n                ons: [],\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"orders\",\n                span: 13..19,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"order_id\",\n                    span: 21..29,\n                },\n                data_type: DataType {\n                    identifier: 30..33,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"customer_id\",\n                    span: 113..124,\n                },\n                data_type: DataType {\n                    identifier: 125..128,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            ForeignKeyDefinition {\n                constraint_span: Some(\n                    130..140,\n                ),\n                constraint_symbol: Some(\n                    Identifier {\n                        value: \"fk_customer\",\n                        span: 141..152,\n                    },\n                ),\n                foreign_key_span: 153..164,\n                index_name: None,\n                cols: [\n                    IndexCol {\n                        expr: Column(\n                            Identifier {\n                                value: \"customer_id\",\n                                span: 166..177,\n                            },\n                        ),\n                        size: None,\n                        opclass: None,\n                        asc: None,\n                        desc: None,\n                    },\n                ],\n                references_span: 179..189,\n                references_table: Identifier {\n                    value: \"customers\",\n                    span: 190..199,\n                },\n                references_cols: [\n                    Identifier {\n                        value: \"customer_id\",\n                        span: 200..211,\n                    },\n                ],\n                ons: [],\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected '')' or ','' here\",\n    span: 34..44,\n    sql_segment: \"REFERENCES\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected '')' or ','' here\",\n    span: 213..218,\n    sql_segment: \"MATCH\",\n    fragments: [],\n}"
@@ -2423,7 +2420,7 @@
   },
   {
     "input": "CREATE TABLE t (id INT, FOREIGN KEY (id) REFERENCES other_table(id) {match_clause})",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"t\",\n                span: 13..14,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 16..18,\n                },\n                data_type: DataType {\n                    identifier: 19..22,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            ForeignKeyDefinition {\n                constraint_span: None,\n                constraint_symbol: None,\n                foreign_key_span: 24..35,\n                index_name: None,\n                cols: [\n                    IndexCol {\n                        expr: Column(\n                            Identifier {\n                                value: \"id\",\n                                span: 37..39,\n                            },\n                        ),\n                        size: None,\n                        asc: None,\n                        desc: None,\n                    },\n                ],\n                references_span: 41..51,\n                references_table: Identifier {\n                    value: \"other_table\",\n                    span: 52..63,\n                },\n                references_cols: [\n                    Identifier {\n                        value: \"id\",\n                        span: 64..66,\n                    },\n                ],\n                ons: [],\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"t\",\n                span: 13..14,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 16..18,\n                },\n                data_type: DataType {\n                    identifier: 19..22,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            ForeignKeyDefinition {\n                constraint_span: None,\n                constraint_symbol: None,\n                foreign_key_span: 24..35,\n                index_name: None,\n                cols: [\n                    IndexCol {\n                        expr: Column(\n                            Identifier {\n                                value: \"id\",\n                                span: 37..39,\n                            },\n                        ),\n                        size: None,\n                        opclass: None,\n                        asc: None,\n                        desc: None,\n                    },\n                ],\n                references_span: 41..51,\n                references_table: Identifier {\n                    value: \"other_table\",\n                    span: 52..63,\n                },\n                references_cols: [\n                    Identifier {\n                        value: \"id\",\n                        span: 64..66,\n                    },\n                ],\n                ons: [],\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected '')' or ','' here\",\n    span: 68..69,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
@@ -2464,33 +2461,24 @@
   },
   {
     "input": "CREATE TEMPORARY SEQUENCE  IF NOT EXISTS  name0",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateSequence(\n    CreateSequence {\n        create_span: 0..6,\n        temporary: Some(\n            7..16,\n        ),\n        sequence_span: 17..25,\n        if_not_exists: Some(\n            27..40,\n        ),\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"name0\",\n                span: 42..47,\n            },\n        },\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TEMPORARY SEQUENCE  name0",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateSequence(\n    CreateSequence {\n        create_span: 0..6,\n        temporary: Some(\n            7..16,\n        ),\n        sequence_span: 17..25,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"name0\",\n                span: 27..32,\n            },\n        },\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TEMPORARY SEQUENCE IF NOT EXISTS name0",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateSequence(\n    CreateSequence {\n        create_span: 0..6,\n        temporary: Some(\n            7..16,\n        ),\n        sequence_span: 17..25,\n        if_not_exists: Some(\n            26..39,\n        ),\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"name0\",\n                span: 40..45,\n            },\n        },\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TEMPORARY SEQUENCE IF NOT EXISTS name1 AS BIGINT INCREMENT BY 1 MINVALUE 1 MAXVALUE 20 START WITH 10",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 80..81,\n    sql_segment: \"1\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2498,7 +2486,7 @@
     "input": "CREATE TEMPORARY SEQUENCE IF NOT EXISTS name3 INCREMENT 1 NO MINVALUE MAXVALUE 20 CACHE 2 CYCLE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 61..69,\n    sql_segment: \"MINVALUE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2506,7 +2494,7 @@
     "input": "CREATE TEMPORARY SEQUENCE IF NOT EXISTS name3 INCREMENT 1 NO MINVALUE MAXVALUE 20 OWNED BY NONE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 61..69,\n    sql_segment: \"MINVALUE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2514,21 +2502,18 @@
     "input": "CREATE TEMPORARY SEQUENCE IF NOT EXISTS name3 INCREMENT 1 NO MINVALUE MAXVALUE 20 OWNED BY public.table01",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 61..69,\n    sql_segment: \"MINVALUE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "CREATE TEMPORARY SEQUENCE name0",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateSequence(\n    CreateSequence {\n        create_span: 0..6,\n        temporary: Some(\n            7..16,\n        ),\n        sequence_span: 17..25,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"name0\",\n                span: 26..31,\n            },\n        },\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TEMPORARY TABLE table (COL INT) ON COMMIT DELETE ROWS",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [\n            Temporary(\n                7..16,\n            ),\n        ],\n        table_span: 17..22,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"table\",\n                span: 23..28,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"COL\",\n                    span: 30..33,\n                },\n                data_type: DataType {\n                    identifier: 34..37,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [\n            Temporary {\n                local_span: None,\n                temporary_span: 7..16,\n            },\n        ],\n        table_span: 17..22,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"table\",\n                span: 23..28,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"COL\",\n                    span: 30..33,\n                },\n                data_type: DataType {\n                    identifier: 34..37,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
     "issues": [
       "Issue {\n    level: Error,\n    message: \"'table' is a reserved identifier use `table`\",\n    span: 23..28,\n    sql_segment: \"table\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'table option or delimiter' here\",\n    span: 39..41,\n    sql_segment: \"ON\",\n    fragments: [],\n}"
@@ -2537,7 +2522,7 @@
   },
   {
     "input": "CREATE TEMPORARY TABLE table (COL INT) ON COMMIT DROP",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [\n            Temporary(\n                7..16,\n            ),\n        ],\n        table_span: 17..22,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"table\",\n                span: 23..28,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"COL\",\n                    span: 30..33,\n                },\n                data_type: DataType {\n                    identifier: 34..37,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [\n            Temporary {\n                local_span: None,\n                temporary_span: 7..16,\n            },\n        ],\n        table_span: 17..22,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"table\",\n                span: 23..28,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"COL\",\n                    span: 30..33,\n                },\n                data_type: DataType {\n                    identifier: 34..37,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
     "issues": [
       "Issue {\n    level: Error,\n    message: \"'table' is a reserved identifier use `table`\",\n    span: 23..28,\n    sql_segment: \"table\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'table option or delimiter' here\",\n    span: 39..41,\n    sql_segment: \"ON\",\n    fragments: [],\n}"
@@ -2546,7 +2531,7 @@
   },
   {
     "input": "CREATE TEMPORARY TABLE table (COL INT) ON COMMIT PRESERVE ROWS",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [\n            Temporary(\n                7..16,\n            ),\n        ],\n        table_span: 17..22,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"table\",\n                span: 23..28,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"COL\",\n                    span: 30..33,\n                },\n                data_type: DataType {\n                    identifier: 34..37,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [\n            Temporary {\n                local_span: None,\n                temporary_span: 7..16,\n            },\n        ],\n        table_span: 17..22,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"table\",\n                span: 23..28,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"COL\",\n                    span: 30..33,\n                },\n                data_type: DataType {\n                    identifier: 34..37,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
     "issues": [
       "Issue {\n    level: Error,\n    message: \"'table' is a reserved identifier use `table`\",\n    span: 23..28,\n    sql_segment: \"table\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'table option or delimiter' here\",\n    span: 39..41,\n    sql_segment: \"ON\",\n    fragments: [],\n}"
