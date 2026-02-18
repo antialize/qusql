@@ -118,18 +118,43 @@ impl Spanned for ForeignKeyOn {
     }
 }
 
+/// Column or expression specification for an index
+#[derive(Clone, Debug)]
+pub enum IndexColExpr<'a> {
+    /// Regular column name
+    Column(Identifier<'a>),
+    /// Functional index expression (wrapped in parentheses)
+    Expression(Expression<'a>),
+}
+
+impl<'a> Spanned for IndexColExpr<'a> {
+    fn span(&self) -> Span {
+        match self {
+            IndexColExpr::Column(id) => id.span(),
+            IndexColExpr::Expression(expr) => expr.span(),
+        }
+    }
+}
+
 /// Specify a column for an index, together with a with
 #[derive(Clone, Debug)]
 pub struct IndexCol<'a> {
-    /// The name of the column
-    pub name: Identifier<'a>,
+    /// The column name or expression
+    pub expr: IndexColExpr<'a>,
     /// Optional width of index together with its span
     pub size: Option<(u32, Span)>,
+    /// Optional ASC ordering
+    pub asc: Option<Span>,
+    /// Optional DESC ordering
+    pub desc: Option<Span>,
 }
 
 impl<'a> Spanned for IndexCol<'a> {
     fn span(&self) -> Span {
-        self.name.join_span(&self.size)
+        self.expr
+            .join_span(&self.size)
+            .join_span(&self.asc)
+            .join_span(&self.desc)
     }
 }
 
@@ -170,6 +195,44 @@ impl<'a> Spanned for AlterColumnAction<'a> {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum AlterLock {
+    Default(Span),
+    None(Span),
+    Shared(Span),
+    Exclusive(Span),
+}
+
+impl Spanned for AlterLock {
+    fn span(&self) -> Span {
+        match self {
+            AlterLock::Default(v) => v.span(),
+            AlterLock::None(v) => v.span(),
+            AlterLock::Shared(v) => v.span(),
+            AlterLock::Exclusive(v) => v.span(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum AlterAlgorithm {
+    Default(Span),
+    Instant(Span),
+    Inplace(Span),
+    Copy(Span),
+}
+
+impl Spanned for AlterAlgorithm {
+    fn span(&self) -> Span {
+        match self {
+            AlterAlgorithm::Default(v) => v.span(),
+            AlterAlgorithm::Instant(v) => v.span(),
+            AlterAlgorithm::Inplace(v) => v.span(),
+            AlterAlgorithm::Copy(v) => v.span(),
+        }
+    }
+}
+
 /// Enum of alterations to perform on a table
 #[derive(Clone, Debug)]
 pub enum AlterSpecification<'a> {
@@ -178,6 +241,10 @@ pub enum AlterSpecification<'a> {
         if_not_exists_span: Option<Span>,
         identifier: Identifier<'a>,
         data_type: DataType<'a>,
+        /// Optional "FIRST"
+        first: Option<Span>,
+        /// Optional "AFTER col_name"
+        after: Option<(Span, Identifier<'a>)>,
     },
     /// Add an index
     AddIndex {
@@ -229,6 +296,10 @@ pub enum AlterSpecification<'a> {
         col: Identifier<'a>,
         /// New definition of column
         definition: DataType<'a>,
+        /// Optional "FIRST"
+        first: Option<Span>,
+        /// Optional "AFTER col_name"
+        after: Option<(Span, Identifier<'a>)>,
     },
     DropColumn {
         /// Span of "DROP COLUMN"
@@ -237,6 +308,22 @@ pub enum AlterSpecification<'a> {
         column: Identifier<'a>,
         /// Span of "CASCADE" if specified
         cascade: Option<Span>,
+    },
+    DropIndex {
+        /// Span of "DROP INDEX"
+        drop_index_span: Span,
+        /// Name of index to drop
+        name: Identifier<'a>,
+    },
+    DropForeignKey {
+        /// Span of "DROP FOREIGN KEY"
+        drop_foreign_key_span: Span,
+        /// Name of foreign key to drop
+        name: Identifier<'a>,
+    },
+    DropPrimaryKey {
+        /// Span of "DROP PRIMARY KEY"
+        drop_primary_key_span: Span,
     },
     AlterColumn {
         /// Span of "ALTER COLUMN"
@@ -252,6 +339,61 @@ pub enum AlterSpecification<'a> {
         /// Name of owner
         owner: Identifier<'a>,
     },
+    Lock {
+        /// Span of "LOCK"
+        lock_span: Span,
+        lock: AlterLock,
+    },
+    RenameColumn {
+        /// Span of "RENAME COLUMN"
+        rename_column_span: Span,
+        /// Old name of column
+        old_col_name: Identifier<'a>,
+        /// New name of column
+        new_col_name: Identifier<'a>,
+    },
+    RenameIndex {
+        /// Span of "RENAME INDEX" "or RENAME KEY"
+        rename_index_span: Span,
+        /// Old name of index
+        old_index_name: Identifier<'a>,
+        /// New name of index
+        new_index_name: Identifier<'a>,
+    },
+    RenameTo {
+        /// Span of "RENAME TO"
+        rename_to_span: Span,
+        /// New name of table
+        new_table_name: Identifier<'a>,
+    },
+    Algorithm {
+        /// Span of "ALGORITHM"
+        algorithm_span: Span,
+        algorithm: AlterAlgorithm,
+    },
+    AutoIncrement {
+        /// Span of "AUTO_INCREMENT"
+        auto_increment_span: Span,
+        value_span: Span,
+        /// New value for auto_increment
+        value: u64,
+    },
+    Change {
+        /// Span of "CHANGE"
+        change_span: Span,
+        /// Optional span of "COLUMN"
+        column_span: Option<Span>,
+        /// Old name of column
+        column: Identifier<'a>,
+        /// New name of column
+        new_column: Identifier<'a>,
+        /// New definition of column
+        definition: DataType<'a>,
+        // Optional "FIRST"
+        first: Option<Span>,
+        // Optional "AFTER col_name"
+        after: Option<(Span, Identifier<'a>)>,
+    },
 }
 
 impl<'a> Spanned for AlterSpecification<'a> {
@@ -262,10 +404,14 @@ impl<'a> Spanned for AlterSpecification<'a> {
                 if_not_exists_span,
                 identifier,
                 data_type,
+                first,
+                after,
             } => add_span
                 .join_span(if_not_exists_span)
                 .join_span(identifier)
-                .join_span(data_type),
+                .join_span(data_type)
+                .join_span(first)
+                .join_span(after),
             AlterSpecification::AddIndex {
                 add_span,
                 index_type,
@@ -307,16 +453,31 @@ impl<'a> Spanned for AlterSpecification<'a> {
                 if_exists,
                 col,
                 definition,
+                first,
+                after,
             } => modify_span
                 .join_span(if_exists)
                 .join_span(col)
-                .join_span(definition),
+                .join_span(definition)
+                .join_span(first)
+                .join_span(after),
             AlterSpecification::OwnerTo { span, owner } => span.join_span(owner),
             AlterSpecification::DropColumn {
                 drop_column_span,
                 column: col,
                 cascade,
             } => drop_column_span.join_span(col).join_span(cascade),
+            AlterSpecification::DropForeignKey {
+                drop_foreign_key_span,
+                name,
+            } => drop_foreign_key_span.join_span(name),
+            AlterSpecification::DropPrimaryKey {
+                drop_primary_key_span,
+            } => drop_primary_key_span.clone(),
+            AlterSpecification::DropIndex {
+                drop_index_span,
+                name,
+            } => drop_index_span.join_span(name),
             AlterSpecification::AlterColumn {
                 alter_column_span,
                 column: col,
@@ -324,11 +485,54 @@ impl<'a> Spanned for AlterSpecification<'a> {
             } => alter_column_span
                 .join_span(col)
                 .join_span(alter_column_action),
+            AlterSpecification::Lock { lock_span, lock } => lock_span.join_span(lock),
+            AlterSpecification::RenameColumn {
+                rename_column_span,
+                old_col_name,
+                new_col_name,
+            } => rename_column_span
+                .join_span(old_col_name)
+                .join_span(new_col_name),
+            AlterSpecification::RenameIndex {
+                rename_index_span,
+                old_index_name,
+                new_index_name,
+            } => rename_index_span
+                .join_span(old_index_name)
+                .join_span(new_index_name),
+            AlterSpecification::RenameTo {
+                rename_to_span,
+                new_table_name,
+            } => rename_to_span.join_span(new_table_name),
+            AlterSpecification::Algorithm {
+                algorithm_span,
+                algorithm,
+            } => algorithm_span.join_span(algorithm),
+            AlterSpecification::AutoIncrement {
+                auto_increment_span,
+                value_span,
+                ..
+            } => auto_increment_span.join_span(value_span),
+            AlterSpecification::Change {
+                change_span,
+                column_span,
+                column,
+                new_column,
+                definition,
+                first,
+                after,
+            } => change_span
+                .join_span(column_span)
+                .join_span(column)
+                .join_span(new_column)
+                .join_span(definition)
+                .join_span(first)
+                .join_span(after),
         }
     }
 }
 
-fn parse_index_type<'a>(
+pub(crate) fn parse_index_type<'a>(
     parser: &mut Parser<'a, '_>,
     out: &mut Vec<IndexOption<'a>>,
 ) -> Result<(), ParseError> {
@@ -348,7 +552,7 @@ fn parse_index_type<'a>(
     Ok(())
 }
 
-fn parse_index_options<'a>(
+pub(crate) fn parse_index_options<'a>(
     parser: &mut Parser<'a, '_>,
     out: &mut Vec<IndexOption<'a>>,
 ) -> Result<(), ParseError> {
@@ -365,12 +569,26 @@ fn parse_index_options<'a>(
     Ok(())
 }
 
-fn parse_index_cols<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<IndexCol<'a>>, ParseError> {
+pub(crate) fn parse_index_cols<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Vec<IndexCol<'a>>, ParseError> {
     parser.consume_token(Token::LParen)?;
     let mut ans = Vec::new();
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
         loop {
-            let name = parser.consume_plain_identifier()?;
+            // Check if this is a functional index expression (starts with '(')
+            let expr = if parser.token == Token::LParen {
+                // Functional index: parse expression
+                parser.consume_token(Token::LParen)?;
+                let expression = parse_expression(parser, false)?;
+                parser.consume_token(Token::RParen)?;
+                IndexColExpr::Expression(expression)
+            } else {
+                // Regular column name
+                let name = parser.consume_plain_identifier()?;
+                IndexColExpr::Column(name)
+            };
+
             let size = if parser.skip_token(Token::LParen).is_some() {
                 let size = parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
                     parser.consume_int()
@@ -381,9 +599,20 @@ fn parse_index_cols<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<IndexCol<'a>>
                 None
             };
 
-            // TODO [ASC | DESC]
+            // Parse optional ASC | DESC
+            let asc = parser.skip_keyword(Keyword::ASC);
+            let desc = if asc.is_none() {
+                parser.skip_keyword(Keyword::DESC)
+            } else {
+                None
+            };
 
-            ans.push(IndexCol { name, size });
+            ans.push(IndexCol {
+                expr,
+                size,
+                asc,
+                desc,
+            });
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -592,14 +821,115 @@ fn parse_add_alter_specification<'a>(
 
             let identifier = parser.consume_plain_identifier()?;
             let data_type = parse_data_type(parser, false)?;
+
+            let mut first = None;
+            let mut after = None;
+            match &parser.token {
+                Token::Ident(_, Keyword::FIRST) => {
+                    first = Some(parser.consume_keyword(Keyword::FIRST)?);
+                }
+                Token::Ident(_, Keyword::AFTER) => {
+                    let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                    let after_col = parser.consume_plain_identifier()?;
+                    after = Some((after_span, after_col));
+                }
+                _ => {}
+            }
+
             Ok(AlterSpecification::AddColumn {
                 add_span,
                 if_not_exists_span,
                 identifier,
+                first,
+                after,
                 data_type,
             })
         }
         _ => parser.expected_failure("addable"),
+    }
+}
+
+fn parse_rename_alter_specification<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<AlterSpecification<'a>, ParseError> {
+    let rename_span = parser.consume_keyword(Keyword::RENAME)?;
+
+    match parser.token {
+        Token::Ident(_, Keyword::COLUMN) => {
+            parser.consume_keyword(Keyword::COLUMN)?;
+            let old_col_name = parser.consume_plain_identifier()?;
+            parser.consume_keyword(Keyword::TO)?;
+            let new_col_name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::RenameColumn {
+                rename_column_span: rename_span
+                    .join_span(&old_col_name)
+                    .join_span(&new_col_name),
+                old_col_name,
+                new_col_name,
+            })
+        }
+        Token::Ident(_, Keyword::INDEX | Keyword::KEY) => {
+            let index_span = parser.consume();
+            let old_index_name = parser.consume_plain_identifier()?;
+            parser.consume_keyword(Keyword::TO)?;
+            let new_index_name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::RenameIndex {
+                rename_index_span: rename_span
+                    .join_span(&index_span)
+                    .join_span(&old_index_name)
+                    .join_span(&new_index_name),
+                old_index_name,
+                new_index_name,
+            })
+        }
+        Token::Ident(_, Keyword::TO) | Token::Ident(_, Keyword::AS) => {
+            let to_span = parser.consume();
+            let new_table_name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::RenameTo {
+                rename_to_span: rename_span.join_span(&to_span),
+                new_table_name,
+            })
+        }
+        _ => parser.expected_failure("'COLUMN', 'INDEX' or 'TO'")?,
+    }
+}
+
+fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<AlterSpecification<'a>, ParseError> {
+    let drop_span = parser.consume_keyword(Keyword::DROP)?;
+    match parser.token {
+        Token::Ident(_, Keyword::INDEX | Keyword::KEY) => {
+            let index_span = parser.consume();
+            let name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::DropIndex {
+                drop_index_span: drop_span.join_span(&index_span).join_span(&name),
+                name,
+            })
+        }
+        Token::Ident(_, Keyword::FOREIGN) => {
+            let foreign_span = parser.consume_keywords(&[Keyword::FOREIGN, Keyword::KEY])?;
+            let name = parser.consume_plain_identifier()?;
+            Ok(AlterSpecification::DropForeignKey {
+                drop_foreign_key_span: drop_span.join_span(&foreign_span).join_span(&name),
+                name,
+            })
+        }
+        Token::Ident(_, Keyword::PRIMARY) => {
+            let primary_key_span = parser.consume_keywords(&[Keyword::PRIMARY, Keyword::KEY])?;
+            Ok(AlterSpecification::DropPrimaryKey {
+                drop_primary_key_span: drop_span.join_span(&primary_key_span),
+            })
+        }
+        Token::Ident(_, Keyword::COLUMN) => {
+            let drop_column_span = drop_span.join_span(&parser.consume_keyword(Keyword::COLUMN)?);
+            let column = parser.consume_plain_identifier()?;
+            let cascade = parser.skip_keyword(Keyword::CASCADE);
+            Ok(AlterSpecification::DropColumn {
+                drop_column_span,
+                column,
+                cascade,
+            })
+        }
+        _ => parser.expected_failure("'COLUMN' or 'INDEX'")?,
     }
 }
 
@@ -702,12 +1032,28 @@ fn parse_alter_table<'a>(
                     };
                     let col = parser.consume_plain_identifier()?;
                     let definition = parse_data_type(parser, false)?;
-                    // TODO [FIRST | AFTER col_name]
+
+                    let mut first = None;
+                    let mut after = None;
+                    match parser.token {
+                        Token::Ident(_, Keyword::FIRST) => {
+                            first = Some(parser.consume_keyword(Keyword::FIRST)?);
+                        }
+                        Token::Ident(_, Keyword::AFTER) => {
+                            let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                            let col = parser.consume_plain_identifier()?;
+                            after = Some((after_span, col));
+                        }
+                        _ => {}
+                    }
+
                     AlterSpecification::Modify {
                         modify_span,
                         if_exists,
                         col,
                         definition,
+                        first,
+                        after,
                     }
                 }
                 Token::Ident(_, Keyword::OWNER) => {
@@ -715,17 +1061,7 @@ fn parse_alter_table<'a>(
                     let owner = parser.consume_plain_identifier()?;
                     AlterSpecification::OwnerTo { span, owner }
                 }
-                Token::Ident(_, Keyword::DROP) => {
-                    let drop_column_span =
-                        parser.consume_keywords(&[Keyword::DROP, Keyword::COLUMN])?;
-                    let column = parser.consume_plain_identifier()?;
-                    let cascade = parser.skip_keyword(Keyword::CASCADE);
-                    AlterSpecification::DropColumn {
-                        drop_column_span,
-                        column,
-                        cascade,
-                    }
-                }
+                Token::Ident(_, Keyword::DROP) => parse_drop(parser)?,
                 Token::Ident(_, Keyword::ALTER) => {
                     let span = parser.consume_keywords(&[Keyword::ALTER, Keyword::COLUMN])?;
                     let column = parser.consume_plain_identifier()?;
@@ -778,6 +1114,95 @@ fn parse_alter_table<'a>(
                         alter_column_span: span,
                         column,
                         alter_column_action,
+                    }
+                }
+                Token::Ident(_, Keyword::LOCK) => {
+                    let lock_span = parser.consume_keyword(Keyword::LOCK)?;
+                    parser.skip_token(Token::Eq);
+                    let lock = match &parser.token {
+                        Token::Ident(_, Keyword::DEFAULT) => {
+                            AlterLock::Default(parser.consume_keyword(Keyword::DEFAULT)?)
+                        }
+                        Token::Ident(_, Keyword::NONE) => {
+                            AlterLock::None(parser.consume_keyword(Keyword::NONE)?)
+                        }
+                        Token::Ident(_, Keyword::SHARED) => {
+                            AlterLock::Shared(parser.consume_keyword(Keyword::SHARED)?)
+                        }
+                        Token::Ident(_, Keyword::EXCLUSIVE) => {
+                            AlterLock::Exclusive(parser.consume_keyword(Keyword::EXCLUSIVE)?)
+                        }
+                        _ => {
+                            parser.expected_failure("'DEFAULT', 'NONE', 'SHARED' or 'EXCLUSIVE'")?
+                        }
+                    };
+                    AlterSpecification::Lock { lock_span, lock }
+                }
+                Token::Ident(_, Keyword::ALGORITHM) => {
+                    let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
+                    parser.skip_token(Token::Eq);
+                    let algorithm = match &parser.token {
+                        Token::Ident(_, Keyword::DEFAULT) => {
+                            AlterAlgorithm::Default(parser.consume_keyword(Keyword::DEFAULT)?)
+                        }
+                        Token::Ident(_, Keyword::INSTANT) => {
+                            AlterAlgorithm::Instant(parser.consume_keyword(Keyword::INSTANT)?)
+                        }
+                        Token::Ident(_, Keyword::INPLACE) => {
+                            AlterAlgorithm::Inplace(parser.consume_keyword(Keyword::INPLACE)?)
+                        }
+                        Token::Ident(_, Keyword::COPY) => {
+                            AlterAlgorithm::Copy(parser.consume_keyword(Keyword::COPY)?)
+                        }
+                        _ => {
+                            parser.expected_failure("'DEFAULT', 'INSTANT', 'INPLACE' or 'COPY'")?
+                        }
+                    };
+                    AlterSpecification::Algorithm {
+                        algorithm_span,
+                        algorithm,
+                    }
+                }
+                Token::Ident(_, Keyword::AUTO_INCREMENT) => {
+                    let auto_increment_span = parser.consume_keyword(Keyword::AUTO_INCREMENT)?;
+                    parser.skip_token(Token::Eq);
+                    let (value, value_span) = parser.consume_int()?;
+                    AlterSpecification::AutoIncrement {
+                        auto_increment_span,
+                        value_span,
+                        value,
+                    }
+                }
+                Token::Ident(_, Keyword::RENAME) => parse_rename_alter_specification(parser)?,
+                Token::Ident(_, Keyword::CHANGE) => {
+                    let change_span = parser.consume_keyword(Keyword::CHANGE)?;
+                    let column_span = parser.skip_keyword(Keyword::COLUMN);
+
+                    let column = parser.consume_plain_identifier()?;
+                    let new_column = parser.consume_plain_identifier()?;
+                    let definition = parse_data_type(parser, false)?;
+
+                    let mut first = None;
+                    let mut after = None;
+                    match &parser.token {
+                        Token::Ident(_, Keyword::FIRST) => {
+                            first = Some(parser.consume_keyword(Keyword::FIRST)?);
+                        }
+                        Token::Ident(_, Keyword::AFTER) => {
+                            let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                            let after_col = parser.consume_plain_identifier()?;
+                            after = Some((after_span, after_col));
+                        }
+                        _ => (),
+                    }
+                    AlterSpecification::Change {
+                        change_span,
+                        column_span,
+                        column,
+                        new_column,
+                        definition,
+                        first,
+                        after,
                     }
                 }
                 _ => parser.expected_failure("alter specification")?,

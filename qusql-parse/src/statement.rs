@@ -13,11 +13,11 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    Identifier, RenameTable, Span, Spanned, WithQuery,
+    Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
     alter::{AlterTable, parse_alter},
     create::{
-        CreateFunction, CreateIndex, CreateTable, CreateTrigger, CreateTypeEnum, CreateView,
-        parse_create,
+        CreateDatabase, CreateFunction, CreateIndex, CreateTable, CreateTrigger, CreateTypeEnum,
+        CreateView, parse_create,
     },
     delete::{Delete, parse_delete},
     drop::{
@@ -25,12 +25,21 @@ use crate::{
         DropTrigger, DropView, parse_drop,
     },
     expression::{Expression, parse_expression},
+    flush::{Flush, parse_flush},
     insert_replace::{InsertReplace, parse_insert_replace},
     keywords::Keyword,
+    kill::{Kill, parse_kill},
     lexer::Token,
+    lock::{Lock, Unlock, parse_lock, parse_unlock},
     parser::{ParseError, Parser},
+    qualified_name::parse_qualified_name,
     rename::parse_rename_table,
     select::{OrderFlag, Select, parse_select},
+    show::{
+        ShowCharacterSet, ShowCollation, ShowColumns, ShowCreateDatabase, ShowCreateTable,
+        ShowCreateView, ShowDatabases, ShowEngines, ShowProcessList, ShowStatus, ShowTables,
+        ShowVariables, parse_show,
+    },
     span::OptSpanned,
     truncate::{TruncateTable, parse_truncate_table},
     update::{Update, parse_update},
@@ -40,7 +49,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct Set<'a> {
     pub set_span: Span,
-    pub values: Vec<(Identifier<'a>, Expression<'a>)>,
+    pub values: Vec<(QualifiedName<'a>, Expression<'a>)>,
 }
 
 impl<'a> Spanned for Set<'a> {
@@ -53,7 +62,7 @@ fn parse_set<'a>(parser: &mut Parser<'a, '_>) -> Result<Set<'a>, ParseError> {
     let set_span = parser.consume_keyword(Keyword::SET)?;
     let mut values = Vec::new();
     loop {
-        let name = parser.consume_plain_identifier()?;
+        let name = parse_qualified_name(parser)?;
         parser.consume_token(Token::Eq)?;
         let val = parse_expression(parser, false)?;
         values.push((name, val));
@@ -389,10 +398,12 @@ pub enum Statement<'a> {
     CreateView(CreateView<'a>),
     CreateTrigger(CreateTrigger<'a>),
     CreateFunction(CreateFunction<'a>),
+    CreateDatabase(CreateDatabase<'a>),
     Select(Select<'a>),
     Delete(Delete<'a>),
     InsertReplace(InsertReplace<'a>),
     Update(Update<'a>),
+    Unlock(Unlock),
     DropIndex(DropIndex<'a>),
     DropTable(DropTable<'a>),
     DropFunction(DropFunction<'a>),
@@ -404,6 +415,19 @@ pub enum Statement<'a> {
     DropView(DropView<'a>),
     Set(Set<'a>),
     Signal(Signal<'a>),
+    Kill(Kill<'a>),
+    ShowTables(ShowTables<'a>),
+    ShowDatabases(ShowDatabases),
+    ShowProcessList(ShowProcessList),
+    ShowVariables(ShowVariables<'a>),
+    ShowStatus(ShowStatus<'a>),
+    ShowColumns(ShowColumns<'a>),
+    ShowCreateTable(ShowCreateTable<'a>),
+    ShowCreateDatabase(ShowCreateDatabase<'a>),
+    ShowCreateView(ShowCreateView<'a>),
+    ShowCharacterSet(ShowCharacterSet<'a>),
+    ShowCollation(ShowCollation<'a>),
+    ShowEngines(ShowEngines),
     AlterTable(AlterTable<'a>),
     Block(Vec<Statement<'a>>), //TODO we should include begin and end
     Begin(Span),
@@ -413,6 +437,7 @@ pub enum Statement<'a> {
     If(If<'a>),
     /// Invalid statement produced after recovering from parse error
     Invalid(Span),
+    Lock(Lock<'a>),
     Union(Union<'a>),
     Case(CaseStatement<'a>),
     Copy(Copy<'a>),
@@ -423,6 +448,7 @@ pub enum Statement<'a> {
     RenameTable(RenameTable<'a>),
     WithQuery(WithQuery<'a>),
     Return(Return<'a>),
+    Flush(Flush<'a>),
 }
 
 impl<'a> Spanned for Statement<'a> {
@@ -433,10 +459,12 @@ impl<'a> Spanned for Statement<'a> {
             Statement::CreateView(v) => v.span(),
             Statement::CreateTrigger(v) => v.span(),
             Statement::CreateFunction(v) => v.span(),
+            Statement::CreateDatabase(v) => v.span(),
             Statement::Select(v) => v.span(),
             Statement::Delete(v) => v.span(),
             Statement::InsertReplace(v) => v.span(),
             Statement::Update(v) => v.span(),
+            Statement::Unlock(v) => v.span(),
             Statement::DropIndex(v) => v.span(),
             Statement::DropTable(v) => v.span(),
             Statement::DropFunction(v) => v.span(),
@@ -451,6 +479,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Block(v) => v.opt_span().expect("Span of block"),
             Statement::If(v) => v.span(),
             Statement::Invalid(v) => v.span(),
+            Statement::Lock(v) => v.span(),
             Statement::Union(v) => v.span(),
             Statement::Case(v) => v.span(),
             Statement::Copy(v) => v.span(),
@@ -466,6 +495,20 @@ impl<'a> Spanned for Statement<'a> {
             Statement::WithQuery(v) => v.span(),
             Statement::Return(v) => v.span(),
             Statement::Signal(v) => v.span(),
+            Statement::Kill(v) => v.span(),
+            Statement::ShowTables(v) => v.span(),
+            Statement::ShowDatabases(v) => v.span(),
+            Statement::ShowProcessList(v) => v.span(),
+            Statement::ShowVariables(v) => v.span(),
+            Statement::ShowStatus(v) => v.span(),
+            Statement::ShowColumns(v) => v.span(),
+            Statement::ShowCreateTable(v) => v.span(),
+            Statement::ShowCreateDatabase(v) => v.span(),
+            Statement::ShowCreateView(v) => v.span(),
+            Statement::ShowCharacterSet(v) => v.span(),
+            Statement::ShowCollation(v) => v.span(),
+            Statement::ShowEngines(v) => v.span(),
+            Statement::Flush(v) => v.span(),
         }
     }
 }
@@ -493,6 +536,8 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::UPDATE) => Some(Statement::Update(parse_update(parser)?)),
         Token::Ident(_, Keyword::SET) => Some(Statement::Set(parse_set(parser)?)),
         Token::Ident(_, Keyword::SIGNAL) => Some(Statement::Signal(parse_signal(parser)?)),
+        Token::Ident(_, Keyword::KILL) => Some(Statement::Kill(parse_kill(parser)?)),
+        Token::Ident(_, Keyword::SHOW) => Some(parse_show(parser)?),
         Token::Ident(_, Keyword::BEGIN) => Some(if parser.permit_compound_statements {
             Statement::Block(parse_block(parser)?)
         } else {
@@ -509,6 +554,8 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::CASE) => Some(Statement::Case(parse_case_statement(parser)?)),
         Token::Ident(_, Keyword::COPY) => Some(Statement::Copy(parse_copy_statement(parser)?)),
         Token::Ident(_, Keyword::DO) => Some(parse_do(parser)?),
+        Token::Ident(_, Keyword::LOCK) => Some(Statement::Lock(parse_lock(parser)?)),
+        Token::Ident(_, Keyword::UNLOCK) => Some(Statement::Unlock(parse_unlock(parser)?)),
         Token::Ident(_, Keyword::TRUNCATE) => {
             Some(Statement::TruncateTable(parse_truncate_table(parser)?))
         }
@@ -516,6 +563,7 @@ pub(crate) fn parse_statement<'a>(
             Some(Statement::RenameTable(parse_rename_table(parser)?))
         }
         Token::Ident(_, Keyword::WITH) => Some(Statement::WithQuery(parse_with_query(parser)?)),
+        Token::Ident(_, Keyword::FLUSH) => Some(Statement::Flush(parse_flush(parser)?)),
         _ => None,
     })
 }

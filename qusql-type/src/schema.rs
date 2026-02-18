@@ -202,6 +202,13 @@ pub(crate) fn parse_column<'a>(
                 Type::I16
             }
         }
+        qusql_parse::Type::MediumInt(_) => {
+            if unsigned {
+                Type::U24
+            } else {
+                Type::I24
+            }
+        }
         qusql_parse::Type::Int(_) => {
             if unsigned {
                 Type::U32
@@ -246,7 +253,8 @@ pub(crate) fn parse_column<'a>(
             BaseType::Integer.into()
         }
         qusql_parse::Type::Float8 => BaseType::Float.into(),
-        qusql_parse::Type::Numeric(_, _, _) => todo!("Numeric"),
+        qusql_parse::Type::Numeric(_) => todo!("Numeric"),
+        qusql_parse::Type::Decimal(_) => todo!("Decimal"),
         qusql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
         qusql_parse::Type::Json => BaseType::String.into(),
         qusql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
@@ -328,6 +336,7 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateOption::Definer { .. } => {}
                         qusql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
                         qusql_parse::CreateOption::SqlSecurityUser(_, _) => {}
+                        qusql_parse::CreateOption::SqlSecurityInvoker(_, _) => {}
                     }
                 }
                 // TODO: do we care about table options
@@ -347,7 +356,9 @@ pub fn parse_schemas<'a>(
                                 schema.columns.push(column);
                             }
                         }
-                        qusql_parse::CreateDefinition::ConstraintDefinition { .. } => {}
+                        qusql_parse::CreateDefinition::IndexDefinition { .. } => {}
+                        qusql_parse::CreateDefinition::ForeignKeyDefinition { .. } => {}
+                        qusql_parse::CreateDefinition::CheckConstraintDefinition { .. } => {}
                     }
                 }
                 match schemas.schemas.entry(id.clone()) {
@@ -387,6 +398,7 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateOption::Definer { .. } => {}
                         qusql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
                         qusql_parse::CreateOption::SqlSecurityUser(_, _) => {}
+                        qusql_parse::CreateOption::SqlSecurityInvoker(_, _) => {}
                     }
                 }
 
@@ -557,7 +569,10 @@ pub fn parse_schemas<'a>(
                             ..
                         } => {
                             for col in &cols {
-                                if e.get_column(&col.name).is_none() {
+                                // Only validate regular column names, skip functional index expressions
+                                if let qusql_parse::IndexColExpr::Column(name) = &col.expr
+                                    && e.get_column(name.value).is_none()
+                                {
                                     issues
                                         .err("No such column in table", col)
                                         .frag("Table defined here", &a.table);
@@ -664,6 +679,66 @@ pub fn parse_schemas<'a>(
                                 }
                             }
                         }
+                        s @ qusql_parse::AlterSpecification::Lock { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::DropIndex { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::DropForeignKey { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::DropPrimaryKey { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::RenameColumn { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::RenameIndex { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::RenameTo { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::Algorithm { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::AutoIncrement { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
+                        s @ qusql_parse::AlterSpecification::Change { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
                     }
                 }
             }
@@ -681,7 +756,10 @@ pub fn parse_schemas<'a>(
 
                 if let Some(table) = schemas.schemas.get(t) {
                     for col in &ci.column_names {
-                        if table.get_column(col).is_none() {
+                        // Only validate regular column names, skip functional index expressions
+                        if let qusql_parse::IndexColExpr::Column(name) = &col.expr
+                            && table.get_column(name.value).is_none()
+                        {
                             issues
                                 .err("No such column in table", col)
                                 .frag("Table defined here", &table.identifier_span);

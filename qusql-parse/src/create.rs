@@ -13,6 +13,10 @@ use alloc::{boxed::Box, vec::Vec};
 // limitations under the License.
 use crate::{
     DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
+    alter::{
+        ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption,
+        IndexType, parse_index_cols, parse_index_options, parse_index_type,
+    },
     data_type::parse_data_type,
     expression::parse_expression,
     keywords::Keyword,
@@ -27,15 +31,15 @@ use crate::{
 pub enum TableOption<'a> {
     AutoExtendSize {
         identifier: Span,
-        value: Identifier<'a>,
+        value: (usize, Span),
     },
     AutoIncrement {
         identifier: Span,
-        value: Identifier<'a>,
+        value: (u64, Span),
     },
     AvgRowLength {
         identifier: Span,
-        value: Identifier<'a>,
+        value: (usize, Span),
     },
     CharSet {
         identifier: Span,
@@ -109,7 +113,10 @@ pub enum TableOption<'a> {
         identifier: Span,
         value: (usize, Span),
     },
-    // PACK_KEYS
+    PackKeys {
+        identifier: Span,
+        value: (usize, Span),
+    },
     Password {
         identifier: Span,
         value: SString<'a>,
@@ -122,14 +129,36 @@ pub enum TableOption<'a> {
         identifier: Span,
         value: SString<'a>,
     },
+    StartTransaction {
+        identifier: Span,
+    },
+    StatsAutoRecalc {
+        identifier: Span,
+        value: (usize, Span),
+    },
+    StatsPersistent {
+        identifier: Span,
+        value: (usize, Span),
+    },
+    StatsSamplePages {
+        identifier: Span,
+        value: (usize, Span),
+    },
+    Storage {
+        identifier: Span,
+        value: Identifier<'a>,
+    },
     Strict {
         identifier: Span,
     },
-    //StatsAutoRecalc
-    //StatsPersistance
-    //StatsSamplePages
-    //TABLESPACE
-    //UNION
+    Tablespace {
+        identifier: Span,
+        value: Identifier<'a>,
+    },
+    Union {
+        identifier: Span,
+        value: Vec<Identifier<'a>>,
+    },
 }
 
 impl<'a> Spanned for TableOption<'a> {
@@ -158,12 +187,32 @@ impl<'a> Spanned for TableOption<'a> {
             TableOption::KeyBlockSize { identifier, value } => identifier.span().join_span(value),
             TableOption::MaxRows { identifier, value } => identifier.span().join_span(value),
             TableOption::MinRows { identifier, value } => identifier.span().join_span(value),
+            TableOption::PackKeys { identifier, value } => identifier.span().join_span(value),
             TableOption::Password { identifier, value } => identifier.span().join_span(value),
             TableOption::RowFormat { identifier, value } => identifier.span().join_span(value),
             TableOption::SecondaryEngineAttribute { identifier, value } => {
                 identifier.span().join_span(value)
             }
+            TableOption::StartTransaction { identifier } => identifier.span(),
+            TableOption::StatsAutoRecalc { identifier, value } => {
+                identifier.span().join_span(value)
+            }
+            TableOption::StatsPersistent { identifier, value } => {
+                identifier.span().join_span(value)
+            }
+            TableOption::StatsSamplePages { identifier, value } => {
+                identifier.span().join_span(value)
+            }
+            TableOption::Storage { identifier, value } => identifier.span().join_span(value),
             TableOption::Strict { identifier } => identifier.span(),
+            TableOption::Tablespace { identifier, value } => identifier.span().join_span(value),
+            TableOption::Union { identifier, value } => {
+                if let Some(last) = value.last() {
+                    identifier.span().join_span(last)
+                } else {
+                    identifier.span()
+                }
+            }
         }
     }
 }
@@ -177,9 +226,54 @@ pub enum CreateDefinition<'a> {
         /// Datatype and options for column
         data_type: DataType<'a>,
     },
-    ConstraintDefinition {
-        span: Span,
-        identifier: Identifier<'a>,
+    /// Index definition (PRIMARY KEY, UNIQUE, INDEX, KEY, FULLTEXT, SPATIAL)
+    IndexDefinition {
+        /// Optional "CONSTRAINT" span
+        constraint_span: Option<Span>,
+        /// Optional constraint symbol
+        constraint_symbol: Option<Identifier<'a>>,
+        /// The type of index
+        index_type: IndexType,
+        /// Optional index name
+        index_name: Option<Identifier<'a>>,
+        /// Columns in the index
+        cols: Vec<IndexCol<'a>>,
+        /// Index options
+        index_options: Vec<IndexOption<'a>>,
+    },
+    /// Foreign key definition
+    ForeignKeyDefinition {
+        /// Optional "CONSTRAINT" span
+        constraint_span: Option<Span>,
+        /// Optional constraint symbol
+        constraint_symbol: Option<Identifier<'a>>,
+        /// Span of "FOREIGN KEY"
+        foreign_key_span: Span,
+        /// Optional index name
+        index_name: Option<Identifier<'a>>,
+        /// Columns in this table
+        cols: Vec<IndexCol<'a>>,
+        /// Span of "REFERENCES"
+        references_span: Span,
+        /// Referenced table name
+        references_table: Identifier<'a>,
+        /// Referenced columns
+        references_cols: Vec<Identifier<'a>>,
+        /// ON UPDATE/DELETE actions
+        ons: Vec<ForeignKeyOn>,
+    },
+    /// Check constraint definition
+    CheckConstraintDefinition {
+        /// Optional "CONSTRAINT" span
+        constraint_span: Option<Span>,
+        /// Optional constraint symbol
+        constraint_symbol: Option<Identifier<'a>>,
+        /// Span of "CHECK"
+        check_span: Span,
+        /// Check expression
+        expression: Expression<'a>,
+        /// Optional ENFORCED/NOT ENFORCED
+        enforced: Option<(bool, Span)>,
     },
 }
 
@@ -190,9 +284,52 @@ impl<'a> Spanned for CreateDefinition<'a> {
                 identifier,
                 data_type,
             } => identifier.span().join_span(data_type),
-            CreateDefinition::ConstraintDefinition { span, identifier } => {
-                span.join_span(identifier)
-            }
+            CreateDefinition::IndexDefinition {
+                constraint_span,
+                constraint_symbol,
+                index_type,
+                index_name,
+                cols,
+                index_options,
+            } => index_type
+                .span()
+                .join_span(constraint_span)
+                .join_span(constraint_symbol)
+                .join_span(index_name)
+                .join_span(cols)
+                .join_span(index_options),
+            CreateDefinition::ForeignKeyDefinition {
+                constraint_span,
+                constraint_symbol,
+                foreign_key_span,
+                index_name,
+                cols,
+                references_span,
+                references_table,
+                references_cols,
+                ons,
+            } => foreign_key_span
+                .span()
+                .join_span(constraint_span)
+                .join_span(constraint_symbol)
+                .join_span(index_name)
+                .join_span(cols)
+                .join_span(references_span)
+                .join_span(references_table)
+                .join_span(references_cols)
+                .join_span(ons),
+            CreateDefinition::CheckConstraintDefinition {
+                constraint_span,
+                constraint_symbol,
+                check_span,
+                expression,
+                enforced,
+            } => check_span
+                .span()
+                .join_span(constraint_span)
+                .join_span(constraint_symbol)
+                .join_span(expression)
+                .join_span(enforced),
         }
     }
 }
@@ -227,6 +364,7 @@ pub enum CreateOption<'a> {
         host: Identifier<'a>,
     },
     SqlSecurityDefiner(Span, Span),
+    SqlSecurityInvoker(Span, Span),
     SqlSecurityUser(Span, Span),
 }
 impl<'a> Spanned for CreateOption<'a> {
@@ -241,9 +379,27 @@ impl<'a> Spanned for CreateOption<'a> {
                 host,
             } => definer_span.join_span(user).join_span(host),
             CreateOption::SqlSecurityDefiner(a, b) => a.join_span(b),
+            CreateOption::SqlSecurityInvoker(a, b) => a.join_span(b),
             CreateOption::SqlSecurityUser(a, b) => a.join_span(b),
             CreateOption::Unique(v) => v.span(),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CreateTableAs<'a> {
+    pub ignore_span: Option<Span>,
+    pub replace_span: Option<Span>,
+    pub as_span: Span,
+    pub query: Box<Statement<'a>>,
+}
+
+impl Spanned for CreateTableAs<'_> {
+    fn span(&self) -> Span {
+        self.as_span
+            .join_span(&self.replace_span)
+            .join_span(&self.ignore_span)
+            .join_span(&self.query)
     }
 }
 
@@ -288,6 +444,8 @@ pub struct CreateTable<'a> {
     pub create_definitions: Vec<CreateDefinition<'a>>,
     /// Options specified after the table creation
     pub options: Vec<TableOption<'a>>,
+    /// Create table as
+    pub table_as: Option<CreateTableAs<'a>>,
 }
 
 impl<'a> Spanned for CreateTable<'a> {
@@ -299,6 +457,7 @@ impl<'a> Spanned for CreateTable<'a> {
             .join_span(&self.if_not_exists)
             .join_span(&self.create_definitions)
             .join_span(&self.options)
+            .join_span(&self.table_as)
     }
 }
 
@@ -357,59 +516,278 @@ impl<'a> Spanned for CreateView<'a> {
     }
 }
 
-pub(crate) fn parse_create_constraint_definition<'a>(
+/// Parse a foreign key definition
+fn parse_foreign_key_definition<'a>(
     parser: &mut Parser<'a, '_>,
+    constraint_span: Option<Span>,
+    constraint_symbol: Option<Identifier<'a>>,
 ) -> Result<CreateDefinition<'a>, ParseError> {
-    let span = parser.consume_keyword(Keyword::CONSTRAINT)?;
-    let identifier = parser.consume_plain_identifier()?;
-    parser.consume_keywords(&[Keyword::FOREIGN, Keyword::KEY])?;
-    parser.consume_token(Token::LParen)?;
-    parser.consume_plain_identifier()?;
-    while parser.skip_token(Token::Comma).is_some() {
-        parser.consume_plain_identifier()?;
-    }
-    parser.consume_token(Token::RParen)?;
-    parser.consume_keyword(Keyword::REFERENCES)?;
-    parser.consume_plain_identifier()?;
-    parser.consume_token(Token::LParen)?;
-    parser.consume_plain_identifier()?;
-    while parser.skip_token(Token::Comma).is_some() {
-        parser.consume_plain_identifier()?;
-    }
+    let foreign_span = parser.consume_keyword(Keyword::FOREIGN)?;
+    let key_span = parser.consume_keyword(Keyword::KEY)?;
+    let foreign_key_span = foreign_span.join_span(&key_span);
 
-    parser.consume_token(Token::RParen)?;
-    if parser.skip_keyword(Keyword::ON).is_some() {
-        parser.consume_keyword(Keyword::DELETE)?;
-        match parser.token {
-            Token::Ident(_, Keyword::CASCADE) => {
-                parser.consume_keyword(Keyword::CASCADE)?;
-            }
-            Token::Ident(_, Keyword::DELETE) => {
-                parser.consume_keyword(Keyword::DELETE)?;
-            }
-            Token::Ident(_, Keyword::RESTRICT) => {
-                parser.consume_keyword(Keyword::RESTRICT)?;
-            }
-            Token::Ident(_, Keyword::SET) => {
-                parser.consume_keywords(&[Keyword::SET, Keyword::NULL])?;
-            }
-            _ => parser.expected_failure("CASCADE, DELETE OR SET NULL")?,
+    // Parse optional index name
+    let index_name = if let Token::Ident(_, _) = parser.token {
+        if !matches!(parser.token, Token::LParen) {
+            Some(parser.consume_plain_identifier()?)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // Parse columns
+    let cols = parse_index_cols(parser)?;
+
+    // Parse REFERENCES
+    let references_span = parser.consume_keyword(Keyword::REFERENCES)?;
+    let references_table = parser.consume_plain_identifier()?;
+
+    // Parse referenced columns
+    parser.consume_token(Token::LParen)?;
+    let mut references_cols = Vec::new();
+    loop {
+        references_cols.push(parser.consume_plain_identifier()?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
         }
     }
-    Ok(CreateDefinition::ConstraintDefinition { span, identifier })
+    parser.consume_token(Token::RParen)?;
+
+    // Parse ON UPDATE/DELETE actions
+    let mut ons = Vec::new();
+    while parser.skip_keyword(Keyword::ON).is_some() {
+        let on_type = match &parser.token {
+            Token::Ident(_, Keyword::UPDATE) => {
+                ForeignKeyOnType::Update(parser.consume_keyword(Keyword::UPDATE)?)
+            }
+            Token::Ident(_, Keyword::DELETE) => {
+                ForeignKeyOnType::Delete(parser.consume_keyword(Keyword::DELETE)?)
+            }
+            _ => parser.expected_failure("UPDATE or DELETE")?,
+        };
+
+        let on_action = match &parser.token {
+            Token::Ident(_, Keyword::CASCADE) => {
+                ForeignKeyOnAction::Cascade(parser.consume_keyword(Keyword::CASCADE)?)
+            }
+            Token::Ident(_, Keyword::RESTRICT) => {
+                ForeignKeyOnAction::Restrict(parser.consume_keyword(Keyword::RESTRICT)?)
+            }
+            Token::Ident(_, Keyword::SET) => {
+                let set_span = parser.consume_keyword(Keyword::SET)?;
+                if parser.skip_keyword(Keyword::NULL).is_some() {
+                    ForeignKeyOnAction::SetNull(set_span)
+                } else if parser.skip_keyword(Keyword::DEFAULT).is_some() {
+                    ForeignKeyOnAction::SetDefault(set_span)
+                } else {
+                    parser.expected_failure("NULL or DEFAULT after SET")?
+                }
+            }
+            Token::Ident(_, Keyword::NO) => {
+                let no_span = parser.consume_keyword(Keyword::NO)?;
+                parser.consume_keyword(Keyword::ACTION)?;
+                ForeignKeyOnAction::NoAction(no_span)
+            }
+            _ => {
+                parser.expected_failure("CASCADE, RESTRICT, SET NULL, SET DEFAULT, or NO ACTION")?
+            }
+        };
+
+        ons.push(ForeignKeyOn {
+            type_: on_type,
+            action: on_action,
+        });
+    }
+
+    Ok(CreateDefinition::ForeignKeyDefinition {
+        constraint_span,
+        constraint_symbol,
+        foreign_key_span,
+        index_name,
+        cols,
+        references_span,
+        references_table,
+        references_cols,
+        ons,
+    })
+}
+
+/// Parse a check constraint definition
+fn parse_check_constraint_definition<'a>(
+    parser: &mut Parser<'a, '_>,
+    constraint_span: Option<Span>,
+    constraint_symbol: Option<Identifier<'a>>,
+) -> Result<CreateDefinition<'a>, ParseError> {
+    let check_span = parser.consume_keyword(Keyword::CHECK)?;
+
+    // Parse the check expression
+    parser.consume_token(Token::LParen)?;
+    let expression = parse_expression(parser, false)?;
+    parser.consume_token(Token::RParen)?;
+
+    // Parse optional ENFORCED / NOT ENFORCED
+    // Note: ENFORCED keyword may not be in the keyword enum, so we skip this for now
+    let enforced = None;
+
+    Ok(CreateDefinition::CheckConstraintDefinition {
+        constraint_span,
+        constraint_symbol,
+        check_span,
+        expression,
+        enforced,
+    })
 }
 
 pub(crate) fn parse_create_definition<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<CreateDefinition<'a>, ParseError> {
-    match &parser.token {
-        Token::Ident(_, Keyword::CONSTRAINT) => parse_create_constraint_definition(parser),
-        Token::Ident(_, _) => Ok(CreateDefinition::ColumnDefinition {
-            identifier: parser.consume_plain_identifier()?,
-            data_type: parse_data_type(parser, false)?,
-        }),
-        _ => parser.expected_failure("identifier"),
+    // Check for optional CONSTRAINT keyword
+    let constraint_span = parser.skip_keyword(Keyword::CONSTRAINT);
+
+    // Parse optional constraint symbol (name) if CONSTRAINT was present
+    let constraint_symbol = if constraint_span.is_some() {
+        if let Token::Ident(_, keyword) = parser.token {
+            // Check if the next token is a constraint keyword, meaning no symbol was provided
+            match keyword {
+                Keyword::PRIMARY
+                | Keyword::UNIQUE
+                | Keyword::FULLTEXT
+                | Keyword::SPATIAL
+                | Keyword::INDEX
+                | Keyword::KEY
+                | Keyword::FOREIGN
+                | Keyword::CHECK => None,
+                _ => Some(parser.consume_plain_identifier()?),
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let index_type = match &parser.token {
+        Token::Ident(_, Keyword::PRIMARY) => {
+            let span = parser.consume_keywords(&[Keyword::PRIMARY, Keyword::KEY])?;
+            IndexType::Primary(span)
+        }
+        Token::Ident(_, Keyword::UNIQUE) => {
+            let span = parser.consume_keyword(Keyword::UNIQUE)?;
+            let span = if let Some(s) = parser.skip_keyword(Keyword::INDEX) {
+                span.join_span(&s)
+            } else if let Some(s) = parser.skip_keyword(Keyword::KEY) {
+                span.join_span(&s)
+            } else {
+                span
+            };
+            IndexType::Unique(span)
+        }
+        Token::Ident(_, Keyword::FULLTEXT) => {
+            let span = parser.consume_keyword(Keyword::FULLTEXT)?;
+            let span = if let Some(s) = parser.skip_keyword(Keyword::INDEX) {
+                span.join_span(&s)
+            } else if let Some(s) = parser.skip_keyword(Keyword::KEY) {
+                span.join_span(&s)
+            } else {
+                span
+            };
+            IndexType::FullText(span)
+        }
+        Token::Ident(_, Keyword::SPATIAL) => {
+            let span = parser.consume_keyword(Keyword::SPATIAL)?;
+            let span = if let Some(s) = parser.skip_keyword(Keyword::INDEX) {
+                span.join_span(&s)
+            } else if let Some(s) = parser.skip_keyword(Keyword::KEY) {
+                span.join_span(&s)
+            } else {
+                span
+            };
+            IndexType::Spatial(span)
+        }
+        Token::Ident(_, Keyword::INDEX) => {
+            IndexType::Index(parser.consume_keyword(Keyword::INDEX)?)
+        }
+        Token::Ident(_, Keyword::KEY) => IndexType::Index(parser.consume_keyword(Keyword::KEY)?),
+        Token::Ident(_, Keyword::FOREIGN) => {
+            return parse_foreign_key_definition(parser, constraint_span, constraint_symbol);
+        }
+        Token::Ident(_, Keyword::CHECK) => {
+            return parse_check_constraint_definition(parser, constraint_span, constraint_symbol);
+        }
+        Token::Ident(_, _) => {
+            // If we had CONSTRAINT keyword, this is an error
+            if constraint_span.is_some() {
+                parser.expected_failure(
+                    "PRIMARY, UNIQUE, INDEX, KEY, FULLTEXT, SPATIAL, FOREIGN, or CHECK",
+                )?
+            }
+            return Ok(CreateDefinition::ColumnDefinition {
+                identifier: parser.consume_plain_identifier()?,
+                data_type: parse_data_type(parser, false)?,
+            });
+        }
+        _ => return parser.expected_failure("identifier"),
+    };
+
+    // Parse optional index name
+    let index_name = match &index_type {
+        IndexType::Primary(_) => {
+            // PRIMARY KEY may optionally have a name before the column list
+            match &parser.token {
+                Token::Ident(_, _) if !matches!(parser.token, Token::LParen) => {
+                    Some(parser.consume_plain_identifier()?)
+                }
+                Token::SingleQuotedString(s) | Token::DoubleQuotedString(s) => {
+                    let val = *s;
+                    let span = parser.consume();
+                    Some(Identifier { value: val, span })
+                }
+                _ => None,
+            }
+        }
+        _ => {
+            // Other index types can optionally have a name
+            match &parser.token {
+                Token::Ident(_, _)
+                    if !matches!(
+                        parser.token,
+                        Token::LParen | Token::Ident(_, Keyword::USING)
+                    ) =>
+                {
+                    Some(parser.consume_plain_identifier()?)
+                }
+                Token::SingleQuotedString(s) | Token::DoubleQuotedString(s) => {
+                    let val = *s;
+                    let span = parser.consume();
+                    Some(Identifier { value: val, span })
+                }
+                _ => None,
+            }
+        }
+    };
+
+    // Parse optional USING BTREE/HASH/RTREE before column list
+    let mut index_options = Vec::new();
+    if matches!(parser.token, Token::Ident(_, Keyword::USING)) {
+        parse_index_type(parser, &mut index_options)?;
     }
+
+    // Parse index columns
+    let cols = parse_index_cols(parser)?;
+
+    // Parse index options (USING, COMMENT, etc.) after column list
+    parse_index_options(parser, &mut index_options)?;
+
+    Ok(CreateDefinition::IndexDefinition {
+        constraint_span,
+        constraint_symbol,
+        index_type,
+        index_name,
+        cols,
+        index_options,
+    })
 }
 
 fn parse_create_view<'a>(
@@ -880,12 +1258,27 @@ fn parse_create_trigger<'a>(
 
     // TODO [{ FOLLOWS | PRECEDES } other_trigger_name ]
 
-    let old = core::mem::replace(&mut parser.permit_compound_statements, true);
-    let statement = match parse_statement(parser)? {
-        Some(v) => v,
-        None => parser.expected_failure("statement")?,
+    // PostgreSQL allows EXECUTE FUNCTION func_name() instead of a statement block
+    let statement = if matches!(parser.token, Token::Ident(_, Keyword::EXECUTE)) {
+        // Parse EXECUTE FUNCTION func_name()
+        let _execute_span = parser.consume_keyword(Keyword::EXECUTE)?;
+        parser.consume_keyword(Keyword::FUNCTION)?;
+        parser.consume_plain_identifier()?;
+        parser.consume_token(Token::LParen)?;
+        // TODO: parse function arguments if needed
+        parser.consume_token(Token::RParen)?;
+
+        // Use an empty block as a placeholder for EXECUTE FUNCTION
+        Statement::Block(Vec::new())
+    } else {
+        let old = core::mem::replace(&mut parser.permit_compound_statements, true);
+        let statement = match parse_statement(parser)? {
+            Some(v) => v,
+            None => parser.expected_failure("statement")?,
+        };
+        parser.permit_compound_statements = old;
+        statement
     };
-    parser.permit_compound_statements = old;
 
     Ok(Statement::CreateTrigger(CreateTrigger {
         create_span,
@@ -968,14 +1361,24 @@ fn parse_create_type<'a>(
 }
 
 #[derive(Clone, Debug)]
-pub enum CreateIndexOption {
+pub enum CreateIndexOption<'a> {
     UsingGist(Span),
+    UsingBTree(Span),
+    UsingHash(Span),
+    UsingRTree(Span),
+    Algorithm(Span, Identifier<'a>),
+    Lock(Span, Identifier<'a>),
 }
 
-impl Spanned for CreateIndexOption {
+impl<'a> Spanned for CreateIndexOption<'a> {
     fn span(&self) -> Span {
         match self {
             CreateIndexOption::UsingGist(s) => s.clone(),
+            CreateIndexOption::UsingBTree(s) => s.clone(),
+            CreateIndexOption::UsingHash(s) => s.clone(),
+            CreateIndexOption::UsingRTree(s) => s.clone(),
+            CreateIndexOption::Algorithm(s, i) => s.join_span(i),
+            CreateIndexOption::Lock(s, i) => s.join_span(i),
         }
     }
 }
@@ -989,9 +1392,9 @@ pub struct CreateIndex<'a> {
     pub if_not_exists: Option<Span>,
     pub on_span: Span,
     pub table_name: QualifiedName<'a>,
-    pub index_options: Vec<CreateIndexOption>,
+    pub index_options: Vec<CreateIndexOption<'a>>,
     pub l_paren_span: Span,
-    pub column_names: Vec<Identifier<'a>>,
+    pub column_names: Vec<IndexCol<'a>>,
     pub r_paren_span: Span,
     pub where_: Option<(Span, Expression<'a>)>,
 }
@@ -1026,18 +1429,63 @@ fn parse_create_index<'a>(
     let index_name = parser.consume_plain_identifier()?;
     let on_span = parser.consume_keyword(Keyword::ON)?;
     let table_name = parse_qualified_name(parser)?;
+
+    // PostgreSQL: USING GIST before column list
     let mut index_options = Vec::new();
     if let Some(using_span) = parser.skip_keyword(Keyword::USING) {
-        let gist_span = parser.consume_keyword(Keyword::GIST)?;
-        index_options.push(CreateIndexOption::UsingGist(
-            gist_span.join_span(&using_span),
-        ));
+        if let Token::Ident(_, Keyword::GIST) = &parser.token {
+            let gist_span = parser.consume_keyword(Keyword::GIST)?;
+            index_options.push(CreateIndexOption::UsingGist(
+                using_span.join_span(&gist_span),
+            ));
+        } else {
+            // Error - USING before column list requires GIST for PostgreSQL
+            parser
+                .err_here("Expected GIST after USING (or use USING after column list for MySQL)")?;
+        }
     }
 
     let l_paren_span = parser.consume_token(Token::LParen)?;
     let mut column_names = Vec::new();
     loop {
-        column_names.push(parser.consume_plain_identifier()?);
+        // Check if this is a functional index expression (starts with '(')
+        let expr = if parser.token == Token::LParen {
+            // Functional index: parse expression
+            parser.consume_token(Token::LParen)?;
+            let expression = parse_expression(parser, false)?;
+            parser.consume_token(Token::RParen)?;
+            IndexColExpr::Expression(expression)
+        } else {
+            // Regular column name
+            let name = parser.consume_plain_identifier()?;
+            IndexColExpr::Column(name)
+        };
+
+        let size = if parser.skip_token(Token::LParen).is_some() {
+            let size = parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
+                parser.consume_int()
+            })?;
+            parser.consume_token(Token::RParen)?;
+            Some(size)
+        } else {
+            None
+        };
+
+        // Parse optional ASC | DESC
+        let asc = parser.skip_keyword(Keyword::ASC);
+        let desc = if asc.is_none() {
+            parser.skip_keyword(Keyword::DESC)
+        } else {
+            None
+        };
+
+        column_names.push(IndexCol {
+            expr,
+            size,
+            asc,
+            desc,
+        });
+
         if let Token::Ident(
             _,
             Keyword::TEXT_PATTERN_OPS
@@ -1059,6 +1507,52 @@ fn parse_create_index<'a>(
     }
 
     let r_paren_span = parser.consume_token(Token::RParen)?;
+
+    // Parse index options after column list (MySQL/MariaDB)
+    loop {
+        match &parser.token {
+            Token::Ident(_, Keyword::USING) => {
+                let using_span = parser.consume_keyword(Keyword::USING)?;
+                match &parser.token {
+                    Token::Ident(_, Keyword::BTREE) => {
+                        let btree_span = parser.consume_keyword(Keyword::BTREE)?;
+                        index_options.push(CreateIndexOption::UsingBTree(
+                            using_span.join_span(&btree_span),
+                        ));
+                    }
+                    Token::Ident(_, Keyword::HASH) => {
+                        let hash_span = parser.consume_keyword(Keyword::HASH)?;
+                        index_options.push(CreateIndexOption::UsingHash(
+                            using_span.join_span(&hash_span),
+                        ));
+                    }
+                    Token::Ident(_, Keyword::RTREE) => {
+                        let rtree_span = parser.consume_keyword(Keyword::RTREE)?;
+                        index_options.push(CreateIndexOption::UsingRTree(
+                            using_span.join_span(&rtree_span),
+                        ));
+                    }
+                    _ => parser.err_here("Expected BTREE, HASH, or RTREE after USING")?,
+                }
+            }
+            Token::Ident(_, Keyword::ALGORITHM) => {
+                let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
+                parser.skip_token(Token::Eq); // Optional =
+                let algorithm_value = parser.consume_plain_identifier()?;
+                index_options.push(CreateIndexOption::Algorithm(
+                    algorithm_span,
+                    algorithm_value,
+                ));
+            }
+            Token::Ident(_, Keyword::LOCK) => {
+                let lock_span = parser.consume_keyword(Keyword::LOCK)?;
+                parser.skip_token(Token::Eq); // Optional =
+                let lock_value = parser.consume_plain_identifier()?;
+                index_options.push(CreateIndexOption::Lock(lock_span, lock_value));
+            }
+            _ => break,
+        }
+    }
 
     let mut where_ = None;
     if let Some(where_span) = parser.skip_keyword(Keyword::WHERE) {
@@ -1136,16 +1630,16 @@ fn parse_create_table<'a>(
     parser.consume_token(Token::RParen)?;
 
     let mut options = Vec::new();
+    let mut table_as: Option<CreateTableAs<'_>> = None;
     let delimiter = parser.delimiter.clone();
     parser.recovered(
         delimiter.name(),
         &|t| t == &Token::Eof || t == &delimiter,
         |parser| {
             loop {
-                let identifier = parser.span.clone();
                 match &parser.token {
                     Token::Ident(_, Keyword::ENGINE) => {
-                        parser.consume_keyword(Keyword::ENGINE)?;
+                        let identifier = parser.consume_keyword(Keyword::ENGINE)?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::Engine {
                             identifier,
@@ -1153,10 +1647,11 @@ fn parse_create_table<'a>(
                         });
                     }
                     Token::Ident(_, Keyword::DEFAULT) => {
-                        parser.consume_keyword(Keyword::DEFAULT)?;
+                        let default_span = parser.consume_keyword(Keyword::DEFAULT)?;
                         match &parser.token {
                             Token::Ident(_, Keyword::CHARSET) => {
-                                parser.consume_keyword(Keyword::CHARSET)?;
+                                let identifier = default_span
+                                    .join_span(&parser.consume_keyword(Keyword::CHARSET)?);
                                 parser.skip_token(Token::Eq);
                                 options.push(TableOption::DefaultCharSet {
                                     identifier,
@@ -1164,7 +1659,8 @@ fn parse_create_table<'a>(
                                 });
                             }
                             Token::Ident(_, Keyword::COLLATE) => {
-                                parser.consume_keyword(Keyword::COLLATE)?;
+                                let identifier = default_span
+                                    .join_span(&parser.consume_keyword(Keyword::COLLATE)?);
                                 parser.skip_token(Token::Eq);
                                 options.push(TableOption::DefaultCollate {
                                     identifier,
@@ -1175,7 +1671,7 @@ fn parse_create_table<'a>(
                         }
                     }
                     Token::Ident(_, Keyword::CHARSET) => {
-                        parser.consume_keyword(Keyword::CHARSET)?;
+                        let identifier = parser.consume_keyword(Keyword::CHARSET)?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::CharSet {
                             identifier,
@@ -1183,7 +1679,7 @@ fn parse_create_table<'a>(
                         });
                     }
                     Token::Ident(_, Keyword::COLLATE) => {
-                        parser.consume_keyword(Keyword::COLLATE)?;
+                        let identifier = parser.consume_keyword(Keyword::COLLATE)?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::Collate {
                             identifier,
@@ -1191,7 +1687,7 @@ fn parse_create_table<'a>(
                         });
                     }
                     Token::Ident(_, Keyword::ROW_FORMAT) => {
-                        parser.consume_keyword(Keyword::ROW_FORMAT)?;
+                        let identifier = parser.consume_keyword(Keyword::ROW_FORMAT)?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::RowFormat {
                             identifier,
@@ -1199,8 +1695,16 @@ fn parse_create_table<'a>(
                         });
                         //TODO validate raw format is in the keyword set
                     }
+                    Token::Ident(_, Keyword::KEY_BLOCK_SIZE) => {
+                        let identifier = parser.consume_keywords(&[Keyword::KEY_BLOCK_SIZE])?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::KeyBlockSize {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
                     Token::Ident(_, Keyword::COMMENT) => {
-                        parser.consume_keyword(Keyword::COMMENT)?;
+                        let identifier = parser.consume_keyword(Keyword::COMMENT)?;
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::Comment {
                             identifier,
@@ -1208,8 +1712,242 @@ fn parse_create_table<'a>(
                         });
                     }
                     Token::Ident(_, Keyword::STRICT) => {
-                        parser.consume_keyword(Keyword::STRICT)?;
+                        let identifier = parser.consume_keyword(Keyword::STRICT)?;
                         options.push(TableOption::Strict { identifier });
+                    }
+                    Token::Ident(_, Keyword::AUTO_INCREMENT) => {
+                        let identifier = parser.consume_keyword(Keyword::AUTO_INCREMENT)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::AutoIncrement {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::DATA) => {
+                        let identifier =
+                            parser.consume_keywords(&[Keyword::DATA, Keyword::DIRECTORY])?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::DataDirectory {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::INDEX) => {
+                        let identifier =
+                            parser.consume_keywords(&[Keyword::INDEX, Keyword::DIRECTORY])?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::IndexDirectory {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::INSERT_METHOD) => {
+                        let identifier = parser.consume_keyword(Keyword::INSERT_METHOD)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::InsertMethod {
+                            identifier,
+                            value: parser.consume_plain_identifier()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::PACK_KEYS) => {
+                        let identifier = parser.consume_keyword(Keyword::PACK_KEYS)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::PackKeys {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::STATS_AUTO_RECALC) => {
+                        let identifier = parser.consume_keyword(Keyword::STATS_AUTO_RECALC)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::StatsAutoRecalc {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::STATS_PERSISTENT) => {
+                        let identifier = parser.consume_keyword(Keyword::STATS_PERSISTENT)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::StatsPersistent {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::STATS_SAMPLE_PAGES) => {
+                        let identifier = parser.consume_keyword(Keyword::STATS_SAMPLE_PAGES)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::StatsSamplePages {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::DELAY_KEY_WRITE) => {
+                        let identifier = parser.consume_keyword(Keyword::DELAY_KEY_WRITE)?;
+                        parser.skip_token(Token::Eq);
+                        let (val, span) = parser.consume_int::<usize>()?;
+                        options.push(TableOption::DelayKeyWrite {
+                            identifier,
+                            value: (val != 0, span),
+                        });
+                    }
+                    Token::Ident(_, Keyword::COMPRESSION) => {
+                        let identifier = parser.consume_keyword(Keyword::COMPRESSION)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::Compression {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::ENCRYPTION) => {
+                        let identifier = parser.consume_keyword(Keyword::ENCRYPTION)?;
+                        parser.skip_token(Token::Eq);
+                        // ENCRYPTION can be 'Y'/'N' string or YES/NO keyword
+                        let value = match &parser.token {
+                            Token::SingleQuotedString(_) | Token::DoubleQuotedString(_) => {
+                                let s = parser.consume_string()?;
+                                let is_yes = s.as_str().eq_ignore_ascii_case("y")
+                                    || s.as_str().eq_ignore_ascii_case("yes");
+                                (is_yes, s.span())
+                            }
+                            _ => {
+                                let id = parser.consume_plain_identifier()?;
+                                let is_yes = id.value.eq_ignore_ascii_case("yes");
+                                (is_yes, id.span())
+                            }
+                        };
+                        options.push(TableOption::Encryption { identifier, value });
+                    }
+                    Token::Ident(_, Keyword::MAX_ROWS) => {
+                        let identifier = parser.consume_keyword(Keyword::MAX_ROWS)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::MaxRows {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::MIN_ROWS) => {
+                        let identifier = parser.consume_keyword(Keyword::MIN_ROWS)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::MinRows {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::AUTOEXTEND_SIZE) => {
+                        let identifier = parser.consume_keyword(Keyword::AUTOEXTEND_SIZE)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::AutoExtendSize {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::AVG_ROW_LENGTH) => {
+                        let identifier = parser.consume_keyword(Keyword::AVG_ROW_LENGTH)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::AvgRowLength {
+                            identifier,
+                            value: parser.consume_int()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::CHECKSUM) => {
+                        let identifier = parser.consume_keyword(Keyword::CHECKSUM)?;
+                        parser.skip_token(Token::Eq);
+                        let (val, span) = parser.consume_int::<usize>()?;
+                        options.push(TableOption::Checksum {
+                            identifier,
+                            value: (val != 0, span),
+                        });
+                    }
+                    Token::Ident(_, Keyword::CONNECTION) => {
+                        let identifier = parser.consume_keyword(Keyword::CONNECTION)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::Connection {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::ENGINE_ATTRIBUTE) => {
+                        let identifier = parser.consume_keyword(Keyword::ENGINE_ATTRIBUTE)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::EngineAttribute {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::PASSWORD) => {
+                        let identifier = parser.consume_keyword(Keyword::PASSWORD)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::Password {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::SECONDARY_ENGINE_ATTRIBUTE) => {
+                        let identifier =
+                            parser.consume_keyword(Keyword::SECONDARY_ENGINE_ATTRIBUTE)?;
+                        parser.skip_token(Token::Eq);
+                        options.push(TableOption::SecondaryEngineAttribute {
+                            identifier,
+                            value: parser.consume_string()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::START) => {
+                        let identifier =
+                            parser.consume_keywords(&[Keyword::START, Keyword::TRANSACTION])?;
+                        options.push(TableOption::StartTransaction { identifier });
+                    }
+                    Token::Ident(_, Keyword::TABLESPACE) => {
+                        let identifier = parser.consume_keyword(Keyword::TABLESPACE)?;
+                        options.push(TableOption::Tablespace {
+                            identifier,
+                            value: parser.consume_plain_identifier()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::STORAGE) => {
+                        let identifier = parser.consume_keyword(Keyword::STORAGE)?;
+                        options.push(TableOption::Storage {
+                            identifier,
+                            value: parser.consume_plain_identifier()?,
+                        });
+                    }
+                    Token::Ident(_, Keyword::UNION) => {
+                        let identifier = parser.consume_keyword(Keyword::UNION)?;
+                        parser.skip_token(Token::Eq);
+                        parser.consume_token(Token::LParen)?;
+                        let mut tables = Vec::new();
+                        loop {
+                            tables.push(parser.consume_plain_identifier()?);
+                            if parser.skip_token(Token::Comma).is_none() {
+                                break;
+                            }
+                        }
+                        parser.consume_token(Token::RParen)?;
+                        options.push(TableOption::Union {
+                            identifier,
+                            value: tables,
+                        });
+                    }
+                    Token::Ident(_, Keyword::IGNORE)
+                    | Token::Ident(_, Keyword::REPLACE)
+                    | Token::Ident(_, Keyword::AS) => {
+                        let ignore_span = parser.skip_keyword(Keyword::IGNORE);
+                        let replace_span = parser.skip_keyword(Keyword::REPLACE);
+                        let as_span = parser.consume_keyword(Keyword::AS)?;
+
+                        if let Some(table_as) = &table_as {
+                            parser.err("Multiple AS clauses not supported", table_as);
+                        }
+
+                        let query = Box::new(parse_compound_query(parser)?);
+                        table_as = Some(CreateTableAs {
+                            as_span,
+                            replace_span,
+                            ignore_span,
+                            query,
+                        });
+                    }
+                    Token::Comma => {
+                        parser.consume_token(Token::Comma)?;
                     }
                     t if t == &parser.delimiter => break,
                     Token::Eof => break,
@@ -1230,6 +1968,154 @@ fn parse_create_table<'a>(
         if_not_exists,
         options,
         create_definitions,
+        table_as,
+    }))
+}
+
+#[derive(Clone, Debug)]
+pub enum CreateDatabaseOption<'a> {
+    CharSet {
+        identifier: Span,
+        default_span: Option<Span>,
+        value: Identifier<'a>,
+    },
+    Collate {
+        identifier: Span,
+        default_span: Option<Span>,
+        value: Identifier<'a>,
+    },
+    Encryption {
+        identifier: Span,
+        default_span: Option<Span>,
+        value: SString<'a>,
+    },
+}
+
+impl Spanned for CreateDatabaseOption<'_> {
+    fn span(&self) -> Span {
+        match self {
+            CreateDatabaseOption::CharSet {
+                identifier,
+                default_span,
+                value,
+            } => identifier.join_span(default_span).join_span(value),
+            CreateDatabaseOption::Collate {
+                identifier,
+                default_span,
+                value,
+            } => identifier.join_span(default_span).join_span(value),
+            CreateDatabaseOption::Encryption {
+                identifier,
+                default_span,
+                value,
+            } => identifier.join_span(default_span).join_span(value),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CreateDatabase<'a> {
+    /// Span of "CREATE"
+    pub create_span: Span,
+    /// Span of "DATABASE"
+    pub database_span: Span,
+    /// Span of "IF NOT EXISTS" if specified
+    pub if_not_exists: Option<Span>,
+    /// Name of the created database
+    pub name: Identifier<'a>,
+    /// Options specified for database creation
+    pub create_options: Vec<CreateDatabaseOption<'a>>,
+}
+
+impl Spanned for CreateDatabase<'_> {
+    fn span(&self) -> Span {
+        self.create_span
+            .join_span(&self.create_options)
+            .join_span(&self.database_span)
+            .join_span(&self.if_not_exists)
+            .join_span(&self.name)
+    }
+}
+
+fn parse_create_database<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<Statement<'a>, ParseError> {
+    for option in create_options {
+        parser.err("Not supported fo CREATE DATABASE", &option.span());
+    }
+
+    let database_span = parser.consume();
+
+    let if_not_exists = if let Some(if_) = parser.skip_keyword(Keyword::IF) {
+        Some(
+            parser
+                .consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?
+                .join_span(&if_),
+        )
+    } else {
+        None
+    };
+
+    let mut create_options = Vec::new();
+    let name = parser.consume_plain_identifier()?;
+    loop {
+        let default_span = parser.skip_keyword(Keyword::DEFAULT);
+        match &parser.token {
+            Token::Ident(_, Keyword::CHARSET) => {
+                let identifier = parser.consume_keyword(Keyword::CHARSET)?;
+                parser.skip_token(Token::Eq);
+                create_options.push(CreateDatabaseOption::CharSet {
+                    default_span,
+                    identifier,
+                    value: parser.consume_plain_identifier()?,
+                });
+            }
+            Token::Ident(_, Keyword::CHARACTER) => {
+                let identifier = parser.consume_keywords(&[Keyword::CHARACTER, Keyword::SET])?;
+                parser.skip_token(Token::Eq);
+                create_options.push(CreateDatabaseOption::CharSet {
+                    default_span,
+                    identifier,
+                    value: parser.consume_plain_identifier()?,
+                });
+            }
+            Token::Ident(_, Keyword::COLLATE) => {
+                let identifier = parser.consume_keyword(Keyword::COLLATE)?;
+                parser.skip_token(Token::Eq);
+                create_options.push(CreateDatabaseOption::Collate {
+                    default_span,
+                    identifier,
+                    value: parser.consume_plain_identifier()?,
+                });
+            }
+            Token::Ident(_, Keyword::ENCRYPTION) => {
+                let identifier = parser.consume_keyword(Keyword::ENCRYPTION)?;
+                parser.skip_token(Token::Eq);
+                let value = parser.consume_string()?;
+
+                create_options.push(CreateDatabaseOption::Encryption {
+                    default_span,
+                    identifier,
+                    value,
+                });
+            }
+            _ => {
+                if default_span.is_some() {
+                    parser.expected_failure("'CHARSET', 'COLLATE' or 'ENCRYPTION'")?;
+                }
+                break;
+            }
+        }
+    }
+
+    Ok(Statement::CreateDatabase(CreateDatabase {
+        create_span,
+        create_options,
+        database_span,
+        if_not_exists,
+        name,
     }))
 }
 
@@ -1238,7 +2124,8 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
     parser.consume_keyword(Keyword::CREATE)?;
 
     let mut create_options = Vec::new();
-    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE'";
+    const CREATABLE: &str =
+        "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'";
 
     parser.recovered(
         CREATABLE,
@@ -1253,6 +2140,8 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         | Keyword::FUNCTION
                         | Keyword::INDEX
                         | Keyword::TYPE
+                        | Keyword::DATABASE
+                        | Keyword::SCHEMA
                 )
             )
         },
@@ -1289,9 +2178,22 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         let definer_span = parser.consume_keyword(Keyword::DEFINER)?;
                         parser.consume_token(Token::Eq)?;
                         // TODO user | CURRENT_USER | role | CURRENT_ROLE
-                        let user = parser.consume_plain_identifier()?;
+                        // Accept both plain identifiers and string literals
+                        let user = match &parser.token {
+                            Token::SingleQuotedString(v) => {
+                                let v = *v;
+                                Identifier::new(v, parser.consume())
+                            }
+                            _ => parser.consume_plain_identifier()?,
+                        };
                         parser.consume_token(Token::At)?;
-                        let host = parser.consume_plain_identifier()?;
+                        let host = match &parser.token {
+                            Token::SingleQuotedString(v) => {
+                                let v = *v;
+                                Identifier::new(v, parser.consume())
+                            }
+                            _ => parser.consume_plain_identifier()?,
+                        };
                         CreateOption::Definer {
                             definer_span,
                             user,
@@ -1306,11 +2208,15 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                                 sql_security,
                                 parser.consume_keyword(Keyword::DEFINER)?,
                             ),
+                            Token::Ident(_, Keyword::INVOKER) => CreateOption::SqlSecurityInvoker(
+                                sql_security,
+                                parser.consume_keyword(Keyword::INVOKER)?,
+                            ),
                             Token::Ident(_, Keyword::USER) => CreateOption::SqlSecurityUser(
                                 sql_security,
                                 parser.consume_keyword(Keyword::USER)?,
                             ),
-                            _ => parser.expected_failure("'DEFINER', 'USER'")?,
+                            _ => parser.expected_failure("'DEFINER', 'INVOKER', 'USER'")?,
                         }
                     }
                     _ => break,
@@ -1325,6 +2231,9 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
         Token::Ident(_, Keyword::INDEX) => parse_create_index(parser, create_span, create_options),
         Token::Ident(_, Keyword::TABLE) => parse_create_table(parser, create_span, create_options),
         Token::Ident(_, Keyword::VIEW) => parse_create_view(parser, create_span, create_options),
+        Token::Ident(_, Keyword::DATABASE | Keyword::SCHEMA) => {
+            parse_create_database(parser, create_span, create_options)
+        }
         Token::Ident(_, Keyword::FUNCTION) => {
             parse_create_function(parser, create_span, create_options)
         }

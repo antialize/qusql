@@ -64,15 +64,13 @@ fn type_unary_expression<'a>(
     flags: ExpressionFlags,
 ) -> FullType<'a> {
     match op {
-        UnaryOperator::Binary
-        | UnaryOperator::Collate
-        | UnaryOperator::LogicalNot
-        | UnaryOperator::Minus => {
+        UnaryOperator::Binary | UnaryOperator::LogicalNot | UnaryOperator::Minus => {
             let op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Any);
             let t = match &op_type.t {
                 Type::F32
                 | Type::F64
                 | Type::I16
+                | Type::I24
                 | Type::I32
                 | Type::I64
                 | Type::I8
@@ -84,6 +82,7 @@ fn type_unary_expression<'a>(
                     Type::Invalid
                 }
                 Type::U16 => Type::I16,
+                Type::U24 => Type::I24,
                 Type::U32 => Type::I32,
                 Type::U64 => Type::I64,
                 Type::U8 => Type::I8,
@@ -289,6 +288,12 @@ pub(crate) fn type_expression<'a>(
             }
             FullType::new(BaseType::Bool, not_null)
         }
+        Expression::MemberOf { lhs, rhs, .. } => {
+            let lhs_type = type_expression(typer, lhs, flags, BaseType::Any);
+            let rhs_type = type_expression(typer, rhs, flags, BaseType::String); // JSON array as string
+            // MEMBER OF returns boolean
+            FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+        }
         Expression::Is(e, is, _) => {
             let (flags, base_type) = match is {
                 qusql_parse::Is::Null => (flags.without_values(), BaseType::Any),
@@ -395,6 +400,7 @@ pub(crate) fn type_expression<'a>(
                             | qusql_parse::Type::TinyInt(_)
                             | qusql_parse::Type::SmallInt(_)
                             | qusql_parse::Type::BigInt(_)
+                            | qusql_parse::Type::MediumInt(_)
                             | qusql_parse::Type::VarChar(_)
                             | qusql_parse::Type::TinyText(_)
                             | qusql_parse::Type::MediumText(_)
@@ -402,7 +408,8 @@ pub(crate) fn type_expression<'a>(
                             | qusql_parse::Type::LongText(_)
                             | qusql_parse::Type::Enum(_)
                             | qusql_parse::Type::Set(_)
-                            | qusql_parse::Type::Numeric(_, _, _)
+                            | qusql_parse::Type::Numeric(_)
+                            | qusql_parse::Type::Decimal(_)
                             | qusql_parse::Type::Timestamp(_)
                             | qusql_parse::Type::TinyBlob(_)
                             | qusql_parse::Type::MediumBlob(_)
@@ -509,6 +516,18 @@ pub(crate) fn type_expression<'a>(
             typer.ensure_datetime(e1, &t1, Restrict::Require, Restrict::Allow);
             typer.ensure_datetime(e2, &t2, Restrict::Require, Restrict::Allow);
             FullType::new(BaseType::Integer, t1.not_null && t2.not_null)
+        }
+        e @ Expression::MatchAgainst { .. } => {
+            issue_todo!(typer.issues, e);
+            FullType::invalid()
+        }
+        e @ Expression::Convert { .. } => {
+            issue_todo!(typer.issues, e);
+            FullType::invalid()
+        }
+        e @ Expression::UserVariable { .. } => {
+            issue_todo!(typer.issues, e);
+            FullType::invalid()
         }
     }
 }

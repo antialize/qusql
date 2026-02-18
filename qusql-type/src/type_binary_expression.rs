@@ -29,6 +29,7 @@ pub(crate) fn type_binary_expression<'a>(
     flags: ExpressionFlags,
 ) -> FullType<'a> {
     let (flags, context) = match op {
+        BinaryOperator::Assignment => (flags, BaseType::Any),
         BinaryOperator::And => {
             if flags.true_ {
                 (flags.with_not_null(true), BaseType::Bool)
@@ -56,7 +57,12 @@ pub(crate) fn type_binary_expression<'a>(
                 (flags, BaseType::Any)
             }
         }
-        BinaryOperator::Like | BinaryOperator::NotLike => {
+        BinaryOperator::Like
+        | BinaryOperator::NotLike
+        | BinaryOperator::Regexp
+        | BinaryOperator::NotRegexp
+        | BinaryOperator::Rlike
+        | BinaryOperator::NotRlike => {
             if flags.true_ {
                 (flags.with_not_null(true).with_true(false), BaseType::String)
             } else {
@@ -77,6 +83,9 @@ pub(crate) fn type_binary_expression<'a>(
                 (flags, BaseType::Integer)
             }
         }
+        BinaryOperator::Collate => (flags, BaseType::String),
+        BinaryOperator::JsonExtract => (flags, BaseType::String), // JSON value returned
+        BinaryOperator::JsonExtractUnquote => (flags, BaseType::String), // Unquoted string
     };
 
     let lhs_type = type_expression(typer, lhs, flags, context);
@@ -178,10 +187,32 @@ pub(crate) fn type_binary_expression<'a>(
                 FullType::invalid()
             }
         }
-        BinaryOperator::Like | BinaryOperator::NotLike => {
+        BinaryOperator::Like
+        | BinaryOperator::NotLike
+        | BinaryOperator::Regexp
+        | BinaryOperator::NotRegexp
+        | BinaryOperator::Rlike
+        | BinaryOperator::NotRlike => {
             typer.ensure_base(lhs, &lhs_type, BaseType::String);
             typer.ensure_base(rhs, &rhs_type, BaseType::String);
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::Collate => {
+            // COLLATE: LHS is the expression, RHS is the collation name (identifier)
+            // Just return the LHS type as the collation doesn't change the type
+            typer.ensure_base(lhs, &lhs_type, BaseType::String);
+            lhs_type
+        }
+        BinaryOperator::JsonExtract | BinaryOperator::JsonExtractUnquote => {
+            // JSON operators: -> returns JSON, ->> returns unquoted string
+            // LHS is the JSON document, RHS is the path (string)
+            typer.ensure_base(rhs, &rhs_type, BaseType::String);
+            FullType::new(BaseType::String, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::Assignment => {
+            // Assignment: @var := value
+            // Returns the type of the value being assigned (rhs)
+            rhs_type
         }
     }
 }

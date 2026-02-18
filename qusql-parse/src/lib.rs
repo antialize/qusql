@@ -51,15 +51,19 @@ mod data_type;
 mod delete;
 mod drop;
 mod expression;
+mod flush;
 mod identifier;
 mod insert_replace;
 mod issue;
 mod keywords;
+mod kill;
 mod lexer;
+mod lock;
 mod parser;
 mod qualified_name;
 mod rename;
 mod select;
+mod show;
 mod span;
 mod sstring;
 mod statement;
@@ -77,7 +81,7 @@ pub use statement::{Statement, Union, UnionType, UnionWith};
 
 pub use alter::{
     AlterColumnAction, AlterSpecification, AlterTable, ForeignKeyOn, ForeignKeyOnAction,
-    ForeignKeyOnType, IndexCol, IndexOption, IndexType,
+    ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption, IndexType,
 };
 pub use create::{
     CreateAlgorithm, CreateDefinition, CreateFunction, CreateOption, CreateTable, CreateTrigger,

@@ -122,6 +122,12 @@ impl<S: Spanned> Spanned for (bool, S) {
     }
 }
 
+impl<S: Spanned> Spanned for (u8, S) {
+    fn span(&self) -> Span {
+        self.1.span()
+    }
+}
+
 impl<S: Spanned> Spanned for (&str, S) {
     fn span(&self) -> Span {
         self.1.span()

@@ -43,6 +43,7 @@ pub enum DataTypeProperty<'a> {
     PrimaryKey(Span),
     As((Span, Box<Expression<'a>>)),
     Check((Span, Box<Expression<'a>>)),
+    OnUpdate((Span, Box<Expression<'a>>)),
 }
 
 impl<'a> Spanned for DataTypeProperty<'a> {
@@ -67,6 +68,7 @@ impl<'a> Spanned for DataTypeProperty<'a> {
             DataTypeProperty::As((s, v)) => s.join_span(v),
             DataTypeProperty::Check((s, v)) => s.join_span(v),
             DataTypeProperty::PrimaryKey(v) => v.span(),
+            DataTypeProperty::OnUpdate((s, v)) => s.join_span(v),
         }
     }
 }
@@ -89,6 +91,7 @@ pub enum Type<'a> {
     Boolean,
     TinyInt(Option<(usize, Span)>),
     SmallInt(Option<(usize, Span)>),
+    MediumInt(Option<(usize, Span)>),
     Integer(Option<(usize, Span)>),
     Int(Option<(usize, Span)>),
     BigInt(Option<(usize, Span)>),
@@ -103,7 +106,8 @@ pub enum Type<'a> {
     Float8,
     Float(Option<(usize, usize, Span)>),
     Double(Option<(usize, usize, Span)>),
-    Numeric(usize, usize, Span),
+    Numeric(Option<(usize, usize, Span)>),
+    Decimal(Option<(usize, usize, Span)>),
     DateTime(Option<(usize, Span)>),
     Timestamp(Timestamp),
     Timestamptz,
@@ -129,6 +133,7 @@ impl<'a> OptSpanned for Type<'a> {
             Type::Boolean => None,
             Type::TinyInt(v) => v.opt_span(),
             Type::SmallInt(v) => v.opt_span(),
+            Type::MediumInt(v) => v.opt_span(),
             Type::Integer(v) => v.opt_span(),
             Type::Int(v) => v.opt_span(),
             Type::BigInt(v) => v.opt_span(),
@@ -143,7 +148,8 @@ impl<'a> OptSpanned for Type<'a> {
             Type::Float8 => None,
             Type::Float(v) => v.opt_span(),
             Type::Double(v) => v.opt_span(),
-            Type::Numeric(_, _, v) => v.opt_span(),
+            Type::Numeric(v) => v.opt_span(),
+            Type::Decimal(v) => v.opt_span(),
             Type::DateTime(v) => v.opt_span(),
             Type::Timestamp(v) => v.opt_span(),
             Type::Time(v) => v.opt_span(),
@@ -200,6 +206,25 @@ fn parse_width_req(parser: &mut Parser<'_, '_>) -> Result<(usize, Span), ParseEr
     Ok(parse_width(parser)?.expect("width"))
 }
 
+fn parse_precision_scale(
+    parser: &mut Parser<'_, '_>,
+) -> Result<Option<(usize, usize, Span)>, ParseError> {
+    if !matches!(parser.token, Token::LParen) {
+        return Ok(None);
+    }
+    let left = parser.consume_token(Token::LParen)?;
+    let (precision, s1) = parser.consume_int()?;
+    let scale = if parser.skip_token(Token::Comma).is_some() {
+        let (v, _) = parser.consume_int()?;
+        v
+    } else {
+        0
+    };
+    let right = parser.consume_token(Token::RParen)?;
+    let span = left.join_span(&s1).join_span(&right);
+    Ok(Some((precision, scale, span)))
+}
+
 fn parse_enum_set_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<SString<'a>>, ParseError> {
     parser.consume_token(Token::LParen)?;
     let mut ans = Vec::new();
@@ -235,6 +260,10 @@ pub(crate) fn parse_data_type<'a>(
         Token::Ident(_, Keyword::SMALLINT) => (
             parser.consume_keyword(Keyword::SMALLINT)?,
             Type::SmallInt(parse_width(parser)?),
+        ),
+        Token::Ident(_, Keyword::MEDIUMINT) => (
+            parser.consume_keyword(Keyword::MEDIUMINT)?,
+            Type::MediumInt(parse_width(parser)?),
         ),
         Token::Ident(_, Keyword::INTEGER) => (
             parser.consume_keyword(Keyword::INTEGER)?,
@@ -310,34 +339,34 @@ pub(crate) fn parse_data_type<'a>(
             }
         }
         Token::Ident(_, Keyword::FLOAT) => {
-            (parser.consume_keyword(Keyword::FLOAT)?, Type::Float(None)) // TODO
+            let i = parser.consume_keyword(Keyword::FLOAT)?;
+            (i, Type::Float(parse_precision_scale(parser)?))
         }
         Token::Ident(_, Keyword::DOUBLE) => {
             let i = if parser.options.dialect.is_postgresql() {
                 parser.consume_keywords(&[Keyword::DOUBLE, Keyword::PRECISION])?
             } else {
-                parser.consume_keyword(Keyword::DOUBLE)?
+                let double_span = parser.consume_keyword(Keyword::DOUBLE)?;
+                // MySQL also supports optional PRECISION keyword
+                if let Some(precision_span) = parser.skip_keyword(Keyword::PRECISION) {
+                    double_span.join_span(&precision_span)
+                } else {
+                    double_span
+                }
             };
-            (i, Type::Double(None)) // TODO
+            (i, Type::Double(parse_precision_scale(parser)?))
         }
         Token::Ident(_, Keyword::NUMERIC) => {
             let numeric = parser.consume_keyword(Keyword::NUMERIC)?;
-            let left = parser.consume_token(Token::LParen)?;
-            let (v1, s1) = parser.consume_int()?;
-            let comma = parser.consume_token(Token::Comma)?;
-            let (v2, s2) = parser.consume_int()?;
-            let right = parser.consume_token(Token::RParen)?;
-            (
-                numeric,
-                Type::Numeric(
-                    v1,
-                    v2,
-                    left.join_span(&s1)
-                        .join_span(&comma)
-                        .join_span(&s2)
-                        .join_span(&right),
-                ),
-            )
+            (numeric, Type::Numeric(parse_precision_scale(parser)?))
+        }
+        Token::Ident(_, Keyword::DECIMAL) => {
+            let decimal = parser.consume_keyword(Keyword::DECIMAL)?;
+            (decimal, Type::Decimal(parse_precision_scale(parser)?))
+        }
+        Token::Ident(_, Keyword::DEC) => {
+            let dec = parser.consume_keyword(Keyword::DEC)?;
+            (dec, Type::Decimal(parse_precision_scale(parser)?))
         }
         Token::Ident(_, Keyword::DATETIME) => (
             parser.consume_keyword(Keyword::DATETIME)?,
@@ -489,6 +518,11 @@ pub(crate) fn parse_data_type<'a>(
                 let s2 = parser.consume_token(Token::RParen)?;
                 let e = e.unwrap_or_else(|| Expression::Invalid(s1.join_span(&s2)));
                 properties.push(DataTypeProperty::Check((span, Box::new(e))));
+            }
+            Token::Ident(_, Keyword::ON) => {
+                let span = parser.consume_keywords(&[Keyword::ON, Keyword::UPDATE])?;
+                let expr = parse_expression(parser, true)?;
+                properties.push(DataTypeProperty::OnUpdate((span, Box::new(expr))));
             }
             _ => break,
         }

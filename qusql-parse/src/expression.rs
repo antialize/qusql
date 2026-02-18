@@ -251,6 +251,34 @@ pub enum BinaryOperator {
     Mult,
     Like,
     NotLike,
+    Regexp,
+    NotRegexp,
+    Rlike,
+    NotRlike,
+    Collate,
+    JsonExtract,
+    JsonExtractUnquote,
+    Assignment,
+}
+
+/// Mode for MATCH ... AGAINST
+#[derive(Debug, Clone)]
+pub enum MatchMode {
+    InBoolean(Span),
+    InNaturalLanguage(Span),
+    InNaturalLanguageWithQueryExpansion(Span),
+    WithQueryExpansion(Span),
+}
+
+impl Spanned for MatchMode {
+    fn span(&self) -> Span {
+        match self {
+            MatchMode::InBoolean(s) => s.clone(),
+            MatchMode::InNaturalLanguage(s) => s.clone(),
+            MatchMode::InNaturalLanguageWithQueryExpansion(s) => s.clone(),
+            MatchMode::WithQueryExpansion(s) => s.clone(),
+        }
+    }
 }
 
 /// Type of is expression
@@ -270,7 +298,6 @@ pub enum Is {
 #[derive(Debug, Clone, Copy)]
 pub enum UnaryOperator {
     Binary,
-    Collate,
     LogicalNot,
     Minus,
     Not,
@@ -482,6 +509,15 @@ pub enum Expression<'a> {
         /// True if not in
         not_in: bool,
     },
+    /// Member of expression
+    MemberOf {
+        /// Left hand side expression (value to check)
+        lhs: Box<Expression<'a>>,
+        /// Right hand side expression (JSON array)
+        rhs: Box<Expression<'a>>,
+        /// Span of "MEMBER OF"
+        member_of_span: Span,
+    },
     /// Is expression
     Is(Box<Expression<'a>>, Is, Span),
     /// Invalid expression, returned on recovery of a parse error
@@ -509,6 +545,17 @@ pub enum Expression<'a> {
         as_span: Span,
         /// Type to cast to
         type_: DataType<'a>,
+    },
+    /// Convert expression (CONVERT(expr, type) or CONVERT(expr USING charset))
+    Convert {
+        /// Span of "CONVERT"
+        convert_span: Span,
+        /// Value to convert
+        expr: Box<Expression<'a>>,
+        /// Type to convert to (for CONVERT(expr, type))
+        type_: Option<DataType<'a>>,
+        /// Charset (for CONVERT(expr USING charset))
+        using_charset: Option<(Span, Identifier<'a>)>,
     },
     /// Count expression
     Count {
@@ -541,6 +588,13 @@ pub enum Expression<'a> {
         // Span of variable
         variable_span: Span,
     },
+    /// User variable expression (@variable_name)
+    UserVariable {
+        /// The variable name
+        name: Identifier<'a>,
+        /// Span of '@'
+        at_span: Span,
+    },
     /// Timestampadd call
     TimestampAdd {
         timestamp_add_span: Span,
@@ -554,6 +608,14 @@ pub enum Expression<'a> {
         unit: (TimeUnit, Span),
         e1: Box<Expression<'a>>,
         e2: Box<Expression<'a>>,
+    },
+    /// Full-text MATCH ... AGAINST expression
+    MatchAgainst {
+        match_span: Span,
+        columns: Vec<Expression<'a>>,
+        against_span: Span,
+        expr: Box<Expression<'a>>,
+        mode: Option<MatchMode>,
     },
 }
 
@@ -580,6 +642,11 @@ impl<'a> Spanned for Expression<'a> {
             Expression::In {
                 lhs, rhs, in_span, ..
             } => in_span.join_span(lhs).join_span(rhs),
+            Expression::MemberOf {
+                lhs,
+                rhs,
+                member_of_span,
+            } => member_of_span.join_span(lhs).join_span(rhs),
             Expression::Is(a, _, b) => b.join_span(a),
             Expression::Invalid(s) => s.span(),
             Expression::Case {
@@ -602,6 +669,15 @@ impl<'a> Spanned for Expression<'a> {
                 .join_span(expr)
                 .join_span(as_span)
                 .join_span(type_),
+            Expression::Convert {
+                convert_span,
+                expr,
+                type_,
+                using_charset,
+            } => convert_span
+                .join_span(expr)
+                .join_span(type_)
+                .join_span(using_charset),
             Expression::Count {
                 count_span,
                 distinct_span,
@@ -622,6 +698,7 @@ impl<'a> Spanned for Expression<'a> {
                 .join_span(global)
                 .join_span(session)
                 .join_span(dot),
+            Expression::UserVariable { name, at_span } => at_span.join_span(name),
             Expression::WindowFunction {
                 function: _,
                 args,
@@ -666,6 +743,17 @@ impl<'a> Spanned for Expression<'a> {
                 .join_span(&unit.1)
                 .join_span(e1)
                 .join_span(e2),
+            Expression::MatchAgainst {
+                match_span,
+                columns,
+                against_span,
+                expr,
+                mode,
+            } => match_span
+                .join_span(columns)
+                .join_span(against_span)
+                .join_span(expr)
+                .join_span(mode),
         }
     }
 }
@@ -953,6 +1041,7 @@ trait Priority {
 impl Priority for BinaryOperator {
     fn priority(&self) -> usize {
         match self {
+            BinaryOperator::Assignment => 200,
             BinaryOperator::Or => 140,
             BinaryOperator::Xor => 150,
             BinaryOperator::And => 160,
@@ -965,6 +1054,10 @@ impl Priority for BinaryOperator {
             BinaryOperator::Neq => 110,
             BinaryOperator::Like => 110,
             BinaryOperator::NotLike => 110,
+            BinaryOperator::Regexp => 110,
+            BinaryOperator::NotRegexp => 110,
+            BinaryOperator::Rlike => 110,
+            BinaryOperator::NotRlike => 110,
             BinaryOperator::ShiftLeft => 80,
             BinaryOperator::ShiftRight => 80,
             BinaryOperator::BitAnd => 90,
@@ -976,6 +1069,9 @@ impl Priority for BinaryOperator {
             BinaryOperator::Div => 60,
             BinaryOperator::Mod => 60,
             BinaryOperator::Mult => 60,
+            BinaryOperator::Collate => 20,
+            BinaryOperator::JsonExtract => 30,
+            BinaryOperator::JsonExtractUnquote => 30,
         }
     }
 }
@@ -984,7 +1080,6 @@ impl Priority for UnaryOperator {
     fn priority(&self) -> usize {
         match self {
             UnaryOperator::Binary => 20,
-            UnaryOperator::Collate => 20,
             UnaryOperator::LogicalNot => 30,
             UnaryOperator::Minus => 40,
             UnaryOperator::Not => 130,
@@ -1080,6 +1175,7 @@ pub(crate) fn parse_expression<'a>(
     let mut r = Reducer { stack: Vec::new() };
     loop {
         let e = match parser.token.clone() {
+            Token::ColonEq if !inner => r.shift_binop(parser.consume(), BinaryOperator::Assignment),
             Token::Ident(_, Keyword::OR) | Token::DoublePipe if !inner => {
                 r.shift_binop(parser.consume(), BinaryOperator::Or)
             }
@@ -1109,8 +1205,18 @@ pub(crate) fn parse_expression<'a>(
             Token::Ident(_, Keyword::BINARY) if !inner => {
                 r.shift_unary(parser.consume(), UnaryOperator::Binary)
             }
-            Token::Ident(_, Keyword::COLLATE) if !inner => {
-                r.shift_unary(parser.consume(), UnaryOperator::Collate)
+            Token::Ident(_, Keyword::COLLATE)
+                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                // COLLATE is a binary operator: expr COLLATE collation_name
+                let collate_span = parser.consume_keyword(Keyword::COLLATE)?;
+                let collation = parser.consume_plain_identifier()?;
+                if let Err(e) = r.shift_binop(collate_span, BinaryOperator::Collate) {
+                    parser.err_here(e)?;
+                }
+                r.shift_expr(Expression::Identifier(vec![IdentifierPart::Name(
+                    collation,
+                )]))
             }
             Token::ExclamationMark if !inner => {
                 r.shift_unary(parser.consume(), UnaryOperator::LogicalNot)
@@ -1239,16 +1345,60 @@ pub(crate) fn parse_expression<'a>(
                         r.stack.push(ReduceMember::Expression(lhs));
                         r.shift_binop(parser.consume().join_span(&op), BinaryOperator::NotLike)
                     }
-                    _ => parser.expected_failure("'IN' or 'LIKE'")?,
+                    Token::Ident(_, Keyword::REGEXP) => {
+                        r.stack.push(ReduceMember::Expression(lhs));
+                        r.shift_binop(parser.consume().join_span(&op), BinaryOperator::NotRegexp)
+                    }
+                    Token::Ident(_, Keyword::RLIKE) => {
+                        r.stack.push(ReduceMember::Expression(lhs));
+                        r.shift_binop(parser.consume().join_span(&op), BinaryOperator::NotRlike)
+                    }
+                    _ => parser.expected_failure("'IN', 'LIKE', 'REGEXP' or 'RLIKE'")?,
                 }
             }
             Token::Ident(_, Keyword::LIKE) if !inner => {
                 r.shift_binop(parser.consume(), BinaryOperator::Like)
             }
+            Token::Ident(_, Keyword::REGEXP) if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::Regexp)
+            }
+            Token::Ident(_, Keyword::RLIKE) if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::Rlike)
+            }
+            Token::RArrowJson if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::JsonExtract)
+            }
+            Token::RDoubleArrowJson if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::JsonExtractUnquote)
+            }
+            Token::Ident(_, Keyword::MEMBER)
+                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                if let Err(e) = r.reduce(IN_PRIORITY) {
+                    parser.err_here(e)?;
+                }
+                let lhs = match r.stack.pop() {
+                    Some(ReduceMember::Expression(e)) => e,
+                    _ => parser.err_here("Expected expression before here")?,
+                };
+                let member_span = parser.consume_keyword(Keyword::MEMBER)?;
+                let of_span = parser.consume_keyword(Keyword::OF)?;
+                parser.consume_token(Token::LParen)?;
+                let rhs = parse_expression_paren(parser)?;
+                parser.consume_token(Token::RParen)?;
+                r.shift_expr(Expression::MemberOf {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    member_of_span: member_span.join_span(&of_span),
+                })
+            }
             Token::Ident(_, Keyword::INTERVAL) => {
                 let interval_span = parser.consume();
                 let time_interval = match parser.token {
-                    Token::SingleQuotedString(_) | Token::DoubleQuotedString(_) => {
+                    Token::SingleQuotedString(_)
+                    | Token::DoubleQuotedString(_)
+                    | Token::HexString(_)
+                    | Token::BinaryString(_) => {
                         let v = parser.consume_string()?;
                         let mut r = Vec::new();
                         for part in v.split([':', '!', ',', '.', '-', ' ']) {
@@ -1331,6 +1481,9 @@ pub(crate) fn parse_expression<'a>(
             }
             Token::Plus if !inner => r.shift_binop(parser.consume(), BinaryOperator::Add),
             Token::Div if !inner => r.shift_binop(parser.consume(), BinaryOperator::Divide),
+            Token::Ident(_, Keyword::DIV) if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::Div)
+            }
             Token::Minus if !inner => r.shift_binop(parser.consume(), BinaryOperator::Subtract),
             Token::Ident(_, Keyword::LIKE) if !inner => {
                 r.shift_binop(parser.consume(), BinaryOperator::Like)
@@ -1341,6 +1494,10 @@ pub(crate) fn parse_expression<'a>(
                 )])),
             Token::Mul if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) => {
                 r.shift_binop(parser.consume(), BinaryOperator::Mult)
+            }
+            Token::Mod if !inner => r.shift_binop(parser.consume(), BinaryOperator::Mod),
+            Token::Ident(_, Keyword::MOD) if !inner => {
+                r.shift_binop(parser.consume(), BinaryOperator::Mod)
             }
             Token::Ident(_, Keyword::TRUE) => r.shift_expr(Expression::Bool(
                 true,
@@ -1361,9 +1518,10 @@ pub(crate) fn parse_expression<'a>(
                     parser.consume_keyword(Keyword::_LIST_)?,
                 )))
             }
-            Token::SingleQuotedString(_) | Token::DoubleQuotedString(_) => {
-                r.shift_expr(Expression::String(parser.consume_string()?))
-            }
+            Token::SingleQuotedString(_)
+            | Token::DoubleQuotedString(_)
+            | Token::HexString(_)
+            | Token::BinaryString(_) => r.shift_expr(Expression::String(parser.consume_string()?)),
             Token::Integer(_) => r.shift_expr(Expression::Integer(parser.consume_int()?)),
             Token::Float(_) => r.shift_expr(Expression::Float(parser.consume_float()?)),
 
@@ -1386,6 +1544,36 @@ pub(crate) fn parse_expression<'a>(
                     })
                 } else {
                     r.shift_expr(Expression::Invalid(cast_span))
+                }
+            }
+            Token::Ident(_, Keyword::CONVERT) => {
+                let convert_span = parser.consume_keyword(Keyword::CONVERT)?;
+                parser.consume_token(Token::LParen)?;
+                let convert =
+                    parser.recovered("')'", &|t| matches!(t, Token::RParen), |parser| {
+                        let expr = parse_expression_outer(parser)?;
+                        // Check if it's CONVERT(expr, type) or CONVERT(expr USING charset)
+                        if parser.skip_keyword(Keyword::USING).is_some() {
+                            // CONVERT(expr USING charset)
+                            let charset = parser.consume_plain_identifier()?;
+                            Ok(Some((expr, None, Some(charset))))
+                        } else {
+                            // CONVERT(expr, type)
+                            parser.consume_token(Token::Comma)?;
+                            let type_ = parse_data_type(parser, false)?;
+                            Ok(Some((expr, Some(type_), None)))
+                        }
+                    })?;
+                parser.consume_token(Token::RParen)?;
+                if let Some((expr, type_, charset)) = convert {
+                    r.shift_expr(Expression::Convert {
+                        convert_span,
+                        expr: Box::new(expr),
+                        type_,
+                        using_charset: charset.map(|c| (c.span(), c)),
+                    })
+                } else {
+                    r.shift_expr(Expression::Invalid(convert_span))
                 }
             }
             Token::Ident(_, Keyword::COUNT) => {
@@ -1457,11 +1645,123 @@ pub(crate) fn parse_expression<'a>(
                     r.shift_expr(Expression::Invalid(extract_span))
                 }
             }
+            Token::Ident(_, Keyword::MATCH) => {
+                let match_span = parser.consume_keyword(Keyword::MATCH)?;
+                parser.consume_token(Token::LParen)?;
+                let mut cols = Vec::new();
+                loop {
+                    parser.recovered(
+                        "')' or ','",
+                        &|t| matches!(t, Token::RParen | Token::Comma),
+                        |parser| {
+                            cols.push(parse_expression_paren(parser)?);
+                            Ok(())
+                        },
+                    )?;
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                parser.consume_token(Token::RParen)?;
+                let against_span = parser.consume_keyword(Keyword::AGAINST)?;
+                parser.consume_token(Token::LParen)?;
+
+                // Parse the search expression but don't treat `IN`/`WITH` as binary
+                // operators here — they are MATCH modes and may appear inside the
+                // AGAINST(...) parentheses (MySQL allows both inside and outside).
+                let expr = parse_expression(parser, true)?;
+
+                // optional mode that may appear inside the AGAINST(...) parentheses
+                let mut mode: Option<MatchMode> = None;
+                if parser.skip_keyword(Keyword::IN).is_some() {
+                    if let Some(boolean_span) = parser.skip_keyword(Keyword::BOOLEAN) {
+                        let mode_span = parser.consume_keyword(Keyword::MODE)?;
+                        mode = Some(MatchMode::InBoolean(boolean_span.join_span(&mode_span)));
+                    } else if let Some(natural_span) = parser.skip_keyword(Keyword::NATURAL) {
+                        // optional LANGUAGE after NATURAL
+                        let _language_span = parser.skip_keyword(Keyword::LANGUAGE);
+                        let mode_span = parser.consume_keyword(Keyword::MODE)?;
+                        let natural_total = natural_span.join_span(&mode_span);
+                        // optional WITH QUERY EXPANSION following NATURAL MODE inside parens
+                        if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+                            let expansion_total = with_span.join_span(
+                                &parser.consume_keywords(&[Keyword::QUERY, Keyword::EXPANSION])?,
+                            );
+                            mode = Some(MatchMode::InNaturalLanguageWithQueryExpansion(
+                                natural_total.join_span(&expansion_total),
+                            ));
+                        } else {
+                            mode = Some(MatchMode::InNaturalLanguage(natural_total));
+                        }
+                    }
+                } else if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+                    mode = Some(MatchMode::WithQueryExpansion(with_span.join_span(
+                        &parser.consume_keywords(&[Keyword::QUERY, Keyword::EXPANSION])?,
+                    )));
+                }
+
+                parser.consume_token(Token::RParen)?;
+
+                // If no mode was found inside the parens, allow it after the closing
+                // parenthesis as well (some dialects/placeholders may put it there).
+                if mode.is_none() {
+                    if parser.skip_keyword(Keyword::IN).is_some() {
+                        if let Some(boolean_span) = parser.skip_keyword(Keyword::BOOLEAN) {
+                            let mode_span = parser.consume_keyword(Keyword::MODE)?;
+                            mode = Some(MatchMode::InBoolean(boolean_span.join_span(&mode_span)));
+                        } else if let Some(natural_span) = parser.skip_keyword(Keyword::NATURAL) {
+                            let _language_span = parser.skip_keyword(Keyword::LANGUAGE);
+                            let mode_span = parser.consume_keyword(Keyword::MODE)?;
+                            let natural_total = natural_span.join_span(&mode_span);
+                            // optional WITH QUERY EXPANSION following NATURAL MODE after paren
+                            if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+                                let expansion_total = with_span.join_span(
+                                    &parser
+                                        .consume_keywords(&[Keyword::QUERY, Keyword::EXPANSION])?,
+                                );
+                                mode = Some(MatchMode::InNaturalLanguageWithQueryExpansion(
+                                    natural_total.join_span(&expansion_total),
+                                ));
+                            } else {
+                                mode = Some(MatchMode::InNaturalLanguage(natural_total));
+                            }
+                        }
+                    } else if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+                        mode = Some(MatchMode::WithQueryExpansion(with_span.join_span(
+                            &parser.consume_keywords(&[Keyword::QUERY, Keyword::EXPANSION])?,
+                        )));
+                    }
+                }
+
+                r.shift_expr(Expression::MatchAgainst {
+                    match_span,
+                    columns: cols,
+                    against_span,
+                    expr: Box::new(expr),
+                    mode,
+                })
+            }
             Token::Ident(_, Keyword::LEFT) if matches!(parser.peek(), Token::LParen) => {
                 let i = parser.token.clone();
                 let s = parser.span.clone();
                 parser.consume();
                 r.shift_expr(parse_function(parser, i, s)?)
+            }
+            // Handle charset-prefixed strings like _utf8mb4 'abc' or _binary 'data'
+            Token::Ident(charset, _)
+                if charset.starts_with('_')
+                    && matches!(
+                        parser.peek(),
+                        Token::SingleQuotedString(_)
+                            | Token::DoubleQuotedString(_)
+                            | Token::HexString(_)
+                            | Token::BinaryString(_)
+                    ) =>
+            {
+                // Consume the charset prefix
+                parser.consume();
+                // Parse the string literal
+                r.shift_expr(Expression::String(parser.consume_string()?))
             }
             Token::Ident(_, k) if k.expr_ident() => {
                 let i = parser.token.clone();
@@ -1606,6 +1906,12 @@ pub(crate) fn parse_expression<'a>(
                     variable,
                     variable_span,
                 })
+            }
+            Token::At => {
+                // User variable: @variable_name
+                let at_span = parser.consume_token(Token::At)?;
+                let name = parser.consume_plain_identifier()?;
+                r.shift_expr(Expression::UserVariable { name, at_span })
             }
             _ => break,
         };

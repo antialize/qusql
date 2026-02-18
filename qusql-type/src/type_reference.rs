@@ -121,6 +121,9 @@ pub(crate) fn type_reference<'a>(
                 None => (),
             }
         }
+        qusql_parse::TableReference::JsonTable { .. } => {
+            issue_todo!(typer.issues, reference);
+        }
     }
 
     core::mem::swap(&mut typer.reference_types, &mut given_refs);
