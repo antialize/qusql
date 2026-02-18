@@ -1300,7 +1300,7 @@
     "input": "CREATE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 6..6,\n    sql_segment: \"\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 6..6,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1309,7 +1309,7 @@
     "input": "CREATE CONSTRAINT TRIGGER check_multiple_events BEFORE INSERT OR UPDATE OR DELETE ON accounts DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_account_changes",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..17,\n    sql_segment: \"CONSTRAINT\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..17,\n    sql_segment: \"CONSTRAINT\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'ON' here\",\n    span: 62..64,\n    sql_segment: \"OR\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1318,7 +1318,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1326,7 +1326,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER COLLATE \"en_US\" CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1334,7 +1334,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER COLLATE \"en_US\" DEFAULT 1 CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1342,7 +1342,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER CONSTRAINT my_constraint CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1350,7 +1350,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER DEFAULT 1 CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1358,7 +1358,7 @@
     "input": "CREATE EXTENSION extension_name",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1366,7 +1366,7 @@
     "input": "CREATE EXTENSION extension_name WITH CASCADE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1374,7 +1374,7 @@
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name",
     "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 37..43,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"schema_name\",\n            span: 44..55,\n        },\n        create_options: [],\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1382,7 +1382,7 @@
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name CASCADE",
     "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 37..43,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"schema_name\",\n            span: 44..55,\n        },\n        create_options: [],\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 56..63,\n    sql_segment: \"CASCADE\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1391,7 +1391,7 @@
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name VERSION version",
     "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 37..43,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"schema_name\",\n            span: 44..55,\n        },\n        create_options: [],\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 56..63,\n    sql_segment: \"VERSION\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1400,7 +1400,7 @@
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name VERSION version CASCADE",
     "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 37..43,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"schema_name\",\n            span: 44..55,\n        },\n        create_options: [],\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 56..63,\n    sql_segment: \"VERSION\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1409,7 +1409,7 @@
     "input": "CREATE EXTENSION extension_name WITH VERSION version",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1417,7 +1417,7 @@
     "input": "CREATE EXTENSION extension_name WITH VERSION version CASCADE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1667,7 +1667,7 @@
     "input": "CREATE LOCAL TEMPORARY TABLE table (COL INT)",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 23..28,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"table\",\n                span: 29..34,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"COL\",\n                    span: 36..39,\n                },\n                data_type: DataType {\n                    identifier: 40..43,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..12,\n    sql_segment: \"LOCAL\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..12,\n    sql_segment: \"LOCAL\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'table' is a reserved identifier use `table`\",\n    span: 29..34,\n    sql_segment: \"table\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1676,7 +1676,7 @@
     "input": "CREATE MATERIALIZED VIEW IF NOT EXISTS stats AS SELECT * FROM data",
     "output": "CreateView(\n    CreateView {\n        create_span: 0..6,\n        create_options: [],\n        view_span: 20..24,\n        if_not_exists: Some(\n            25..38,\n        ),\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"stats\",\n                span: 39..44,\n            },\n        },\n        as_span: 45..47,\n        select: Select(\n            Select {\n                select_span: 48..54,\n                flags: [],\n                select_exprs: [\n                    SelectExpr {\n                        expr: Identifier(\n                            [\n                                Star(\n                                    55..56,\n                                ),\n                            ],\n                        ),\n                        as_: None,\n                    },\n                ],\n                from_span: Some(\n                    57..61,\n                ),\n                table_references: Some(\n                    [\n                        Table {\n                            identifier: QualifiedName {\n                                prefix: [],\n                                identifier: Identifier {\n                                    value: \"data\",\n                                    span: 62..66,\n                                },\n                            },\n                            as_span: None,\n                            as_: None,\n                            index_hints: [],\n                        },\n                    ],\n                ),\n                where_: None,\n                group_by: None,\n                having: None,\n                window_span: None,\n                order_by: None,\n                limit: None,\n                locking: None,\n            },\n        ),\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..19,\n    sql_segment: \"MATERIALIZED\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..19,\n    sql_segment: \"MATERIALIZED\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1684,7 +1684,7 @@
     "input": "CREATE MATERIALIZED VIEW user_summary AS SELECT user_id, COUNT(*) FROM orders GROUP BY user_id",
     "output": "CreateView(\n    CreateView {\n        create_span: 0..6,\n        create_options: [],\n        view_span: 20..24,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"user_summary\",\n                span: 25..37,\n            },\n        },\n        as_span: 38..40,\n        select: Select(\n            Select {\n                select_span: 41..47,\n                flags: [],\n                select_exprs: [\n                    SelectExpr {\n                        expr: Identifier(\n                            [\n                                Name(\n                                    Identifier {\n                                        value: \"user_id\",\n                                        span: 48..55,\n                                    },\n                                ),\n                            ],\n                        ),\n                        as_: None,\n                    },\n                    SelectExpr {\n                        expr: Count {\n                            count_span: 57..62,\n                            distinct_span: None,\n                            expr: Identifier(\n                                [\n                                    Star(\n                                        63..64,\n                                    ),\n                                ],\n                            ),\n                        },\n                        as_: None,\n                    },\n                ],\n                from_span: Some(\n                    66..70,\n                ),\n                table_references: Some(\n                    [\n                        Table {\n                            identifier: QualifiedName {\n                                prefix: [],\n                                identifier: Identifier {\n                                    value: \"orders\",\n                                    span: 71..77,\n                                },\n                            },\n                            as_span: None,\n                            as_: None,\n                            index_hints: [],\n                        },\n                    ],\n                ),\n                where_: None,\n                group_by: Some(\n                    (\n                        78..86,\n                        [\n                            Identifier(\n                                [\n                                    Name(\n                                        Identifier {\n                                            value: \"user_id\",\n                                            span: 87..94,\n                                        },\n                                    ),\n                                ],\n                            ),\n                        ],\n                    ),\n                ),\n                having: None,\n                window_span: None,\n                order_by: None,\n                limit: None,\n                locking: None,\n            },\n        ),\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..19,\n    sql_segment: \"MATERIALIZED\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..19,\n    sql_segment: \"MATERIALIZED\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1692,7 +1692,7 @@
     "input": "CREATE OPERATOR != (FUNCTION = func)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1700,7 +1700,7 @@
     "input": "CREATE OPERATOR + ()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1709,7 +1709,7 @@
     "input": "CREATE OPERATOR + (FUNCTION = f, COMMUTATOR = >, NEGATOR = >=)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1717,7 +1717,7 @@
     "input": "CREATE OPERATOR + (FUNCTION = f, COMMUTATOR = OPERATOR(>), NEGATOR = OPERATOR(>=))",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1725,7 +1725,7 @@
     "input": "CREATE OPERATOR + (FUNCTION = f, {field})",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1733,7 +1733,7 @@
     "input": "CREATE OPERATOR + (LEFTARG = INT4)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1741,7 +1741,7 @@
     "input": "CREATE OPERATOR <> (FUNCTION = func)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1749,7 +1749,7 @@
     "input": "CREATE OPERATOR > (()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1758,7 +1758,7 @@
     "input": "CREATE OPERATOR > ())",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1767,7 +1767,7 @@
     "input": "CREATE OPERATOR CLASS CAS_btree_ops DEFAULT FOR TYPE CAS USING btree FAMILY CAS_btree_ops AS OPERATOR 1 <, OPERATOR 2 <=, OPERATOR 3 =, OPERATOR 4 >=, OPERATOR 5 >, FUNCTION 1 cas_cmp(CAS, CAS)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 57..62,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1776,7 +1776,7 @@
     "input": "CREATE OPERATOR CLASS gist_ops FOR TYPE geometry USING gist AS OPERATOR 1 <<, FUNCTION 1 gist_consistent(internal, geometry, INT4), STORAGE box",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 49..54,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -1785,7 +1785,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 (INT4, INT4) btcmp(INT4, INT4)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1795,7 +1795,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 cas_cmp(()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1806,7 +1806,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 my_func",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1816,7 +1816,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 my_func()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1827,7 +1827,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING gist AS OPERATOR 1 < (INT4, INT4)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1837,7 +1837,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING gist AS OPERATOR 1 < FOR SEARCH",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1847,7 +1847,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING gist AS OPERATOR 2 <<-> FOR ORDER BY float_ops",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1857,7 +1857,7 @@
     "input": "CREATE OPERATOR CLASS {class_name} {default_clause}FOR TYPE INT4 USING btree{family_clause} AS OPERATOR 1 <",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 60..64,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 65..70,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
@@ -1867,7 +1867,7 @@
     "input": "CREATE OPERATOR FAMILY my_family USING {index_method}",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1875,7 +1875,7 @@
     "input": "CREATE OPERATOR FAMILY myschema.test_family USING {index_method}",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1883,7 +1883,7 @@
     "input": "CREATE OPERATOR myschema.@@ (PROCEDURE = myschema.my_proc, LEFTARG = TIMESTAMP WITH TIME ZONE, RIGHTARG = VARCHAR(255), COMMUTATOR = schema.>, NEGATOR = schema.<=, RESTRICT = myschema.sel_func, JOIN = myschema.join_func, HASHES, MERGES)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1891,7 +1891,7 @@
     "input": "CREATE OPERATOR {name} (FUNCTION = f)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1899,7 +1899,7 @@
     "input": "CREATE OPERATOR {op_symbol} (FUNCTION = f)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2014,41 +2014,29 @@
   },
   {
     "input": "CREATE ROLE IF NOT EXISTS mysql_a, mysql_b",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateRole(\n    CreateRole {\n        create_span: 0..6,\n        role_span: 7..11,\n        if_not_exists: Some(\n            12..25,\n        ),\n        role_names: [\n            Identifier {\n                value: \"mysql_a\",\n                span: 26..33,\n            },\n            Identifier {\n                value: \"mysql_b\",\n                span: 35..42,\n            },\n        ],\n        with_span: None,\n        options: [],\n        memberships: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE ROLE abc LOGIN PASSWORD NULL",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateRole(\n    CreateRole {\n        create_span: 0..6,\n        role_span: 7..11,\n        if_not_exists: None,\n        role_names: [\n            Identifier {\n                value: \"abc\",\n                span: 12..15,\n            },\n        ],\n        with_span: None,\n        options: [\n            Login(\n                16..21,\n            ),\n            PasswordNull(\n                22..30,\n            ),\n        ],\n        memberships: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE ROLE abc WITH LOGIN PASSWORD NULL",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateRole(\n    CreateRole {\n        create_span: 0..6,\n        role_span: 7..11,\n        if_not_exists: None,\n        role_names: [\n            Identifier {\n                value: \"abc\",\n                span: 12..15,\n            },\n        ],\n        with_span: Some(\n            16..20,\n        ),\n        options: [\n            Login(\n                21..26,\n            ),\n            PasswordNull(\n                27..35,\n            ),\n        ],\n        memberships: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE ROLE abc WITH USER foo, bar ROLE baz",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateRole(\n    CreateRole {\n        create_span: 0..6,\n        role_span: 7..11,\n        if_not_exists: None,\n        role_names: [\n            Identifier {\n                value: \"abc\",\n                span: 12..15,\n            },\n        ],\n        with_span: Some(\n            16..20,\n        ),\n        options: [],\n        memberships: [\n            RoleMembership {\n                type_: User(\n                    21..25,\n                ),\n                roles: [\n                    Identifier {\n                        value: \"foo\",\n                        span: 26..29,\n                    },\n                    Identifier {\n                        value: \"bar\",\n                        span: 31..34,\n                    },\n                ],\n            },\n            RoleMembership {\n                type_: Role(\n                    35..39,\n                ),\n                roles: [\n                    Identifier {\n                        value: \"baz\",\n                        span: 40..43,\n                    },\n                ],\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE ROLE abc {negatable_kw} NO{negatable_kw}",
-    "output": null,
+    "output": "CreateRole(\n    CreateRole {\n        create_span: 0..6,\n        role_span: 7..11,\n        if_not_exists: None,\n        role_names: [\n            Identifier {\n                value: \"abc\",\n                span: 12..15,\n            },\n        ],\n        with_span: None,\n        options: [],\n        memberships: [],\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 16..17,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2056,7 +2044,7 @@
     "input": "CREATE ROLE magician WITH SUPERUSER CREATEROLE NOCREATEDB BYPASSRLS INHERIT PASSWORD 'abcdef' LOGIN VALID UNTIL '2025-01-01' IN ROLE role1, role2 ROLE role3 ADMIN role4, role5 REPLICATION",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 100..105,\n    sql_segment: \"VALID\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2069,7 +2057,7 @@
     "input": "CREATE SEQUENCE  IF NOT EXISTS  name0",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2077,7 +2065,7 @@
     "input": "CREATE SEQUENCE  name0",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2085,7 +2073,7 @@
     "input": "CREATE SEQUENCE IF NOT EXISTS name0",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2093,7 +2081,7 @@
     "input": "CREATE SEQUENCE IF NOT EXISTS name2 AS BIGINT INCREMENT 1 MINVALUE 1 MAXVALUE 20 START WITH 10 CACHE 2 NO CYCLE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2101,7 +2089,7 @@
     "input": "CREATE SEQUENCE foo INCREMENT 1 NO MINVALUE NO",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2109,7 +2097,7 @@
     "input": "CREATE SEQUENCE name0",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2117,7 +2105,7 @@
     "input": "CREATE SEQUENCE name4 AS BIGINT INCREMENT -15 MINVALUE -2000 MAXVALUE -50 START WITH -60",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2125,7 +2113,7 @@
     "input": "CREATE SEQUENCE name5 AS BIGINT INCREMENT +10 MINVALUE +30 MAXVALUE +5000 START WITH +45",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..15,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2133,7 +2121,7 @@
     "input": "CREATE SERVER IF NOT EXISTS myserver TYPE 'server_type' VERSION 'server_version' FOREIGN DATA WRAPPER postgres_fdw",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"SERVER\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..13,\n    sql_segment: \"SERVER\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 42..55,\n    sql_segment: \"'server_type'\",\n    fragments: [],\n}"
     ],
     "failure": true
@@ -2142,7 +2130,7 @@
     "input": "CREATE SERVER myserver FOREIGN DATA WRAPPER postgres_fdw",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"SERVER\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..13,\n    sql_segment: \"SERVER\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2150,7 +2138,7 @@
     "input": "CREATE SERVER myserver2 FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host 'foo', dbname 'foodb', port '5432')",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"SERVER\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 7..13,\n    sql_segment: \"SERVER\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2534,7 +2522,7 @@
     "input": "CREATE TEMPORARY SEQUENCE  IF NOT EXISTS  name0",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2542,7 +2530,7 @@
     "input": "CREATE TEMPORARY SEQUENCE  name0",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2550,7 +2538,7 @@
     "input": "CREATE TEMPORARY SEQUENCE IF NOT EXISTS name0",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2558,7 +2546,7 @@
     "input": "CREATE TEMPORARY SEQUENCE IF NOT EXISTS name1 AS BIGINT INCREMENT BY 1 MINVALUE 1 MAXVALUE 20 START WITH 10",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2566,7 +2554,7 @@
     "input": "CREATE TEMPORARY SEQUENCE IF NOT EXISTS name3 INCREMENT 1 NO MINVALUE MAXVALUE 20 CACHE 2 CYCLE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2574,7 +2562,7 @@
     "input": "CREATE TEMPORARY SEQUENCE IF NOT EXISTS name3 INCREMENT 1 NO MINVALUE MAXVALUE 20 OWNED BY NONE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2582,7 +2570,7 @@
     "input": "CREATE TEMPORARY SEQUENCE IF NOT EXISTS name3 INCREMENT 1 NO MINVALUE MAXVALUE 20 OWNED BY public.table01",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2590,7 +2578,7 @@
     "input": "CREATE TEMPORARY SEQUENCE name0",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'' here\",\n    span: 17..25,\n    sql_segment: \"SEQUENCE\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
