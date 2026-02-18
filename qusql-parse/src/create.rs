@@ -2040,6 +2040,320 @@ impl Spanned for CreateDatabaseOption<'_> {
     }
 }
 
+/// Role option for CREATE ROLE / ALTER ROLE
+#[derive(Clone, Debug)]
+pub enum RoleOption<'a> {
+    SuperUser(Span),
+    NoSuperUser(Span),
+    CreateDb(Span),
+    NoCreateDb(Span),
+    CreateRole(Span),
+    NoCreateRole(Span),
+    Inherit(Span),
+    NoInherit(Span),
+    Login(Span),
+    NoLogin(Span),
+    Replication(Span),
+    NoReplication(Span),
+    BypassRls(Span),
+    NoBypassRls(Span),
+    ConnectionLimit(Span, Box<Expression<'a>>),
+    EncryptedPassword(Span, Box<Expression<'a>>),
+    Password(Span, Box<Expression<'a>>),
+    PasswordNull(Span),
+    ValidUntil(Span, Box<Expression<'a>>),
+    Sysid(Span, Box<Expression<'a>>),
+}
+
+impl<'a> Spanned for RoleOption<'a> {
+    fn span(&self) -> Span {
+        match self {
+            RoleOption::SuperUser(s) => s.span(),
+            RoleOption::NoSuperUser(s) => s.span(),
+            RoleOption::CreateDb(s) => s.span(),
+            RoleOption::NoCreateDb(s) => s.span(),
+            RoleOption::CreateRole(s) => s.span(),
+            RoleOption::NoCreateRole(s) => s.span(),
+            RoleOption::Inherit(s) => s.span(),
+            RoleOption::NoInherit(s) => s.span(),
+            RoleOption::Login(s) => s.span(),
+            RoleOption::NoLogin(s) => s.span(),
+            RoleOption::Replication(s) => s.span(),
+            RoleOption::NoReplication(s) => s.span(),
+            RoleOption::BypassRls(s) => s.span(),
+            RoleOption::NoBypassRls(s) => s.span(),
+            RoleOption::ConnectionLimit(s, e) => s.join_span(e.as_ref()),
+            RoleOption::EncryptedPassword(s, e) => s.join_span(e.as_ref()),
+            RoleOption::Password(s, e) => s.join_span(e.as_ref()),
+            RoleOption::PasswordNull(s) => s.span(),
+            RoleOption::ValidUntil(s, e) => s.join_span(e.as_ref()),
+            RoleOption::Sysid(s, e) => s.join_span(e.as_ref()),
+        }
+    }
+}
+
+/// Role membership type for CREATE ROLE
+#[derive(Clone, Debug)]
+pub enum RoleMembershipType {
+    User(Span),
+    Role(Span),
+    Admin(Span),
+    InRole(Span),
+}
+
+impl Spanned for RoleMembershipType {
+    fn span(&self) -> Span {
+        match self {
+            RoleMembershipType::User(s) => s.span(),
+            RoleMembershipType::Role(s) => s.span(),
+            RoleMembershipType::Admin(s) => s.span(),
+            RoleMembershipType::InRole(s) => s.span(),
+        }
+    }
+}
+
+/// Role membership clause in CREATE ROLE
+#[derive(Clone, Debug)]
+pub struct RoleMembership<'a> {
+    pub type_: RoleMembershipType,
+    pub roles: Vec<Identifier<'a>>,
+}
+
+impl<'a> Spanned for RoleMembership<'a> {
+    fn span(&self) -> Span {
+        self.type_.join_span(&self.roles)
+    }
+}
+
+/// CREATE ROLE statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct CreateRole<'a> {
+    /// Span of "CREATE"
+    pub create_span: Span,
+    /// Span of "ROLE"
+    pub role_span: Span,
+    /// Span of "IF NOT EXISTS" if specified
+    pub if_not_exists: Option<Span>,
+    /// Names of the roles to create
+    pub role_names: Vec<Identifier<'a>>,
+    /// Optional WITH keyword span
+    pub with_span: Option<Span>,
+    /// Role options
+    pub options: Vec<RoleOption<'a>>,
+    /// Role membership clauses (USER, ROLE, ADMIN, IN ROLE)
+    pub memberships: Vec<RoleMembership<'a>>,
+}
+
+impl<'a> Spanned for CreateRole<'a> {
+    fn span(&self) -> Span {
+        self.create_span
+            .join_span(&self.role_span)
+            .join_span(&self.if_not_exists)
+            .join_span(&self.role_names)
+            .join_span(&self.with_span)
+            .join_span(&self.options)
+            .join_span(&self.memberships)
+    }
+}
+
+fn parse_create_role<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<Statement<'a>, ParseError> {
+    let role_span = parser.consume_keyword(Keyword::ROLE)?;
+    parser.postgres_only(&role_span);
+
+    for option in create_options {
+        parser.err("Not supported for CREATE ROLE", &option.span());
+    }
+
+    let if_not_exists = if let Some(if_span) = parser.skip_keyword(Keyword::IF) {
+        Some(
+            parser
+                .consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?
+                .join_span(&if_span),
+        )
+    } else {
+        None
+    };
+
+    // Parse role names (comma-separated list)
+    let mut role_names = Vec::new();
+    loop {
+        role_names.push(parser.consume_plain_identifier()?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+
+    // Optional WITH keyword
+    let with_span = parser.skip_keyword(Keyword::WITH);
+
+    // Parse options and memberships
+    let mut options = Vec::new();
+    let mut memberships = Vec::new();
+
+    loop {
+        match &parser.token {
+            // Membership clauses
+            Token::Ident(_, Keyword::USER) => {
+                let user_span = parser.consume_keyword(Keyword::USER)?;
+                let mut roles = Vec::new();
+                loop {
+                    roles.push(parser.consume_plain_identifier()?);
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                memberships.push(RoleMembership {
+                    type_: RoleMembershipType::User(user_span),
+                    roles,
+                });
+            }
+            Token::Ident(_, Keyword::ROLE) => {
+                let role_span = parser.consume_keyword(Keyword::ROLE)?;
+                let mut roles = Vec::new();
+                loop {
+                    roles.push(parser.consume_plain_identifier()?);
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                memberships.push(RoleMembership {
+                    type_: RoleMembershipType::Role(role_span),
+                    roles,
+                });
+            }
+            Token::Ident(_, Keyword::ADMIN) => {
+                let admin_span = parser.consume_keyword(Keyword::ADMIN)?;
+                let mut roles = Vec::new();
+                loop {
+                    roles.push(parser.consume_plain_identifier()?);
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                memberships.push(RoleMembership {
+                    type_: RoleMembershipType::Admin(admin_span),
+                    roles,
+                });
+            }
+            Token::Ident(_, Keyword::IN) => {
+                let in_role_span = parser.consume_keywords(&[Keyword::IN, Keyword::ROLE])?;
+                let mut roles = Vec::new();
+                loop {
+                    roles.push(parser.consume_plain_identifier()?);
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                memberships.push(RoleMembership {
+                    type_: RoleMembershipType::InRole(in_role_span),
+                    roles,
+                });
+            }
+            // Role options
+            Token::Ident(_, Keyword::SUPERUSER) => {
+                let span = parser.consume_keyword(Keyword::SUPERUSER)?;
+                options.push(RoleOption::SuperUser(span));
+            }
+            Token::Ident(_, Keyword::NOSUPERUSER) => {
+                let span = parser.consume_keyword(Keyword::NOSUPERUSER)?;
+                options.push(RoleOption::NoSuperUser(span));
+            }
+            Token::Ident(_, Keyword::CREATEDB) => {
+                let span = parser.consume_keyword(Keyword::CREATEDB)?;
+                options.push(RoleOption::CreateDb(span));
+            }
+            Token::Ident(_, Keyword::NOCREATEDB) => {
+                let span = parser.consume_keyword(Keyword::NOCREATEDB)?;
+                options.push(RoleOption::NoCreateDb(span));
+            }
+            Token::Ident(_, Keyword::CREATEROLE) => {
+                let span = parser.consume_keyword(Keyword::CREATEROLE)?;
+                options.push(RoleOption::CreateRole(span));
+            }
+            Token::Ident(_, Keyword::NOCREATEROLE) => {
+                let span = parser.consume_keyword(Keyword::NOCREATEROLE)?;
+                options.push(RoleOption::NoCreateRole(span));
+            }
+            Token::Ident(_, Keyword::INHERIT) => {
+                let span = parser.consume_keyword(Keyword::INHERIT)?;
+                options.push(RoleOption::Inherit(span));
+            }
+            Token::Ident(_, Keyword::NOINHERIT) => {
+                let span = parser.consume_keyword(Keyword::NOINHERIT)?;
+                options.push(RoleOption::NoInherit(span));
+            }
+            Token::Ident(_, Keyword::LOGIN) => {
+                let span = parser.consume_keyword(Keyword::LOGIN)?;
+                options.push(RoleOption::Login(span));
+            }
+            Token::Ident(_, Keyword::NOLOGIN) => {
+                let span = parser.consume_keyword(Keyword::NOLOGIN)?;
+                options.push(RoleOption::NoLogin(span));
+            }
+            Token::Ident(_, Keyword::REPLICATION) => {
+                let span = parser.consume_keyword(Keyword::REPLICATION)?;
+                options.push(RoleOption::Replication(span));
+            }
+            Token::Ident(_, Keyword::NOREPLICATION) => {
+                let span = parser.consume_keyword(Keyword::NOREPLICATION)?;
+                options.push(RoleOption::NoReplication(span));
+            }
+            Token::Ident(_, Keyword::BYPASSRLS) => {
+                let span = parser.consume_keyword(Keyword::BYPASSRLS)?;
+                options.push(RoleOption::BypassRls(span));
+            }
+            Token::Ident(_, Keyword::NOBYPASSRLS) => {
+                let span = parser.consume_keyword(Keyword::NOBYPASSRLS)?;
+                options.push(RoleOption::NoBypassRls(span));
+            }
+            Token::Ident(_, Keyword::CONNECTION) => {
+                let span = parser.consume_keywords(&[Keyword::CONNECTION, Keyword::LIMIT])?;
+                let expr = parse_expression(parser, false)?;
+                options.push(RoleOption::ConnectionLimit(span, Box::new(expr)));
+            }
+            Token::Ident(_, Keyword::ENCRYPTED) => {
+                let span = parser.consume_keywords(&[Keyword::ENCRYPTED, Keyword::PASSWORD])?;
+                let expr = parse_expression(parser, false)?;
+                options.push(RoleOption::EncryptedPassword(span, Box::new(expr)));
+            }
+            Token::Ident(_, Keyword::PASSWORD) => {
+                let password_span = parser.consume_keyword(Keyword::PASSWORD)?;
+                if parser.skip_keyword(Keyword::NULL).is_some() {
+                    options.push(RoleOption::PasswordNull(password_span));
+                } else {
+                    let expr = parse_expression(parser, false)?;
+                    options.push(RoleOption::Password(password_span, Box::new(expr)));
+                }
+            }
+            Token::Ident(_, Keyword::VALID) => {
+                let span = parser.consume_keywords(&[Keyword::VALID, Keyword::UNTIL])?;
+                let expr = parse_expression(parser, false)?;
+                options.push(RoleOption::ValidUntil(span, Box::new(expr)));
+            }
+            Token::Ident(_, Keyword::SYSID) => {
+                let sysid_span = parser.consume_keyword(Keyword::SYSID)?;
+                let expr = parse_expression(parser, false)?;
+                options.push(RoleOption::Sysid(sysid_span, Box::new(expr)));
+            }
+            _ => break,
+        }
+    }
+
+    Ok(Statement::CreateRole(CreateRole {
+        create_span,
+        role_span,
+        if_not_exists,
+        role_names,
+        with_span,
+        options,
+        memberships,
+    }))
+}
+
 #[derive(Clone, Debug)]
 pub struct CreateDatabase<'a> {
     /// Span of "CREATE"
@@ -2151,8 +2465,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
     parser.consume_keyword(Keyword::CREATE)?;
 
     let mut create_options = Vec::new();
-    const CREATABLE: &str =
-        "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'";
+    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'ROLE'";
 
     parser.recovered(
         CREATABLE,
@@ -2169,6 +2482,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         | Keyword::TYPE
                         | Keyword::DATABASE
                         | Keyword::SCHEMA
+                        | Keyword::ROLE
                 )
             )
         },
@@ -2268,6 +2582,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
             parse_create_trigger(parser, create_span, create_options)
         }
         Token::Ident(_, Keyword::TYPE) => parse_create_type(parser, create_span, create_options),
+        Token::Ident(_, Keyword::ROLE) => parse_create_role(parser, create_span, create_options),
         _ => parser.expected_failure(CREATABLE),
     }
 }

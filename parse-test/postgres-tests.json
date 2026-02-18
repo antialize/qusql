@@ -2014,41 +2014,29 @@
   },
   {
     "input": "CREATE ROLE IF NOT EXISTS mysql_a, mysql_b",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateRole(\n    CreateRole {\n        create_span: 0..6,\n        role_span: 7..11,\n        if_not_exists: Some(\n            12..25,\n        ),\n        role_names: [\n            Identifier {\n                value: \"mysql_a\",\n                span: 26..33,\n            },\n            Identifier {\n                value: \"mysql_b\",\n                span: 35..42,\n            },\n        ],\n        with_span: None,\n        options: [],\n        memberships: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE ROLE abc LOGIN PASSWORD NULL",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateRole(\n    CreateRole {\n        create_span: 0..6,\n        role_span: 7..11,\n        if_not_exists: None,\n        role_names: [\n            Identifier {\n                value: \"abc\",\n                span: 12..15,\n            },\n        ],\n        with_span: None,\n        options: [\n            Login(\n                16..21,\n            ),\n            PasswordNull(\n                22..30,\n            ),\n        ],\n        memberships: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE ROLE abc WITH LOGIN PASSWORD NULL",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateRole(\n    CreateRole {\n        create_span: 0..6,\n        role_span: 7..11,\n        if_not_exists: None,\n        role_names: [\n            Identifier {\n                value: \"abc\",\n                span: 12..15,\n            },\n        ],\n        with_span: Some(\n            16..20,\n        ),\n        options: [\n            Login(\n                21..26,\n            ),\n            PasswordNull(\n                27..35,\n            ),\n        ],\n        memberships: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE ROLE abc WITH USER foo, bar ROLE baz",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateRole(\n    CreateRole {\n        create_span: 0..6,\n        role_span: 7..11,\n        if_not_exists: None,\n        role_names: [\n            Identifier {\n                value: \"abc\",\n                span: 12..15,\n            },\n        ],\n        with_span: Some(\n            16..20,\n        ),\n        options: [],\n        memberships: [\n            RoleMembership {\n                type_: User(\n                    21..25,\n                ),\n                roles: [\n                    Identifier {\n                        value: \"foo\",\n                        span: 26..29,\n                    },\n                    Identifier {\n                        value: \"bar\",\n                        span: 31..34,\n                    },\n                ],\n            },\n            RoleMembership {\n                type_: Role(\n                    35..39,\n                ),\n                roles: [\n                    Identifier {\n                        value: \"baz\",\n                        span: 40..43,\n                    },\n                ],\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE ROLE abc {negatable_kw} NO{negatable_kw}",
-    "output": null,
+    "output": "CreateRole(\n    CreateRole {\n        create_span: 0..6,\n        role_span: 7..11,\n        if_not_exists: None,\n        role_names: [\n            Identifier {\n                value: \"abc\",\n                span: 12..15,\n            },\n        ],\n        with_span: None,\n        options: [],\n        memberships: [],\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 16..17,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2056,7 +2044,7 @@
     "input": "CREATE ROLE magician WITH SUPERUSER CREATEROLE NOCREATEDB BYPASSRLS INHERIT PASSWORD 'abcdef' LOGIN VALID UNTIL '2025-01-01' IN ROLE role1, role2 ROLE role3 ADMIN role4, role5 REPLICATION",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..11,\n    sql_segment: \"ROLE\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 100..105,\n    sql_segment: \"VALID\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
