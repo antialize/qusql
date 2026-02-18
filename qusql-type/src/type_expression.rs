@@ -419,6 +419,7 @@ pub(crate) fn type_expression<'a>(
                             | qusql_parse::Type::Bit(_, _)
                             | qusql_parse::Type::Bytea
                             | qusql_parse::Type::Named(_) // TODO lookup name
+                            | qusql_parse::Type::Array(_, _)
                             | qusql_parse::Type::VarBinary(_) => {
                                 typer
                                     .err("Type not allow in cast", type_);

@@ -262,6 +262,7 @@ pub(crate) fn parse_column<'a>(
         qusql_parse::Type::Named(_) => BaseType::String.into(), // TODO lookup name??
         qusql_parse::Type::Inet4 => BaseType::String.into(),
         qusql_parse::Type::Inet6 => BaseType::String.into(),
+        qusql_parse::Type::Array(_, _) => todo!("Array type not yet implemented"),
     };
 
     Column {

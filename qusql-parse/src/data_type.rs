@@ -125,6 +125,7 @@ pub enum Type<'a> {
     Bytea,
     Inet4,
     Inet6,
+    Array(Box<Type<'a>>, Span),
 }
 
 impl<'a> OptSpanned for Type<'a> {
@@ -167,6 +168,7 @@ impl<'a> OptSpanned for Type<'a> {
             Type::Bytea => None,
             Type::Inet4 => None,
             Type::Inet6 => None,
+            Type::Array(inner, span) => Some(span.join_span(inner.as_ref())),
         }
     }
 }
@@ -417,6 +419,21 @@ pub(crate) fn parse_data_type<'a>(
         }
         _ => parser.expected_failure("type")?,
     };
+
+    // Check for PostgreSQL array type syntax: TYPE[]
+    let (identifier, type_) =
+        if parser.options.dialect.is_postgresql() && matches!(parser.token, Token::LBracket) {
+            let lbracket = parser.consume_token(Token::LBracket)?;
+            let rbracket = parser.consume_token(Token::RBracket)?;
+            let array_span = lbracket.join_span(&rbracket);
+            (
+                identifier.join_span(&array_span),
+                Type::Array(Box::new(type_), array_span),
+            )
+        } else {
+            (identifier, type_)
+        };
+
     let mut properties = Vec::new();
     loop {
         match parser.token {
