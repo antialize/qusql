@@ -95,6 +95,117 @@ impl Spanned for MyStruct {
 
 This pattern ensures you always have a valid span to start with and can cleanly chain optional spans.
 
+### Dialect-Specific Features
+
+Parse syntax unconditionally, then emit errors conditionally based on dialect:
+
+```rust
+// Preferred - parse first, validate later
+let truncate_span = parser.consume_keyword(Keyword::TRUNCATE)?;
+let restart_span = parser.consume_keywords(&[Keyword::RESTART, Keyword::IDENTITY])?;
+parser.postgres_only(&restart_span);  // Error only if not PostgreSQL
+
+// Avoid - checking dialect before parsing
+if parser.options.dialect.is_postgresql() {
+    // Parse RESTART IDENTITY
+}
+```
+
+This approach:
+- Produces better error messages showing what was parsed
+- Keeps parsing logic simpler and more uniform
+- Makes it easier to test syntax without dialect restrictions
+
+### Enum Changes and Pattern Matching
+
+When changing enum variants (e.g., tuple to struct variant), update ALL pattern matches across the codebase:
+
+```rust
+// Changed enum
+pub enum CreateOption {
+    Temporary { local_span: Option<Span>, temporary_span: Span },  // Was: Temporary(Span)
+}
+
+// Must update all matches, including in other crates:
+// - qusql-parse/src/create.rs
+// - qusql-type/src/schema.rs
+// - Any other files that match on this enum
+```
+
+Use `cargo build --all` to find all compilation errors after enum changes.
+
+### Exporting New Types
+
+When adding new public types, remember to export them in `lib.rs`:
+
+```rust
+// In qusql-parse/src/lib.rs
+pub use truncate::{CascadeOption, IdentityOption, TruncateTable, TruncateTableSpec};
+pub use create::CreateOption;  // If variants changed
+```
+
+### Error Recovery
+
+Use `parser.recovered()` to parse within expected boundaries and provide better error messages:
+
+```rust
+parser.recovered(
+    "')' or ','",  // What we're looking for
+    &|t| matches!(t, Token::RParen | Token::Comma),  // Stop conditions
+    |parser| {
+        // Parse content
+        let value = parser.consume_string()?;
+        values.push(value);
+        Ok(())
+    },
+)?;
+```
+
+This allows the parser to skip malformed input and continue parsing.
+
+## Common Patterns
+
+### Adding Keywords
+
+1. Add to `qusql-parse/src/keywords.rs` in alphabetical order
+2. Use in parser with `Token::Ident(_, Keyword::YOUR_KEYWORD)`
+3. Consume with `parser.consume_keyword(Keyword::YOUR_KEYWORD)?`
+
+### Adding New Statement Types
+
+1. Define struct in appropriate file (e.g., `create.rs`, `select.rs`)
+2. Add variant to `Statement` enum in `statement.rs`
+3. Implement `Spanned` trait
+4. Add parsing function `parse_your_statement()`
+5. Export types in `lib.rs`
+6. Add tests to `parse-test/postgres-tests.json` or `mysql-tests.json`
+
+## Troubleshooting
+
+### "Expected tuple struct or tuple variant" Error
+
+This means an enum variant changed from tuple to struct form. Update the pattern match:
+
+```rust
+// Old: Temporary(span)
+// New: Temporary { local_span, temporary_span }
+```
+
+### Tests Showing "failure: true"
+
+Run with `--update-output` to see the actual output, then decide if it's correct:
+
+```bash
+python3 test.py test-postgresql --update-output --filter "YOUR SQL"
+```
+
+### Clippy Warnings
+
+Fix before committing:
+- Unused imports: Remove them
+- Collapsible if statements: Use `if let` chains or `&&`
+- Empty line after doc comment: Remove the empty line
+
 ## Git Workflow
 
 When making changes, prefer multiple focused commits over one large commit:
