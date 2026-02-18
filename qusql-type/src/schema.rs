@@ -258,6 +258,7 @@ pub(crate) fn parse_column<'a>(
         qusql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
         qusql_parse::Type::Json => BaseType::String.into(),
         qusql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
+        qusql_parse::Type::VarBit(_) => BaseType::Bytes.into(),
         qusql_parse::Type::Bytea => BaseType::Bytes.into(),
         qusql_parse::Type::Named(_) => BaseType::String.into(), // TODO lookup name??
         qusql_parse::Type::Inet4 => BaseType::String.into(),
