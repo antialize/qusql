@@ -366,7 +366,13 @@ impl Spanned for CreateAlgorithm {
 #[derive(Clone, Debug)]
 pub enum CreateOption<'a> {
     OrReplace(Span),
-    Temporary(Span),
+    /// TEMPORARY or LOCAL TEMPORARY (PostgreSQL)
+    Temporary {
+        local_span: Option<Span>,
+        temporary_span: Span,
+    },
+    /// MATERIALIZED (for VIEWs, PostgreSQL)
+    Materialized(Span),
     Unique(Span),
     Algorithm(Span, CreateAlgorithm),
     Definer {
@@ -382,7 +388,11 @@ impl<'a> Spanned for CreateOption<'a> {
     fn span(&self) -> Span {
         match &self {
             CreateOption::OrReplace(v) => v.span(),
-            CreateOption::Temporary(v) => v.span(),
+            CreateOption::Temporary {
+                local_span,
+                temporary_span,
+            } => temporary_span.join_span(local_span),
+            CreateOption::Materialized(v) => v.span(),
             CreateOption::Algorithm(s, a) => s.join_span(a),
             CreateOption::Definer {
                 definer_span,
@@ -2627,8 +2637,11 @@ fn parse_create_sequence<'a>(
     let mut temporary = None;
     for option in create_options {
         match option {
-            CreateOption::Temporary(span) => {
-                temporary = Some(span);
+            CreateOption::Temporary {
+                local_span,
+                temporary_span,
+            } => {
+                temporary = Some(temporary_span.join_span(&local_span));
             }
             _ => {
                 parser.err("Not supported for CREATE SEQUENCE", &option.span());
@@ -2866,6 +2879,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                 Token::Ident(
                     _,
                     Keyword::TABLE
+                        | Keyword::MATERIALIZED
                         | Keyword::VIEW
                         | Keyword::TRIGGER
                         | Keyword::FUNCTION
@@ -2885,8 +2899,22 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                     Token::Ident(_, Keyword::OR) => CreateOption::OrReplace(
                         parser.consume_keywords(&[Keyword::OR, Keyword::REPLACE])?,
                     ),
+                    Token::Ident(_, Keyword::LOCAL) => {
+                        // LOCAL TEMPORARY
+                        let local_span = parser.consume_keyword(Keyword::LOCAL)?;
+                        parser.postgres_only(&local_span);
+                        let temporary_span = parser.consume_keyword(Keyword::TEMPORARY)?;
+                        CreateOption::Temporary {
+                            local_span: Some(local_span),
+                            temporary_span,
+                        }
+                    }
                     Token::Ident(_, Keyword::TEMPORARY) => {
-                        CreateOption::Temporary(parser.consume_keyword(Keyword::TEMPORARY)?)
+                        let temporary_span = parser.consume_keyword(Keyword::TEMPORARY)?;
+                        CreateOption::Temporary {
+                            local_span: None,
+                            temporary_span,
+                        }
                     }
                     Token::Ident(_, Keyword::UNIQUE) => {
                         CreateOption::Unique(parser.consume_keyword(Keyword::UNIQUE)?)
@@ -2964,6 +2992,14 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
     match &parser.token {
         Token::Ident(_, Keyword::INDEX) => parse_create_index(parser, create_span, create_options),
         Token::Ident(_, Keyword::TABLE) => parse_create_table(parser, create_span, create_options),
+        Token::Ident(_, Keyword::MATERIALIZED) => {
+            // MATERIALIZED VIEW
+            let materialized_span = parser.consume_keyword(Keyword::MATERIALIZED)?;
+            parser.postgres_only(&materialized_span);
+            // Don't consume VIEW here, parse_create_view will do it
+            create_options.push(CreateOption::Materialized(materialized_span));
+            parse_create_view(parser, create_span, create_options)
+        }
         Token::Ident(_, Keyword::VIEW) => parse_create_view(parser, create_span, create_options),
         Token::Ident(_, Keyword::DATABASE) => {
             parse_create_database(parser, create_span, create_options)

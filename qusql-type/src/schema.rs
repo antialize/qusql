@@ -328,7 +328,10 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateOption::OrReplace(_) => {
                             replace = true;
                         }
-                        qusql_parse::CreateOption::Temporary(s) => {
+                        qusql_parse::CreateOption::Temporary { temporary_span, .. } => {
+                            issues.err("Not supported", &temporary_span);
+                        }
+                        qusql_parse::CreateOption::Materialized(s) => {
                             issues.err("Not supported", &s);
                         }
                         qusql_parse::CreateOption::Unique(s) => {
@@ -390,7 +393,10 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateOption::OrReplace(_) => {
                             replace = true;
                         }
-                        qusql_parse::CreateOption::Temporary(s) => {
+                        qusql_parse::CreateOption::Temporary { temporary_span, .. } => {
+                            issues.err("Not supported", &temporary_span);
+                        }
+                        qusql_parse::CreateOption::Materialized(s) => {
                             issues.err("Not supported", &s);
                         }
                         qusql_parse::CreateOption::Unique(s) => {
