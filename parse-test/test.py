@@ -196,7 +196,33 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
         # Run the parser on this test case
         result = run_parser(test["input"], dialect)
 
-        if args.interactive:
+        if args.update_output:
+            # Update output mode: automatically update output and issues without user input
+            if result.returncode != 0:
+                print(f"Crash: {test['input'][:80]}")
+                test["failure"] = True
+                test.pop("output", None)
+                test.pop("issues", None)
+            else:
+                out = json.loads(result.stdout.decode())
+                # Update test output and issues
+                if "value" in out:
+                    test["output"] = out.get("value")
+                else:
+                    test.pop("output", None)
+                if "issues" in out:
+                    test["issues"] = out.get("issues", [])
+                else:
+                    test.pop("issues", None)
+
+                # Update failure flag based on parse success (but don't touch should_fail)
+                if out["success"]:
+                    test.pop("failure", None)
+                    print(f"Updated (success): {test['input'][:80]}")
+                else:
+                    test["failure"] = True
+                    print(f"Updated (failure): {test['input'][:80]}")
+        elif args.interactive:
             # Interactive mode: prompt user to update expected results
             if result.returncode != 0:
                 print(f"Input: {test['input']}")
@@ -280,8 +306,8 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
                 else:
                     print(f"Test passed in: '{inp}'")
 
-    # Save changes if in interactive mode
-    if args.interactive:
+    # Save changes if in interactive or update-output mode
+    if args.interactive or args.update_output:
         write_tests(tests_file, tests)
     else:
         print(f"\n{dialect_name} - Total failures: {failure_count} out of {len(tests)}")
@@ -321,6 +347,11 @@ if __name__ == "__main__":
         help="Update expected outputs for MySQL tests interactively",
     )
     test_mysql_args.add_argument(
+        "--update-output",
+        action="store_true",
+        help="Automatically update test outputs and issues without prompting",
+    )
+    test_mysql_args.add_argument(
         "--filter",
         type=str,
         help="Only run tests whose input contains this string",
@@ -340,6 +371,11 @@ if __name__ == "__main__":
         "--interactive",
         action="store_true",
         help="Update expected outputs for PostgreSQL tests interactively",
+    )
+    test_postgresql_args.add_argument(
+        "--update-output",
+        action="store_true",
+        help="Automatically update test outputs and issues without prompting",
     )
     test_postgresql_args.add_argument(
         "--filter",
