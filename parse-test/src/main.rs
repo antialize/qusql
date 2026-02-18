@@ -74,7 +74,11 @@ fn main() {
 
     let options = qusql_parse::ParseOptions::new()
         .dialect(map_dialect(args.dialect))
-        .arguments(qusql_parse::SQLArguments::QuestionMark);
+        .arguments(if matches!(args.dialect, DialectArg::Postgresql) {
+            qusql_parse::SQLArguments::Dollar
+        } else {
+            qusql_parse::SQLArguments::QuestionMark
+        });
     let mut issues = qusql_parse::Issues::new(&src);
 
     let value =
