@@ -414,12 +414,7 @@ pub(crate) fn parse_insert_replace<'a>(
                             break;
                         }
                     }
-                    if !parser.options.dialect.is_maria() {
-                        parser.err(
-                            "Only support by mariadb",
-                            &on_duplicate_key_update_span.join_span(&pairs),
-                        );
-                    }
+                    parser.maria_only(&on_duplicate_key_update_span.join_span(&pairs));
                     (
                         Some(InsertReplaceOnDuplicateKeyUpdate {
                             on_duplicate_key_update_span,
@@ -498,9 +493,7 @@ pub(crate) fn parse_insert_replace<'a>(
                         action,
                     };
 
-                    if !parser.options.dialect.is_postgresql() {
-                        parser.err("Only support by postgesql", &on_conflict);
-                    }
+                    parser.postgres_only(&on_conflict);
 
                     (None, Some(on_conflict))
                 }

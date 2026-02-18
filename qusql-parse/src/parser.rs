@@ -473,4 +473,18 @@ impl<'a, 'b> Parser<'a, 'b> {
     pub(crate) fn todo<T>(&mut self, file: &'static str, line: u32) -> Result<T, ParseError> {
         self.err_here(format!("Not yet implemented at {}:{}", file, line))
     }
+
+    /// Verify that the current dialect is PostgreSQL, emitting an error if not.
+    pub(crate) fn postgres_only(&mut self, span: &impl Spanned) {
+        if !self.options.dialect.is_postgresql() {
+            self.err("Only supported by PostgreSQL", span);
+        }
+    }
+
+    /// Verify that the current dialect is MariaDB/MySQL, emitting an error if not.
+    pub(crate) fn maria_only(&mut self, span: &impl Spanned) {
+        if !self.options.dialect.is_maria() {
+            self.err("Only supported by MariaDB", span);
+        }
+    }
 }
