@@ -17,7 +17,7 @@ use crate::{
     alter::{AlterRole, AlterTable, parse_alter},
     create::{
         CreateDatabase, CreateFunction, CreateIndex, CreateRole, CreateSchema, CreateSequence,
-        CreateTable, CreateTrigger, CreateTypeEnum, CreateView, parse_create,
+        CreateServer, CreateTable, CreateTrigger, CreateTypeEnum, CreateView, parse_create,
     },
     delete::{Delete, parse_delete},
     drop::{
@@ -401,6 +401,7 @@ pub enum Statement<'a> {
     CreateDatabase(CreateDatabase<'a>),
     CreateSchema(CreateSchema<'a>),
     CreateSequence(CreateSequence<'a>),
+    CreateServer(CreateServer<'a>),
     CreateRole(CreateRole<'a>),
     Select(Select<'a>),
     Delete(Delete<'a>),
@@ -466,6 +467,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::CreateDatabase(v) => v.span(),
             Statement::CreateSchema(v) => v.span(),
             Statement::CreateSequence(v) => v.span(),
+            Statement::CreateServer(v) => v.span(),
             Statement::CreateRole(v) => v.span(),
             Statement::Select(v) => v.span(),
             Statement::Delete(v) => v.span(),
