@@ -1618,43 +1618,31 @@
   },
   {
     "input": "SELECT CONVERT('abc', CHAR(60))",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..14,\n    sql_segment: \"CONVERT\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Convert {\n                    convert_span: 7..14,\n                    expr: String(\n                        SString {\n                            value: \"abc\",\n                            span: 15..20,\n                        },\n                    ),\n                    type_: Some(\n                        DataType {\n                            identifier: 22..26,\n                            type_: Char(\n                                Some(\n                                    (\n                                        60,\n                                        27..29,\n                                    ),\n                                ),\n                            ),\n                            properties: [],\n                        },\n                    ),\n                    using_charset: None,\n                },\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT CONVERT('test', CHAR CHARACTER SET utf8mb4)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..14,\n    sql_segment: \"CONVERT\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Convert {\n                    convert_span: 7..14,\n                    expr: String(\n                        SString {\n                            value: \"test\",\n                            span: 15..21,\n                        },\n                    ),\n                    type_: Some(\n                        DataType {\n                            identifier: 23..27,\n                            type_: Char(\n                                None,\n                            ),\n                            properties: [\n                                Charset(\n                                    Identifier {\n                                        value: \"utf8mb4\",\n                                        span: 42..49,\n                                    },\n                                ),\n                            ],\n                        },\n                    ),\n                    using_charset: None,\n                },\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT CONVERT('x' USING latin1)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..14,\n    sql_segment: \"CONVERT\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Convert {\n                    convert_span: 7..14,\n                    expr: String(\n                        SString {\n                            value: \"x\",\n                            span: 15..18,\n                        },\n                    ),\n                    type_: None,\n                    using_charset: Some(\n                        (\n                            25..31,\n                            Identifier {\n                                value: \"latin1\",\n                                span: 25..31,\n                            },\n                        ),\n                    ),\n                },\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT CONVERT(123.456, DECIMAL(5,2))",
-    "output": null,
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Invalid(\n                    7..14,\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..14,\n    sql_segment: \"CONVERT\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 24..31,\n    sql_segment: \"DECIMAL\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "SELECT CONVERT(my_column USING utf8mb4) FROM my_table",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..14,\n    sql_segment: \"CONVERT\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Convert {\n                    convert_span: 7..14,\n                    expr: Identifier(\n                        [\n                            Name(\n                                Identifier {\n                                    value: \"my_column\",\n                                    span: 15..24,\n                                },\n                            ),\n                        ],\n                    ),\n                    type_: None,\n                    using_charset: Some(\n                        (\n                            31..38,\n                            Identifier {\n                                value: \"utf8mb4\",\n                                span: 31..38,\n                            },\n                        ),\n                    ),\n                },\n                as_: None,\n            },\n        ],\n        from_span: Some(\n            40..44,\n        ),\n        table_references: Some(\n            [\n                Table {\n                    identifier: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"my_table\",\n                            span: 45..53,\n                        },\n                    },\n                    as_span: None,\n                    as_: None,\n                    index_hints: [],\n                },\n            ],\n        ),\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT COUNT(IF(MATCH (title, body) AGAINST ('database' IN NATURAL LANGUAGE MODE), 1, NULL)) AS count FROM articles",

@@ -530,6 +530,17 @@ pub enum Expression<'a> {
         /// Type to cast to
         type_: DataType<'a>,
     },
+    /// Convert expression (CONVERT(expr, type) or CONVERT(expr USING charset))
+    Convert {
+        /// Span of "CONVERT"
+        convert_span: Span,
+        /// Value to convert
+        expr: Box<Expression<'a>>,
+        /// Type to convert to (for CONVERT(expr, type))
+        type_: Option<DataType<'a>>,
+        /// Charset (for CONVERT(expr USING charset))
+        using_charset: Option<(Span, Identifier<'a>)>,
+    },
     /// Count expression
     Count {
         /// Span of "COUNT"
@@ -630,6 +641,15 @@ impl<'a> Spanned for Expression<'a> {
                 .join_span(expr)
                 .join_span(as_span)
                 .join_span(type_),
+            Expression::Convert {
+                convert_span,
+                expr,
+                type_,
+                using_charset,
+            } => convert_span
+                .join_span(expr)
+                .join_span(type_)
+                .join_span(using_charset),
             Expression::Count {
                 count_span,
                 distinct_span,
@@ -1425,6 +1445,36 @@ pub(crate) fn parse_expression<'a>(
                     })
                 } else {
                     r.shift_expr(Expression::Invalid(cast_span))
+                }
+            }
+            Token::Ident(_, Keyword::CONVERT) => {
+                let convert_span = parser.consume_keyword(Keyword::CONVERT)?;
+                parser.consume_token(Token::LParen)?;
+                let convert =
+                    parser.recovered("')'", &|t| matches!(t, Token::RParen), |parser| {
+                        let expr = parse_expression_outer(parser)?;
+                        // Check if it's CONVERT(expr, type) or CONVERT(expr USING charset)
+                        if parser.skip_keyword(Keyword::USING).is_some() {
+                            // CONVERT(expr USING charset)
+                            let charset = parser.consume_plain_identifier()?;
+                            Ok(Some((expr, None, Some(charset))))
+                        } else {
+                            // CONVERT(expr, type)
+                            parser.consume_token(Token::Comma)?;
+                            let type_ = parse_data_type(parser, false)?;
+                            Ok(Some((expr, Some(type_), None)))
+                        }
+                    })?;
+                parser.consume_token(Token::RParen)?;
+                if let Some((expr, type_, charset)) = convert {
+                    r.shift_expr(Expression::Convert {
+                        convert_span,
+                        expr: Box::new(expr),
+                        type_,
+                        using_charset: charset.map(|c| (c.span(), c)),
+                    })
+                } else {
+                    r.shift_expr(Expression::Invalid(convert_span))
                 }
             }
             Token::Ident(_, Keyword::COUNT) => {
