@@ -16,7 +16,7 @@ for root, dirs, files in os.walk("."):
     for file in files:
         if file.endswith(".rs"):
             rust_files.append(os.path.join(root, file))
-        elif file.endswith(".md"):
+        elif file.endswith(".md") and file != "DEVELOPMENT.md":
             md_files.append(os.path.join(root, file))
 
 
