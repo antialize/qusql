@@ -2378,6 +2378,31 @@ impl Spanned for CreateDatabase<'_> {
     }
 }
 
+/// CREATE SCHEMA statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct CreateSchema<'a> {
+    /// Span of "CREATE"
+    pub create_span: Span,
+    /// Span of "SCHEMA"
+    pub schema_span: Span,
+    /// Span of "IF NOT EXISTS" if specified
+    pub if_not_exists: Option<Span>,
+    /// Name of the created schema (optional if AUTHORIZATION is present)
+    pub name: Option<Identifier<'a>>,
+    /// AUTHORIZATION clause with role name
+    pub authorization: Option<(Span, Identifier<'a>)>,
+}
+
+impl Spanned for CreateSchema<'_> {
+    fn span(&self) -> Span {
+        self.create_span
+            .join_span(&self.schema_span)
+            .join_span(&self.if_not_exists)
+            .join_span(&self.name)
+            .join_span(&self.authorization)
+    }
+}
+
 fn parse_create_database<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
@@ -2457,6 +2482,60 @@ fn parse_create_database<'a>(
         database_span,
         if_not_exists,
         name,
+    }))
+}
+
+fn parse_create_schema<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<Statement<'a>, ParseError> {
+    let schema_span = parser.consume_keyword(Keyword::SCHEMA)?;
+    parser.postgres_only(&schema_span);
+
+    for option in create_options {
+        parser.err("Not supported for CREATE SCHEMA", &option.span());
+    }
+
+    let if_not_exists = if let Some(if_span) = parser.skip_keyword(Keyword::IF) {
+        Some(
+            parser
+                .consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?
+                .join_span(&if_span),
+        )
+    } else {
+        None
+    };
+
+    // Parse schema name or AUTHORIZATION
+    let mut name = None;
+    let mut authorization = None;
+
+    // Check if next token is AUTHORIZATION
+    if let Token::Ident(_, Keyword::AUTHORIZATION) = parser.token {
+        let auth_span = parser.consume_keyword(Keyword::AUTHORIZATION)?;
+        let role_name = parser.consume_plain_identifier()?;
+        authorization = Some((auth_span, role_name));
+    } else {
+        // Parse schema name
+        name = Some(parser.consume_plain_identifier()?);
+
+        // Optional AUTHORIZATION after name
+        if let Token::Ident(_, Keyword::AUTHORIZATION) = parser.token {
+            let auth_span = parser.consume_keyword(Keyword::AUTHORIZATION)?;
+            let role_name = parser.consume_plain_identifier()?;
+            authorization = Some((auth_span, role_name));
+        }
+    }
+
+    // TODO: Parse schema elements (CREATE TABLE, CREATE VIEW, GRANT, etc.)
+
+    Ok(Statement::CreateSchema(CreateSchema {
+        create_span,
+        schema_span,
+        if_not_exists,
+        name,
+        authorization,
     }))
 }
 
@@ -2572,8 +2651,11 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
         Token::Ident(_, Keyword::INDEX) => parse_create_index(parser, create_span, create_options),
         Token::Ident(_, Keyword::TABLE) => parse_create_table(parser, create_span, create_options),
         Token::Ident(_, Keyword::VIEW) => parse_create_view(parser, create_span, create_options),
-        Token::Ident(_, Keyword::DATABASE | Keyword::SCHEMA) => {
+        Token::Ident(_, Keyword::DATABASE) => {
             parse_create_database(parser, create_span, create_options)
+        }
+        Token::Ident(_, Keyword::SCHEMA) => {
+            parse_create_schema(parser, create_span, create_options)
         }
         Token::Ident(_, Keyword::FUNCTION) => {
             parse_create_function(parser, create_span, create_options)

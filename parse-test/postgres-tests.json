@@ -2038,7 +2038,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 16..17,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE ROLE magician WITH SUPERUSER CREATEROLE NOCREATEDB BYPASSRLS INHERIT PASSWORD 'abcdef' LOGIN VALID UNTIL '2025-01-01' IN ROLE role1, role2 ROLE role3 ADMIN role4, role5 REPLICATION",
@@ -2050,7 +2051,7 @@
   },
   {
     "input": "CREATE SCHEMA IF NOT EXISTS schema_name",
-    "output": "CreateDatabase(\n    CreateDatabase {\n        create_span: 0..6,\n        database_span: 7..13,\n        if_not_exists: Some(\n            14..27,\n        ),\n        name: Identifier {\n            value: \"schema_name\",\n            span: 28..39,\n        },\n        create_options: [],\n    },\n)",
+    "output": "CreateSchema(\n    CreateSchema {\n        create_span: 0..6,\n        schema_span: 7..13,\n        if_not_exists: Some(\n            14..27,\n        ),\n        name: Some(\n            Identifier {\n                value: \"schema_name\",\n                span: 28..39,\n            },\n        ),\n        authorization: None,\n    },\n)",
     "issues": []
   },
   {

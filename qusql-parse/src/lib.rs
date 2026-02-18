@@ -84,8 +84,9 @@ pub use alter::{
     ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption, IndexType,
 };
 pub use create::{
-    CreateAlgorithm, CreateDefinition, CreateFunction, CreateOption, CreateRole, CreateTable,
-    CreateTrigger, CreateView, RoleMembership, RoleMembershipType, RoleOption, TableOption,
+    CreateAlgorithm, CreateDefinition, CreateFunction, CreateOption, CreateRole, CreateSchema,
+    CreateTable, CreateTrigger, CreateView, RoleMembership, RoleMembershipType, RoleOption,
+    TableOption,
 };
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
