@@ -17,6 +17,7 @@ use crate::{
     issue::{IssueHandle, Issues},
     keywords::Keyword,
     lexer::{Lexer, Token},
+    span::OptSpanned,
 };
 
 #[derive(Debug)]
@@ -475,16 +476,22 @@ impl<'a, 'b> Parser<'a, 'b> {
     }
 
     /// Verify that the current dialect is PostgreSQL, emitting an error if not.
-    pub(crate) fn postgres_only(&mut self, span: &impl Spanned) {
-        if !self.options.dialect.is_postgresql() {
-            self.err("Only supported by PostgreSQL", span);
+    /// Only emits an error if the span is present (Some).
+    pub(crate) fn postgres_only(&mut self, span: &impl OptSpanned) {
+        if !self.options.dialect.is_postgresql()
+            && let Some(s) = span.opt_span()
+        {
+            self.err("Only supported by PostgreSQL", &s);
         }
     }
 
     /// Verify that the current dialect is MariaDB/MySQL, emitting an error if not.
-    pub(crate) fn maria_only(&mut self, span: &impl Spanned) {
-        if !self.options.dialect.is_maria() {
-            self.err("Only supported by MariaDB", span);
+    /// Only emits an error if the span is present (Some).
+    pub(crate) fn maria_only(&mut self, span: &impl OptSpanned) {
+        if !self.options.dialect.is_maria()
+            && let Some(s) = span.opt_span()
+        {
+            self.err("Only supported by MariaDB", &s);
         }
     }
 }
