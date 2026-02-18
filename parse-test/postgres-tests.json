@@ -2108,28 +2108,18 @@
   },
   {
     "input": "CREATE SERVER IF NOT EXISTS myserver TYPE 'server_type' VERSION 'server_version' FOREIGN DATA WRAPPER postgres_fdw",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"SERVER\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 42..55,\n    sql_segment: \"'server_type'\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateServer(\n    CreateServer {\n        create_span: 0..6,\n        server_span: 7..13,\n        if_not_exists: Some(\n            14..27,\n        ),\n        server_name: Identifier {\n            value: \"myserver\",\n            span: 28..36,\n        },\n        type_: Some(\n            (\n                37..41,\n                SString {\n                    value: \"server_type\",\n                    span: 42..55,\n                },\n            ),\n        ),\n        version: Some(\n            (\n                56..63,\n                SString {\n                    value: \"server_version\",\n                    span: 64..80,\n                },\n            ),\n        ),\n        foreign_data_wrapper: (\n            81..101,\n            Identifier {\n                value: \"postgres_fdw\",\n                span: 102..114,\n            },\n        ),\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE SERVER myserver FOREIGN DATA WRAPPER postgres_fdw",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"SERVER\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateServer(\n    CreateServer {\n        create_span: 0..6,\n        server_span: 7..13,\n        if_not_exists: None,\n        server_name: Identifier {\n            value: \"myserver\",\n            span: 14..22,\n        },\n        type_: None,\n        version: None,\n        foreign_data_wrapper: (\n            23..43,\n            Identifier {\n                value: \"postgres_fdw\",\n                span: 44..56,\n            },\n        ),\n        options: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE SERVER myserver2 FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host 'foo', dbname 'foodb', port '5432')",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA'' here\",\n    span: 7..13,\n    sql_segment: \"SERVER\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateServer(\n    CreateServer {\n        create_span: 0..6,\n        server_span: 7..13,\n        if_not_exists: None,\n        server_name: Identifier {\n            value: \"myserver2\",\n            span: 14..23,\n        },\n        type_: None,\n        version: None,\n        foreign_data_wrapper: (\n            24..44,\n            Identifier {\n                value: \"postgres_fdw\",\n                span: 45..57,\n            },\n        ),\n        options: [\n            (\n                Identifier {\n                    value: \"host\",\n                    span: 67..71,\n                },\n                SString {\n                    value: \"foo\",\n                    span: 72..77,\n                },\n            ),\n            (\n                Identifier {\n                    value: \"dbname\",\n                    span: 79..85,\n                },\n                SString {\n                    value: \"foodb\",\n                    span: 86..93,\n                },\n            ),\n            (\n                Identifier {\n                    value: \"port\",\n                    span: 95..99,\n                },\n                SString {\n                    value: \"5432\",\n                    span: 100..106,\n                },\n            ),\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TABLE \"foo\" (\"bar\" \"int\")",

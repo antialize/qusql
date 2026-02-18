@@ -2743,12 +2743,120 @@ fn parse_create_sequence<'a>(
     }))
 }
 
+/// CREATE SERVER statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct CreateServer<'a> {
+    /// Span of "CREATE"
+    pub create_span: Span,
+    /// Span of "SERVER"
+    pub server_span: Span,
+    /// Span of "IF NOT EXISTS" if specified
+    pub if_not_exists: Option<Span>,
+    /// Name of the server
+    pub server_name: Identifier<'a>,
+    /// Optional TYPE 'server_type'
+    pub type_: Option<(Span, SString<'a>)>,
+    /// Optional VERSION 'server_version'
+    pub version: Option<(Span, SString<'a>)>,
+    /// FOREIGN DATA WRAPPER fdw_name
+    pub foreign_data_wrapper: (Span, Identifier<'a>),
+    /// OPTIONS (option 'value', ...)
+    pub options: Vec<(Identifier<'a>, SString<'a>)>,
+}
+
+impl Spanned for CreateServer<'_> {
+    fn span(&self) -> Span {
+        self.create_span
+            .join_span(&self.server_span)
+            .join_span(&self.if_not_exists)
+            .join_span(&self.server_name)
+            .join_span(&self.type_)
+            .join_span(&self.version)
+            .join_span(&self.foreign_data_wrapper)
+            .join_span(&self.options)
+    }
+}
+
+fn parse_create_server<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<Statement<'a>, ParseError> {
+    let server_span = parser.consume_keyword(Keyword::SERVER)?;
+    parser.postgres_only(&server_span);
+
+    for option in create_options {
+        parser.err("Not supported for CREATE SERVER", &option.span());
+    }
+
+    let if_not_exists = if let Some(if_span) = parser.skip_keyword(Keyword::IF) {
+        Some(
+            parser
+                .consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?
+                .join_span(&if_span),
+        )
+    } else {
+        None
+    };
+
+    // Parse server name
+    let server_name = parser.consume_plain_identifier()?;
+
+    // Parse optional TYPE 'server_type'
+    let type_ = if let Some(type_span) = parser.skip_keyword(Keyword::TYPE) {
+        let type_value = parser.consume_string()?;
+        Some((type_span, type_value))
+    } else {
+        None
+    };
+
+    // Parse optional VERSION 'server_version'
+    let version = if let Some(version_span) = parser.skip_keyword(Keyword::VERSION) {
+        let version_value = parser.consume_string()?;
+        Some((version_span, version_value))
+    } else {
+        None
+    };
+
+    // Parse FOREIGN DATA WRAPPER fdw_name
+    let fdw_span = parser.consume_keywords(&[Keyword::FOREIGN, Keyword::DATA, Keyword::WRAPPER])?;
+    let fdw_name = parser.consume_plain_identifier()?;
+    let foreign_data_wrapper = (fdw_span, fdw_name);
+
+    // Parse optional OPTIONS (option 'value', ...)
+    let mut options = Vec::new();
+    if parser.skip_keyword(Keyword::OPTIONS).is_some() {
+        parser.consume_token(Token::LParen)?;
+        loop {
+            let option_name = parser.consume_plain_identifier()?;
+            let option_value = parser.consume_string()?;
+            options.push((option_name, option_value));
+
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        parser.consume_token(Token::RParen)?;
+    }
+
+    Ok(Statement::CreateServer(CreateServer {
+        create_span,
+        server_span,
+        if_not_exists,
+        server_name,
+        type_,
+        version,
+        foreign_data_wrapper,
+        options,
+    }))
+}
+
 pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let create_span = parser.span.clone();
     parser.consume_keyword(Keyword::CREATE)?;
 
     let mut create_options = Vec::new();
-    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE'";
+    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'";
 
     parser.recovered(
         CREATABLE,
@@ -2767,6 +2875,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         | Keyword::SCHEMA
                         | Keyword::SEQUENCE
                         | Keyword::ROLE
+                        | Keyword::SERVER
                 )
             )
         },
@@ -2873,6 +2982,9 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
         }
         Token::Ident(_, Keyword::TYPE) => parse_create_type(parser, create_span, create_options),
         Token::Ident(_, Keyword::ROLE) => parse_create_role(parser, create_span, create_options),
+        Token::Ident(_, Keyword::SERVER) => {
+            parse_create_server(parser, create_span, create_options)
+        }
         _ => parser.expected_failure(CREATABLE),
     }
 }
