@@ -59,6 +59,7 @@ mod keywords;
 mod kill;
 mod lexer;
 mod lock;
+mod operator;
 mod parser;
 mod qualified_name;
 mod rename;
@@ -110,6 +111,7 @@ pub use insert_replace::{
 };
 pub use kill::{Kill, KillType};
 pub use lock::{Lock, LockMember, LockType, Unlock};
+pub use operator::CreateOperator;
 pub use rename::{RenameTable, TableToTable};
 pub use select::{
     IndexHint, IndexHintFor, IndexHintType, IndexHintUse, JoinSpecification, JoinType,

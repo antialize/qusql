@@ -13,7 +13,7 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
+    CreateOperator, Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
     alter::{AlterRole, AlterTable, parse_alter},
     create::{
         CreateDatabase, CreateFunction, CreateIndex, CreateRole, CreateSchema, CreateSequence,
@@ -403,6 +403,7 @@ pub enum Statement<'a> {
     CreateSequence(CreateSequence<'a>),
     CreateServer(CreateServer<'a>),
     CreateRole(CreateRole<'a>),
+    CreateOperator(CreateOperator<'a>),
     Select(Select<'a>),
     Delete(Delete<'a>),
     InsertReplace(InsertReplace<'a>),
@@ -470,6 +471,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::CreateSequence(v) => v.span(),
             Statement::CreateServer(v) => v.span(),
             Statement::CreateRole(v) => v.span(),
+            Statement::CreateOperator(v) => v.span(),
             Statement::Select(v) => v.span(),
             Statement::Delete(v) => v.span(),
             Statement::InsertReplace(v) => v.span(),
