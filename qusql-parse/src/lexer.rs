@@ -17,6 +17,7 @@ use crate::{SQLDialect, Span, keywords::Keyword};
 pub(crate) enum Token<'a> {
     Ampersand,
     At,
+    AtAt,
     Backslash,
     Caret,
     Colon,
@@ -77,6 +78,7 @@ impl<'a> Token<'a> {
         match self {
             Token::Ampersand => "'&'",
             Token::At => "'@'",
+            Token::AtAt => "'@@'",
             Token::Backslash => "'\\'",
             Token::Caret => "'^'",
             Token::Colon => "':'",
@@ -334,7 +336,7 @@ impl<'a> Lexer<'a> {
                                 self.chars.next();
                                 break Token::AtAtGlobal;
                             },
-                            _ => Token::Invalid,
+                            _ => Token::AtAt,
                         }
                     }
                     _ => Token::At,

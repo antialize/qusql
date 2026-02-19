@@ -21,6 +21,7 @@ use crate::{
     expression::parse_expression,
     keywords::Keyword,
     lexer::Token,
+    operator::parse_create_operator,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
     statement::{parse_compound_query, parse_statement},
@@ -2968,7 +2969,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
     parser.consume_keyword(Keyword::CREATE)?;
 
     let mut create_options = Vec::new();
-    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'";
+    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'";
 
     parser.recovered(
         CREATABLE,
@@ -2989,6 +2990,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         | Keyword::SEQUENCE
                         | Keyword::ROLE
                         | Keyword::SERVER
+                        | Keyword::OPERATOR
                 )
             )
         },
@@ -3119,6 +3121,9 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
         Token::Ident(_, Keyword::ROLE) => parse_create_role(parser, create_span, create_options),
         Token::Ident(_, Keyword::SERVER) => {
             parse_create_server(parser, create_span, create_options)
+        }
+        Token::Ident(_, Keyword::OPERATOR) => {
+            parse_create_operator(parser, create_span, create_options)
         }
         _ => parser.expected_failure(CREATABLE),
     }

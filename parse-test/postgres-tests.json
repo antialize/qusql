@@ -1655,75 +1655,58 @@
   },
   {
     "input": "CREATE OPERATOR != (FUNCTION = func)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateOperator(\n    CreateOperator {\n        create_span: 0..6,\n        operator_span: 7..15,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"!=\",\n                span: 16..18,\n            },\n        },\n        lparen_span: 19..20,\n        options: [\n            Function {\n                keyword_span: 20..28,\n                eq_span: 29..30,\n                function_name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"func\",\n                        span: 31..35,\n                    },\n                },\n            },\n        ],\n        rparen_span: 35..36,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE OPERATOR + ()",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
-    ],
-    "failure": true,
+    "output": "CreateOperator(\n    CreateOperator {\n        create_span: 0..6,\n        operator_span: 7..15,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"+\",\n                span: 16..17,\n            },\n        },\n        lparen_span: 18..19,\n        options: [],\n        rparen_span: 19..20,\n    },\n)",
+    "issues": [],
     "should_fail": true
   },
   {
     "input": "CREATE OPERATOR + (FUNCTION = f, COMMUTATOR = >, NEGATOR = >=)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateOperator(\n    CreateOperator {\n        create_span: 0..6,\n        operator_span: 7..15,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"+\",\n                span: 16..17,\n            },\n        },\n        lparen_span: 18..19,\n        options: [\n            Function {\n                keyword_span: 19..27,\n                eq_span: 28..29,\n                function_name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"f\",\n                        span: 30..31,\n                    },\n                },\n            },\n            Commutator {\n                keyword_span: 33..43,\n                eq_span: 44..45,\n                operator: Simple(\n                    QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \">\",\n                            span: 46..47,\n                        },\n                    },\n                ),\n            },\n            Negator {\n                keyword_span: 49..56,\n                eq_span: 57..58,\n                operator: Simple(\n                    QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \">=\",\n                            span: 59..61,\n                        },\n                    },\n                ),\n            },\n        ],\n        rparen_span: 61..62,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE OPERATOR + (FUNCTION = f, COMMUTATOR = OPERATOR(>), NEGATOR = OPERATOR(>=))",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateOperator(\n    CreateOperator {\n        create_span: 0..6,\n        operator_span: 7..15,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"+\",\n                span: 16..17,\n            },\n        },\n        lparen_span: 18..19,\n        options: [\n            Function {\n                keyword_span: 19..27,\n                eq_span: 28..29,\n                function_name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"f\",\n                        span: 30..31,\n                    },\n                },\n            },\n            Commutator {\n                keyword_span: 33..43,\n                eq_span: 44..45,\n                operator: Wrapped {\n                    operator_span: 46..54,\n                    lparen_span: 54..55,\n                    operator_name: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \">\",\n                            span: 55..56,\n                        },\n                    },\n                    rparen_span: 56..57,\n                },\n            },\n            Negator {\n                keyword_span: 59..66,\n                eq_span: 67..68,\n                operator: Wrapped {\n                    operator_span: 69..77,\n                    lparen_span: 77..78,\n                    operator_name: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \">=\",\n                            span: 78..80,\n                        },\n                    },\n                    rparen_span: 80..81,\n                },\n            },\n        ],\n        rparen_span: 81..82,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE OPERATOR + (FUNCTION = f, {field})",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''FUNCTION' | 'PROCEDURE' | 'LEFTARG' | 'RIGHTARG' | 'COMMUTATOR' | 'NEGATOR' | 'RESTRICT' | 'JOIN' | 'HASHES' | 'MERGES'' here\",\n    span: 33..34,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE OPERATOR + (LEFTARG = INT4)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateOperator(\n    CreateOperator {\n        create_span: 0..6,\n        operator_span: 7..15,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"+\",\n                span: 16..17,\n            },\n        },\n        lparen_span: 18..19,\n        options: [\n            LeftArg {\n                keyword_span: 19..26,\n                eq_span: 27..28,\n                arg_type: DataType {\n                    identifier: 29..33,\n                    type_: Named(\n                        29..33,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        rparen_span: 33..34,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE OPERATOR <> (FUNCTION = func)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateOperator(\n    CreateOperator {\n        create_span: 0..6,\n        operator_span: 7..15,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"!=\",\n                span: 16..18,\n            },\n        },\n        lparen_span: 19..20,\n        options: [\n            Function {\n                keyword_span: 20..28,\n                eq_span: 29..30,\n                function_name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"func\",\n                        span: 31..35,\n                    },\n                },\n            },\n        ],\n        rparen_span: 35..36,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE OPERATOR > (()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''FUNCTION' | 'PROCEDURE' | 'LEFTARG' | 'RIGHTARG' | 'COMMUTATOR' | 'NEGATOR' | 'RESTRICT' | 'JOIN' | 'HASHES' | 'MERGES'' here\",\n    span: 19..20,\n    sql_segment: \"(\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "CREATE OPERATOR > ())",
-    "output": null,
+    "output": "CreateOperator(\n    CreateOperator {\n        create_span: 0..6,\n        operator_span: 7..15,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \">\",\n                span: 16..17,\n            },\n        },\n        lparen_span: 18..19,\n        options: [],\n        rparen_span: 19..20,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 20..21,\n    sql_segment: \")\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1732,8 +1715,7 @@
     "input": "CREATE OPERATOR CLASS CAS_btree_ops DEFAULT FOR TYPE CAS USING btree FAMILY CAS_btree_ops AS OPERATOR 1 <, OPERATOR 2 <=, OPERATOR 3 =, OPERATOR 4 >=, OPERATOR 5 >, FUNCTION 1 cas_cmp(CAS, CAS)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 57..62,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 22..35,\n    sql_segment: \"CAS_btree_ops\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1741,8 +1723,7 @@
     "input": "CREATE OPERATOR CLASS gist_ops FOR TYPE geometry USING gist AS OPERATOR 1 <<, FUNCTION 1 gist_consistent(internal, geometry, INT4), STORAGE box",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 49..54,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 22..30,\n    sql_segment: \"gist_ops\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1750,9 +1731,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 (INT4, INT4) btcmp(INT4, INT4)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 22..30,\n    sql_segment: \"test_ops\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1760,9 +1739,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 cas_cmp(()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 22..30,\n    sql_segment: \"test_ops\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1771,9 +1748,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 my_func",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 22..30,\n    sql_segment: \"test_ops\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1781,9 +1756,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING btree AS FUNCTION 1 my_func()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 22..30,\n    sql_segment: \"test_ops\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1792,9 +1765,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING gist AS OPERATOR 1 < (INT4, INT4)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 22..30,\n    sql_segment: \"test_ops\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1802,9 +1773,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING gist AS OPERATOR 1 < FOR SEARCH",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 22..30,\n    sql_segment: \"test_ops\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1812,9 +1781,7 @@
     "input": "CREATE OPERATOR CLASS test_ops FOR TYPE INT4 USING gist AS OPERATOR 2 <<-> FOR ORDER BY float_ops",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 40..44,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 45..50,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 22..30,\n    sql_segment: \"test_ops\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1822,33 +1789,35 @@
     "input": "CREATE OPERATOR CLASS {class_name} {default_clause}FOR TYPE INT4 USING btree{family_clause} AS OPERATOR 1 <",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"'INT4' is a reserved identifier use `INT4`\",\n    span: 60..64,\n    sql_segment: \"INT4\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 65..70,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 22..23,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE OPERATOR FAMILY my_family USING {index_method}",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 23..32,\n    sql_segment: \"my_family\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE OPERATOR FAMILY myschema.test_family USING {index_method}",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 23..31,\n    sql_segment: \"myschema\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE OPERATOR myschema.@@ (PROCEDURE = myschema.my_proc, LEFTARG = TIMESTAMP WITH TIME ZONE, RIGHTARG = VARCHAR(255), COMMUTATOR = schema.>, NEGATOR = schema.<=, RESTRICT = myschema.sel_func, JOIN = myschema.join_func, HASHES, MERGES)",
-    "output": null,
+    "output": "CreateOperator(\n    CreateOperator {\n        create_span: 0..6,\n        operator_span: 7..15,\n        name: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"myschema\",\n                        span: 16..24,\n                    },\n                    24..25,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"@@\",\n                span: 25..27,\n            },\n        },\n        lparen_span: 28..29,\n        options: [\n            Procedure {\n                keyword_span: 29..38,\n                eq_span: 39..40,\n                procedure_name: QualifiedName {\n                    prefix: [\n                        (\n                            Identifier {\n                                value: \"myschema\",\n                                span: 41..49,\n                            },\n                            49..50,\n                        ),\n                    ],\n                    identifier: Identifier {\n                        value: \"my_proc\",\n                        span: 50..57,\n                    },\n                },\n            },\n            LeftArg {\n                keyword_span: 59..66,\n                eq_span: 67..68,\n                arg_type: DataType {\n                    identifier: 69..78,\n                    type_: Timestamp(\n                        Timestamp {\n                            width: None,\n                            with_time_zone: Some(\n                                79..93,\n                            ),\n                        },\n                    ),\n                    properties: [],\n                },\n            },\n            RightArg {\n                keyword_span: 95..103,\n                eq_span: 104..105,\n                arg_type: DataType {\n                    identifier: 106..113,\n                    type_: VarChar(\n                        Some(\n                            (\n                                255,\n                                114..117,\n                            ),\n                        ),\n                    ),\n                    properties: [],\n                },\n            },\n            Commutator {\n                keyword_span: 120..130,\n                eq_span: 131..132,\n                operator: Simple(\n                    QualifiedName {\n                        prefix: [\n                            (\n                                Identifier {\n                                    value: \"schema\",\n                                    span: 133..139,\n                                },\n                                139..140,\n                            ),\n                        ],\n                        identifier: Identifier {\n                            value: \">\",\n                            span: 140..141,\n                        },\n                    },\n                ),\n            },\n            Negator {\n                keyword_span: 143..150,\n                eq_span: 151..152,\n                operator: Simple(\n                    QualifiedName {\n                        prefix: [\n                            (\n                                Identifier {\n                                    value: \"schema\",\n                                    span: 153..159,\n                                },\n                                159..160,\n                            ),\n                        ],\n                        identifier: Identifier {\n                            value: \"<=\",\n                            span: 160..162,\n                        },\n                    },\n                ),\n            },\n            Restrict {\n                keyword_span: 164..172,\n                eq_span: 173..174,\n                function_name: QualifiedName {\n                    prefix: [\n                        (\n                            Identifier {\n                                value: \"myschema\",\n                                span: 175..183,\n                            },\n                            183..184,\n                        ),\n                    ],\n                    identifier: Identifier {\n                        value: \"sel_func\",\n                        span: 184..192,\n                    },\n                },\n            },\n            Join {\n                keyword_span: 194..198,\n                eq_span: 199..200,\n                function_name: QualifiedName {\n                    prefix: [\n                        (\n                            Identifier {\n                                value: \"myschema\",\n                                span: 201..209,\n                            },\n                            209..210,\n                        ),\n                    ],\n                    identifier: Identifier {\n                        value: \"join_func\",\n                        span: 210..219,\n                    },\n                },\n            },\n            Hashes(\n                221..227,\n            ),\n            Merges(\n                229..235,\n            ),\n        ],\n        rparen_span: 235..236,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"'schema' is a reserved identifier use `schema`\",\n    span: 133..139,\n    sql_segment: \"schema\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"'schema' is a reserved identifier use `schema`\",\n    span: 153..159,\n    sql_segment: \"schema\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1856,17 +1825,19 @@
     "input": "CREATE OPERATOR {name} (FUNCTION = f)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 16..17,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE OPERATOR {op_symbol} (FUNCTION = f)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER'' here\",\n    span: 7..15,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 16..17,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE OR REPLACE FUNCTION add(a INTEGER, IN b INTEGER = 1) RETURNS INTEGER LANGUAGE SQL IMMUTABLE PARALLEL RESTRICTED RETURN a + b",
