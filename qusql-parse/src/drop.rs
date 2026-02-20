@@ -482,7 +482,7 @@ fn parse_drop_sequence<'a>(
 /// Represent a drop server statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropServer, Statement, Issues};
-/// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
 /// #
 /// let sql = "DROP SERVER myserver;";
 /// let mut issues = Issues::new(sql);
@@ -755,14 +755,98 @@ fn parse_drop_domain<'a>(
     }
     let cascade = parser.skip_keyword(Keyword::CASCADE);
     let restrict = parser.skip_keyword(Keyword::RESTRICT);
-    if let Some(cascade_span) = &cascade && restrict.is_some() {
-        parser.err("Cannot specify both CASCADE and RESTRICT", cascade_span);
+    if let Some(cascade_span) = &cascade
+        && let Some(restrict_span) = &restrict
+    {
+        parser
+            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
+            .frag("RESTRICT", restrict_span);
     }
     Ok(Statement::DropDomain(DropDomain {
         drop_span,
         domain_span,
         if_exists,
         domains,
+        cascade,
+        restrict,
+    }))
+}
+
+/// Represent a drop extension statement (PostgreSQL)
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropExtension, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP EXTENSION IF EXISTS myext, otherext CASCADE;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+/// # assert!(issues.is_ok());
+/// let drop: DropExtension = match stmts.pop() {
+///     Some(Statement::DropExtension(d)) => d,
+///     _ => panic!("We should get a drop extension statement")
+/// };
+/// assert!(drop.extensions.get(0).unwrap().as_str() == "myext");
+/// ```
+#[derive(Debug, Clone)]
+pub struct DropExtension<'a> {
+    /// Span of "DROP"
+    pub drop_span: Span,
+    /// Span of "EXTENSION"
+    pub extension_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// List of extensions to drop
+    pub extensions: Vec<Identifier<'a>>,
+    /// Span of "CASCADE" if specified
+    pub cascade: Option<Span>,
+    /// Span of "RESTRICT" if specified
+    pub restrict: Option<Span>,
+}
+
+impl<'a> Spanned for DropExtension<'a> {
+    fn span(&self) -> Span {
+        self.drop_span
+            .join_span(&self.extension_span)
+            .join_span(&self.if_exists)
+            .join_span(&self.extensions)
+            .join_span(&self.cascade)
+            .join_span(&self.restrict)
+    }
+}
+
+fn parse_drop_extension<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<Statement<'a>, ParseError> {
+    let extension_span = parser.consume_keyword(Keyword::EXTENSION)?;
+    parser.postgres_only(&extension_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let mut extensions = Vec::new();
+    loop {
+        extensions.push(parser.consume_plain_identifier()?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    let cascade = parser.skip_keyword(Keyword::CASCADE);
+    let restrict = parser.skip_keyword(Keyword::RESTRICT);
+    if let Some(cascade_span) = &cascade
+        && let Some(restrict_span) = &restrict
+    {
+        parser
+            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
+            .frag("RESTRICT", restrict_span);
+    }
+
+    Ok(Statement::DropExtension(DropExtension {
+        drop_span,
+        extension_span,
+        if_exists,
+        extensions,
         cascade,
         restrict,
     }))
@@ -778,6 +862,7 @@ pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a
             parse_drop_database(parser, drop_span, *kw)
         }
         Token::Ident(_, Keyword::DOMAIN) => parse_drop_domain(parser, drop_span),
+        Token::Ident(_, Keyword::EXTENSION) => parse_drop_extension(parser, drop_span),
         Token::Ident(_, Keyword::EVENT) => parse_drop_event(parser, drop_span),
         Token::Ident(_, Keyword::FUNCTION) => parse_drop_function(parser, drop_span),
         Token::Ident(_, Keyword::INDEX) => parse_drop_index(parser, drop_span),

@@ -91,8 +91,8 @@ pub use create::{
 };
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
-    DropDatabase, DropDomain, DropEvent, DropFunction, DropIndex, DropProcedure, DropSequence, DropServer,
-    DropTable, DropTrigger, DropView,
+    DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropProcedure,
+    DropSequence, DropServer, DropTable, DropTrigger, DropView,
 };
 pub use expression::{
     BinaryOperator, Expression, Function, IdentifierPart, Is, TimeUnit, UnaryOperator, Variable,
