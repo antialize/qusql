@@ -21,8 +21,8 @@ use crate::{
     },
     delete::{Delete, parse_delete},
     drop::{
-        DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropProcedure,
-        DropSequence, DropServer, DropTable, DropTrigger, DropView, parse_drop,
+        DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
+        DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView, parse_drop,
     },
     expression::{Expression, parse_expression},
     flush::{Flush, parse_flush},
@@ -393,6 +393,7 @@ fn parse_signal<'a>(parser: &mut Parser<'a, '_>) -> Result<Signal<'a>, ParseErro
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
+    DropOperator(DropOperator<'a>),
     DropDomain(DropDomain<'a>),
     CreateIndex(CreateIndex<'a>),
     CreateTable(CreateTable<'a>),
@@ -463,7 +464,6 @@ pub enum Statement<'a> {
 impl<'a> Spanned for Statement<'a> {
     fn span(&self) -> Span {
         match &self {
-            Statement::DropDomain(v) => v.span(),
             Statement::CreateIndex(v) => v.span(),
             Statement::CreateTable(v) => v.span(),
             Statement::CreateView(v) => v.span(),
@@ -480,17 +480,19 @@ impl<'a> Spanned for Statement<'a> {
             Statement::InsertReplace(v) => v.span(),
             Statement::Update(v) => v.span(),
             Statement::Unlock(v) => v.span(),
-            Statement::DropIndex(v) => v.span(),
-            Statement::DropTable(v) => v.span(),
+            Statement::DropDatabase(v) => v.span(),
+            Statement::DropDomain(v) => v.span(),
+            Statement::DropEvent(v) => v.span(),
+            Statement::DropExtension(v) => v.span(),
             Statement::DropFunction(v) => v.span(),
+            Statement::DropIndex(v) => v.span(),
+            Statement::DropOperator(v) => v.span(),
             Statement::DropProcedure(v) => v.span(),
             Statement::DropSequence(v) => v.span(),
-            Statement::DropEvent(v) => v.span(),
-            Statement::DropDatabase(v) => v.span(),
             Statement::DropServer(v) => v.span(),
+            Statement::DropTable(v) => v.span(),
             Statement::DropTrigger(v) => v.span(),
             Statement::DropView(v) => v.span(),
-            Statement::DropExtension(v) => v.span(),
             Statement::Set(v) => v.span(),
             Statement::AlterTable(v) => v.span(),
             Statement::AlterRole(v) => v.span(),

@@ -388,7 +388,9 @@ fn consume_operator_or_identifier<'a>(
 }
 
 /// Parse an operator name (can be an identifier, operator symbol, or schema-qualified)
-fn parse_operator_name<'a>(parser: &mut Parser<'a, '_>) -> Result<QualifiedName<'a>, ParseError> {
+pub(crate) fn parse_operator_name<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<QualifiedName<'a>, ParseError> {
     let mut identifier = consume_operator_or_identifier(parser)?;
     let mut prefix = Vec::new();
 
