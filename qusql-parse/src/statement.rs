@@ -21,8 +21,8 @@ use crate::{
     },
     delete::{Delete, parse_delete},
     drop::{
-        DropDatabase, DropEvent, DropFunction, DropIndex, DropProcedure, DropSequence, DropServer,
-        DropTable, DropTrigger, DropView, parse_drop,
+        DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropProcedure,
+        DropSequence, DropServer, DropTable, DropTrigger, DropView, parse_drop,
     },
     expression::{Expression, parse_expression},
     flush::{Flush, parse_flush},
@@ -393,6 +393,7 @@ fn parse_signal<'a>(parser: &mut Parser<'a, '_>) -> Result<Signal<'a>, ParseErro
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
+    DropDomain(DropDomain<'a>),
     CreateIndex(CreateIndex<'a>),
     CreateTable(CreateTable<'a>),
     CreateView(CreateView<'a>),
@@ -419,6 +420,7 @@ pub enum Statement<'a> {
     DropServer(DropServer<'a>),
     DropTrigger(DropTrigger<'a>),
     DropView(DropView<'a>),
+    DropExtension(DropExtension<'a>),
     Set(Set<'a>),
     Signal(Signal<'a>),
     Kill(Kill<'a>),
@@ -461,6 +463,7 @@ pub enum Statement<'a> {
 impl<'a> Spanned for Statement<'a> {
     fn span(&self) -> Span {
         match &self {
+            Statement::DropDomain(v) => v.span(),
             Statement::CreateIndex(v) => v.span(),
             Statement::CreateTable(v) => v.span(),
             Statement::CreateView(v) => v.span(),
@@ -487,6 +490,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::DropServer(v) => v.span(),
             Statement::DropTrigger(v) => v.span(),
             Statement::DropView(v) => v.span(),
+            Statement::DropExtension(v) => v.span(),
             Statement::Set(v) => v.span(),
             Statement::AlterTable(v) => v.span(),
             Statement::AlterRole(v) => v.span(),
