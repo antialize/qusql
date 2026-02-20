@@ -22,7 +22,7 @@ use crate::{
     delete::{Delete, parse_delete},
     drop::{
         DropDatabase, DropEvent, DropFunction, DropIndex, DropProcedure, DropSequence, DropServer,
-        DropTable, DropTrigger, DropView, parse_drop,
+        DropTable, DropTrigger, DropView, DropDomain, parse_drop,
     },
     expression::{Expression, parse_expression},
     flush::{Flush, parse_flush},
@@ -393,6 +393,7 @@ fn parse_signal<'a>(parser: &mut Parser<'a, '_>) -> Result<Signal<'a>, ParseErro
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
+    DropDomain(DropDomain<'a>),
     CreateIndex(CreateIndex<'a>),
     CreateTable(CreateTable<'a>),
     CreateView(CreateView<'a>),
@@ -461,6 +462,7 @@ pub enum Statement<'a> {
 impl<'a> Spanned for Statement<'a> {
     fn span(&self) -> Span {
         match &self {
+            Statement::DropDomain(v) => v.span(),
             Statement::CreateIndex(v) => v.span(),
             Statement::CreateTable(v) => v.span(),
             Statement::CreateView(v) => v.span(),

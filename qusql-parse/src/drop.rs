@@ -692,6 +692,82 @@ fn parse_drop_index<'a>(
     Ok(Statement::DropIndex(v))
 }
 
+/// Represent a drop domain statement
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropDomain, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP DOMAIN IF EXISTS mydomain, otherdomain;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+///
+/// # assert!(issues.is_ok());
+/// let drop: DropDomain = match stmts.pop() {
+///     Some(Statement::DropDomain(d)) => d,
+///     _ => panic!("We should get a drop domain statement")
+/// };
+/// assert!(drop.domains.get(0).unwrap().identifier.as_str() == "mydomain");
+/// ```
+#[derive(Debug, Clone)]
+pub struct DropDomain<'a> {
+    /// Span of "DROP"
+    pub drop_span: Span,
+    /// Span of "DOMAIN"
+    pub domain_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// List of domains to drop
+    pub domains: Vec<QualifiedName<'a>>,
+    /// Span of "CASCADE" if specified
+    pub cascade: Option<Span>,
+    /// Span of "RESTRICT" if specified
+    pub restrict: Option<Span>,
+}
+
+impl<'a> Spanned for DropDomain<'a> {
+    fn span(&self) -> Span {
+        self.drop_span
+            .join_span(&self.domain_span)
+            .join_span(&self.if_exists)
+            .join_span(&self.domains)
+            .join_span(&self.cascade)
+            .join_span(&self.restrict)
+    }
+}
+
+fn parse_drop_domain<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<Statement<'a>, ParseError> {
+    let domain_span = parser.consume_keyword(Keyword::DOMAIN)?;
+    parser.postgres_only(&domain_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let mut domains = Vec::new();
+    loop {
+        domains.push(parse_qualified_name(parser)?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    let cascade = parser.skip_keyword(Keyword::CASCADE);
+    let restrict = parser.skip_keyword(Keyword::RESTRICT);
+    if let Some(cascade_span) = &cascade && restrict.is_some() {
+        parser.err("Cannot specify both CASCADE and RESTRICT", cascade_span);
+    }
+    Ok(Statement::DropDomain(DropDomain {
+        drop_span,
+        domain_span,
+        if_exists,
+        domains,
+        cascade,
+        restrict,
+    }))
+}
+
 pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let drop_span = parser.consume_keyword(Keyword::DROP)?;
     let temporary = parser.skip_keyword(Keyword::TEMPORARY);
@@ -701,6 +777,7 @@ pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a
         Token::Ident(_, kw @ Keyword::DATABASE | kw @ Keyword::SCHEMA) => {
             parse_drop_database(parser, drop_span, *kw)
         }
+        Token::Ident(_, Keyword::DOMAIN) => parse_drop_domain(parser, drop_span),
         Token::Ident(_, Keyword::EVENT) => parse_drop_event(parser, drop_span),
         Token::Ident(_, Keyword::FUNCTION) => parse_drop_function(parser, drop_span),
         Token::Ident(_, Keyword::INDEX) => parse_drop_index(parser, drop_span),

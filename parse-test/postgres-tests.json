@@ -2699,35 +2699,23 @@
   },
   {
     "input": "DROP DOMAIN IF EXISTS jpeg_domain",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..11,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropDomain(\n    DropDomain {\n        drop_span: 0..4,\n        domain_span: 5..11,\n        if_exists: Some(\n            12..21,\n        ),\n        domains: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"jpeg_domain\",\n                    span: 22..33,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP DOMAIN IF EXISTS jpeg_domain CASCADE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..11,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropDomain(\n    DropDomain {\n        drop_span: 0..4,\n        domain_span: 5..11,\n        if_exists: Some(\n            12..21,\n        ),\n        domains: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"jpeg_domain\",\n                    span: 22..33,\n                },\n            },\n        ],\n        cascade: Some(\n            34..41,\n        ),\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP DOMAIN IF EXISTS jpeg_domain RESTRICT",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..11,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropDomain(\n    DropDomain {\n        drop_span: 0..4,\n        domain_span: 5..11,\n        if_exists: Some(\n            12..21,\n        ),\n        domains: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"jpeg_domain\",\n                    span: 22..33,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: Some(\n            34..42,\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP DOMAIN jpeg_domain",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..11,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropDomain(\n    DropDomain {\n        drop_span: 0..4,\n        domain_span: 5..11,\n        if_exists: None,\n        domains: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"jpeg_domain\",\n                    span: 12..23,\n                },\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP EXTENSION IF EXISTS extension_name",

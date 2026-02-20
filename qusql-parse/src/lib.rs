@@ -91,7 +91,7 @@ pub use create::{
 };
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
-    DropDatabase, DropEvent, DropFunction, DropIndex, DropProcedure, DropSequence, DropServer,
+    DropDatabase, DropDomain, DropEvent, DropFunction, DropIndex, DropProcedure, DropSequence, DropServer,
     DropTable, DropTrigger, DropView,
 };
 pub use expression::{
