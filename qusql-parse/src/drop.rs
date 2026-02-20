@@ -14,6 +14,7 @@ use alloc::vec::Vec;
 
 use crate::{
     Identifier, QualifiedName, Span, Spanned, Statement,
+    data_type::DataType,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -48,7 +49,7 @@ pub struct DropTable<'a> {
     pub table_span: Span,
     /// Span of "IF EXISTS" if specified
     pub if_exists: Option<Span>,
-    /// List of tables to drops
+    /// List of tables to drop
     pub tables: Vec<QualifiedName<'a>>,
     /// Span of "CASCADE" if specified
     pub cascade: Option<Span>,
@@ -284,6 +285,41 @@ fn parse_drop_event<'a>(
     }))
 }
 
+#[derive(Debug, Clone)]
+pub enum DropFunctionArgMode {
+    In(Span),
+    Out(Span),
+    InOut(Span),
+}
+
+impl Spanned for DropFunctionArgMode {
+    fn span(&self) -> Span {
+        match self {
+            DropFunctionArgMode::In(s) => s.clone(),
+            DropFunctionArgMode::Out(s) => s.clone(),
+            DropFunctionArgMode::InOut(s) => s.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DropFunctionArg<'a> {
+    pub mode: Option<DropFunctionArgMode>,
+    pub name: Option<Identifier<'a>>,
+    pub data_type: DataType<'a>,
+    pub default: Option<Span>, // = value (span only, for now)
+}
+
+impl<'a> Spanned for DropFunctionArg<'a> {
+    fn span(&self) -> Span {
+        self.data_type
+            .span()
+            .join_span(&self.mode)
+            .join_span(&self.name)
+            .join_span(&self.default)
+    }
+}
+
 /// Represent a drop function statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropFunction, Statement, Issues};
@@ -309,16 +345,31 @@ pub struct DropFunction<'a> {
     pub function_span: Span,
     /// Span of "IF EXISTS" if specified
     pub if_exists: Option<Span>,
-    /// Function to drop
-    pub function: QualifiedName<'a>,
+    /// List of functions to drop (PostgreSQL: can be multiple)
+    pub functions: Vec<(QualifiedName<'a>, Option<Vec<DropFunctionArg<'a>>>)>,
+    /// Span of "CASCADE" if specified
+    pub cascade: Option<Span>,
+    /// Span of "RESTRICT" if specified
+    pub restrict: Option<Span>,
 }
 
 impl<'a> Spanned for DropFunction<'a> {
     fn span(&self) -> Span {
-        self.drop_span
+        let mut span = self
+            .drop_span
             .join_span(&self.function_span)
             .join_span(&self.if_exists)
-            .join_span(&self.function)
+            .join_span(&self.cascade)
+            .join_span(&self.restrict);
+        for (name, args) in &self.functions {
+            span = span.join_span(name);
+            if let Some(args) = args {
+                for arg in args {
+                    span = span.join_span(arg);
+                }
+            }
+        }
+        span
     }
 }
 
@@ -326,19 +377,98 @@ fn parse_drop_function<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
 ) -> Result<Statement<'a>, ParseError> {
-    // TODO complain about temporary
     let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
     } else {
         None
     };
-    let function = parse_qualified_name(parser)?;
+    let mut functions = Vec::new();
+    loop {
+        let name = parse_qualified_name(parser)?;
+        let args = if parser.token == Token::LParen {
+            let lparen = parser.consume_token(Token::LParen)?;
+            let mut arg_list = Vec::new();
+            parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+                loop {
+                    // Parse mode (IN, OUT, INOUT)
+                    let mode = match &parser.token {
+                        Token::Ident(_, Keyword::IN) => Some(DropFunctionArgMode::In(
+                            parser.consume_keyword(Keyword::IN)?,
+                        )),
+                        Token::Ident(_, Keyword::OUT) => Some(DropFunctionArgMode::Out(
+                            parser.consume_keyword(Keyword::OUT)?,
+                        )),
+                        Token::Ident(_, Keyword::INOUT) => Some(DropFunctionArgMode::InOut(
+                            parser.consume_keyword(Keyword::INOUT)?,
+                        )),
+                        _ => None,
+                    };
+                    // Parse parameter name (optional)
+                    let name = match &parser.token {
+                        Token::Ident(_, kw) if !kw.reserved() => {
+                            Some(parser.consume_plain_identifier()?)
+                        }
+                        _ => None,
+                    };
+                    // Parse data type
+                    let data_type = crate::data_type::parse_data_type(parser, false)?;
+                    // Parse default value (optional)
+                    let default = if parser.skip_token(Token::Eq).is_some() {
+                        // Just record the span for now
+                        Some(parser.consume().clone())
+                    } else {
+                        None
+                    };
+                    arg_list.push(DropFunctionArg {
+                        mode,
+                        name,
+                        data_type,
+                        default,
+                    });
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                Ok(())
+            })?;
+            parser.consume_token(Token::RParen)?;
+            parser.postgres_only(&lparen.join_span(&arg_list));
+            Some(arg_list)
+        } else {
+            None
+        };
+        functions.push((name, args));
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    if let [(first, _), (second, _), ..] = functions.as_slice()
+        && !parser.options.dialect.is_postgresql()
+    {
+        parser
+            .err("Multiple function only supported by ", second)
+            .frag("First function supplied here", first);
+    }
+
+    let cascade = parser.skip_keyword(Keyword::CASCADE);
+    parser.postgres_only(&cascade);
+    let restrict = parser.skip_keyword(Keyword::RESTRICT);
+    parser.postgres_only(&restrict);
+    if let Some(cascade_span) = &cascade
+        && let Some(restrict_span) = &restrict
+    {
+        parser
+            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
+            .frag("RESTRICT", restrict_span);
+    }
     Ok(Statement::DropFunction(DropFunction {
         drop_span,
         function_span,
         if_exists,
-        function,
+        functions,
+        cascade,
+        restrict,
     }))
 }
 
