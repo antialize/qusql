@@ -494,19 +494,21 @@ pub fn parse_schemas<'a>(
                 }
             }
             qusql_parse::Statement::DropFunction(f) => {
-                match schemas
-                    .functions
-                    .entry(unqualified_name(issues, &f.function).clone())
-                {
-                    alloc::collections::btree_map::Entry::Occupied(e) => {
-                        e.remove();
-                    }
-                    alloc::collections::btree_map::Entry::Vacant(_) => {
-                        if f.if_exists.is_none() {
-                            issues.err(
-                                "A function with this name does not exist to drop",
-                                &f.function,
-                            );
+                for (func_name, _args) in &f.functions {
+                    match schemas
+                        .functions
+                        .entry(unqualified_name(issues, func_name).clone())
+                    {
+                        alloc::collections::btree_map::Entry::Occupied(e) => {
+                            e.remove();
+                        }
+                        alloc::collections::btree_map::Entry::Vacant(_) => {
+                            if f.if_exists.is_none() {
+                                issues.err(
+                                    "A function with this name does not exist to drop",
+                                    func_name,
+                                );
+                            }
                         }
                     }
                 }
