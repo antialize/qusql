@@ -17,6 +17,7 @@ use crate::{
     data_type::DataType,
     keywords::Keyword,
     lexer::Token,
+    operator::parse_operator_name,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
 };
@@ -982,6 +983,125 @@ fn parse_drop_extension<'a>(
     }))
 }
 
+/// Represent a drop operator statement (PostgreSQL)
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropOperator, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP OPERATOR IF EXISTS +(integer, integer) CASCADE;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+/// # assert!(issues.is_ok());
+/// let drop: DropOperator = match stmts.pop() {
+///     Some(Statement::DropOperator(d)) => d,
+///     _ => panic!("We should get a drop operator statement")
+/// };
+/// assert!(drop.name.as_str() == "+");
+/// ```
+
+#[derive(Debug, Clone)]
+pub struct DropOperatorItem<'a> {
+    pub name: QualifiedName<'a>,
+    pub left_type: Option<DataType<'a>>,
+    pub right_type: Option<DataType<'a>>,
+}
+
+impl <'a> Spanned for DropOperatorItem<'a> {
+    fn span(&self) -> Span {
+        self.name
+            .span()
+            .join_span(&self.left_type)
+            .join_span(&self.right_type)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DropOperator<'a> {
+    /// Span of "DROP"
+    pub drop_span: Span,
+    /// Span of "OPERATOR"
+    pub operator_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// List of operators to drop
+    pub operators: Vec<DropOperatorItem<'a>>,
+    /// Span of "CASCADE" if specified
+    pub cascade: Option<Span>,
+    /// Span of "RESTRICT" if specified
+    pub restrict: Option<Span>,
+}
+
+impl<'a> Spanned for DropOperator<'a> {
+    fn span(&self) -> Span {
+        self.drop_span
+            .join_span(&self.operator_span)
+            .join_span(&self.if_exists)
+            .join_span(&self.cascade)
+            .join_span(&self.restrict)
+            .join_span(&self.operators)
+    }
+}
+
+fn parse_drop_operator<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<Statement<'a>, ParseError> {
+    let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+    parser.postgres_only(&operator_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    // Parse comma-separated list of operators
+    let mut operators = Vec::new();
+    loop {
+        if parser.token == Token::LParen {
+            return Err(parser.expected_failure("operator name")?);
+        }
+        let name = parse_operator_name(parser)?;
+        let (left_type, right_type) = if parser.token == Token::LParen {
+            parser.consume_token(Token::LParen)?;
+            let mut left = None;
+            let mut right = None;
+            parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+                if parser.token != Token::Comma && parser.token != Token::RParen {
+                    left = Some(crate::data_type::parse_data_type(parser, false)?);
+                }
+                if parser.skip_token(Token::Comma).is_some() && parser.token != Token::RParen {
+                    right = Some(crate::data_type::parse_data_type(parser, false)?);
+                }
+                Ok(())
+            })?;
+            parser.consume_token(Token::RParen)?;
+            (left, right)
+        } else {
+            (None, None)
+        };
+        operators.push(DropOperatorItem { name, left_type, right_type });
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    let cascade = parser.skip_keyword(Keyword::CASCADE);
+    let restrict = parser.skip_keyword(Keyword::RESTRICT);
+    if let Some(cascade_span) = &cascade
+        && let Some(restrict_span) = &restrict
+    {
+        parser
+            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
+            .frag("RESTRICT", restrict_span);
+    }
+    Ok(Statement::DropOperator(DropOperator {
+        drop_span,
+        operator_span,
+        if_exists,
+        operators,
+        cascade,
+        restrict,
+    }))
+}
+
 pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let drop_span = parser.consume_keyword(Keyword::DROP)?;
     let temporary = parser.skip_keyword(Keyword::TEMPORARY);
@@ -995,6 +1115,7 @@ pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a
         Token::Ident(_, Keyword::EXTENSION) => parse_drop_extension(parser, drop_span),
         Token::Ident(_, Keyword::EVENT) => parse_drop_event(parser, drop_span),
         Token::Ident(_, Keyword::FUNCTION) => parse_drop_function(parser, drop_span),
+        Token::Ident(_, Keyword::OPERATOR) => parse_drop_operator(parser, drop_span),
         Token::Ident(_, Keyword::INDEX) => parse_drop_index(parser, drop_span),
         Token::Ident(_, Keyword::PROCEDURE) => parse_drop_procedure(parser, drop_span),
         Token::Ident(_, Keyword::SEQUENCE) => parse_drop_sequence(parser, drop_span),

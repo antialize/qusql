@@ -2786,56 +2786,56 @@
     "input": "DROP OPERATOR (INTEGER, INTEGER)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'operator name' here\",\n    span: 14..15,\n    sql_segment: \"(\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "DROP OPERATOR CLASS IF EXISTS USING btree",
-    "output": null,
+    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"CLASS\",\n                        span: 14..19,\n                    },\n                },\n                left_type: None,\n                right_type: None,\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 20..22,\n    sql_segment: \"IF\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "DROP OPERATOR CLASS USING btree",
-    "output": null,
+    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"CLASS\",\n                        span: 14..19,\n                    },\n                },\n                left_type: None,\n                right_type: None,\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 20..25,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "DROP OPERATOR CLASS{} {} USING {}{}",
-    "output": null,
+    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"CLASS\",\n                        span: 14..19,\n                    },\n                },\n                left_type: None,\n                right_type: None,\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 19..20,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "DROP OPERATOR FAMILY IF EXISTS USING btree",
-    "output": null,
+    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"FAMILY\",\n                        span: 14..20,\n                    },\n                },\n                left_type: None,\n                right_type: None,\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 21..23,\n    sql_segment: \"IF\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "DROP OPERATOR FAMILY USING btree",
-    "output": null,
+    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"FAMILY\",\n                        span: 14..20,\n                    },\n                },\n                left_type: None,\n                right_type: None,\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 21..26,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "DROP OPERATOR FAMILY{} {} USING {}{}",
-    "output": null,
+    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"FAMILY\",\n                        span: 14..20,\n                    },\n                },\n                left_type: None,\n                right_type: None,\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 20..21,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -2844,31 +2844,25 @@
     "input": "DROP OPERATOR IF EXISTS (INTEGER, INTEGER)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'operator name' here\",\n    span: 24..25,\n    sql_segment: \"(\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "DROP OPERATOR IF EXISTS + (INTEGER, INTEGER), - (INTEGER, INTEGER) CASCADE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: Some(\n            14..23,\n        ),\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"+\",\n                        span: 24..25,\n                    },\n                },\n                left_type: Some(\n                    DataType {\n                        identifier: 27..34,\n                        type_: Integer(\n                            None,\n                        ),\n                        properties: [],\n                    },\n                ),\n                right_type: Some(\n                    DataType {\n                        identifier: 36..43,\n                        type_: Integer(\n                            None,\n                        ),\n                        properties: [],\n                    },\n                ),\n            },\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"-\",\n                        span: 46..47,\n                    },\n                },\n                left_type: Some(\n                    DataType {\n                        identifier: 49..56,\n                        type_: Integer(\n                            None,\n                        ),\n                        properties: [],\n                    },\n                ),\n                right_type: Some(\n                    DataType {\n                        identifier: 58..65,\n                        type_: Integer(\n                            None,\n                        ),\n                        properties: [],\n                    },\n                ),\n            },\n        ],\n        cascade: Some(\n            67..74,\n        ),\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP OPERATOR myschema.@@ (TEXT, TEXT)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [\n                        (\n                            Identifier {\n                                value: \"myschema\",\n                                span: 14..22,\n                            },\n                            22..23,\n                        ),\n                    ],\n                    identifier: Identifier {\n                        value: \"@@\",\n                        span: 23..25,\n                    },\n                },\n                left_type: Some(\n                    DataType {\n                        identifier: 27..31,\n                        type_: Text(\n                            None,\n                        ),\n                        properties: [],\n                    },\n                ),\n                right_type: Some(\n                    DataType {\n                        identifier: 33..37,\n                        type_: Text(\n                            None,\n                        ),\n                        properties: [],\n                    },\n                ),\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP OPERATOR ~ (NONE, BIT)",
-    "output": null,
+    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"~\",\n                        span: 14..15,\n                    },\n                },\n                left_type: Some(\n                    DataType {\n                        identifier: 17..21,\n                        type_: Named(\n                            17..21,\n                        ),\n                        properties: [],\n                    },\n                ),\n                right_type: None,\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 26..27,\n    sql_segment: \")\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -2876,7 +2870,7 @@
     "input": "DROP OPERATOR{} {op} (INTEGER, INTEGER){}",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'droppable' here\",\n    span: 5..13,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 13..14,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
