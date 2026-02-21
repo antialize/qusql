@@ -19,8 +19,9 @@ use crate::{
     alter_table::parse_alter_table,
     create::{
         CreateDatabase, CreateFunction, CreateIndex, CreateRole, CreateSchema, CreateSequence,
-        CreateServer, CreateTable, CreateTrigger, CreateTypeEnum, CreateView, parse_create,
+        CreateServer, CreateTrigger, CreateTypeEnum, CreateView, parse_create,
     },
+    create_table::CreateTable,
     delete::{Delete, parse_delete},
     drop::{
         DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,

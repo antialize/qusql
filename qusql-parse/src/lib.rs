@@ -48,6 +48,8 @@ use parser::Parser;
 mod alter_role;
 mod alter_table;
 mod create;
+mod create_option;
+mod create_table;
 mod data_type;
 mod delete;
 mod drop;
@@ -81,12 +83,13 @@ pub use alter_table::{
 
 pub use alter_role::{AlterRole, AlterRoleAction, AlterRoleValue};
 pub use create::{
-    CreateAlgorithm, CreateDatabase, CreateDatabaseOption, CreateDefinition, CreateFunction,
-    CreateIndex, CreateIndexOption, CreateOption, CreateRole, CreateSchema, CreateSequence,
-    CreateServer, CreateTable, CreateTableAs, CreateTrigger, CreateTypeEnum, CreateView,
-    FunctionCharacteristic, FunctionParamDirection, IncludeClause, RoleMembership,
-    RoleMembershipType, RoleOption, SequenceOption, TableOption, TriggerEvent, TriggerTime,
+    CreateDatabase, CreateDatabaseOption, CreateFunction, CreateIndex, CreateIndexOption,
+    CreateRole, CreateSchema, CreateSequence, CreateServer, CreateTrigger, CreateTypeEnum,
+    CreateView, FunctionCharacteristic, FunctionParamDirection, IncludeClause, RoleMembership,
+    RoleMembershipType, RoleOption, SequenceOption, TriggerEvent, TriggerTime,
 };
+pub use create_option::{CreateAlgorithm, CreateOption};
+pub use create_table::{CreateDefinition, CreateTable, CreateTableAs};
 pub use data_type::{DataType, DataTypeProperty, Timestamp, Type};
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
