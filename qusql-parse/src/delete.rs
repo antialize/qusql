@@ -51,7 +51,7 @@ impl Spanned for DeleteFlag {
 ///
 /// # assert!(issues.is_ok());
 /// let delete: Delete = match stmts.pop() {
-///     Some(Statement::Delete(d)) => d,
+///     Some(Statement::Delete(d)) => *d,
 ///     _ => panic!("We should get a delete statement")
 /// };
 ///

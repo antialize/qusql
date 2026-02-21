@@ -1,7 +1,7 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    Identifier, Span, Spanned, Statement,
+    Begin, Identifier, Span, Spanned, Statement,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -45,7 +45,7 @@ impl<'a> Spanned for WithBlock<'a> {
 /// # assert!(issues.is_ok());
 /// #
 /// let delete: WithQuery = match stmts.pop() {
-///     Some(Statement::WithQuery(d)) => d,
+///     Some(Statement::WithQuery(d)) => *d,
 ///     _ => panic!("We should get a with statement")
 /// };
 ///
@@ -107,7 +107,9 @@ pub(crate) fn parse_with_query<'a>(
                 }
                 v
             }
-            None => Statement::Begin(lparen_span.clone()),
+            None => Statement::Begin(Box::new(Begin {
+                span: lparen_span.clone(),
+            })),
         };
         with_blocks.push(WithBlock {
             identifier,

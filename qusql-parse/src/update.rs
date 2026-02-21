@@ -51,7 +51,7 @@ impl Spanned for UpdateFlag {
 ///
 /// # assert!(issues.is_ok());
 /// let u: Update = match stmt {
-///     Some(Statement::Update(u)) => u,
+///     Some(Statement::Update(u)) => *u,
 ///     _ => panic!("We should get an update statement")
 /// };
 ///

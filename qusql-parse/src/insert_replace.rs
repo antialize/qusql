@@ -87,7 +87,7 @@ pub enum OnConflictAction<'a> {
     DoUpdateSet {
         do_update_set_span: Span,
         sets: Vec<(Identifier<'a>, Expression<'a>)>,
-        where_: Option<(Span, alloc::boxed::Box<Expression<'a>>)>,
+        where_: Option<(Span, Expression<'a>)>,
     },
 }
 
@@ -179,8 +179,7 @@ impl<'a> Spanned for InsertReplaceOnDuplicateKeyUpdate<'a> {
 /// # assert!(issues.is_ok());
 ///
 /// let i: InsertReplace = match stmt1 {
-///     Some(Statement::InsertReplace(
-///         i @ InsertReplace{type_: InsertReplaceType::Insert(_), ..})) => i,
+///     Some(Statement::InsertReplace(i)) if matches!(i.type_, InsertReplaceType::Insert(_)) => *i,
 ///     _ => panic!("We should get an insert statement")
 /// };
 ///
@@ -194,8 +193,7 @@ impl<'a> Spanned for InsertReplaceOnDuplicateKeyUpdate<'a> {
 /// # assert!(issues.is_ok());
 /// #
 /// let r: InsertReplace = match stmt {
-///     Some(Statement::InsertReplace(
-///         r @ InsertReplace{type_: InsertReplaceType::Replace(_), ..})) => r,
+///     Some(Statement::InsertReplace(r)) if matches!(r.type_, InsertReplaceType::Replace(_)) => *r,
 ///     _ => panic!("We should get an replace statement")
 /// };
 ///
@@ -472,8 +470,7 @@ pub(crate) fn parse_insert_replace<'a>(
                             let where_ = if matches!(parser.token, Token::Ident(_, Keyword::WHERE))
                             {
                                 let where_span = parser.consume_keyword(Keyword::WHERE)?;
-                                let where_expr =
-                                    alloc::boxed::Box::new(parse_expression(parser, false)?);
+                                let where_expr = parse_expression(parser, false)?;
                                 Some((where_span, where_expr))
                             } else {
                                 None
