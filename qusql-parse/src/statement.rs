@@ -18,10 +18,12 @@ use crate::{
     alter_role::parse_alter_role,
     alter_table::parse_alter_table,
     create::{
-        CreateDatabase, CreateFunction, CreateIndex, CreateRole, CreateSchema, CreateSequence,
-        CreateServer, CreateTrigger, CreateTypeEnum, CreateView, parse_create,
+        CreateDatabase, CreateIndex, CreateRole, CreateSchema, CreateSequence, CreateServer,
+        CreateTrigger, CreateTypeEnum, parse_create,
     },
+    create_function::CreateFunction,
     create_table::CreateTable,
+    create_view::CreateView,
     delete::{Delete, parse_delete},
     drop::{
         DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
