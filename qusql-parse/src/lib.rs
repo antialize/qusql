@@ -45,7 +45,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 use lexer::Token;
 use parser::Parser;
-mod alter;
+mod alter_role;
+mod alter_table;
 mod create;
 mod data_type;
 mod delete;
@@ -72,11 +73,13 @@ mod truncate;
 mod update;
 mod with_query;
 
-pub use alter::{
-    AlterAlgorithm, AlterColumnAction, AlterLock, AlterRole, AlterRoleAction, AlterRoleValue,
-    AlterSpecification, AlterTable, AlterTableOwner, ForeignKeyOn, ForeignKeyOnAction,
-    ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption, IndexType,
+pub use alter_table::{
+    AlterAlgorithm, AlterColumnAction, AlterLock, AlterSpecification, AlterTable, AlterTableOwner,
+    ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption,
+    IndexType,
 };
+
+pub use alter_role::{AlterRole, AlterRoleAction, AlterRoleValue};
 pub use create::{
     CreateAlgorithm, CreateDatabase, CreateDatabaseOption, CreateDefinition, CreateFunction,
     CreateIndex, CreateIndexOption, CreateOption, CreateRole, CreateSchema, CreateSequence,
