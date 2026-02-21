@@ -17,6 +17,7 @@ use crate::{
     issue::{IssueHandle, Issues},
     keywords::Keyword,
     lexer::{Lexer, Token},
+    span::OptSpanned,
 };
 
 #[derive(Debug)]
@@ -472,5 +473,25 @@ impl<'a, 'b> Parser<'a, 'b> {
 
     pub(crate) fn todo<T>(&mut self, file: &'static str, line: u32) -> Result<T, ParseError> {
         self.err_here(format!("Not yet implemented at {}:{}", file, line))
+    }
+
+    /// Verify that the current dialect is PostgreSQL, emitting an error if not.
+    /// Only emits an error if the span is present (Some).
+    pub(crate) fn postgres_only(&mut self, span: &impl OptSpanned) {
+        if !self.options.dialect.is_postgresql()
+            && let Some(s) = span.opt_span()
+        {
+            self.err("Only supported by PostgreSQL", &s);
+        }
+    }
+
+    /// Verify that the current dialect is MariaDB/MySQL, emitting an error if not.
+    /// Only emits an error if the span is present (Some).
+    pub(crate) fn maria_only(&mut self, span: &impl OptSpanned) {
+        if !self.options.dialect.is_maria()
+            && let Some(s) = span.opt_span()
+        {
+            self.err("Only supported by MariaDB", &s);
+        }
     }
 }

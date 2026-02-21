@@ -11,7 +11,6 @@
 // limitations under the License.
 
 use alloc::{format, string::ToString, sync::Arc, vec};
-use core::ops::Deref;
 use qusql_parse::{Expression, Identifier, Span, UnaryOperator, Variable, issue_todo};
 
 use crate::{
@@ -105,25 +104,18 @@ pub(crate) fn type_expression<'a>(
     _context: BaseType,
 ) -> FullType<'a> {
     match expression {
-        Expression::Binary {
-            op,
-            op_span,
-            lhs,
-            rhs,
-        } => type_binary_expression(typer, op, op_span, lhs, rhs, flags),
-        Expression::Unary {
-            op,
-            op_span,
-            operand,
-        } => type_unary_expression(typer, op, op_span, operand, flags),
-        Expression::Subquery(select) => {
-            let select_type = type_union_select(typer, select, false);
+        Expression::Binary(e) => {
+            type_binary_expression(typer, &e.op, &e.op_span, &e.lhs, &e.rhs, flags)
+        }
+        Expression::Unary(e) => type_unary_expression(typer, &e.op, &e.op_span, &e.operand, flags),
+        Expression::Subquery(e) => {
+            let select_type = type_union_select(typer, &e.expression, false);
             if let [v] = select_type.columns.as_slice() {
                 let mut r = v.type_.clone();
                 r.not_null = false;
                 r
             } else {
-                typer.err("Subquery should yield one column", select);
+                typer.err("Subquery should yield one column", &e.expression);
                 FullType::invalid()
             }
         }
@@ -132,26 +124,22 @@ pub(crate) fn type_expression<'a>(
             FullType::invalid()
         }
         Expression::Null(_) => FullType::new(Type::Null, false),
-        Expression::Bool(_, _) => FullType::new(BaseType::Bool, true),
+        Expression::Bool(_) => FullType::new(BaseType::Bool, true),
         Expression::String(_) => FullType::new(BaseType::String, true),
         Expression::Integer(_) => FullType::new(BaseType::Integer, true),
         Expression::Float(_) => FullType::new(BaseType::Float, true),
-        Expression::Function(func, args, span) => type_function(typer, func, args, span, flags),
-        Expression::WindowFunction {
-            function,
-            args,
-            function_span,
-            over_span: _,
-            window_spec,
-        } => {
-            for (e, _) in &window_spec.order_by.1 {
+        Expression::Function(e) => {
+            type_function(typer, &e.function, &e.args, &e.function_span, flags)
+        }
+        Expression::WindowFunction(e) => {
+            for (e, _) in &e.window_spec.order_by.1 {
                 type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
             }
-            type_function(typer, function, args, function_span, flags)
+            type_function(typer, &e.function, &e.args, &e.function_span, flags)
         }
-        Expression::Identifier(i) => {
+        Expression::Identifier(e) => {
             let mut t = None;
-            match i.as_slice() {
+            match e.parts.as_slice() {
                 [part] => {
                     let col = match part {
                         qusql_parse::IdentifierPart::Name(n) => n,
@@ -225,42 +213,40 @@ pub(crate) fn type_expression<'a>(
                 Some((_, type_)) => type_.clone(),
             }
         }
-        Expression::Arg((idx, span)) => FullType::new(
+        Expression::Arg(e) => FullType::new(
             Type::Args(
                 BaseType::Any,
-                Arc::new(vec![(*idx, ArgType::Normal, span.clone())]),
+                Arc::new(vec![(e.index, ArgType::Normal, e.span.clone())]),
             ),
             false,
         ),
-        Expression::Exists(s) => {
-            type_union_select(typer, s, false);
+        Expression::Exists(e) => {
+            type_union_select(typer, &e.subquery, false);
             FullType::new(BaseType::Bool, true)
         }
-        Expression::In {
-            lhs, rhs, in_span, ..
-        } => {
+        Expression::In(e) => {
             let f2 = if flags.true_ {
                 flags.with_not_null(true).with_true(false)
             } else {
                 flags
             };
 
-            let mut lhs_type = type_expression(typer, lhs, f2, BaseType::Any);
+            let mut lhs_type = type_expression(typer, &e.lhs, f2, BaseType::Any);
             let mut not_null = lhs_type.not_null;
             // Hack to allow null arguments on the right hand side of an in expression
             // where the lhs is not null
             lhs_type.not_null = false;
-            for rhs in rhs {
+            for rhs in &e.rhs {
                 let rhs_type = match rhs {
                     Expression::Subquery(q) => {
-                        let rhs_type = type_union_select(typer, q, false);
+                        let rhs_type = type_union_select(typer, &q.expression, false);
                         if rhs_type.columns.len() != 1 {
                             typer.err(
                                 format!(
                                     "Subquery in IN should yield one column but gave {}",
                                     rhs_type.columns.len()
                                 ),
-                                q,
+                                &q.expression,
                             );
                         }
                         if let Some(c) = rhs_type.columns.first() {
@@ -269,10 +255,10 @@ pub(crate) fn type_expression<'a>(
                             FullType::invalid()
                         }
                     }
-                    Expression::ListHack((idx, span)) => FullType::new(
+                    Expression::ListHack(e) => FullType::new(
                         Type::Args(
                             BaseType::Any,
-                            Arc::new(vec![(*idx, ArgType::ListHack, span.clone())]),
+                            Arc::new(vec![(e.index, ArgType::ListHack, e.span.clone())]),
                         ),
                         false,
                     ),
@@ -281,21 +267,21 @@ pub(crate) fn type_expression<'a>(
                 not_null &= rhs_type.not_null;
                 if typer.matched_type(&lhs_type, &rhs_type).is_none() {
                     typer
-                        .err("Incompatible types", in_span)
-                        .frag(lhs_type.t.to_string(), lhs)
+                        .err("Incompatible types", &e.in_span)
+                        .frag(lhs_type.t.to_string(), &e.lhs)
                         .frag(rhs_type.to_string(), rhs);
                 }
             }
             FullType::new(BaseType::Bool, not_null)
         }
-        Expression::MemberOf { lhs, rhs, .. } => {
-            let lhs_type = type_expression(typer, lhs, flags, BaseType::Any);
-            let rhs_type = type_expression(typer, rhs, flags, BaseType::String); // JSON array as string
+        Expression::MemberOf(e) => {
+            let lhs_type = type_expression(typer, &e.lhs, flags, BaseType::Any);
+            let rhs_type = type_expression(typer, &e.rhs, flags, BaseType::String); // JSON array as string
             // MEMBER OF returns boolean
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
         }
-        Expression::Is(e, is, _) => {
-            let (flags, base_type) = match is {
+        Expression::Is(e) => {
+            let (flags, base_type) = match e.is {
                 qusql_parse::Is::Null => (flags.without_values(), BaseType::Any),
                 qusql_parse::Is::NotNull => {
                     if flags.true_ {
@@ -312,11 +298,11 @@ pub(crate) fn type_expression<'a>(
                     (flags.without_values(), BaseType::Any)
                 }
             };
-            let t = type_expression(typer, e, flags, base_type);
-            match is {
+            let t = type_expression(typer, &e.lhs, flags, base_type);
+            match e.is {
                 qusql_parse::Is::Null => {
                     if t.not_null {
-                        typer.warn("Cannot be null", e);
+                        typer.warn("Cannot be null", &e.lhs);
                     }
                     FullType::new(BaseType::Bool, true)
                 }
@@ -326,25 +312,20 @@ pub(crate) fn type_expression<'a>(
                 | qusql_parse::Is::False
                 | qusql_parse::Is::NotFalse => FullType::new(BaseType::Bool, true),
                 qusql_parse::Is::Unknown | qusql_parse::Is::NotUnknown => {
-                    issue_todo!(typer.issues, expression);
+                    issue_todo!(typer.issues, &e.lhs);
                     FullType::invalid()
                 }
             }
         }
         Expression::Invalid(_) => FullType::invalid(),
-        Expression::Case {
-            value,
-            whens,
-            else_,
-            ..
-        } => {
-            if value.is_some() {
-                issue_todo!(typer.issues, expression);
+        Expression::Case(e) => {
+            if let Some(e) = &e.value {
+                issue_todo!(typer.issues, e);
                 FullType::invalid()
             } else {
                 let not_null = true;
                 let mut t: Option<Type> = None;
-                for when in whens {
+                for when in &e.whens {
                     let op_type = type_expression(typer, &when.when, flags, BaseType::Bool);
                     typer.ensure_base(&when.when, &op_type, BaseType::Bool);
                     let t2 = type_expression(typer, &when.then, flags, BaseType::Any);
@@ -354,7 +335,7 @@ pub(crate) fn type_expression<'a>(
                         t = Some(t2.t);
                     }
                 }
-                if let Some((_, else_)) = else_ {
+                if let Some((_, else_)) = &e.else_ {
                     let t2 = type_expression(typer, else_, flags, BaseType::Any);
                     if let Some(t1) = t {
                         t = typer.matched_type(&t1, &t2.t)
@@ -369,20 +350,15 @@ pub(crate) fn type_expression<'a>(
                 }
             }
         }
-        Expression::Cast {
-            expr,
-            as_span,
-            type_,
-            ..
-        } => {
+        Expression::Cast(e) => {
             let col = parse_column(
-                type_.clone(),
-                Identifier::new("", as_span.clone()),
+                e.type_.clone(),
+                Identifier::new("", e.as_span.clone()),
                 typer.issues,
                 None,
             );
             if typer.dialect().is_maria() {
-                match type_.type_ {
+                match e.type_.type_ {
                             qusql_parse::Type::Char(_)
                             | qusql_parse::Type::Date
                             | qusql_parse::Type::Inet4
@@ -417,24 +393,26 @@ pub(crate) fn type_expression<'a>(
                             | qusql_parse::Type::LongBlob(_)
                             | qusql_parse::Type::Json
                             | qusql_parse::Type::Bit(_, _)
+                            | qusql_parse::Type::VarBit(_)
                             | qusql_parse::Type::Bytea
                             | qusql_parse::Type::Named(_) // TODO lookup name
+                            | qusql_parse::Type::Array(_, _)
                             | qusql_parse::Type::VarBinary(_) => {
                                 typer
-                                    .err("Type not allow in cast", type_);
+                                    .err("Type not allow in cast", &e.type_);
                             }
                         };
             } else {
                 //TODO check me
             }
-            let e = type_expression(typer, expr, flags, col.type_.base());
+            let e = type_expression(typer, &e.expr, flags, col.type_.base());
             //TODO check if it can possible be valid cast
             FullType::new(col.type_.t, e.not_null)
         }
-        Expression::Count { expr, .. } => {
-            match expr.deref() {
+        Expression::Count(e) => {
+            match &e.expr {
                 Expression::Identifier(parts) => {
-                    resolve_kleene_identifier(typer, parts, &None, |_, _, _, _, _| {})
+                    resolve_kleene_identifier(typer, &parts.parts, &None, |_, _, _, _, _| {})
                 }
                 arg => {
                     type_expression(typer, arg, flags.without_values(), BaseType::Any);
@@ -442,27 +420,19 @@ pub(crate) fn type_expression<'a>(
             }
             FullType::new(BaseType::Integer, true)
         }
-        Expression::GroupConcat { expr, .. } => {
-            let e = type_expression(typer, expr, flags.without_values(), BaseType::Any);
+        Expression::GroupConcat(e) => {
+            let e = type_expression(typer, &e.expr, flags.without_values(), BaseType::Any);
             FullType::new(BaseType::String, e.not_null)
         }
-        Expression::Variable {
-            variable,
-            variable_span,
-            ..
-        } => match variable {
+        Expression::Variable(e) => match &e.variable {
             Variable::TimeZone => FullType::new(BaseType::String, true),
             Variable::Other(_) => {
-                typer.err("Unknown variable", variable_span);
+                typer.err("Unknown variable", e);
                 FullType::new(BaseType::Any, false)
             }
         },
-        Expression::Interval {
-            time_interval,
-            time_unit,
-            ..
-        } => {
-            let cnt = match time_unit.0 {
+        Expression::Interval(e) => {
+            let cnt = match e.time_unit.0 {
                 qusql_parse::TimeUnit::Microsecond => 1,
                 qusql_parse::TimeUnit::Second => 1,
                 qusql_parse::TimeUnit::Minute => 1,
@@ -484,37 +454,35 @@ pub(crate) fn type_expression<'a>(
                 qusql_parse::TimeUnit::DayHour => 2,
                 qusql_parse::TimeUnit::YearMonth => 2,
             };
-            if cnt != time_interval.0.len() {
+            if cnt != e.time_interval.0.len() {
                 typer.err(
                     format!(
                         "Expected {} values for {:?} got {}",
                         cnt,
-                        time_unit.0,
-                        time_interval.0.len()
+                        e.time_unit.0,
+                        e.time_interval.0.len()
                     ),
-                    &time_interval.1,
+                    &e.time_interval.1,
                 );
             }
             FullType::new(BaseType::TimeInterval, true)
         }
-        Expression::Extract { date, .. } => {
-            let t = type_expression(typer, date, flags, BaseType::Any);
+        Expression::Extract(e) => {
+            let t = type_expression(typer, &e.date, flags, BaseType::Any);
             FullType::new(BaseType::Integer, t.not_null)
         }
-        Expression::TimestampAdd {
-            interval, datetime, ..
-        } => {
-            let t1 = type_expression(typer, interval, flags, BaseType::Integer);
-            let t2 = type_expression(typer, datetime, flags, BaseType::Any);
-            typer.ensure_base(interval, &t1, BaseType::Integer);
-            typer.ensure_datetime(interval, &t2, Restrict::Require, Restrict::Allow);
+        Expression::TimestampAdd(e) => {
+            let t1 = type_expression(typer, &e.interval, flags, BaseType::Integer);
+            let t2 = type_expression(typer, &e.datetime, flags, BaseType::Any);
+            typer.ensure_base(&e.interval, &t1, BaseType::Integer);
+            typer.ensure_datetime(&e.datetime, &t2, Restrict::Require, Restrict::Allow);
             FullType::new(BaseType::DateTime, t1.not_null && t2.not_null)
         }
-        Expression::TimestampDiff { e1, e2, .. } => {
-            let t1 = type_expression(typer, e1, flags, BaseType::Any);
-            let t2 = type_expression(typer, e2, flags, BaseType::Any);
-            typer.ensure_datetime(e1, &t1, Restrict::Require, Restrict::Allow);
-            typer.ensure_datetime(e2, &t2, Restrict::Require, Restrict::Allow);
+        Expression::TimestampDiff(e) => {
+            let t1 = type_expression(typer, &e.e1, flags, BaseType::Any);
+            let t2 = type_expression(typer, &e.e2, flags, BaseType::Any);
+            typer.ensure_datetime(&e.e1, &t1, Restrict::Require, Restrict::Allow);
+            typer.ensure_datetime(&e.e2, &t2, Restrict::Require, Restrict::Allow);
             FullType::new(BaseType::Integer, t1.not_null && t2.not_null)
         }
         e @ Expression::MatchAgainst { .. } => {

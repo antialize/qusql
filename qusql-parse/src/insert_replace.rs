@@ -87,7 +87,7 @@ pub enum OnConflictAction<'a> {
     DoUpdateSet {
         do_update_set_span: Span,
         sets: Vec<(Identifier<'a>, Expression<'a>)>,
-        where_: Option<(Span, alloc::boxed::Box<Expression<'a>>)>,
+        where_: Option<(Span, Expression<'a>)>,
     },
 }
 
@@ -414,12 +414,7 @@ pub(crate) fn parse_insert_replace<'a>(
                             break;
                         }
                     }
-                    if !parser.options.dialect.is_maria() {
-                        parser.err(
-                            "Only support by mariadb",
-                            &on_duplicate_key_update_span.join_span(&pairs),
-                        );
-                    }
+                    parser.maria_only(&on_duplicate_key_update_span.join_span(&pairs));
                     (
                         Some(InsertReplaceOnDuplicateKeyUpdate {
                             on_duplicate_key_update_span,
@@ -477,8 +472,7 @@ pub(crate) fn parse_insert_replace<'a>(
                             let where_ = if matches!(parser.token, Token::Ident(_, Keyword::WHERE))
                             {
                                 let where_span = parser.consume_keyword(Keyword::WHERE)?;
-                                let where_expr =
-                                    alloc::boxed::Box::new(parse_expression(parser, false)?);
+                                let where_expr = parse_expression(parser, false)?;
                                 Some((where_span, where_expr))
                             } else {
                                 None
@@ -498,9 +492,7 @@ pub(crate) fn parse_insert_replace<'a>(
                         action,
                     };
 
-                    if !parser.options.dialect.is_postgresql() {
-                        parser.err("Only support by postgesql", &on_conflict);
-                    }
+                    parser.postgres_only(&on_conflict);
 
                     (None, Some(on_conflict))
                 }

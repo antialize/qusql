@@ -45,13 +45,22 @@ extern crate alloc;
 use alloc::vec::Vec;
 use lexer::Token;
 use parser::Parser;
-mod alter;
+mod alter_role;
+mod alter_table;
 mod create;
+mod create_function;
+mod create_index;
+mod create_option;
+mod create_role;
+mod create_table;
+mod create_trigger;
+mod create_view;
 mod data_type;
 mod delete;
 mod drop;
 mod expression;
 mod flush;
+mod function_expression;
 mod identifier;
 mod insert_replace;
 mod issue;
@@ -59,6 +68,7 @@ mod keywords;
 mod kill;
 mod lexer;
 mod lock;
+mod operator;
 mod parser;
 mod qualified_name;
 mod rename;
@@ -71,41 +81,68 @@ mod truncate;
 mod update;
 mod with_query;
 
-pub use data_type::{DataType, DataTypeProperty, Type};
-pub use identifier::Identifier;
-pub use issue::{Fragment, Issue, IssueHandle, Issues, Level};
-pub use qualified_name::QualifiedName;
-pub use span::{OptSpanned, Span, Spanned};
-pub use sstring::SString;
-pub use statement::{Statement, Union, UnionType, UnionWith};
+pub use alter_table::{
+    AlterAlgorithm, AlterColumnAction, AlterLock, AlterSpecification, AlterTable, AlterTableOwner,
+    ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption,
+    IndexType,
+};
 
-pub use alter::{
-    AlterColumnAction, AlterSpecification, AlterTable, ForeignKeyOn, ForeignKeyOnAction,
-    ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption, IndexType,
-};
+pub use alter_role::{AlterRole, AlterRoleAction, AlterRoleValue};
 pub use create::{
-    CreateAlgorithm, CreateDefinition, CreateFunction, CreateOption, CreateTable, CreateTrigger,
-    CreateView, TableOption,
+    CreateDatabase, CreateDatabaseOption, CreateSchema, CreateSequence, CreateServer,
+    CreateTypeEnum, SequenceOption,
 };
+pub use create_function::{CreateFunction, FunctionCharacteristic, FunctionParamDirection};
+pub use create_index::{CreateIndex, CreateIndexOption, IncludeClause};
+pub use create_option::{CreateAlgorithm, CreateOption};
+pub use create_role::{CreateRole, RoleMembership, RoleMembershipType, RoleOption};
+pub use create_table::{CreateDefinition, CreateTable, CreateTableAs};
+pub use create_trigger::{CreateTrigger, TriggerEvent, TriggerTime};
+pub use create_view::CreateView;
+pub use data_type::{DataType, DataTypeProperty, Timestamp, Type};
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
-    DropDatabase, DropEvent, DropFunction, DropIndex, DropProcedure, DropServer, DropTable,
-    DropTrigger, DropView,
+    DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
+    DropOperatorItem, DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView,
 };
 pub use expression::{
-    BinaryOperator, Expression, Function, IdentifierPart, Is, TimeUnit, UnaryOperator, Variable,
-    When,
+    ArgExpression, BinaryExpression, BinaryOperator, BoolExpression, CaseExpression,
+    CastExpression, ConvertExpression, CountExpression, Expression, ExtractExpression,
+    FloatExpression, GroupConcatExpression, IdentifierExpression, IdentifierPart, InExpression,
+    IntegerExpression, IntervalExpression, InvalidExpression, Is, IsExpression,
+    MatchAgainstExpression, MatchMode, MemberOfExpression, NullExpression, SubqueryExpression,
+    TimeUnit, TimestampAddExpression, TimestampDiffExpression, UnaryExpression, UnaryOperator,
+    UserVariableExpression, Variable, VariableExpression, When,
 };
+pub use flush::{Flush, FlushOption};
+pub use function_expression::{Function, FunctionCallExpression, WindowFunctionCallExpression};
+pub use identifier::Identifier;
 pub use insert_replace::{
     InsertReplace, InsertReplaceFlag, InsertReplaceOnDuplicateKeyUpdate, InsertReplaceSet,
     InsertReplaceSetPair, InsertReplaceType, OnConflict, OnConflictAction, OnConflictTarget,
 };
+pub use issue::{Fragment, Issue, IssueHandle, Issues, Level};
+pub use kill::{Kill, KillType};
+pub use lock::{Lock, LockType, Unlock};
+pub use operator::{CreateOperator, OperatorOption, OperatorRef};
+pub use qualified_name::QualifiedName;
 pub use rename::{RenameTable, TableToTable};
 pub use select::{
-    IndexHint, IndexHintFor, IndexHintType, IndexHintUse, JoinSpecification, JoinType, Select,
-    SelectExpr, SelectFlag, TableReference,
+    IndexHint, IndexHintFor, IndexHintType, IndexHintUse, JoinSpecification, JoinType, Locking,
+    OrderFlag, Select, SelectExpr, SelectFlag, TableReference,
 };
-pub use truncate::TruncateTable;
+pub use show::{
+    ShowCharacterSet, ShowCollation, ShowColumns, ShowCreateDatabase, ShowCreateTable,
+    ShowCreateView, ShowDatabases, ShowEngines, ShowProcessList, ShowStatus, ShowTables,
+    ShowVariables,
+};
+pub use span::{OptSpanned, Span, Spanned};
+pub use sstring::SString;
+pub use statement::{
+    Begin, CaseStatement, Commit, Copy, End, If, Invalid, Return, Set, Signal, StartTransaction,
+    Statement, Union, UnionType, UnionWith,
+};
+pub use truncate::{CascadeOption, IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
 pub use with_query::{WithBlock, WithQuery};
 
