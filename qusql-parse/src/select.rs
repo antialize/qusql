@@ -172,7 +172,7 @@ impl<'a> Spanned for IndexHint<'a> {
 #[derive(Debug, Clone)]
 pub enum JsonTableOnErrorEmpty<'a> {
     /// DEFAULT value
-    Default(Box<Expression<'a>>),
+    Default(Expression<'a>),
     /// ERROR
     Error(Span),
     /// NULL
@@ -197,7 +197,7 @@ pub enum JsonTableColumn<'a> {
         name: Identifier<'a>,
         data_type: DataType<'a>,
         path_span: Span,
-        path: Box<Expression<'a>>,
+        path: Expression<'a>,
         /// ON EMPTY clause
         on_empty: Option<(JsonTableOnErrorEmpty<'a>, Span)>,
         /// ON ERROR clause
@@ -212,7 +212,7 @@ pub enum JsonTableColumn<'a> {
     Nested {
         nested_span: Span,
         path_span: Span,
-        path: Box<Expression<'a>>,
+        path: Expression<'a>,
         columns_span: Span,
         columns: Vec<JsonTableColumn<'a>>,
     },
@@ -283,9 +283,9 @@ pub enum TableReference<'a> {
         /// Span of "JSON_TABLE"
         json_table_span: Span,
         /// JSON data expression
-        json_expr: Box<Expression<'a>>,
+        json_expr: Expression<'a>,
         /// JSON path expression
-        path: Box<Expression<'a>>,
+        path: Expression<'a>,
         /// COLUMNS keyword span
         columns_keyword_span: Span,
         /// Column definitions
@@ -404,12 +404,12 @@ pub(crate) fn parse_table_reference_inner<'a>(
                         Token::SingleQuotedString(s) => {
                             let val = *s;
                             let span = parser.consume();
-                            Expression::String(SString::new(Cow::Borrowed(val), span))
+                            Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                         }
                         Token::DoubleQuotedString(s) => {
                             let val = *s;
                             let span = parser.consume();
-                            Expression::String(SString::new(Cow::Borrowed(val), span))
+                            Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                         }
                         _ => {
                             // Fall back to expression parsing
@@ -443,8 +443,8 @@ pub(crate) fn parse_table_reference_inner<'a>(
 
                     return Ok(TableReference::JsonTable {
                         json_table_span,
-                        json_expr: Box::new(json_expr),
-                        path: Box::new(path),
+                        json_expr,
+                        path,
                         columns_keyword_span,
                         columns,
                         as_span,
@@ -567,12 +567,12 @@ fn parse_json_table_columns<'a>(
                 Token::SingleQuotedString(s) => {
                     let val = *s;
                     let span = parser.consume();
-                    Expression::String(SString::new(Cow::Borrowed(val), span))
+                    Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                 }
                 Token::DoubleQuotedString(s) => {
                     let val = *s;
                     let span = parser.consume();
-                    Expression::String(SString::new(Cow::Borrowed(val), span))
+                    Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                 }
                 _ => parse_expression(parser, true)?,
             };
@@ -586,7 +586,7 @@ fn parse_json_table_columns<'a>(
             columns.push(JsonTableColumn::Nested {
                 nested_span,
                 path_span,
-                path: Box::new(path),
+                path,
                 columns_span,
                 columns: nested_columns,
             });
@@ -616,12 +616,12 @@ fn parse_json_table_columns<'a>(
                     Token::SingleQuotedString(s) => {
                         let val = *s;
                         let span = parser.consume();
-                        Expression::String(SString::new(Cow::Borrowed(val), span))
+                        Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                     }
                     Token::DoubleQuotedString(s) => {
                         let val = *s;
                         let span = parser.consume();
-                        Expression::String(SString::new(Cow::Borrowed(val), span))
+                        Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                     }
                     _ => parse_expression(parser, true)?,
                 };
@@ -638,7 +638,7 @@ fn parse_json_table_columns<'a>(
                             parser.consume();
                             // Parse the default value
                             let default_val = parse_expression(parser, true)?;
-                            Some(JsonTableOnErrorEmpty::Default(Box::new(default_val)))
+                            Some(JsonTableOnErrorEmpty::Default(default_val))
                         }
                         Token::Ident(_, Keyword::ERROR) => {
                             let error_span = parser.consume();
@@ -680,7 +680,7 @@ fn parse_json_table_columns<'a>(
                     name,
                     data_type,
                     path_span,
-                    path: Box::new(path),
+                    path,
                     on_empty,
                     on_error,
                 });

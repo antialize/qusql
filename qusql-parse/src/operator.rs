@@ -181,7 +181,7 @@ pub(crate) fn parse_create_operator<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<crate::create::CreateOption<'a>>,
-) -> Result<crate::Statement<'a>, ParseError> {
+) -> Result<CreateOperator<'a>, ParseError> {
     let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
     parser.postgres_only(&operator_span);
 
@@ -201,14 +201,14 @@ pub(crate) fn parse_create_operator<'a>(
 
     // Handle empty operator definition (should fail but we parse it)
     if let Some(rparen_span) = parser.skip_token(Token::RParen) {
-        return Ok(crate::Statement::CreateOperator(CreateOperator {
+        return Ok(CreateOperator {
             create_span,
             operator_span,
             name,
             lparen_span,
             options,
             rparen_span,
-        }));
+        });
     }
 
     // Parse operator options
@@ -317,14 +317,14 @@ pub(crate) fn parse_create_operator<'a>(
 
     let rparen_span = parser.consume_token(Token::RParen)?;
 
-    Ok(crate::Statement::CreateOperator(CreateOperator {
+    Ok(CreateOperator {
         create_span,
         operator_span,
         name,
         lparen_span,
         options,
         rparen_span,
-    }))
+    })
 }
 
 /// Parse an operator reference (either simple or OPERATOR(...) syntax)

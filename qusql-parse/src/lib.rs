@@ -72,41 +72,60 @@ mod truncate;
 mod update;
 mod with_query;
 
-pub use data_type::{DataType, DataTypeProperty, Type};
-pub use identifier::Identifier;
-pub use issue::{Fragment, Issue, IssueHandle, Issues, Level};
-pub use qualified_name::QualifiedName;
-pub use span::{OptSpanned, Span, Spanned};
-pub use sstring::SString;
-pub use statement::{Statement, Union, UnionType, UnionWith};
-
 pub use alter::{
-    AlterColumnAction, AlterSpecification, AlterTable, ForeignKeyOn, ForeignKeyOnAction,
+    AlterAlgorithm, AlterColumnAction, AlterLock, AlterRole, AlterRoleAction, AlterRoleValue,
+    AlterSpecification, AlterTable, AlterTableOwner, ForeignKeyOn, ForeignKeyOnAction,
     ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption, IndexType,
 };
 pub use create::{
-    CreateAlgorithm, CreateDefinition, CreateFunction, CreateOption, CreateRole, CreateSchema,
-    CreateSequence, CreateServer, CreateTable, CreateTrigger, CreateView, RoleMembership,
-    RoleMembershipType, RoleOption, SequenceOption, TableOption,
+    CreateAlgorithm, CreateDatabase, CreateDatabaseOption, CreateDefinition, CreateFunction,
+    CreateIndex, CreateIndexOption, CreateOption, CreateRole, CreateSchema, CreateSequence,
+    CreateServer, CreateTable, CreateTableAs, CreateTrigger, CreateTypeEnum, CreateView,
+    FunctionCharacteristic, FunctionParamDirection, IncludeClause, RoleMembership,
+    RoleMembershipType, RoleOption, SequenceOption, TableOption, TriggerEvent, TriggerTime,
 };
+pub use data_type::{DataType, DataTypeProperty, Timestamp, Type};
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
-    DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropProcedure,
-    DropSequence, DropServer, DropTable, DropTrigger, DropView, DropOperator, DropOperatorItem
+    DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
+    DropOperatorItem, DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView,
 };
 pub use expression::{
-    BinaryOperator, Expression, Function, IdentifierPart, Is, TimeUnit, UnaryOperator, Variable,
-    When,
+    ArgExpression, BinaryExpression, BinaryOperator, BoolExpression, CaseExpression,
+    CastExpression, ConvertExpression, CountExpression, Expression, ExtractExpression,
+    FloatExpression, Function, FunctionCallExpression, GroupConcatExpression, IdentifierExpression,
+    IdentifierPart, InExpression, IntegerExpression, IntervalExpression, InvalidExpression, Is,
+    IsExpression, MatchAgainstExpression, MatchMode, MemberOfExpression, NullExpression,
+    SubqueryExpression, TimeUnit, TimestampAddExpression, TimestampDiffExpression, UnaryExpression,
+    UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
+    WindowFunctionCallExpression,
 };
+pub use flush::{Flush, FlushOption};
+pub use identifier::Identifier;
 pub use insert_replace::{
     InsertReplace, InsertReplaceFlag, InsertReplaceOnDuplicateKeyUpdate, InsertReplaceSet,
     InsertReplaceSetPair, InsertReplaceType, OnConflict, OnConflictAction, OnConflictTarget,
 };
+pub use issue::{Fragment, Issue, IssueHandle, Issues, Level};
+pub use kill::{Kill, KillType};
+pub use lock::{Lock, LockType, Unlock};
 pub use operator::{CreateOperator, OperatorOption, OperatorRef};
+pub use qualified_name::QualifiedName;
 pub use rename::{RenameTable, TableToTable};
 pub use select::{
-    IndexHint, IndexHintFor, IndexHintType, IndexHintUse, JoinSpecification, JoinType, Select,
-    SelectExpr, SelectFlag, TableReference,
+    IndexHint, IndexHintFor, IndexHintType, IndexHintUse, JoinSpecification, JoinType, Locking,
+    OrderFlag, Select, SelectExpr, SelectFlag, TableReference,
+};
+pub use show::{
+    ShowCharacterSet, ShowCollation, ShowColumns, ShowCreateDatabase, ShowCreateTable,
+    ShowCreateView, ShowDatabases, ShowEngines, ShowProcessList, ShowStatus, ShowTables,
+    ShowVariables,
+};
+pub use span::{OptSpanned, Span, Spanned};
+pub use sstring::SString;
+pub use statement::{
+    Begin, CaseStatement, Commit, Copy, End, If, Invalid, Return, Set, Signal, StartTransaction,
+    Statement, Union, UnionType, UnionWith,
 };
 pub use truncate::{CascadeOption, IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};

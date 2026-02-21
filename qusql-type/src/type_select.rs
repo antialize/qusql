@@ -326,7 +326,7 @@ pub(crate) fn type_select_exprs<'a, 'b>(
             result.push((name, type_, span));
         };
         if let Expression::Identifier(parts) = &e.expr {
-            resolve_kleene_identifier(typer, parts, &e.as_, add_result);
+            resolve_kleene_identifier(typer, &parts.parts, &e.as_, add_result);
         } else {
             let type_ = type_expression(typer, &e.expr, ExpressionFlags::default(), BaseType::Any);
             if let Some(as_) = &e.as_ {

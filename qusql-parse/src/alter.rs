@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1651,12 +1651,12 @@ pub(crate) fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'
     let ignore = parser.skip_keyword(Keyword::IGNORE);
 
     match &parser.token {
-        Token::Ident(_, Keyword::TABLE) => Ok(Statement::AlterTable(parse_alter_table(
+        Token::Ident(_, Keyword::TABLE) => Ok(Statement::AlterTable(Box::new(parse_alter_table(
             parser, alter_span, online, ignore,
-        )?)),
-        Token::Ident(_, Keyword::ROLE) => {
-            Ok(Statement::AlterRole(parse_alter_role(parser, alter_span)?))
-        }
+        )?))),
+        Token::Ident(_, Keyword::ROLE) => Ok(Statement::AlterRole(Box::new(parse_alter_role(
+            parser, alter_span,
+        )?))),
         _ => parser.expected_failure("alterable"),
     }
 }

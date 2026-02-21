@@ -24,7 +24,7 @@ use crate::{
     operator::parse_create_operator,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
-    statement::{parse_compound_query, parse_statement},
+    statement::{Block, parse_compound_query, parse_statement},
 };
 
 /// Options on created table
@@ -416,7 +416,7 @@ pub struct CreateTableAs<'a> {
     pub ignore_span: Option<Span>,
     pub replace_span: Option<Span>,
     pub as_span: Span,
-    pub query: Box<Statement<'a>>,
+    pub query: Statement<'a>,
 }
 
 impl Spanned for CreateTableAs<'_> {
@@ -526,7 +526,7 @@ pub struct CreateView<'a> {
     /// Span of "AS"
     pub as_span: Span,
     /// The select statement following "AS"
-    pub select: Box<Statement<'a>>,
+    pub select: Statement<'a>,
 }
 
 impl<'a> Spanned for CreateView<'a> {
@@ -819,7 +819,7 @@ fn parse_create_view<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateView<'a>, ParseError> {
     let view_span = parser.consume_keyword(Keyword::VIEW)?;
 
     let if_not_exists = if let Some(if_) = parser.skip_keyword(Keyword::IF) {
@@ -841,15 +841,15 @@ fn parse_create_view<'a>(
 
     // TODO [WITH [CASCADED | LOCAL] CHECK OPTION]
 
-    Ok(Statement::CreateView(CreateView {
+    Ok(CreateView {
         create_span,
         create_options,
         view_span,
         if_not_exists,
         name,
         as_span,
-        select: Box::new(select),
-    }))
+        select,
+    })
 }
 
 /// Characteristic of a function
@@ -954,7 +954,7 @@ pub struct CreateFunction<'a> {
     /// Characteristics of created function
     pub characteristics: Vec<FunctionCharacteristic<'a>>,
     /// Statement computing return value
-    pub return_: Option<Box<Statement<'a>>>,
+    pub return_: Option<Statement<'a>>,
 }
 
 impl<'a> Spanned for CreateFunction<'a> {
@@ -974,7 +974,7 @@ fn parse_create_function<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateFunction<'a>, ParseError> {
     let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
 
     let if_not_exists = if let Some(if_) = parser.skip_keyword(Keyword::IF) {
@@ -1103,14 +1103,14 @@ fn parse_create_function<'a>(
 
     let return_ = if parser.options.dialect.is_maria() {
         match parse_statement(parser)? {
-            Some(v) => Some(Box::new(v)),
+            Some(v) => Some(v),
             None => parser.expected_failure("statement")?,
         }
     } else {
         None
     };
 
-    Ok(Statement::CreateFunction(CreateFunction {
+    Ok(CreateFunction {
         create_span,
         create_options,
         function_span,
@@ -1121,7 +1121,7 @@ fn parse_create_function<'a>(
         characteristics,
         return_,
         returns_span,
-    }))
+    })
 }
 
 /// When to fire the trigger
@@ -1213,7 +1213,7 @@ pub struct CreateTrigger<'a> {
     /// Span of "FOR EACH ROW"
     pub for_each_row_span: Span,
     /// Statement to execute
-    pub statement: Box<Statement<'a>>,
+    pub statement: Statement<'a>,
 }
 
 impl<'a> Spanned for CreateTrigger<'a> {
@@ -1236,7 +1236,7 @@ fn parse_create_trigger<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateTrigger<'a>, ParseError> {
     let trigger_span = parser.consume_keyword(Keyword::TRIGGER)?;
 
     let if_not_exists = if let Some(if_) = parser.skip_keyword(Keyword::IF) {
@@ -1289,12 +1289,16 @@ fn parse_create_trigger<'a>(
         let _execute_span = parser.consume_keyword(Keyword::EXECUTE)?;
         parser.consume_keyword(Keyword::FUNCTION)?;
         parser.consume_plain_identifier()?;
-        parser.consume_token(Token::LParen)?;
+        let begin_span = parser.consume_token(Token::LParen)?;
         // TODO: parse function arguments if needed
-        parser.consume_token(Token::RParen)?;
+        let end_span = parser.consume_token(Token::RParen)?;
 
         // Use an empty block as a placeholder for EXECUTE FUNCTION
-        Statement::Block(Vec::new())
+        Statement::Block(Box::new(Block {
+            begin_span,
+            end_span,
+            statements: Vec::new(),
+        }))
     } else {
         let old = core::mem::replace(&mut parser.permit_compound_statements, true);
         let statement = match parse_statement(parser)? {
@@ -1305,7 +1309,7 @@ fn parse_create_trigger<'a>(
         statement
     };
 
-    Ok(Statement::CreateTrigger(CreateTrigger {
+    Ok(CreateTrigger {
         create_span,
         create_options,
         trigger_span,
@@ -1316,8 +1320,8 @@ fn parse_create_trigger<'a>(
         on_span,
         table,
         for_each_row_span,
-        statement: Box::new(statement),
-    }))
+        statement,
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -1351,7 +1355,7 @@ fn parse_create_type<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateTypeEnum<'a>, ParseError> {
     let type_span = parser.consume_keyword(Keyword::TYPE)?;
     parser.postgres_only(&type_span);
     let name = parser.consume_plain_identifier()?;
@@ -1373,14 +1377,14 @@ fn parse_create_type<'a>(
         parser.consume_token(Token::Comma)?;
     }
     parser.consume_token(Token::RParen)?;
-    Ok(Statement::CreateTypeEnum(CreateTypeEnum {
+    Ok(CreateTypeEnum {
         create_span,
         create_options,
         type_span,
         name,
         as_enum_span,
         values,
-    }))
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -1469,7 +1473,7 @@ fn parse_create_index<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     mut create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateIndex<'a>, ParseError> {
     let index_span = parser.consume_keyword(Keyword::INDEX)?;
 
     // PostgreSQL: CONCURRENTLY
@@ -1681,7 +1685,7 @@ fn parse_create_index<'a>(
         None
     };
 
-    Ok(Statement::CreateIndex(CreateIndex {
+    Ok(CreateIndex {
         create_span,
         create_options,
         index_span,
@@ -1696,14 +1700,14 @@ fn parse_create_index<'a>(
         include_clause,
         where_,
         nulls_distinct,
-    }))
+    })
 }
 
 fn parse_create_table<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateTable<'a>, ParseError> {
     let table_span = parser.consume_keyword(Keyword::TABLE)?;
 
     let mut identifier = QualifiedName {
@@ -2075,7 +2079,7 @@ fn parse_create_table<'a>(
                             parser.err("Multiple AS clauses not supported", table_as);
                         }
 
-                        let query = Box::new(parse_compound_query(parser)?);
+                        let query = parse_compound_query(parser)?;
                         table_as = Some(CreateTableAs {
                             as_span,
                             replace_span,
@@ -2097,7 +2101,7 @@ fn parse_create_table<'a>(
         },
     )?;
 
-    Ok(Statement::CreateTable(CreateTable {
+    Ok(CreateTable {
         create_span,
         create_options,
         table_span,
@@ -2106,7 +2110,7 @@ fn parse_create_table<'a>(
         options,
         create_definitions,
         table_as,
-    }))
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -2167,12 +2171,12 @@ pub enum RoleOption<'a> {
     NoReplication(Span),
     BypassRls(Span),
     NoBypassRls(Span),
-    ConnectionLimit(Span, Box<Expression<'a>>),
-    EncryptedPassword(Span, Box<Expression<'a>>),
-    Password(Span, Box<Expression<'a>>),
+    ConnectionLimit(Span, Expression<'a>),
+    EncryptedPassword(Span, Expression<'a>),
+    Password(Span, Expression<'a>),
     PasswordNull(Span),
-    ValidUntil(Span, Box<Expression<'a>>),
-    Sysid(Span, Box<Expression<'a>>),
+    ValidUntil(Span, Expression<'a>),
+    Sysid(Span, Expression<'a>),
 }
 
 impl<'a> Spanned for RoleOption<'a> {
@@ -2192,12 +2196,12 @@ impl<'a> Spanned for RoleOption<'a> {
             RoleOption::NoReplication(s) => s.span(),
             RoleOption::BypassRls(s) => s.span(),
             RoleOption::NoBypassRls(s) => s.span(),
-            RoleOption::ConnectionLimit(s, e) => s.join_span(e.as_ref()),
-            RoleOption::EncryptedPassword(s, e) => s.join_span(e.as_ref()),
-            RoleOption::Password(s, e) => s.join_span(e.as_ref()),
+            RoleOption::ConnectionLimit(s, e) => s.join_span(e),
+            RoleOption::EncryptedPassword(s, e) => s.join_span(e),
+            RoleOption::Password(s, e) => s.join_span(e),
             RoleOption::PasswordNull(s) => s.span(),
-            RoleOption::ValidUntil(s, e) => s.join_span(e.as_ref()),
-            RoleOption::Sysid(s, e) => s.join_span(e.as_ref()),
+            RoleOption::ValidUntil(s, e) => s.join_span(e),
+            RoleOption::Sysid(s, e) => s.join_span(e),
         }
     }
 }
@@ -2270,7 +2274,7 @@ fn parse_create_role<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateRole<'a>, ParseError> {
     let role_span = parser.consume_keyword(Keyword::ROLE)?;
     parser.postgres_only(&role_span);
 
@@ -2423,12 +2427,12 @@ fn parse_create_role<'a>(
             Token::Ident(_, Keyword::CONNECTION) => {
                 let span = parser.consume_keywords(&[Keyword::CONNECTION, Keyword::LIMIT])?;
                 let expr = parse_expression(parser, false)?;
-                options.push(RoleOption::ConnectionLimit(span, Box::new(expr)));
+                options.push(RoleOption::ConnectionLimit(span, expr));
             }
             Token::Ident(_, Keyword::ENCRYPTED) => {
                 let span = parser.consume_keywords(&[Keyword::ENCRYPTED, Keyword::PASSWORD])?;
                 let expr = parse_expression(parser, false)?;
-                options.push(RoleOption::EncryptedPassword(span, Box::new(expr)));
+                options.push(RoleOption::EncryptedPassword(span, expr));
             }
             Token::Ident(_, Keyword::PASSWORD) => {
                 let password_span = parser.consume_keyword(Keyword::PASSWORD)?;
@@ -2436,24 +2440,24 @@ fn parse_create_role<'a>(
                     options.push(RoleOption::PasswordNull(password_span));
                 } else {
                     let expr = parse_expression(parser, false)?;
-                    options.push(RoleOption::Password(password_span, Box::new(expr)));
+                    options.push(RoleOption::Password(password_span, expr));
                 }
             }
             Token::Ident(_, Keyword::VALID) => {
                 let span = parser.consume_keywords(&[Keyword::VALID, Keyword::UNTIL])?;
                 let expr = parse_expression(parser, false)?;
-                options.push(RoleOption::ValidUntil(span, Box::new(expr)));
+                options.push(RoleOption::ValidUntil(span, expr));
             }
             Token::Ident(_, Keyword::SYSID) => {
                 let sysid_span = parser.consume_keyword(Keyword::SYSID)?;
                 let expr = parse_expression(parser, false)?;
-                options.push(RoleOption::Sysid(sysid_span, Box::new(expr)));
+                options.push(RoleOption::Sysid(sysid_span, expr));
             }
             _ => break,
         }
     }
 
-    Ok(Statement::CreateRole(CreateRole {
+    Ok(CreateRole {
         create_span,
         role_span,
         if_not_exists,
@@ -2461,7 +2465,7 @@ fn parse_create_role<'a>(
         with_span,
         options,
         memberships,
-    }))
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -2519,19 +2523,19 @@ pub enum SequenceOption<'a> {
     /// AS data_type
     As(Span, DataType<'a>),
     /// INCREMENT BY value
-    IncrementBy(Span, Box<Expression<'a>>),
+    IncrementBy(Span, Expression<'a>),
     /// MINVALUE value
-    MinValue(Span, Box<Expression<'a>>),
+    MinValue(Span, Expression<'a>),
     /// NO MINVALUE
     NoMinValue(Span),
     /// MAXVALUE value
-    MaxValue(Span, Box<Expression<'a>>),
+    MaxValue(Span, Expression<'a>),
     /// NO MAXVALUE
     NoMaxValue(Span),
     /// START WITH value
-    StartWith(Span, Box<Expression<'a>>),
+    StartWith(Span, Expression<'a>),
     /// CACHE value
-    Cache(Span, Box<Expression<'a>>),
+    Cache(Span, Expression<'a>),
     /// CYCLE
     Cycle(Span),
     /// NO CYCLE
@@ -2546,13 +2550,13 @@ impl<'a> Spanned for SequenceOption<'a> {
     fn span(&self) -> Span {
         match self {
             SequenceOption::As(s, t) => s.join_span(t),
-            SequenceOption::IncrementBy(s, e) => s.join_span(e.as_ref()),
-            SequenceOption::MinValue(s, e) => s.join_span(e.as_ref()),
+            SequenceOption::IncrementBy(s, e) => s.join_span(e),
+            SequenceOption::MinValue(s, e) => s.join_span(e),
             SequenceOption::NoMinValue(s) => s.span(),
-            SequenceOption::MaxValue(s, e) => s.join_span(e.as_ref()),
+            SequenceOption::MaxValue(s, e) => s.join_span(e),
             SequenceOption::NoMaxValue(s) => s.span(),
-            SequenceOption::StartWith(s, e) => s.join_span(e.as_ref()),
-            SequenceOption::Cache(s, e) => s.join_span(e.as_ref()),
+            SequenceOption::StartWith(s, e) => s.join_span(e),
+            SequenceOption::Cache(s, e) => s.join_span(e),
             SequenceOption::Cycle(s) => s.span(),
             SequenceOption::NoCycle(s) => s.span(),
             SequenceOption::OwnedBy(s, q) => s.join_span(q),
@@ -2593,7 +2597,7 @@ fn parse_create_database<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateDatabase<'a>, ParseError> {
     for option in create_options {
         parser.err("Not supported fo CREATE DATABASE", &option.span());
     }
@@ -2662,20 +2666,20 @@ fn parse_create_database<'a>(
         }
     }
 
-    Ok(Statement::CreateDatabase(CreateDatabase {
+    Ok(CreateDatabase {
         create_span,
         create_options,
         database_span,
         if_not_exists,
         name,
-    }))
+    })
 }
 
 fn parse_create_schema<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateSchema<'a>, ParseError> {
     let schema_span = parser.consume_keyword(Keyword::SCHEMA)?;
     parser.postgres_only(&schema_span);
 
@@ -2716,20 +2720,20 @@ fn parse_create_schema<'a>(
 
     // TODO: Parse schema elements (CREATE TABLE, CREATE VIEW, GRANT, etc.)
 
-    Ok(Statement::CreateSchema(CreateSchema {
+    Ok(CreateSchema {
         create_span,
         schema_span,
         if_not_exists,
         name,
         authorization,
-    }))
+    })
 }
 
 fn parse_create_sequence<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateSequence<'a>, ParseError> {
     let sequence_span = parser.consume_keyword(Keyword::SEQUENCE)?;
     parser.postgres_only(&sequence_span);
 
@@ -2776,32 +2780,32 @@ fn parse_create_sequence<'a>(
                 parser.skip_keyword(Keyword::BY); // BY is optional
                 let expr = parse_expression(parser, true)?;
                 let span = increment_span.join_span(&expr);
-                options.push(SequenceOption::IncrementBy(span, Box::new(expr)));
+                options.push(SequenceOption::IncrementBy(span, expr));
             }
             Token::Ident(_, Keyword::MINVALUE) => {
                 let minvalue_span = parser.consume_keyword(Keyword::MINVALUE)?;
                 let expr = parse_expression(parser, true)?;
                 let span = minvalue_span.join_span(&expr);
-                options.push(SequenceOption::MinValue(span, Box::new(expr)));
+                options.push(SequenceOption::MinValue(span, expr));
             }
             Token::Ident(_, Keyword::MAXVALUE) => {
                 let maxvalue_span = parser.consume_keyword(Keyword::MAXVALUE)?;
                 let expr = parse_expression(parser, true)?;
                 let span = maxvalue_span.join_span(&expr);
-                options.push(SequenceOption::MaxValue(span, Box::new(expr)));
+                options.push(SequenceOption::MaxValue(span, expr));
             }
             Token::Ident(_, Keyword::START) => {
                 let start_span = parser.consume_keyword(Keyword::START)?;
                 parser.skip_keyword(Keyword::WITH); // WITH is optional
                 let expr = parse_expression(parser, true)?;
                 let span = start_span.join_span(&expr);
-                options.push(SequenceOption::StartWith(span, Box::new(expr)));
+                options.push(SequenceOption::StartWith(span, expr));
             }
             Token::Ident(_, Keyword::CACHE) => {
                 let cache_span = parser.consume_keyword(Keyword::CACHE)?;
                 let expr = parse_expression(parser, true)?;
                 let span = cache_span.join_span(&expr);
-                options.push(SequenceOption::Cache(span, Box::new(expr)));
+                options.push(SequenceOption::Cache(span, expr));
             }
             Token::Ident(_, Keyword::CYCLE) => {
                 let cycle_span = parser.consume_keyword(Keyword::CYCLE)?;
@@ -2846,14 +2850,14 @@ fn parse_create_sequence<'a>(
         }
     }
 
-    Ok(Statement::CreateSequence(CreateSequence {
+    Ok(CreateSequence {
         create_span,
         temporary,
         sequence_span,
         if_not_exists,
         name,
         options,
-    }))
+    })
 }
 
 /// CREATE SERVER statement (PostgreSQL)
@@ -2894,7 +2898,7 @@ fn parse_create_server<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<CreateServer<'a>, ParseError> {
     let server_span = parser.consume_keyword(Keyword::SERVER)?;
     parser.postgres_only(&server_span);
 
@@ -2952,7 +2956,7 @@ fn parse_create_server<'a>(
         parser.consume_token(Token::RParen)?;
     }
 
-    Ok(Statement::CreateServer(CreateServer {
+    Ok(CreateServer {
         create_span,
         server_span,
         if_not_exists,
@@ -2961,7 +2965,7 @@ fn parse_create_server<'a>(
         version,
         foreign_data_wrapper,
         options,
-    }))
+    })
 }
 
 pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
@@ -3090,41 +3094,61 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
         },
     )?;
 
-    match &parser.token {
-        Token::Ident(_, Keyword::INDEX) => parse_create_index(parser, create_span, create_options),
-        Token::Ident(_, Keyword::TABLE) => parse_create_table(parser, create_span, create_options),
-        Token::Ident(_, Keyword::MATERIALIZED) => {
-            // MATERIALIZED VIEW
-            let materialized_span = parser.consume_keyword(Keyword::MATERIALIZED)?;
-            parser.postgres_only(&materialized_span);
-            // Don't consume VIEW here, parse_create_view will do it
-            create_options.push(CreateOption::Materialized(materialized_span));
-            parse_create_view(parser, create_span, create_options)
-        }
-        Token::Ident(_, Keyword::VIEW) => parse_create_view(parser, create_span, create_options),
-        Token::Ident(_, Keyword::DATABASE) => {
-            parse_create_database(parser, create_span, create_options)
-        }
-        Token::Ident(_, Keyword::SCHEMA) => {
-            parse_create_schema(parser, create_span, create_options)
-        }
-        Token::Ident(_, Keyword::SEQUENCE) => {
-            parse_create_sequence(parser, create_span, create_options)
-        }
-        Token::Ident(_, Keyword::FUNCTION) => {
-            parse_create_function(parser, create_span, create_options)
-        }
-        Token::Ident(_, Keyword::TRIGGER) => {
-            parse_create_trigger(parser, create_span, create_options)
-        }
-        Token::Ident(_, Keyword::TYPE) => parse_create_type(parser, create_span, create_options),
-        Token::Ident(_, Keyword::ROLE) => parse_create_role(parser, create_span, create_options),
-        Token::Ident(_, Keyword::SERVER) => {
-            parse_create_server(parser, create_span, create_options)
-        }
-        Token::Ident(_, Keyword::OPERATOR) => {
-            parse_create_operator(parser, create_span, create_options)
-        }
-        _ => parser.expected_failure(CREATABLE),
-    }
+    let r =
+        match &parser.token {
+            Token::Ident(_, Keyword::INDEX) => Statement::CreateIndex(Box::new(
+                parse_create_index(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::TABLE) => Statement::CreateTable(Box::new(
+                parse_create_table(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::MATERIALIZED) => {
+                // MATERIALIZED VIEW
+                let materialized_span = parser.consume_keyword(Keyword::MATERIALIZED)?;
+                parser.postgres_only(&materialized_span);
+                // Don't consume VIEW here, parse_create_view will do it
+                create_options.push(CreateOption::Materialized(materialized_span));
+                Statement::CreateView(Box::new(parse_create_view(
+                    parser,
+                    create_span,
+                    create_options,
+                )?))
+            }
+            Token::Ident(_, Keyword::VIEW) => Statement::CreateView(Box::new(parse_create_view(
+                parser,
+                create_span,
+                create_options,
+            )?)),
+            Token::Ident(_, Keyword::DATABASE) => Statement::CreateDatabase(Box::new(
+                parse_create_database(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::SCHEMA) => Statement::CreateSchema(Box::new(
+                parse_create_schema(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::SEQUENCE) => Statement::CreateSequence(Box::new(
+                parse_create_sequence(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::FUNCTION) => Statement::CreateFunction(Box::new(
+                parse_create_function(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::TRIGGER) => Statement::CreateTrigger(Box::new(
+                parse_create_trigger(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::TYPE) => Statement::CreateTypeEnum(Box::new(
+                parse_create_type(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::ROLE) => Statement::CreateRole(Box::new(parse_create_role(
+                parser,
+                create_span,
+                create_options,
+            )?)),
+            Token::Ident(_, Keyword::SERVER) => Statement::CreateServer(Box::new(
+                parse_create_server(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::OPERATOR) => Statement::CreateOperator(Box::new(
+                parse_create_operator(parser, create_span, create_options)?,
+            )),
+            _ => return parser.expected_failure(CREATABLE),
+        };
+    Ok(r)
 }

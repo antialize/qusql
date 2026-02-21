@@ -100,7 +100,7 @@ pub struct Column<'a> {
     /// True if the column is auto_increment
     pub auto_increment: bool,
     pub default: bool,
-    pub as_: Option<alloc::boxed::Box<Expression<'a>>>,
+    pub as_: Option<Expression<'a>>,
     pub generated: bool,
 }
 

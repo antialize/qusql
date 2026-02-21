@@ -1,5 +1,7 @@
+use alloc::boxed::Box;
+
 use crate::{
-    SString, Span, Spanned,
+    SString, Span, Spanned, Statement,
     expression::{Expression, parse_expression},
     keywords::Keyword,
     lexer::Token,
@@ -51,7 +53,7 @@ fn parse_show_tables<'a>(
     show_span: Span,
     extended: Option<Span>,
     full: Option<Span>,
-) -> Result<crate::Statement<'a>, ParseError> {
+) -> Result<ShowTables<'a>, ParseError> {
     let tables_span = parser.consume_keyword(Keyword::TABLES)?;
 
     // optional FROM or IN db_name
@@ -82,7 +84,7 @@ fn parse_show_tables<'a>(
         None
     };
 
-    Ok(crate::Statement::ShowTables(ShowTables {
+    Ok(ShowTables {
         show_span,
         tables_span,
         extended,
@@ -90,7 +92,7 @@ fn parse_show_tables<'a>(
         db,
         like,
         where_expr,
-    }))
+    })
 }
 
 /// Parse result for `SHOW DATABASES`
@@ -122,12 +124,12 @@ impl Spanned for ShowDatabases {
 fn parse_show_databases<'a>(
     parser: &mut Parser<'a, '_>,
     show_span: Span,
-) -> Result<crate::Statement<'a>, ParseError> {
+) -> Result<ShowDatabases, ParseError> {
     let databases_span = parser.consume_keyword(Keyword::DATABASES)?;
-    Ok(crate::Statement::ShowDatabases(ShowDatabases {
+    Ok(ShowDatabases {
         show_span,
         databases_span,
-    }))
+    })
 }
 
 /// Parse result for `SHOW PROCESSLIST` / `SHOW FULL PROCESSLIST`
@@ -161,21 +163,21 @@ fn parse_show_processlist<'a>(
     parser: &mut Parser<'a, '_>,
     show_span: Span,
     _full: Option<Span>,
-) -> Result<crate::Statement<'a>, ParseError> {
+) -> Result<ShowProcessList, ParseError> {
     match &parser.token {
         Token::Ident(_, Keyword::PROCESSLIST) => {
             let process_span = parser.consume_keyword(Keyword::PROCESSLIST)?;
-            Ok(crate::Statement::ShowProcessList(ShowProcessList {
+            Ok(ShowProcessList {
                 show_span,
                 process_span,
-            }))
+            })
         }
         Token::Ident(_, Keyword::PROCESS) => {
             let process_span = parser.consume_keyword(Keyword::PROCESS)?;
-            Ok(crate::Statement::ShowProcessList(ShowProcessList {
+            Ok(ShowProcessList {
                 show_span,
                 process_span,
-            }))
+            })
         }
         _ => parser.expected_failure("'PROCESS' | 'PROCESSLIST'"),
     }
@@ -223,7 +225,7 @@ fn parse_show_variables<'a>(
     show_span: Span,
     global_span: Option<Span>,
     session_span: Option<Span>,
-) -> Result<crate::Statement<'a>, ParseError> {
+) -> Result<ShowVariables<'a>, ParseError> {
     let variables_span = parser.consume_keyword(Keyword::VARIABLES)?;
     let like = if parser.skip_keyword(Keyword::LIKE).is_some() {
         Some(parser.consume_string()?)
@@ -235,14 +237,14 @@ fn parse_show_variables<'a>(
     } else {
         None
     };
-    Ok(crate::Statement::ShowVariables(ShowVariables {
+    Ok(ShowVariables {
         show_span,
         variables_span,
         global_span,
         session_span,
         like,
         where_expr,
-    }))
+    })
 }
 
 /// Parse result for `SHOW STATUS`
@@ -283,7 +285,7 @@ fn parse_show_status<'a>(
     show_span: Span,
     global_span: Option<Span>,
     session_span: Option<Span>,
-) -> Result<crate::Statement<'a>, ParseError> {
+) -> Result<ShowStatus<'a>, ParseError> {
     let status_span = parser.consume_keyword(Keyword::STATUS)?;
     let like = if parser.skip_keyword(Keyword::LIKE).is_some() {
         Some(parser.consume_string()?)
@@ -295,14 +297,14 @@ fn parse_show_status<'a>(
     } else {
         None
     };
-    Ok(crate::Statement::ShowStatus(ShowStatus {
+    Ok(ShowStatus {
         show_span,
         status_span,
         global_span,
         session_span,
         like,
         where_expr,
-    }))
+    })
 }
 
 /// Parse result for `SHOW COLUMNS` / `SHOW FIELDS`
@@ -349,7 +351,7 @@ fn parse_show_columns<'a>(
     show_span: Span,
     extended: Option<Span>,
     full: Option<Span>,
-) -> Result<crate::Statement<'a>, ParseError> {
+) -> Result<ShowColumns<'a>, ParseError> {
     let columns_span = match &parser.token {
         Token::Ident(_, Keyword::COLUMNS) => parser.consume_keyword(Keyword::COLUMNS)?,
         _ => parser.consume_keyword(Keyword::FIELDS)?,
@@ -386,7 +388,7 @@ fn parse_show_columns<'a>(
     } else {
         None
     };
-    Ok(crate::Statement::ShowColumns(ShowColumns {
+    Ok(ShowColumns {
         show_span,
         columns_span,
         extended,
@@ -395,7 +397,7 @@ fn parse_show_columns<'a>(
         db,
         like,
         where_expr,
-    }))
+    })
 }
 
 /// Parse result for `SHOW CHARACTER SET` / `SHOW CHARSET`
@@ -436,7 +438,7 @@ impl<'a> Spanned for ShowCharacterSet<'a> {
 fn parse_show_character_set<'a>(
     parser: &mut Parser<'a, '_>,
     show_span: Span,
-) -> Result<crate::Statement<'a>, ParseError> {
+) -> Result<ShowCharacterSet<'a>, ParseError> {
     // Accept either: SHOW CHARSET ...  or SHOW CHARACTER SET ...
     let mut character_span: Option<Span> = None;
     let set_span = match &parser.token {
@@ -456,13 +458,13 @@ fn parse_show_character_set<'a>(
         where_expr = Some(parse_expression(parser, false)?);
     }
 
-    Ok(crate::Statement::ShowCharacterSet(ShowCharacterSet {
+    Ok(ShowCharacterSet {
         show_span,
         character_span,
         set_span,
         like,
         where_expr,
-    }))
+    })
 }
 
 /// Parse result for `SHOW CREATE TABLE`
@@ -573,32 +575,36 @@ fn parse_show_create<'a>(
         Token::Ident(_, Keyword::TABLE) => {
             let object_span = parser.consume_keyword(Keyword::TABLE)?;
             let table = parse_qualified_name(parser)?;
-            Ok(crate::Statement::ShowCreateTable(ShowCreateTable {
-                show_span,
-                create_span,
-                object_span,
-                table,
-            }))
+            Ok(crate::Statement::ShowCreateTable(Box::new(
+                ShowCreateTable {
+                    show_span,
+                    create_span,
+                    object_span,
+                    table,
+                },
+            )))
         }
         Token::Ident(_, Keyword::DATABASE) => {
             let object_span = parser.consume_keyword(Keyword::DATABASE)?;
             let db = parse_qualified_name(parser)?;
-            Ok(crate::Statement::ShowCreateDatabase(ShowCreateDatabase {
-                show_span,
-                create_span,
-                object_span,
-                db,
-            }))
+            Ok(crate::Statement::ShowCreateDatabase(Box::new(
+                ShowCreateDatabase {
+                    show_span,
+                    create_span,
+                    object_span,
+                    db,
+                },
+            )))
         }
         Token::Ident(_, Keyword::VIEW) => {
             let object_span = parser.consume_keyword(Keyword::VIEW)?;
             let view = parse_qualified_name(parser)?;
-            Ok(crate::Statement::ShowCreateView(ShowCreateView {
+            Ok(crate::Statement::ShowCreateView(Box::new(ShowCreateView {
                 show_span,
                 create_span,
                 object_span,
                 view,
-            }))
+            })))
         }
         _ => parser.expected_failure("'TABLE' | 'DATABASE' | 'VIEW'"),
     }
@@ -640,7 +646,7 @@ impl<'a> Spanned for ShowCollation<'a> {
 fn parse_show_collation<'a>(
     parser: &mut Parser<'a, '_>,
     show_span: Span,
-) -> Result<crate::Statement<'a>, ParseError> {
+) -> Result<ShowCollation<'a>, ParseError> {
     let collation_span = parser.consume_keyword(Keyword::COLLATION)?;
     let mut like: Option<SString<'a>> = None;
     let mut where_expr: Option<Expression<'a>> = None;
@@ -649,12 +655,12 @@ fn parse_show_collation<'a>(
     } else if parser.skip_keyword(Keyword::WHERE).is_some() {
         where_expr = Some(parse_expression(parser, false)?);
     }
-    Ok(crate::Statement::ShowCollation(ShowCollation {
+    Ok(ShowCollation {
         show_span,
         collation_span,
         like,
         where_expr,
-    }))
+    })
 }
 
 /// Parse result for `SHOW ENGINES`
@@ -688,12 +694,12 @@ impl Spanned for ShowEngines {
 fn parse_show_engines<'a>(
     parser: &mut Parser<'a, '_>,
     show_span: Span,
-) -> Result<crate::Statement<'a>, ParseError> {
+) -> Result<ShowEngines, ParseError> {
     let engines_span = parser.consume_keyword(Keyword::ENGINES)?;
-    Ok(crate::Statement::ShowEngines(ShowEngines {
+    Ok(ShowEngines {
         show_span,
         engines_span,
-    }))
+    })
 }
 
 pub(crate) fn parse_show<'a>(
@@ -716,22 +722,22 @@ pub(crate) fn parse_show<'a>(
     }
 
     let stmt = match &parser.token {
-        Token::Ident(_, Keyword::TABLES) => parse_show_tables(parser, show_span, extended.clone(), full.clone())?,
+        Token::Ident(_, Keyword::TABLES) => Statement::ShowTables(Box::new(parse_show_tables(parser, show_span, extended.clone(), full.clone())?)),
         Token::Ident(_, Keyword::CREATE) => parse_show_create(parser, show_span)?,
-        Token::Ident(_, Keyword::DATABASES) => parse_show_databases(parser, show_span)?,
+        Token::Ident(_, Keyword::DATABASES) => Statement::ShowDatabases(Box::new(parse_show_databases(parser, show_span)?)),
         Token::Ident(_, Keyword::PROCESSLIST) | Token::Ident(_, Keyword::PROCESS) => {
-            parse_show_processlist(parser, show_span, full.clone())?
+            Statement::ShowProcessList(Box::new(parse_show_processlist(parser, show_span, full.clone())?))
         }
-        Token::Ident(_, Keyword::VARIABLES) => parse_show_variables(parser, show_span, global.clone(), session.clone())?,
-        Token::Ident(_, Keyword::STATUS) => parse_show_status(parser, show_span, global.clone(), session.clone())?,
+        Token::Ident(_, Keyword::VARIABLES) => Statement::ShowVariables(Box::new(parse_show_variables(parser, show_span, global.clone(), session.clone())?)),
+        Token::Ident(_, Keyword::STATUS) => Statement::ShowStatus(Box::new(parse_show_status(parser, show_span, global.clone(), session.clone())?)),
         Token::Ident(_, Keyword::COLUMNS) | Token::Ident(_, Keyword::FIELDS) => {
-            parse_show_columns(parser, show_span, extended.clone(), full.clone())?
+            Statement::ShowColumns(Box::new(parse_show_columns(parser, show_span, extended.clone(), full.clone())?))
         }
         Token::Ident(_, Keyword::CHARSET) | Token::Ident(_, Keyword::CHARACTER) => {
-            parse_show_character_set(parser, show_span)?
+            Statement::ShowCharacterSet(Box::new(parse_show_character_set(parser, show_span)?))
         }
-            Token::Ident(_, Keyword::COLLATION) => parse_show_collation(parser, show_span)?,
-            Token::Ident(_, Keyword::ENGINES) => parse_show_engines(parser, show_span)?,
+            Token::Ident(_, Keyword::COLLATION) => Statement::ShowCollation(Box::new(parse_show_collation(parser, show_span)?)),
+            Token::Ident(_, Keyword::ENGINES) => Statement::ShowEngines(Box::new(parse_show_engines(parser, show_span)?)),
         _ => return parser.expected_failure("'TABLES' | 'DATABASES' | 'PROCESS' | 'PROCESSLIST' | 'VARIABLES' | 'STATUS' | 'COLUMNS' | 'FIELDS' | 'CHARSET' | 'CHARACTER' | 'COLLATION' | 'ENGINES'"),
     };
 

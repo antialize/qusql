@@ -87,7 +87,7 @@ pub enum OnConflictAction<'a> {
     DoUpdateSet {
         do_update_set_span: Span,
         sets: Vec<(Identifier<'a>, Expression<'a>)>,
-        where_: Option<(Span, alloc::boxed::Box<Expression<'a>>)>,
+        where_: Option<(Span, Expression<'a>)>,
     },
 }
 
@@ -472,8 +472,7 @@ pub(crate) fn parse_insert_replace<'a>(
                             let where_ = if matches!(parser.token, Token::Ident(_, Keyword::WHERE))
                             {
                                 let where_span = parser.consume_keyword(Keyword::WHERE)?;
-                                let where_expr =
-                                    alloc::boxed::Box::new(parse_expression(parser, false)?);
+                                let where_expr = parse_expression(parser, false)?;
                                 Some((where_span, where_expr))
                             } else {
                                 None

@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     Identifier, QualifiedName, Span, Spanned, Statement,
@@ -70,7 +70,7 @@ fn parse_drop_table<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
     temporary: Option<Span>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropTable<'a>, ParseError> {
     let table_span = parser.consume_keyword(Keyword::TABLE)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
@@ -89,14 +89,14 @@ fn parse_drop_table<'a>(
     } else {
         None
     };
-    Ok(Statement::DropTable(DropTable {
+    Ok(DropTable {
         drop_span,
         temporary,
         table_span,
         if_exists,
         tables,
         cascade,
-    }))
+    })
 }
 
 /// Represent a drop view statement
@@ -144,7 +144,7 @@ fn parse_drop_view<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
     temporary: Option<Span>,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropView<'a>, ParseError> {
     let view_span = parser.consume_keyword(Keyword::VIEW)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
@@ -159,13 +159,13 @@ fn parse_drop_view<'a>(
         }
     }
     // TODO  [RESTRICT | CASCADE]
-    Ok(Statement::DropView(DropView {
+    Ok(DropView {
         drop_span,
         temporary,
         view_span,
         if_exists,
         views,
-    }))
+    })
 }
 
 /// Represent a drop database statement
@@ -211,7 +211,7 @@ fn parse_drop_database<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
     kw: Keyword,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropDatabase<'a>, ParseError> {
     // TODO complain about temporary
     let database_span = parser.consume_keyword(kw)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
@@ -220,12 +220,12 @@ fn parse_drop_database<'a>(
         None
     };
     let database = parser.consume_plain_identifier()?;
-    Ok(Statement::DropDatabase(DropDatabase {
+    Ok(DropDatabase {
         drop_span,
         database_span,
         if_exists,
         database,
-    }))
+    })
 }
 
 /// Represent a drop event statement
@@ -269,7 +269,7 @@ impl<'a> Spanned for DropEvent<'a> {
 fn parse_drop_event<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropEvent<'a>, ParseError> {
     // TODO complain about temporary
     let event_span = parser.consume_keyword(Keyword::EVENT)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
@@ -278,12 +278,12 @@ fn parse_drop_event<'a>(
         None
     };
     let event = parse_qualified_name(parser)?;
-    Ok(Statement::DropEvent(DropEvent {
+    Ok(DropEvent {
         drop_span,
         event_span,
         if_exists,
         event,
-    }))
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -377,7 +377,7 @@ impl<'a> Spanned for DropFunction<'a> {
 fn parse_drop_function<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropFunction<'a>, ParseError> {
     let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
@@ -463,14 +463,14 @@ fn parse_drop_function<'a>(
             .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
             .frag("RESTRICT", restrict_span);
     }
-    Ok(Statement::DropFunction(DropFunction {
+    Ok(DropFunction {
         drop_span,
         function_span,
         if_exists,
         functions,
         cascade,
         restrict,
-    }))
+    })
 }
 
 /// Represent a drop procedure statement
@@ -514,7 +514,7 @@ impl<'a> Spanned for DropProcedure<'a> {
 fn parse_drop_procedure<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropProcedure<'a>, ParseError> {
     // TODO complain about temporary
     let procedure_span = parser.consume_keyword(Keyword::PROCEDURE)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
@@ -523,12 +523,12 @@ fn parse_drop_procedure<'a>(
         None
     };
     let procedure = parse_qualified_name(parser)?;
-    Ok(Statement::DropProcedure(DropProcedure {
+    Ok(DropProcedure {
         drop_span,
         procedure_span,
         if_exists,
         procedure,
-    }))
+    })
 }
 
 /// Represent a drop sequence statement (PostgreSQL)
@@ -578,7 +578,7 @@ impl<'a> Spanned for DropSequence<'a> {
 fn parse_drop_sequence<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropSequence<'a>, ParseError> {
     // DROP SEQUENCE [IF EXISTS] sequence_name [, sequence_name] ... [CASCADE | RESTRICT]
     let sequence_span = parser.consume_keyword(Keyword::SEQUENCE)?;
     parser.postgres_only(&sequence_span);
@@ -600,14 +600,14 @@ fn parse_drop_sequence<'a>(
     } else {
         None
     };
-    Ok(Statement::DropSequence(DropSequence {
+    Ok(DropSequence {
         drop_span,
         sequence_span,
         if_exists,
         sequences,
         cascade,
         restrict,
-    }))
+    })
 }
 
 /// Represent a drop server statement
@@ -652,7 +652,7 @@ impl<'a> Spanned for DropServer<'a> {
 fn parse_drop_server<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropServer<'a>, ParseError> {
     // TODO complain about temporary
     let server_span = parser.consume_keyword(Keyword::SERVER)?;
     parser.postgres_only(&server_span);
@@ -662,12 +662,12 @@ fn parse_drop_server<'a>(
         None
     };
     let server = parser.consume_plain_identifier()?;
-    Ok(Statement::DropServer(DropServer {
+    Ok(DropServer {
         drop_span,
         server_span,
         if_exists,
         server,
-    }))
+    })
 }
 
 /// Represent a drop trigger statement
@@ -711,7 +711,7 @@ impl<'a> Spanned for DropTrigger<'a> {
 fn parse_drop_trigger<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropTrigger<'a>, ParseError> {
     let trigger_span = parser.consume_keyword(Keyword::TRIGGER)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
@@ -719,12 +719,12 @@ fn parse_drop_trigger<'a>(
         None
     };
     let identifier = parse_qualified_name(parser)?;
-    Ok(Statement::DropTrigger(DropTrigger {
+    Ok(DropTrigger {
         drop_span,
         trigger_span,
         if_exists,
         identifier,
-    }))
+    })
 }
 
 /// Represent a drop index statement.
@@ -790,7 +790,7 @@ impl<'a> Spanned for DropIndex<'a> {
 fn parse_drop_index<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropIndex<'a>, ParseError> {
     // DROP INDEX [IF EXISTS] index_name ON tbl_name
     let index_span = parser.consume_keyword(Keyword::INDEX)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
@@ -806,21 +806,22 @@ fn parse_drop_index<'a>(
         None
     };
 
-    let v = DropIndex {
+    if on.is_none() && parser.options.dialect.is_maria() {
+        parser.err("On required for index drops in MariaDb", &drop_span);
+    }
+    if let Some((on_span, _)) = &on
+        && parser.options.dialect.is_postgresql()
+    {
+        parser.err("On not supported for index drops in PostgreSQL", on_span);
+    }
+
+    Ok(DropIndex {
         drop_span,
         index_span,
         if_exists,
         index_name,
         on,
-    };
-
-    if v.on.is_none() && parser.options.dialect.is_maria() {
-        parser.err("On required for index drops in MariaDb", &v);
-    }
-    if v.on.is_some() && parser.options.dialect.is_postgresql() {
-        parser.err("On not supported for index drops in PostgreSQL", &v);
-    }
-    Ok(Statement::DropIndex(v))
+    })
 }
 
 /// Represent a drop domain statement
@@ -869,7 +870,7 @@ impl<'a> Spanned for DropDomain<'a> {
 fn parse_drop_domain<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropDomain<'a>, ParseError> {
     let domain_span = parser.consume_keyword(Keyword::DOMAIN)?;
     parser.postgres_only(&domain_span);
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
@@ -893,14 +894,14 @@ fn parse_drop_domain<'a>(
             .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
             .frag("RESTRICT", restrict_span);
     }
-    Ok(Statement::DropDomain(DropDomain {
+    Ok(DropDomain {
         drop_span,
         domain_span,
         if_exists,
         domains,
         cascade,
         restrict,
-    }))
+    })
 }
 
 /// Represent a drop extension statement (PostgreSQL)
@@ -948,7 +949,7 @@ impl<'a> Spanned for DropExtension<'a> {
 fn parse_drop_extension<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropExtension<'a>, ParseError> {
     let extension_span = parser.consume_keyword(Keyword::EXTENSION)?;
     parser.postgres_only(&extension_span);
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
@@ -973,14 +974,14 @@ fn parse_drop_extension<'a>(
             .frag("RESTRICT", restrict_span);
     }
 
-    Ok(Statement::DropExtension(DropExtension {
+    Ok(DropExtension {
         drop_span,
         extension_span,
         if_exists,
         extensions,
         cascade,
         restrict,
-    }))
+    })
 }
 
 /// Represent a drop operator statement (PostgreSQL)
@@ -1006,7 +1007,7 @@ pub struct DropOperatorItem<'a> {
     pub right_type: Option<DataType<'a>>,
 }
 
-impl <'a> Spanned for DropOperatorItem<'a> {
+impl<'a> Spanned for DropOperatorItem<'a> {
     fn span(&self) -> Span {
         self.name
             .span()
@@ -1045,7 +1046,7 @@ impl<'a> Spanned for DropOperator<'a> {
 fn parse_drop_operator<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-) -> Result<Statement<'a>, ParseError> {
+) -> Result<DropOperator<'a>, ParseError> {
     let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
     parser.postgres_only(&operator_span);
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
@@ -1078,7 +1079,11 @@ fn parse_drop_operator<'a>(
         } else {
             (None, None)
         };
-        operators.push(DropOperatorItem { name, left_type, right_type });
+        operators.push(DropOperatorItem {
+            name,
+            left_type,
+            right_type,
+        });
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
@@ -1092,35 +1097,59 @@ fn parse_drop_operator<'a>(
             .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
             .frag("RESTRICT", restrict_span);
     }
-    Ok(Statement::DropOperator(DropOperator {
+    Ok(DropOperator {
         drop_span,
         operator_span,
         if_exists,
         operators,
         cascade,
         restrict,
-    }))
+    })
 }
 
 pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let drop_span = parser.consume_keyword(Keyword::DROP)?;
     let temporary = parser.skip_keyword(Keyword::TEMPORARY);
     match &parser.token {
-        Token::Ident(_, Keyword::TABLE) => parse_drop_table(parser, drop_span, temporary),
-        Token::Ident(_, Keyword::VIEW) => parse_drop_view(parser, drop_span, temporary),
-        Token::Ident(_, kw @ Keyword::DATABASE | kw @ Keyword::SCHEMA) => {
-            parse_drop_database(parser, drop_span, *kw)
-        }
-        Token::Ident(_, Keyword::DOMAIN) => parse_drop_domain(parser, drop_span),
-        Token::Ident(_, Keyword::EXTENSION) => parse_drop_extension(parser, drop_span),
-        Token::Ident(_, Keyword::EVENT) => parse_drop_event(parser, drop_span),
-        Token::Ident(_, Keyword::FUNCTION) => parse_drop_function(parser, drop_span),
-        Token::Ident(_, Keyword::OPERATOR) => parse_drop_operator(parser, drop_span),
-        Token::Ident(_, Keyword::INDEX) => parse_drop_index(parser, drop_span),
-        Token::Ident(_, Keyword::PROCEDURE) => parse_drop_procedure(parser, drop_span),
-        Token::Ident(_, Keyword::SEQUENCE) => parse_drop_sequence(parser, drop_span),
-        Token::Ident(_, Keyword::SERVER) => parse_drop_server(parser, drop_span),
-        Token::Ident(_, Keyword::TRIGGER) => parse_drop_trigger(parser, drop_span),
+        Token::Ident(_, Keyword::TABLE) => Ok(Statement::DropTable(Box::new(parse_drop_table(
+            parser, drop_span, temporary,
+        )?))),
+        Token::Ident(_, Keyword::VIEW) => Ok(Statement::DropView(Box::new(parse_drop_view(
+            parser, drop_span, temporary,
+        )?))),
+        Token::Ident(_, kw @ Keyword::DATABASE | kw @ Keyword::SCHEMA) => Ok(
+            Statement::DropDatabase(Box::new(parse_drop_database(parser, drop_span, *kw)?)),
+        ),
+        Token::Ident(_, Keyword::DOMAIN) => Ok(Statement::DropDomain(Box::new(parse_drop_domain(
+            parser, drop_span,
+        )?))),
+        Token::Ident(_, Keyword::EXTENSION) => Ok(Statement::DropExtension(Box::new(
+            parse_drop_extension(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::EVENT) => Ok(Statement::DropEvent(Box::new(parse_drop_event(
+            parser, drop_span,
+        )?))),
+        Token::Ident(_, Keyword::FUNCTION) => Ok(Statement::DropFunction(Box::new(
+            parse_drop_function(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::OPERATOR) => Ok(Statement::DropOperator(Box::new(
+            parse_drop_operator(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::INDEX) => Ok(Statement::DropIndex(Box::new(parse_drop_index(
+            parser, drop_span,
+        )?))),
+        Token::Ident(_, Keyword::PROCEDURE) => Ok(Statement::DropProcedure(Box::new(
+            parse_drop_procedure(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::SEQUENCE) => Ok(Statement::DropSequence(Box::new(
+            parse_drop_sequence(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::SERVER) => Ok(Statement::DropServer(Box::new(parse_drop_server(
+            parser, drop_span,
+        )?))),
+        Token::Ident(_, Keyword::TRIGGER) => Ok(Statement::DropTrigger(Box::new(
+            parse_drop_trigger(parser, drop_span)?,
+        ))),
         Token::Ident(_, Keyword::USER) => {
             // DROP USER [IF EXISTS] user_name [, user_name] ..
             parser.todo(file!(), line!())
