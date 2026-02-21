@@ -79,14 +79,15 @@ pub use qualified_name::QualifiedName;
 pub use span::{OptSpanned, Span, Spanned};
 pub use sstring::SString;
 pub use statement::{
-    CaseStatement, Copy, If, IfCondition, Return, Set, Signal, SignalConditionInformationName,
-    Statement, Union, UnionType, UnionWith, WhenStatement,
+    Begin, Block, CaseStatement, Commit, Copy, Do, End, If, IfCondition, Invalid, Return, Set,
+    Signal, SignalConditionInformationName, StartTransaction, Statement, Stdin, Union, UnionType,
+    UnionWith, WhenStatement,
 };
 
 pub use alter::{
     AlterAlgorithm, AlterColumnAction, AlterLock, AlterRole, AlterRoleAction, AlterRoleValue,
-    AlterSpecification, AlterTable, ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol,
-    IndexColExpr, IndexOption, IndexType,
+    AlterSpecification, AlterTable, AlterTableOwner, ForeignKeyOn, ForeignKeyOnAction,
+    ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption, IndexType,
 };
 pub use create::{
     CreateAlgorithm, CreateDatabase, CreateDatabaseOption, CreateDefinition, CreateFunction,
@@ -97,13 +98,19 @@ pub use create::{
 };
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
-    DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropFunctionArg, DropIndex,
-    DropOperator, DropOperatorItem, DropProcedure, DropSequence, DropServer, DropTable,
-    DropTrigger, DropView,
+    DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropFunctionArg,
+    DropFunctionArgMode, DropIndex, DropOperator, DropOperatorItem, DropProcedure, DropSequence,
+    DropServer, DropTable, DropTrigger, DropView,
 };
 pub use expression::{
-    BinaryOperator, Expression, Function, IdentifierPart, Is, MatchMode, TimeUnit, UnaryOperator,
-    Variable, When, WindowSpec,
+    ArgExpression, BinaryExpression, BinaryOperator, BoolExpression, CaseExpression,
+    CastExpression, ConvertExpression, CountExpression, ExistsExpression, Expression,
+    ExtractExpression, FloatExpression, Function, FunctionCallExpression, GroupConcatExpression,
+    IdentifierExpression, IdentifierPart, InExpression, IntegerExpression, IntervalExpression,
+    InvalidExpression, Is, IsExpression, ListHackExpression, MatchAgainstExpression, MatchMode,
+    MemberOfExpression, NullExpression, SubqueryExpression, TimeUnit, TimestampAddExpression,
+    TimestampDiffExpression, UnaryExpression, UnaryOperator, UserVariableExpression, Variable,
+    VariableExpression, When, WindowFunctionCallExpression, WindowSpec,
 };
 pub use flush::{Flush, FlushOption};
 pub use insert_replace::{
@@ -112,7 +119,7 @@ pub use insert_replace::{
 };
 pub use kill::{Kill, KillType};
 pub use lock::{Lock, LockMember, LockType, Unlock};
-pub use operator::CreateOperator;
+pub use operator::{CreateOperator, OperatorOption, OperatorRef};
 pub use rename::{RenameTable, TableToTable};
 pub use select::{
     IndexHint, IndexHintFor, IndexHintType, IndexHintUse, JoinSpecification, JoinType,

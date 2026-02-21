@@ -58,7 +58,7 @@ pub(crate) fn parse_cascade_or_restrict<'a>(
 /// # assert!(issues.is_ok(), "Issues: {}", issues);
 /// #
 /// let truncate_table: TruncateTable = match stmts.pop() {
-///     Some(Statement::TruncateTable(c)) => c,
+///     Some(Statement::TruncateTable(c)) => *c,
 ///     _ => panic!("We should get a truncate table statement")
 /// };
 ///

@@ -36,7 +36,7 @@ impl<'a> Spanned for TableToTable<'a> {
 /// # assert!(issues.is_ok(), "Issues: {}", issues);
 /// #
 /// let rename_table: RenameTable = match stmts.pop() {
-///     Some(Statement::RenameTable(c)) => c,
+///     Some(Statement::RenameTable(c)) => *c,
 ///     _ => panic!("We should get a rename table statement")
 /// };
 ///
