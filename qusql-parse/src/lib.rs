@@ -51,6 +51,7 @@ mod create;
 mod create_function;
 mod create_index;
 mod create_option;
+mod create_role;
 mod create_table;
 mod create_trigger;
 mod create_view;
@@ -87,12 +88,13 @@ pub use alter_table::{
 
 pub use alter_role::{AlterRole, AlterRoleAction, AlterRoleValue};
 pub use create::{
-    CreateDatabase, CreateDatabaseOption, CreateRole, CreateSchema, CreateSequence, CreateServer,
-    CreateTypeEnum, RoleMembership, RoleMembershipType, RoleOption, SequenceOption,
+    CreateDatabase, CreateDatabaseOption, CreateSchema, CreateSequence, CreateServer,
+    CreateTypeEnum, SequenceOption,
 };
 pub use create_function::{CreateFunction, FunctionCharacteristic, FunctionParamDirection};
 pub use create_index::{CreateIndex, CreateIndexOption, IncludeClause};
 pub use create_option::{CreateAlgorithm, CreateOption};
+pub use create_role::{CreateRole, RoleMembership, RoleMembershipType, RoleOption};
 pub use create_table::{CreateDefinition, CreateTable, CreateTableAs};
 pub use create_trigger::{CreateTrigger, TriggerEvent, TriggerTime};
 pub use create_view::CreateView;
