@@ -531,6 +531,13 @@ pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, Par
         Token::Ident(_, Keyword::ROLE) => Ok(Statement::AlterRole(Box::new(parse_alter_role(
             parser, alter_span,
         )?))),
+        Token::Ident(_, Keyword::OPERATOR) => {
+            let alter_operator_family_span = alter_span
+                .join_span(&parser.consume_keywords(&[Keyword::OPERATOR, Keyword::FAMILY])?);
+            Ok(Statement::AlterOperatorFamily(Box::new(
+                crate::operator::parse_alter_operator_family(parser, alter_operator_family_span)?,
+            )))
+        }
         _ => parser.expected_failure("alterable"),
     }
 }
@@ -587,6 +594,7 @@ pub enum Statement<'a> {
     ShowEngines(Box<ShowEngines>),
     AlterTable(Box<AlterTable<'a>>),
     AlterRole(Box<AlterRole<'a>>),
+    AlterOperatorFamily(Box<crate::operator::AlterOperatorFamily<'a>>),
     Block(Box<Block<'a>>),
     Begin(Box<Begin>),
     End(Box<End>),
@@ -641,8 +649,9 @@ impl<'a> Spanned for Statement<'a> {
             Statement::DropTrigger(v) => v.span(),
             Statement::DropView(v) => v.span(),
             Statement::Set(v) => v.span(),
-            Statement::AlterTable(v) => v.span(),
+            Statement::AlterOperatorFamily(v) => v.span(),
             Statement::AlterRole(v) => v.span(),
+            Statement::AlterTable(v) => v.span(),
             Statement::Block(v) => v.opt_span().expect("Span of block"),
             Statement::If(v) => v.span(),
             Statement::Invalid(v) => v.span(),

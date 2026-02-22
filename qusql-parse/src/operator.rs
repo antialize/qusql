@@ -671,3 +671,48 @@ pub(crate) fn parse_create_operator_family<'a>(
         rparen_span,
     })
 }
+
+/// ALTER OPERATOR FAMILY statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct AlterOperatorFamily<'a> {
+    /// Span of "ALTER OPERATOR FAMILY"
+    pub alter_operator_family_span: Span,
+    /// The operator family name
+    pub name: QualifiedName<'a>,
+    /// The index method (btree, hash, gist, gin)
+    pub index_method: UsingIndexMethod,
+    /// Left parenthesis span
+    pub lparen_span: Span,
+    /// Right parenthesis span
+    pub rparen_span: Span,
+}
+
+impl<'a> Spanned for AlterOperatorFamily<'a> {
+    fn span(&self) -> Span {
+        self.alter_operator_family_span
+            .join_span(&self.name)
+            .join_span(&self.index_method)
+            .join_span(&self.lparen_span)
+            .join_span(&self.rparen_span)
+    }
+}
+
+/// Parse ALTER OPERATOR FAMILY statement
+pub(crate) fn parse_alter_operator_family<'a>(
+    parser: &mut Parser<'a, '_>,
+    alter_operator_family_span: Span,
+) -> Result<AlterOperatorFamily<'a>, ParseError> {
+    parser.postgres_only(&alter_operator_family_span);
+    let name = parse_qualified_name(parser)?;
+    let using_span = parser.consume_keyword(Keyword::USING)?;
+    let index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
+    let lparen_span = parser.consume_token(Token::LParen)?;
+    let rparen_span = parser.consume_token(Token::RParen)?;
+    Ok(AlterOperatorFamily {
+        alter_operator_family_span,
+        name,
+        index_method,
+        lparen_span,
+        rparen_span,
+    })
+}
