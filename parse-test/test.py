@@ -162,10 +162,7 @@ def run_parser(sql: str, dialect: str) -> subprocess.CompletedProcess:
     """
     return subprocess.run(
         [
-            "cargo",
-            "run",
-            "--release",
-            "--",
+            "../target/release/parse-test",
             "--dialect",
             dialect,
         ],
@@ -384,6 +381,14 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    subprocess.run(
+        [
+            "cargo",
+            "build",
+            "--release",
+        ]
+    )
 
     # Route to appropriate handler based on subcommand
     if args.command == "import-mysql":

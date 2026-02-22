@@ -13,7 +13,7 @@
 use alloc::vec::Vec;
 
 use crate::{
-    CreateOption, DataType, Identifier, QualifiedName, Span, Spanned,
+    CreateOption, DataType, QualifiedName, Span, Spanned, UsingIndexMethod,
     data_type::parse_data_type,
     keywords::Keyword,
     lexer::Token,
@@ -416,10 +416,8 @@ pub struct CreateOperatorClass<'a> {
     pub for_type_span: Span,
     /// Data type for the operator class
     pub data_type: DataType<'a>,
-    /// USING span
-    pub using_span: Span,
     /// Index method (btree, gist, etc)
-    pub index_method: Identifier<'a>,
+    pub index_method: UsingIndexMethod,
     /// FAMILY clause (optional)
     pub family: Option<(Span, QualifiedName<'a>)>,
     /// AS span
@@ -435,7 +433,6 @@ impl<'a> Spanned for CreateOperatorClass<'a> {
             .join_span(&self.default_span)
             .join_span(&self.for_type_span)
             .join_span(&self.data_type)
-            .join_span(&self.using_span)
             .join_span(&self.index_method)
             .join_span(&self.family)
             .join_span(&self.as_span)
@@ -533,7 +530,7 @@ pub(crate) fn parse_create_operator_class<'a>(
 
     // USING index_method
     let using_span = parser.consume_keyword(Keyword::USING)?;
-    let index_method = parser.consume_plain_identifier()?;
+    let index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
 
     // Optional FAMILY clause
     let family = if let Some(family_span) = parser.skip_keyword(Keyword::FAMILY) {
@@ -620,7 +617,6 @@ pub(crate) fn parse_create_operator_class<'a>(
         default_span,
         for_type_span,
         data_type,
-        using_span,
         index_method,
         family,
         as_span,
@@ -636,7 +632,7 @@ pub struct CreateOperatorFamily<'a> {
     /// The operator family name
     pub name: QualifiedName<'a>,
     /// The index method (btree, hash, gist, gin)
-    pub index_method: Identifier<'a>,
+    pub index_method: UsingIndexMethod,
     /// Left parenthesis span
     pub lparen_span: Span,
     /// Right parenthesis span
@@ -664,13 +660,13 @@ pub(crate) fn parse_create_operator_family<'a>(
     }
     let name = parse_qualified_name(parser)?;
     let using_span = parser.consume_keyword(Keyword::USING)?;
-    let index_method = parser.consume_plain_identifier()?;
+    let using_index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
     let lparen_span = parser.consume_token(Token::LParen)?;
     let rparen_span = parser.consume_token(Token::RParen)?;
     Ok(CreateOperatorFamily {
         create_operator_family_span,
         name,
-        index_method,
+        index_method: using_index_method,
         lparen_span,
         rparen_span,
     })

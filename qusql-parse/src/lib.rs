@@ -93,7 +93,7 @@ pub use create::{
     CreateTypeEnum, SequenceOption,
 };
 pub use create_function::{CreateFunction, FunctionCharacteristic, FunctionParamDirection};
-pub use create_index::{CreateIndex, CreateIndexOption, IncludeClause};
+pub use create_index::{CreateIndex, CreateIndexOption, IncludeClause, UsingIndexMethod};
 pub use create_option::{CreateAlgorithm, CreateOption};
 pub use create_role::{CreateRole, RoleMembership, RoleMembershipType, RoleOption};
 pub use create_table::{CreateDefinition, CreateTable, CreateTableAs};
