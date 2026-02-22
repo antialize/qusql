@@ -947,35 +947,35 @@ pub enum Keyword {
 
 impl From<&str> for Keyword {
     fn from(v: &str) -> Self {
-        let mut cs = v.chars();
+        let mut cs = v.as_bytes().iter();
         match cs.next() {
-            Some('A' | 'a') => match cs.next() {
-                Some('B' | 'b') => {
-                    if matches!(cs.next(), Some('S' | 's')) {
+            Some(b'A' | b'a') => match cs.next() {
+                Some(b'B' | b'b') => {
+                    if matches!(cs.next(), Some(b'S' | b's')) {
                         Keyword::ABS
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('C' | 'c') => match cs.next() {
-                    Some('C' | 'c') => match cs.next() {
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('B' | 'b'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'C' | b'c') => match cs.next() {
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'B' | b'b'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::ACCESSIBLE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('O' | 'o') => {
-                            if matches!(cs.next(), Some('U' | 'u'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'O' | b'o') => {
+                            if matches!(cs.next(), Some(b'U' | b'u'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::ACCOUNT
                             } else {
@@ -984,17 +984,17 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('O' | 'o') => {
-                        if matches!(cs.next(), Some('S' | 's')) {
+                    Some(b'O' | b'o') => {
+                        if matches!(cs.next(), Some(b'S' | b's')) {
                             Keyword::ACOS
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('T' | 't') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'T' | b't') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::ACTION
                         } else {
@@ -1003,36 +1003,36 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('D' | 'd') => match cs.next() {
-                    Some('D' | 'd') => match cs.next() {
+                Some(b'D' | b'd') => match cs.next() {
+                    Some(b'D' | b'd') => match cs.next() {
                         None => Keyword::ADD,
-                        Some('D' | 'd') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'D' | b'd') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::ADDDATE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('T' | 't') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'T' | b't') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::ADDTIME
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('_') => {
-                            if matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('H' | 'h'))
-                                && matches!(cs.next(), Some('S' | 's'))
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'H' | b'h'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
                             {
                                 Keyword::ADD_MONTHS
                             } else {
@@ -1041,9 +1041,9 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('M' | 'm') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'M' | b'm') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::ADMIN
                         } else {
@@ -1052,35 +1052,35 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('F' | 'f') => {
-                    if matches!(cs.next(), Some('T' | 't'))
-                        && matches!(cs.next(), Some('E' | 'e'))
-                        && matches!(cs.next(), Some('R' | 'r'))
+                Some(b'F' | b'f') => {
+                    if matches!(cs.next(), Some(b'T' | b't'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
+                        && matches!(cs.next(), Some(b'R' | b'r'))
                     {
                         Keyword::AFTER
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('G' | 'g') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                Some(b'G' | b'g') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::AGAINST
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('G' | 'g') => {
-                        if matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'G' | b'g') => {
+                        if matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::AGGREGATE
                         } else {
@@ -1089,34 +1089,34 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('L' | 'l') => match cs.next() {
-                    Some('G' | 'g') => {
-                        if matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('H' | 'h'))
-                            && matches!(cs.next(), Some('M' | 'm'))
+                Some(b'L' | b'l') => match cs.next() {
+                    Some(b'G' | b'g') => {
+                        if matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'H' | b'h'))
+                            && matches!(cs.next(), Some(b'M' | b'm'))
                         {
                             Keyword::ALGORITHM
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('L' | 'l') => Keyword::ALL,
-                    Some('T' | 't') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'L' | b'l') => Keyword::ALL,
+                    Some(b'T' | b't') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::ALTER
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('W' | 'w') => {
-                        if matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('Y' | 'y'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'W' | b'w') => {
+                        if matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'Y' | b'y'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::ALWAYS
                         } else {
@@ -1125,28 +1125,28 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('N' | 'n') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('Y' | 'y'))
-                            && matches!(cs.next(), Some('Z' | 'z'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'N' | b'n') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'Y' | b'y'))
+                            && matches!(cs.next(), Some(b'Z' | b'z'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::ANALYZE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('D' | 'd') => Keyword::AND,
-                    Some('Y' | 'y') => Keyword::ANY,
+                    Some(b'D' | b'd') => Keyword::AND,
+                    Some(b'Y' | b'y') => Keyword::ANY,
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('S' | 's') => match cs.next() {
+                Some(b'S' | b's') => match cs.next() {
                     None => Keyword::AS,
-                    Some('C' | 'c') => match cs.next() {
+                    Some(b'C' | b'c') => match cs.next() {
                         None => Keyword::ASC,
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('I' | 'i')) {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'I' | b'i')) {
                                 Keyword::ASCII
                             } else {
                                 Keyword::NOT_A_KEYWORD
@@ -1154,22 +1154,22 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('E' | 'e') => {
-                        if matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('V' | 'v'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'E' | b'e') => {
+                        if matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'V' | b'v'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::ASENSITIVE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('N' | 'n')) {
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'N' | b'n')) {
                             Keyword::ASIN
                         } else {
                             Keyword::NOT_A_KEYWORD
@@ -1177,20 +1177,20 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('T' | 't') => match cs.next() {
+                Some(b'T' | b't') => match cs.next() {
                     None => Keyword::AT,
-                    Some('A' | 'a') => match cs.next() {
-                        Some('N' | 'n') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'N' | b'n') => match cs.next() {
                             None => Keyword::ATAN,
-                            Some('2') => Keyword::ATAN2,
+                            Some(b'2') => Keyword::ATAN2,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('O' | 'o') => {
-                        if matches!(cs.next(), Some('M' | 'm'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('C' | 'c'))
+                    Some(b'O' | b'o') => {
+                        if matches!(cs.next(), Some(b'M' | b'm'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
                         {
                             Keyword::ATOMIC
                         } else {
@@ -1199,60 +1199,60 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('U' | 'u') => match cs.next() {
-                    Some('T' | 't') => match cs.next() {
-                        Some('H' | 'h') => match cs.next() {
-                            Some('O' | 'o') => match cs.next() {
-                                Some('R' | 'r') => match cs.next() {
-                                    Some('I' | 'i') => {
-                                        if matches!(cs.next(), Some('Z' | 'z'))
-                                            && matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
+                Some(b'U' | b'u') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
+                        Some(b'H' | b'h') => match cs.next() {
+                            Some(b'O' | b'o') => match cs.next() {
+                                Some(b'R' | b'r') => match cs.next() {
+                                    Some(b'I' | b'i') => {
+                                        if matches!(cs.next(), Some(b'Z' | b'z'))
+                                            && matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
                                         {
                                             Keyword::AUTHORIZATION
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('S' | 's') => Keyword::AUTHORS,
+                                    Some(b'S' | b's') => Keyword::AUTHORS,
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('O' | 'o') => match cs.next() {
+                        Some(b'O' | b'o') => match cs.next() {
                             None => Keyword::AUTO,
-                            Some('E' | 'e') => {
-                                if matches!(cs.next(), Some('X' | 'x'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('D' | 'd'))
-                                    && matches!(cs.next(), Some('_'))
-                                    && matches!(cs.next(), Some('S' | 's'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('Z' | 'z'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'E' | b'e') => {
+                                if matches!(cs.next(), Some(b'X' | b'x'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'D' | b'd'))
+                                    && matches!(cs.next(), Some(b'_'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'Z' | b'z'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::AUTOEXTEND_SIZE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('_') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('M' | 'm'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'M' | b'm'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::AUTO_INCREMENT
                                 } else {
@@ -1265,20 +1265,20 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('V' | 'v') => match cs.next() {
-                    Some('G' | 'g') => match cs.next() {
+                Some(b'V' | b'v') => match cs.next() {
+                    Some(b'G' | b'g') => match cs.next() {
                         None => Keyword::AVG,
-                        Some('_') => {
-                            if matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('W' | 'w'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('H' | 'h'))
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'W' | b'w'))
+                                && matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'H' | b'h'))
                             {
                                 Keyword::AVG_ROW_LENGTH
                             } else {
@@ -1291,43 +1291,43 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('B' | 'b') => match cs.next() {
-                Some('A' | 'a') => {
-                    if matches!(cs.next(), Some('C' | 'c'))
-                        && matches!(cs.next(), Some('K' | 'k'))
-                        && matches!(cs.next(), Some('U' | 'u'))
-                        && matches!(cs.next(), Some('P' | 'p'))
+            Some(b'B' | b'b') => match cs.next() {
+                Some(b'A' | b'a') => {
+                    if matches!(cs.next(), Some(b'C' | b'c'))
+                        && matches!(cs.next(), Some(b'K' | b'k'))
+                        && matches!(cs.next(), Some(b'U' | b'u'))
+                        && matches!(cs.next(), Some(b'P' | b'p'))
                     {
                         Keyword::BACKUP
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('E' | 'e') => match cs.next() {
-                    Some('F' | 'f') => {
-                        if matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'F' | b'f') => {
+                        if matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::BEFORE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('G' | 'g') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'G' | b'g') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::BEGIN
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('T' | 't') => {
-                        if matches!(cs.next(), Some('W' | 'w'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'T' | b't') => {
+                        if matches!(cs.next(), Some(b'W' | b'w'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::BETWEEN
                         } else {
@@ -1336,31 +1336,31 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('G' | 'g') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'G' | b'g') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::BIGINT
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('N' | 'n') => match cs.next() {
+                    Some(b'N' | b'n') => match cs.next() {
                         None => Keyword::BIN,
-                        Some('A' | 'a') => {
-                            if matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('Y' | 'y'))
+                        Some(b'A' | b'a') => {
+                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'Y' | b'y'))
                             {
                                 Keyword::BINARY
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('L' | 'l') => {
-                            if matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('G' | 'g'))
+                        Some(b'L' | b'l') => {
+                            if matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
                             {
                                 Keyword::BINLOG
                             } else {
@@ -1369,15 +1369,15 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
                         None => Keyword::BIT,
-                        Some('_') => {
-                            if matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('H' | 'h'))
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'H' | b'h'))
                             {
                                 Keyword::BIT_LENGTH
                             } else {
@@ -1388,18 +1388,18 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('L' | 'l') => match cs.next() {
-                    Some('O' | 'o') => match cs.next() {
-                        Some('B' | 'b') => Keyword::BLOB,
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('K' | 'k')) {
+                Some(b'L' | b'l') => match cs.next() {
+                    Some(b'O' | b'o') => match cs.next() {
+                        Some(b'B' | b'b') => Keyword::BLOB,
+                        Some(b'C' | b'c') => {
+                            if matches!(cs.next(), Some(b'K' | b'k')) {
                                 Keyword::BLOCK
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('O' | 'o') => {
-                            if matches!(cs.next(), Some('M' | 'm')) {
+                        Some(b'O' | b'o') => {
+                            if matches!(cs.next(), Some(b'M' | b'm')) {
                                 Keyword::BLOOM
                             } else {
                                 Keyword::NOT_A_KEYWORD
@@ -1409,20 +1409,20 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('O' | 'o') => match cs.next() {
-                    Some('D' | 'd') => {
-                        if matches!(cs.next(), Some('Y' | 'y')) {
+                Some(b'O' | b'o') => match cs.next() {
+                    Some(b'D' | b'd') => {
+                        if matches!(cs.next(), Some(b'Y' | b'y')) {
                             Keyword::BODY
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('O' | 'o') => match cs.next() {
-                        Some('L' | 'l') => match cs.next() {
+                    Some(b'O' | b'o') => match cs.next() {
+                        Some(b'L' | b'l') => match cs.next() {
                             None => Keyword::BOOL,
-                            Some('E' | 'e') => {
-                                if matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
+                            Some(b'E' | b'e') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
                                 {
                                     Keyword::BOOLEAN
                                 } else {
@@ -1433,8 +1433,8 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => {
-                        if matches!(cs.next(), Some('H' | 'h')) {
+                    Some(b'T' | b't') => {
+                        if matches!(cs.next(), Some(b'H' | b'h')) {
                             Keyword::BOTH
                         } else {
                             Keyword::NOT_A_KEYWORD
@@ -1442,66 +1442,67 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('P' | 'p') => {
-                    if matches!(cs.next(), Some('C' | 'c'))
-                        && matches!(cs.next(), Some('H' | 'h'))
-                        && matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('R' | 'r'))
-                        && matches!(cs.next(), Some('_'))
-                        && matches!(cs.next(), Some('P' | 'p'))
-                        && matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('T' | 't'))
-                        && matches!(cs.next(), Some('T' | 't'))
-                        && matches!(cs.next(), Some('E' | 'e'))
-                        && matches!(cs.next(), Some('R' | 'r'))
-                        && matches!(cs.next(), Some('N' | 'n'))
-                        && matches!(cs.next(), Some('_'))
-                        && matches!(cs.next(), Some('O' | 'o'))
-                        && matches!(cs.next(), Some('P' | 'p'))
-                        && matches!(cs.next(), Some('S' | 's'))
+                Some(b'P' | b'p') => {
+                    if matches!(cs.next(), Some(b'C' | b'c'))
+                        && matches!(cs.next(), Some(b'H' | b'h'))
+                        && matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'_'))
+                        && matches!(cs.next(), Some(b'P' | b'p'))
+                        && matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'T' | b't'))
+                        && matches!(cs.next(), Some(b'T' | b't'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
+                        && matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'N' | b'n'))
+                        && matches!(cs.next(), Some(b'_'))
+                        && matches!(cs.next(), Some(b'O' | b'o'))
+                        && matches!(cs.next(), Some(b'P' | b'p'))
+                        && matches!(cs.next(), Some(b'S' | b's'))
                     {
                         Keyword::BPCHAR_PATTERN_OPS
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('R' | 'r') => {
-                    if matches!(cs.next(), Some('I' | 'i')) && matches!(cs.next(), Some('N' | 'n'))
+                Some(b'R' | b'r') => {
+                    if matches!(cs.next(), Some(b'I' | b'i'))
+                        && matches!(cs.next(), Some(b'N' | b'n'))
                     {
                         Keyword::BRIN
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('T' | 't') => {
-                    if matches!(cs.next(), Some('R' | 'r'))
-                        && matches!(cs.next(), Some('E' | 'e'))
-                        && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'T' | b't') => {
+                    if matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
                     {
                         Keyword::BTREE
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('Y' | 'y') => match cs.next() {
+                Some(b'Y' | b'y') => match cs.next() {
                     None => Keyword::BY,
-                    Some('P' | 'p') => {
-                        if matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'P' | b'p') => {
+                        if matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::BYPASSRLS
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('T' | 't') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
                             None => Keyword::BYTE,
-                            Some('A' | 'a') => Keyword::BYTEA,
+                            Some(b'A' | b'a') => Keyword::BYTEA,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
@@ -1510,32 +1511,132 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('C' | 'c') => {
-                match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('H' | 'h'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                            {
-                                Keyword::CACHE
+            Some(b'C' | b'c') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'C' | b'c') => {
+                        if matches!(cs.next(), Some(b'H' | b'h'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                        {
+                            Keyword::CACHE
+                        } else {
+                            Keyword::NOT_A_KEYWORD
+                        }
+                    }
+                    Some(b'L' | b'l') => {
+                        if matches!(cs.next(), Some(b'L' | b'l')) {
+                            Keyword::CALL
+                        } else {
+                            Keyword::NOT_A_KEYWORD
+                        }
+                    }
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'C' | b'c') => match cs.next() {
+                            Some(b'A' | b'a') => match cs.next() {
+                                Some(b'D' | b'd') => match cs.next() {
+                                    Some(b'E' | b'e') => match cs.next() {
+                                        None => Keyword::CASCADE,
+                                        Some(b'D' | b'd') => Keyword::CASCADED,
+                                        _ => Keyword::NOT_A_KEYWORD,
+                                    },
+                                    _ => Keyword::NOT_A_KEYWORD,
+                                },
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        Some(b'E' | b'e') => Keyword::CASE,
+                        Some(b'T' | b't') => Keyword::CAST,
+                        _ => Keyword::NOT_A_KEYWORD,
+                    },
+                    Some(b'T' | b't') => {
+                        if matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'_'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'M' | b'm'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                        {
+                            Keyword::CATALOG_NAME
+                        } else {
+                            Keyword::NOT_A_KEYWORD
+                        }
+                    }
+                    _ => Keyword::NOT_A_KEYWORD,
+                },
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'I' | b'i') => match cs.next() {
+                        Some(b'L' | b'l') => match cs.next() {
+                            None => Keyword::CEIL,
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'G' | b'g'))
+                                {
+                                    Keyword::CEILING
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        _ => Keyword::NOT_A_KEYWORD,
+                    },
+                    _ => Keyword::NOT_A_KEYWORD,
+                },
+                Some(b'H' | b'h') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'N' | b'n')) {
+                                Keyword::CHAIN
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('L' | 'l') => {
-                            if matches!(cs.next(), Some('L' | 'l')) {
-                                Keyword::CALL
-                            } else {
-                                Keyword::NOT_A_KEYWORD
+                        Some(b'N' | b'n') => match cs.next() {
+                            Some(b'G' | b'g') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
+                                    None => Keyword::CHANGE,
+                                    Some(b'D' | b'd') => Keyword::CHANGED,
+                                    _ => Keyword::NOT_A_KEYWORD,
+                                },
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            Some(b'N' | b'n') => {
+                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                {
+                                    Keyword::CHANNEL
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
                             }
-                        }
-                        Some('S' | 's') => match cs.next() {
-                            Some('C' | 'c') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('D' | 'd') => match cs.next() {
-                                        Some('E' | 'e') => match cs.next() {
-                                            None => Keyword::CASCADE,
-                                            Some('D' | 'd') => Keyword::CASCADED,
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        Some(b'R' | b'r') => match cs.next() {
+                            None => Keyword::CHAR,
+                            Some(b'A' | b'a') => match cs.next() {
+                                Some(b'C' | b'c') => match cs.next() {
+                                    Some(b'T' | b't') => match cs.next() {
+                                        Some(b'E' | b'e') => match cs.next() {
+                                            Some(b'R' | b'r') => match cs.next() {
+                                                None => Keyword::CHARACTER,
+                                                Some(b'_') => {
+                                                    if matches!(cs.next(), Some(b'L' | b'l'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                                        && matches!(cs.next(), Some(b'G' | b'g'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'H' | b'h'))
+                                                    {
+                                                        Keyword::CHARACTER_LENGTH
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
+                                                    }
+                                                }
+                                                _ => Keyword::NOT_A_KEYWORD,
+                                            },
                                             _ => Keyword::NOT_A_KEYWORD,
                                         },
                                         _ => Keyword::NOT_A_KEYWORD,
@@ -1544,93 +1645,366 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('E' | 'e') => Keyword::CASE,
-                            Some('T' | 't') => Keyword::CAST,
+                            Some(b'S' | b's') => {
+                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                {
+                                    Keyword::CHARSET
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'G' | b'g'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'H' | b'h'))
+                                {
+                                    Keyword::CHAR_LENGTH
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('T' | 't') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                            {
-                                Keyword::CATALOG_NAME
+                        _ => Keyword::NOT_A_KEYWORD,
+                    },
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'C' | b'c') => match cs.next() {
+                            Some(b'K' | b'k') => match cs.next() {
+                                None => Keyword::CHECK,
+                                Some(b'P' | b'p') => {
+                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                    {
+                                        Keyword::CHECKPOINT
+                                    } else {
+                                        Keyword::NOT_A_KEYWORD
+                                    }
+                                }
+                                Some(b'S' | b's') => {
+                                    if matches!(cs.next(), Some(b'U' | b'u'))
+                                        && matches!(cs.next(), Some(b'M' | b'm'))
+                                    {
+                                        Keyword::CHECKSUM
+                                    } else {
+                                        Keyword::NOT_A_KEYWORD
+                                    }
+                                }
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        _ => Keyword::NOT_A_KEYWORD,
+                    },
+                    Some(b'R' | b'r') => Keyword::CHR,
+                    _ => Keyword::NOT_A_KEYWORD,
+                },
+                Some(b'I' | b'i') => {
+                    if matches!(cs.next(), Some(b'P' | b'p'))
+                        && matches!(cs.next(), Some(b'H' | b'h'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
+                        && matches!(cs.next(), Some(b'R' | b'r'))
+                    {
+                        Keyword::CIPHER
+                    } else {
+                        Keyword::NOT_A_KEYWORD
+                    }
+                }
+                Some(b'L' | b'l') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'S' | b's') => match cs.next() {
+                            Some(b'S' | b's') => match cs.next() {
+                                None => Keyword::CLASS,
+                                Some(b'_') => {
+                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'G' | b'g'))
+                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                    {
+                                        Keyword::CLASS_ORIGIN
+                                    } else {
+                                        Keyword::NOT_A_KEYWORD
+                                    }
+                                }
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        _ => Keyword::NOT_A_KEYWORD,
+                    },
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                        {
+                            Keyword::CLIENT
+                        } else {
+                            Keyword::NOT_A_KEYWORD
+                        }
+                    }
+                    Some(b'O' | b'o') => match cs.next() {
+                        Some(b'B' | b'b') => Keyword::CLOB,
+                        Some(b'S' | b's') => {
+                            if matches!(cs.next(), Some(b'E' | b'e')) {
+                                Keyword::CLOSE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('E' | 'e') => match cs.next() {
-                        Some('I' | 'i') => match cs.next() {
-                            Some('L' | 'l') => match cs.next() {
-                                None => Keyword::CEIL,
-                                Some('I' | 'i') => {
-                                    if matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('G' | 'g'))
-                                    {
-                                        Keyword::CEILING
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
+                    _ => Keyword::NOT_A_KEYWORD,
+                },
+                Some(b'O' | b'o') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                        {
+                            Keyword::COALESCE
+                        } else {
+                            Keyword::NOT_A_KEYWORD
+                        }
+                    }
+                    Some(b'D' | b'd') => {
+                        if matches!(cs.next(), Some(b'E' | b'e')) {
+                            Keyword::CODE
+                        } else {
+                            Keyword::NOT_A_KEYWORD
+                        }
+                    }
+                    Some(b'L' | b'l') => match cs.next() {
+                        Some(b'L' | b'l') => match cs.next() {
+                            Some(b'A' | b'a') => match cs.next() {
+                                Some(b'T' | b't') => match cs.next() {
+                                    Some(b'E' | b'e') => Keyword::COLLATE,
+                                    Some(b'I' | b'i') => {
+                                        if matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                        {
+                                            Keyword::COLLATION
+                                        } else {
+                                            Keyword::NOT_A_KEYWORD
+                                        }
                                     }
-                                }
+                                    _ => Keyword::NOT_A_KEYWORD,
+                                },
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        Some(b'U' | b'u') => match cs.next() {
+                            Some(b'M' | b'm') => match cs.next() {
+                                Some(b'N' | b'n') => match cs.next() {
+                                    None => Keyword::COLUMN,
+                                    Some(b'S' | b's') => Keyword::COLUMNS,
+                                    Some(b'_') => match cs.next() {
+                                        Some(b'A' | b'a') => {
+                                            if matches!(cs.next(), Some(b'D' | b'd'))
+                                                && matches!(cs.next(), Some(b'D' | b'd'))
+                                            {
+                                                Keyword::COLUMN_ADD
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
+                                            }
+                                        }
+                                        Some(b'C' | b'c') => match cs.next() {
+                                            Some(b'H' | b'h') => {
+                                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                                    && matches!(cs.next(), Some(b'K' | b'k'))
+                                                {
+                                                    Keyword::COLUMN_CHECK
+                                                } else {
+                                                    Keyword::NOT_A_KEYWORD
+                                                }
+                                            }
+                                            Some(b'R' | b'r') => {
+                                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                                {
+                                                    Keyword::COLUMN_CREATE
+                                                } else {
+                                                    Keyword::NOT_A_KEYWORD
+                                                }
+                                            }
+                                            _ => Keyword::NOT_A_KEYWORD,
+                                        },
+                                        Some(b'D' | b'd') => {
+                                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                            {
+                                                Keyword::COLUMN_DELETE
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
+                                            }
+                                        }
+                                        Some(b'G' | b'g') => {
+                                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                            {
+                                                Keyword::COLUMN_GET
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
+                                            }
+                                        }
+                                        Some(b'N' | b'n') => {
+                                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                            {
+                                                Keyword::COLUMN_NAME
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
+                                            }
+                                        }
+                                        _ => Keyword::NOT_A_KEYWORD,
+                                    },
+                                    _ => Keyword::NOT_A_KEYWORD,
+                                },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('H' | 'h') => match cs.next() {
-                        Some('A' | 'a') => match cs.next() {
-                            Some('I' | 'i') => {
-                                if matches!(cs.next(), Some('N' | 'n')) {
-                                    Keyword::CHAIN
+                    Some(b'M' | b'm') => match cs.next() {
+                        Some(b'M' | b'm') => match cs.next() {
+                            Some(b'E' | b'e') => {
+                                if matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                {
+                                    Keyword::COMMENT
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('N' | 'n') => match cs.next() {
-                                Some('G' | 'g') => match cs.next() {
-                                    Some('E' | 'e') => match cs.next() {
-                                        None => Keyword::CHANGE,
-                                        Some('D' | 'd') => Keyword::CHANGED,
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'T' | b't') => match cs.next() {
+                                    None => Keyword::COMMIT,
+                                    Some(b'T' | b't') => {
+                                        if matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'D' | b'd'))
+                                        {
+                                            Keyword::COMMITTED
+                                        } else {
+                                            Keyword::NOT_A_KEYWORD
+                                        }
+                                    }
+                                    _ => Keyword::NOT_A_KEYWORD,
+                                },
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            Some(b'U' | b'u') => {
+                                if matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                {
+                                    Keyword::COMMUTATOR
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        Some(b'P' | b'p') => match cs.next() {
+                            Some(b'A' | b'a') => {
+                                if matches!(cs.next(), Some(b'C' | b'c'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                {
+                                    Keyword::COMPACT
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            Some(b'L' | b'l') => {
+                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                {
+                                    Keyword::COMPLETION
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            Some(b'R' | b'r') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
+                                    Some(b'S' | b's') => match cs.next() {
+                                        Some(b'S' | b's') => match cs.next() {
+                                            Some(b'E' | b'e') => {
+                                                if matches!(cs.next(), Some(b'D' | b'd')) {
+                                                    Keyword::COMPRESSED
+                                                } else {
+                                                    Keyword::NOT_A_KEYWORD
+                                                }
+                                            }
+                                            Some(b'I' | b'i') => {
+                                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                                {
+                                                    Keyword::COMPRESSION
+                                                } else {
+                                                    Keyword::NOT_A_KEYWORD
+                                                }
+                                            }
+                                            _ => Keyword::NOT_A_KEYWORD,
+                                        },
                                         _ => Keyword::NOT_A_KEYWORD,
                                     },
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
-                                Some('N' | 'n') => {
-                                    if matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('L' | 'l'))
-                                    {
-                                        Keyword::CHANNEL
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
-                                }
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('R' | 'r') => match cs.next() {
-                                None => Keyword::CHAR,
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('C' | 'c') => match cs.next() {
-                                        Some('T' | 't') => match cs.next() {
-                                            Some('E' | 'e') => match cs.next() {
-                                                Some('R' | 'r') => match cs.next() {
-                                                    None => Keyword::CHARACTER,
-                                                    Some('_') => {
-                                                        if matches!(cs.next(), Some('L' | 'l'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
-                                                            && matches!(cs.next(), Some('N' | 'n'))
-                                                            && matches!(cs.next(), Some('G' | 'g'))
-                                                            && matches!(cs.next(), Some('T' | 't'))
-                                                            && matches!(cs.next(), Some('H' | 'h'))
-                                                        {
-                                                            Keyword::CHARACTER_LENGTH
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        _ => Keyword::NOT_A_KEYWORD,
+                    },
+                    Some(b'N' | b'n') => match cs.next() {
+                        Some(b'C' | b'c') => match cs.next() {
+                            Some(b'A' | b'a') => match cs.next() {
+                                Some(b'T' | b't') => match cs.next() {
+                                    None => Keyword::CONCAT,
+                                    Some(b'_') => {
+                                        if matches!(cs.next(), Some(b'W' | b'w'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
+                                        {
+                                            Keyword::CONCAT_WS
+                                        } else {
+                                            Keyword::NOT_A_KEYWORD
+                                        }
+                                    }
+                                    _ => Keyword::NOT_A_KEYWORD,
+                                },
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            Some(b'U' | b'u') => match cs.next() {
+                                Some(b'R' | b'r') => match cs.next() {
+                                    Some(b'R' | b'r') => match cs.next() {
+                                        Some(b'E' | b'e') => match cs.next() {
+                                            Some(b'N' | b'n') => match cs.next() {
+                                                Some(b'T' | b't') => match cs.next() {
+                                                    None => Keyword::CONCURRENT,
+                                                    Some(b'L' | b'l') => {
+                                                        if matches!(cs.next(), Some(b'Y' | b'y')) {
+                                                            Keyword::CONCURRENTLY
                                                         } else {
                                                             Keyword::NOT_A_KEYWORD
                                                         }
@@ -1645,474 +2019,100 @@ impl From<&str> for Keyword {
                                     },
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
-                                Some('S' | 's') => {
-                                    if matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                    {
-                                        Keyword::CHARSET
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
-                                }
-                                Some('_') => {
-                                    if matches!(cs.next(), Some('L' | 'l'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('G' | 'g'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('H' | 'h'))
-                                    {
-                                        Keyword::CHAR_LENGTH
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
-                                }
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('E' | 'e') => match cs.next() {
-                            Some('C' | 'c') => match cs.next() {
-                                Some('K' | 'k') => match cs.next() {
-                                    None => Keyword::CHECK,
-                                    Some('P' | 'p') => {
-                                        if matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                        {
-                                            Keyword::CHECKPOINT
-                                        } else {
-                                            Keyword::NOT_A_KEYWORD
-                                        }
-                                    }
-                                    Some('S' | 's') => {
-                                        if matches!(cs.next(), Some('U' | 'u'))
-                                            && matches!(cs.next(), Some('M' | 'm'))
-                                        {
-                                            Keyword::CHECKSUM
-                                        } else {
-                                            Keyword::NOT_A_KEYWORD
-                                        }
-                                    }
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            _ => Keyword::NOT_A_KEYWORD,
-                        },
-                        Some('R' | 'r') => Keyword::CHR,
-                        _ => Keyword::NOT_A_KEYWORD,
-                    },
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('H' | 'h'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                        {
-                            Keyword::CIPHER
-                        } else {
-                            Keyword::NOT_A_KEYWORD
-                        }
-                    }
-                    Some('L' | 'l') => match cs.next() {
-                        Some('A' | 'a') => match cs.next() {
-                            Some('S' | 's') => match cs.next() {
-                                Some('S' | 's') => match cs.next() {
-                                    None => Keyword::CLASS,
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('G' | 'g'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                        {
-                                            Keyword::CLASS_ORIGIN
-                                        } else {
-                                            Keyword::NOT_A_KEYWORD
-                                        }
-                                    }
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            _ => Keyword::NOT_A_KEYWORD,
-                        },
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'D' | b'd') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
                             {
-                                Keyword::CLIENT
+                                Keyword::CONDITION
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('O' | 'o') => match cs.next() {
-                            Some('B' | 'b') => Keyword::CLOB,
-                            Some('S' | 's') => {
-                                if matches!(cs.next(), Some('E' | 'e')) {
-                                    Keyword::CLOSE
-                                } else {
-                                    Keyword::NOT_A_KEYWORD
-                                }
-                            }
-                            _ => Keyword::NOT_A_KEYWORD,
-                        },
-                        _ => Keyword::NOT_A_KEYWORD,
-                    },
-                    Some('O' | 'o') => match cs.next() {
-                        Some('A' | 'a') => {
-                            if matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'F' | b'f') => {
+                            if matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
-                                Keyword::COALESCE
+                                Keyword::CONFLICT
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('D' | 'd') => {
-                            if matches!(cs.next(), Some('E' | 'e')) {
-                                Keyword::CODE
+                        Some(b'N' | b'n') => {
+                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                            {
+                                Keyword::CONNECTION
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('L' | 'l') => match cs.next() {
-                            Some('L' | 'l') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('T' | 't') => match cs.next() {
-                                        Some('E' | 'e') => Keyword::COLLATE,
-                                        Some('I' | 'i') => {
-                                            if matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('N' | 'n'))
-                                            {
-                                                Keyword::COLLATION
-                                            } else {
-                                                Keyword::NOT_A_KEYWORD
-                                            }
-                                        }
-                                        _ => Keyword::NOT_A_KEYWORD,
-                                    },
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            Some('U' | 'u') => match cs.next() {
-                                Some('M' | 'm') => match cs.next() {
-                                    Some('N' | 'n') => match cs.next() {
-                                        None => Keyword::COLUMN,
-                                        Some('S' | 's') => Keyword::COLUMNS,
-                                        Some('_') => match cs.next() {
-                                            Some('A' | 'a') => {
-                                                if matches!(cs.next(), Some('D' | 'd'))
-                                                    && matches!(cs.next(), Some('D' | 'd'))
-                                                {
-                                                    Keyword::COLUMN_ADD
-                                                } else {
-                                                    Keyword::NOT_A_KEYWORD
-                                                }
-                                            }
-                                            Some('C' | 'c') => match cs.next() {
-                                                Some('H' | 'h') => {
-                                                    if matches!(cs.next(), Some('E' | 'e'))
-                                                        && matches!(cs.next(), Some('C' | 'c'))
-                                                        && matches!(cs.next(), Some('K' | 'k'))
-                                                    {
-                                                        Keyword::COLUMN_CHECK
-                                                    } else {
-                                                        Keyword::NOT_A_KEYWORD
-                                                    }
-                                                }
-                                                Some('R' | 'r') => {
-                                                    if matches!(cs.next(), Some('E' | 'e'))
-                                                        && matches!(cs.next(), Some('A' | 'a'))
-                                                        && matches!(cs.next(), Some('T' | 't'))
-                                                        && matches!(cs.next(), Some('E' | 'e'))
-                                                    {
-                                                        Keyword::COLUMN_CREATE
-                                                    } else {
-                                                        Keyword::NOT_A_KEYWORD
-                                                    }
-                                                }
-                                                _ => Keyword::NOT_A_KEYWORD,
-                                            },
-                                            Some('D' | 'd') => {
-                                                if matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('L' | 'l'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('T' | 't'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
-                                                {
-                                                    Keyword::COLUMN_DELETE
-                                                } else {
-                                                    Keyword::NOT_A_KEYWORD
-                                                }
-                                            }
-                                            Some('G' | 'g') => {
-                                                if matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('T' | 't'))
-                                                {
-                                                    Keyword::COLUMN_GET
-                                                } else {
-                                                    Keyword::NOT_A_KEYWORD
-                                                }
-                                            }
-                                            Some('N' | 'n') => {
-                                                if matches!(cs.next(), Some('A' | 'a'))
-                                                    && matches!(cs.next(), Some('M' | 'm'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
-                                                {
-                                                    Keyword::COLUMN_NAME
-                                                } else {
-                                                    Keyword::NOT_A_KEYWORD
-                                                }
-                                            }
-                                            _ => Keyword::NOT_A_KEYWORD,
-                                        },
-                                        _ => Keyword::NOT_A_KEYWORD,
-                                    },
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            _ => Keyword::NOT_A_KEYWORD,
-                        },
-                        Some('M' | 'm') => match cs.next() {
-                            Some('M' | 'm') => match cs.next() {
-                                Some('E' | 'e') => {
-                                    if matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'S' | b's') => {
+                            match cs.next() {
+                                Some(b'I' | b'i') => {
+                                    if matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
                                     {
-                                        Keyword::COMMENT
+                                        Keyword::CONSISTENT
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('I' | 'i') => match cs.next() {
-                                    Some('T' | 't') => match cs.next() {
-                                        None => Keyword::COMMIT,
-                                        Some('T' | 't') => {
-                                            if matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('D' | 'd'))
-                                            {
-                                                Keyword::COMMITTED
-                                            } else {
-                                                Keyword::NOT_A_KEYWORD
-                                            }
-                                        }
-                                        _ => Keyword::NOT_A_KEYWORD,
-                                    },
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
-                                Some('U' | 'u') => {
-                                    if matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
-                                    {
-                                        Keyword::COMMUTATOR
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
-                                }
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            Some('P' | 'p') => match cs.next() {
-                                Some('A' | 'a') => {
-                                    if matches!(cs.next(), Some('C' | 'c'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                    {
-                                        Keyword::COMPACT
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
-                                }
-                                Some('L' | 'l') => {
-                                    if matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('N' | 'n'))
-                                    {
-                                        Keyword::COMPLETION
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
-                                }
-                                Some('R' | 'r') => match cs.next() {
-                                    Some('E' | 'e') => match cs.next() {
-                                        Some('S' | 's') => match cs.next() {
-                                            Some('S' | 's') => match cs.next() {
-                                                Some('E' | 'e') => {
-                                                    if matches!(cs.next(), Some('D' | 'd')) {
-                                                        Keyword::COMPRESSED
-                                                    } else {
-                                                        Keyword::NOT_A_KEYWORD
-                                                    }
-                                                }
-                                                Some('I' | 'i') => {
-                                                    if matches!(cs.next(), Some('O' | 'o'))
-                                                        && matches!(cs.next(), Some('N' | 'n'))
-                                                    {
-                                                        Keyword::COMPRESSION
-                                                    } else {
-                                                        Keyword::NOT_A_KEYWORD
-                                                    }
-                                                }
-                                                _ => Keyword::NOT_A_KEYWORD,
-                                            },
-                                            _ => Keyword::NOT_A_KEYWORD,
-                                        },
-                                        _ => Keyword::NOT_A_KEYWORD,
-                                    },
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            _ => Keyword::NOT_A_KEYWORD,
-                        },
-                        Some('N' | 'n') => match cs.next() {
-                            Some('C' | 'c') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('T' | 't') => match cs.next() {
-                                        None => Keyword::CONCAT,
-                                        Some('_') => {
-                                            if matches!(cs.next(), Some('W' | 'w'))
-                                                && matches!(cs.next(), Some('S' | 's'))
-                                            {
-                                                Keyword::CONCAT_WS
-                                            } else {
-                                                Keyword::NOT_A_KEYWORD
-                                            }
-                                        }
-                                        _ => Keyword::NOT_A_KEYWORD,
-                                    },
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
-                                Some('U' | 'u') => match cs.next() {
-                                    Some('R' | 'r') => match cs.next() {
-                                        Some('R' | 'r') => match cs.next() {
-                                            Some('E' | 'e') => match cs.next() {
-                                                Some('N' | 'n') => match cs.next() {
-                                                    Some('T' | 't') => match cs.next() {
-                                                        None => Keyword::CONCURRENT,
-                                                        Some('L' | 'l') => {
-                                                            if matches!(cs.next(), Some('Y' | 'y'))
-                                                            {
-                                                                Keyword::CONCURRENTLY
-                                                            } else {
-                                                                Keyword::NOT_A_KEYWORD
-                                                            }
-                                                        }
-                                                        _ => Keyword::NOT_A_KEYWORD,
-                                                    },
-                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                },
-                                                _ => Keyword::NOT_A_KEYWORD,
-                                            },
-                                            _ => Keyword::NOT_A_KEYWORD,
-                                        },
-                                        _ => Keyword::NOT_A_KEYWORD,
-                                    },
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            Some('D' | 'd') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                {
-                                    Keyword::CONDITION
-                                } else {
-                                    Keyword::NOT_A_KEYWORD
-                                }
-                            }
-                            Some('F' | 'f') => {
-                                if matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                {
-                                    Keyword::CONFLICT
-                                } else {
-                                    Keyword::NOT_A_KEYWORD
-                                }
-                            }
-                            Some('N' | 'n') => {
-                                if matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                {
-                                    Keyword::CONNECTION
-                                } else {
-                                    Keyword::NOT_A_KEYWORD
-                                }
-                            }
-                            Some('S' | 's') => {
-                                match cs.next() {
-                                    Some('I' | 'i') => {
-                                        if matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                        {
-                                            Keyword::CONSISTENT
-                                        } else {
-                                            Keyword::NOT_A_KEYWORD
-                                        }
-                                    }
-                                    Some('T' | 't') => {
-                                        match cs.next() {
-                                            Some('R' | 'r') => {
-                                                match cs.next() {
-                                                    Some('A' | 'a') => match cs.next() {
-                                                        Some('I' | 'i') => match cs.next() {
-                                                            Some('N' | 'n') => match cs.next() {
-                                                                Some('T' | 't') => {
+                                Some(b'T' | b't') => {
+                                    match cs.next() {
+                                        Some(b'R' | b'r') => {
+                                            match cs.next() {
+                                                Some(b'A' | b'a') => {
+                                                    match cs.next() {
+                                                        Some(b'I' | b'i') => match cs.next() {
+                                                            Some(b'N' | b'n') => match cs.next() {
+                                                                Some(b'T' | b't') => {
                                                                     match cs.next() {
                                                                         None => Keyword::CONSTRAINT,
-                                                                        Some('_') => {
+                                                                        Some(b'_') => {
                                                                             match cs.next() {
-                                                                                                    Some('C' | 'c') => {
-                                                                                                        if matches!(cs.next(), Some('A' | 'a'))
-                                                                                                          && matches!(cs.next(), Some('T' | 't'))
-                                                                                                          && matches!(cs.next(), Some('A' | 'a'))
-                                                                                                          && matches!(cs.next(), Some('L' | 'l'))
-                                                                                                          && matches!(cs.next(), Some('O' | 'o'))
-                                                                                                          && matches!(cs.next(), Some('G' | 'g')) {
+                                                                                                    Some(b'C' | b'c') => {
+                                                                                                        if matches!(cs.next(), Some(b'A' | b'a'))
+                                                                                                          && matches!(cs.next(), Some(b'T' | b't'))
+                                                                                                          && matches!(cs.next(), Some(b'A' | b'a'))
+                                                                                                          && matches!(cs.next(), Some(b'L' | b'l'))
+                                                                                                          && matches!(cs.next(), Some(b'O' | b'o'))
+                                                                                                          && matches!(cs.next(), Some(b'G' | b'g')) {
                                                                                                             Keyword::CONSTRAINT_CATALOG
                                                                                                         } else {
                                                                                                             Keyword::NOT_A_KEYWORD
                                                                                                         }
                                                                                                     }
-                                                                                                    Some('N' | 'n') => {
-                                                                                                        if matches!(cs.next(), Some('A' | 'a'))
-                                                                                                          && matches!(cs.next(), Some('M' | 'm'))
-                                                                                                          && matches!(cs.next(), Some('E' | 'e')) {
+                                                                                                    Some(b'N' | b'n') => {
+                                                                                                        if matches!(cs.next(), Some(b'A' | b'a'))
+                                                                                                          && matches!(cs.next(), Some(b'M' | b'm'))
+                                                                                                          && matches!(cs.next(), Some(b'E' | b'e')) {
                                                                                                             Keyword::CONSTRAINT_NAME
                                                                                                         } else {
                                                                                                             Keyword::NOT_A_KEYWORD
                                                                                                         }
                                                                                                     }
-                                                                                                    Some('S' | 's') => {
-                                                                                                        if matches!(cs.next(), Some('C' | 'c'))
-                                                                                                          && matches!(cs.next(), Some('H' | 'h'))
-                                                                                                          && matches!(cs.next(), Some('E' | 'e'))
-                                                                                                          && matches!(cs.next(), Some('M' | 'm'))
-                                                                                                          && matches!(cs.next(), Some('A' | 'a')) {
+                                                                                                    Some(b'S' | b's') => {
+                                                                                                        if matches!(cs.next(), Some(b'C' | b'c'))
+                                                                                                          && matches!(cs.next(), Some(b'H' | b'h'))
+                                                                                                          && matches!(cs.next(), Some(b'E' | b'e'))
+                                                                                                          && matches!(cs.next(), Some(b'M' | b'm'))
+                                                                                                          && matches!(cs.next(), Some(b'A' | b'a')) {
                                                                                                             Keyword::CONSTRAINT_SCHEMA
                                                                                                         } else {
                                                                                                             Keyword::NOT_A_KEYWORD
@@ -2129,79 +2129,78 @@ impl From<&str> for Keyword {
                                                             _ => Keyword::NOT_A_KEYWORD,
                                                         },
                                                         _ => Keyword::NOT_A_KEYWORD,
-                                                    },
-                                                    _ => Keyword::NOT_A_KEYWORD,
+                                                    }
                                                 }
+                                                _ => Keyword::NOT_A_KEYWORD,
                                             }
-                                            _ => Keyword::NOT_A_KEYWORD,
                                         }
-                                    }
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                }
-                            }
-                            Some('T' | 't') => match cs.next() {
-                                Some('A' | 'a') => {
-                                    if matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('S' | 's'))
-                                    {
-                                        Keyword::CONTAINS
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
-                                }
-                                Some('E' | 'e') => {
-                                    if matches!(cs.next(), Some('X' | 'x'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                    {
-                                        Keyword::CONTEXT
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
-                                }
-                                Some('I' | 'i') => {
-                                    if matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('U' | 'u'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                    {
-                                        Keyword::CONTINUE
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
-                                }
-                                Some('R' | 'r') => {
-                                    if matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('B' | 'b'))
-                                        && matches!(cs.next(), Some('U' | 'u'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('S' | 's'))
-                                    {
-                                        Keyword::CONTRIBUTORS
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
+                                        _ => Keyword::NOT_A_KEYWORD,
                                     }
                                 }
                                 _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            Some('V' | 'v') => match cs.next() {
-                                None => Keyword::CONV,
-                                Some('E' | 'e') => match cs.next() {
-                                    Some('R' | 'r') => match cs.next() {
-                                        Some('T' | 't') => match cs.next() {
-                                            None => Keyword::CONVERT,
-                                            Some('_') => {
-                                                if matches!(cs.next(), Some('T' | 't'))
-                                                    && matches!(cs.next(), Some('Z' | 'z'))
-                                                {
-                                                    Keyword::CONVERT_TZ
-                                                } else {
-                                                    Keyword::NOT_A_KEYWORD
-                                                }
+                            }
+                        }
+                        Some(b'T' | b't') => match cs.next() {
+                            Some(b'A' | b'a') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                {
+                                    Keyword::CONTAINS
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            Some(b'E' | b'e') => {
+                                if matches!(cs.next(), Some(b'X' | b'x'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                {
+                                    Keyword::CONTEXT
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                {
+                                    Keyword::CONTINUE
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            Some(b'R' | b'r') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'B' | b'b'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                {
+                                    Keyword::CONTRIBUTORS
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        Some(b'V' | b'v') => match cs.next() {
+                            None => Keyword::CONV,
+                            Some(b'E' | b'e') => match cs.next() {
+                                Some(b'R' | b'r') => match cs.next() {
+                                    Some(b'T' | b't') => match cs.next() {
+                                        None => Keyword::CONVERT,
+                                        Some(b'_') => {
+                                            if matches!(cs.next(), Some(b'T' | b't'))
+                                                && matches!(cs.next(), Some(b'Z' | b'z'))
+                                            {
+                                                Keyword::CONVERT_TZ
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
                                             }
-                                            _ => Keyword::NOT_A_KEYWORD,
-                                        },
+                                        }
                                         _ => Keyword::NOT_A_KEYWORD,
                                     },
                                     _ => Keyword::NOT_A_KEYWORD,
@@ -2210,163 +2209,166 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('P' | 'p') => {
-                            if matches!(cs.next(), Some('Y' | 'y')) {
-                                Keyword::COPY
-                            } else {
-                                Keyword::NOT_A_KEYWORD
-                            }
-                        }
-                        Some('S' | 's') => match cs.next() {
-                            None => Keyword::COS,
-                            Some('T' | 't') => {
-                                if matches!(cs.next(), Some('S' | 's')) {
-                                    Keyword::COSTS
-                                } else {
-                                    Keyword::NOT_A_KEYWORD
-                                }
-                            }
-                            _ => Keyword::NOT_A_KEYWORD,
-                        },
-                        Some('T' | 't') => Keyword::COT,
-                        Some('U' | 'u') => {
-                            if matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                            {
-                                Keyword::COUNT
-                            } else {
-                                Keyword::NOT_A_KEYWORD
-                            }
-                        }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('P' | 'p') => {
-                        if matches!(cs.next(), Some('U' | 'u')) {
-                            Keyword::CPU
+                    Some(b'P' | b'p') => {
+                        if matches!(cs.next(), Some(b'Y' | b'y')) {
+                            Keyword::COPY
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('R' | 'r') => match cs.next() {
-                        Some('C' | 'c') => match cs.next() {
-                            Some('3') => match cs.next() {
-                                Some('2') => match cs.next() {
-                                    None => Keyword::CRC32,
-                                    Some('C' | 'c') => Keyword::CRC32C,
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            _ => Keyword::NOT_A_KEYWORD,
-                        },
-                        Some('E' | 'e') => match cs.next() {
-                            Some('A' | 'a') => match cs.next() {
-                                Some('T' | 't') => match cs.next() {
-                                    Some('E' | 'e') => match cs.next() {
-                                        None => Keyword::CREATE,
-                                        Some('D' | 'd') => {
-                                            if matches!(cs.next(), Some('B' | 'b')) {
-                                                Keyword::CREATEDB
-                                            } else {
-                                                Keyword::NOT_A_KEYWORD
-                                            }
-                                        }
-                                        Some('R' | 'r') => {
-                                            if matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('L' | 'l'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                            {
-                                                Keyword::CREATEROLE
-                                            } else {
-                                                Keyword::NOT_A_KEYWORD
-                                            }
-                                        }
-                                        _ => Keyword::NOT_A_KEYWORD,
-                                    },
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            _ => Keyword::NOT_A_KEYWORD,
-                        },
-                        Some('O' | 'o') => {
-                            if matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                            {
-                                Keyword::CROSS
+                    Some(b'S' | b's') => match cs.next() {
+                        None => Keyword::COS,
+                        Some(b'T' | b't') => {
+                            if matches!(cs.next(), Some(b'S' | b's')) {
+                                Keyword::COSTS
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('U' | 'u') => {
-                        match cs.next() {
-                            Some('B' | 'b') => {
-                                if matches!(cs.next(), Some('E' | 'e')) {
-                                    Keyword::CUBE
+                    Some(b'T' | b't') => Keyword::COT,
+                    Some(b'U' | b'u') => {
+                        if matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                        {
+                            Keyword::COUNT
+                        } else {
+                            Keyword::NOT_A_KEYWORD
+                        }
+                    }
+                    _ => Keyword::NOT_A_KEYWORD,
+                },
+                Some(b'P' | b'p') => {
+                    if matches!(cs.next(), Some(b'U' | b'u')) {
+                        Keyword::CPU
+                    } else {
+                        Keyword::NOT_A_KEYWORD
+                    }
+                }
+                Some(b'R' | b'r') => match cs.next() {
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'3') => match cs.next() {
+                            Some(b'2') => match cs.next() {
+                                None => Keyword::CRC32,
+                                Some(b'C' | b'c') => Keyword::CRC32C,
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        _ => Keyword::NOT_A_KEYWORD,
+                    },
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'A' | b'a') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
+                                    None => Keyword::CREATE,
+                                    Some(b'D' | b'd') => {
+                                        if matches!(cs.next(), Some(b'B' | b'b')) {
+                                            Keyword::CREATEDB
+                                        } else {
+                                            Keyword::NOT_A_KEYWORD
+                                        }
+                                    }
+                                    Some(b'R' | b'r') => {
+                                        if matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'L' | b'l'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                        {
+                                            Keyword::CREATEROLE
+                                        } else {
+                                            Keyword::NOT_A_KEYWORD
+                                        }
+                                    }
+                                    _ => Keyword::NOT_A_KEYWORD,
+                                },
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        _ => Keyword::NOT_A_KEYWORD,
+                    },
+                    Some(b'O' | b'o') => {
+                        if matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                        {
+                            Keyword::CROSS
+                        } else {
+                            Keyword::NOT_A_KEYWORD
+                        }
+                    }
+                    _ => Keyword::NOT_A_KEYWORD,
+                },
+                Some(b'U' | b'u') => {
+                    match cs.next() {
+                        Some(b'B' | b'b') => {
+                            if matches!(cs.next(), Some(b'E' | b'e')) {
+                                Keyword::CUBE
+                            } else {
+                                Keyword::NOT_A_KEYWORD
+                            }
+                        }
+                        Some(b'R' | b'r') => match cs.next() {
+                            Some(b'D' | b'd') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                {
+                                    Keyword::CURDATE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('R' | 'r') => match cs.next() {
-                                Some('D' | 'd') => {
-                                    if matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                    {
-                                        Keyword::CURDATE
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
-                                }
-                                Some('R' | 'r') => match cs.next() {
-                                    Some('E' | 'e') => match cs.next() {
-                                        Some('N' | 'n') => match cs.next() {
-                                            Some('T' | 't') => match cs.next() {
-                                                None => Keyword::CURRENT,
-                                                Some('_') => match cs.next() {
-                                                    Some('D' | 'd') => {
-                                                        if matches!(cs.next(), Some('A' | 'a'))
-                                                            && matches!(cs.next(), Some('T' | 't'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
-                                                        {
-                                                            Keyword::CURRENT_DATE
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
+                            Some(b'R' | b'r') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
+                                    Some(b'N' | b'n') => match cs.next() {
+                                        Some(b'T' | b't') => match cs.next() {
+                                            None => Keyword::CURRENT,
+                                            Some(b'_') => match cs.next() {
+                                                Some(b'D' | b'd') => {
+                                                    if matches!(cs.next(), Some(b'A' | b'a'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    {
+                                                        Keyword::CURRENT_DATE
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
                                                     }
-                                                    Some('P' | 'p') => {
-                                                        if matches!(cs.next(), Some('O' | 'o'))
-                                                            && matches!(cs.next(), Some('S' | 's'))
-                                                        {
-                                                            Keyword::CURRENT_POS
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
+                                                }
+                                                Some(b'P' | b'p') => {
+                                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                                    {
+                                                        Keyword::CURRENT_POS
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
                                                     }
-                                                    Some('R' | 'r') => {
-                                                        if matches!(cs.next(), Some('O' | 'o'))
-                                                            && matches!(cs.next(), Some('L' | 'l'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
-                                                        {
-                                                            Keyword::CURRENT_ROLE
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
+                                                }
+                                                Some(b'R' | b'r') => {
+                                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                                        && matches!(cs.next(), Some(b'L' | b'l'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    {
+                                                        Keyword::CURRENT_ROLE
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
                                                     }
-                                                    Some('T' | 't') => {
-                                                        match cs.next() {
-                                                            Some('I' | 'i') => match cs.next() {
-                                                                Some('M' | 'm') => match cs.next() {
-                                                                    Some('E' | 'e') => {
+                                                }
+                                                Some(b'T' | b't') => {
+                                                    match cs.next() {
+                                                        Some(b'I' | b'i') => match cs.next() {
+                                                            Some(b'M' | b'm') => {
+                                                                match cs.next() {
+                                                                    Some(b'E' | b'e') => {
                                                                         match cs.next() {
                                                                                                             None => Keyword::CURRENT_TIME,
-                                                                                                            Some('S' | 's') => {
-                                                                                                                if matches!(cs.next(), Some('T' | 't'))
-                                                                                                                  && matches!(cs.next(), Some('A' | 'a'))
-                                                                                                                  && matches!(cs.next(), Some('M' | 'm'))
-                                                                                                                  && matches!(cs.next(), Some('P' | 'p')) {
+                                                                                                            Some(b'S' | b's') => {
+                                                                                                                if matches!(cs.next(), Some(b'T' | b't'))
+                                                                                                                  && matches!(cs.next(), Some(b'A' | b'a'))
+                                                                                                                  && matches!(cs.next(), Some(b'M' | b'm'))
+                                                                                                                  && matches!(cs.next(), Some(b'P' | b'p')) {
                                                                                                                     Keyword::CURRENT_TIMESTAMP
                                                                                                                 } else {
                                                                                                                     Keyword::NOT_A_KEYWORD
@@ -2376,24 +2378,23 @@ impl From<&str> for Keyword {
                                                                                                         }
                                                                     }
                                                                     _ => Keyword::NOT_A_KEYWORD,
-                                                                },
-                                                                _ => Keyword::NOT_A_KEYWORD,
-                                                            },
+                                                                }
+                                                            }
                                                             _ => Keyword::NOT_A_KEYWORD,
-                                                        }
+                                                        },
+                                                        _ => Keyword::NOT_A_KEYWORD,
                                                     }
-                                                    Some('U' | 'u') => {
-                                                        if matches!(cs.next(), Some('S' | 's'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
-                                                            && matches!(cs.next(), Some('R' | 'r'))
-                                                        {
-                                                            Keyword::CURRENT_USER
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
+                                                }
+                                                Some(b'U' | b'u') => {
+                                                    if matches!(cs.next(), Some(b'S' | b's'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                                    {
+                                                        Keyword::CURRENT_USER
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
                                                     }
-                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                },
+                                                }
                                                 _ => Keyword::NOT_A_KEYWORD,
                                             },
                                             _ => Keyword::NOT_A_KEYWORD,
@@ -2402,66 +2403,67 @@ impl From<&str> for Keyword {
                                     },
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
-                                Some('S' | 's') => match cs.next() {
-                                    Some('O' | 'o') => match cs.next() {
-                                        Some('R' | 'r') => match cs.next() {
-                                            None => Keyword::CURSOR,
-                                            Some('_') => {
-                                                if matches!(cs.next(), Some('N' | 'n'))
-                                                    && matches!(cs.next(), Some('A' | 'a'))
-                                                    && matches!(cs.next(), Some('M' | 'm'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
-                                                {
-                                                    Keyword::CURSOR_NAME
-                                                } else {
-                                                    Keyword::NOT_A_KEYWORD
-                                                }
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            Some(b'S' | b's') => match cs.next() {
+                                Some(b'O' | b'o') => match cs.next() {
+                                    Some(b'R' | b'r') => match cs.next() {
+                                        None => Keyword::CURSOR,
+                                        Some(b'_') => {
+                                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                            {
+                                                Keyword::CURSOR_NAME
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
                                             }
-                                            _ => Keyword::NOT_A_KEYWORD,
-                                        },
+                                        }
                                         _ => Keyword::NOT_A_KEYWORD,
                                     },
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
-                                Some('T' | 't') => {
-                                    if matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('M' | 'm'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                    {
-                                        Keyword::CURTIME
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
+                                _ => Keyword::NOT_A_KEYWORD,
+                            },
+                            Some(b'T' | b't') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'M' | b'm'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                {
+                                    Keyword::CURTIME
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
                                 }
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
+                            }
                             _ => Keyword::NOT_A_KEYWORD,
-                        }
+                        },
+                        _ => Keyword::NOT_A_KEYWORD,
                     }
-                    Some('Y' | 'y') => {
-                        if matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                        {
-                            Keyword::CYCLE
-                        } else {
-                            Keyword::NOT_A_KEYWORD
-                        }
-                    }
-                    _ => Keyword::NOT_A_KEYWORD,
                 }
-            }
-            Some('D' | 'd') => match cs.next() {
-                Some('A' | 'a') => match cs.next() {
-                    Some('T' | 't') => match cs.next() {
-                        Some('A' | 'a') => match cs.next() {
+                Some(b'Y' | b'y') => {
+                    if matches!(cs.next(), Some(b'C' | b'c'))
+                        && matches!(cs.next(), Some(b'L' | b'l'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
+                    {
+                        Keyword::CYCLE
+                    } else {
+                        Keyword::NOT_A_KEYWORD
+                    }
+                }
+                _ => Keyword::NOT_A_KEYWORD,
+            },
+            Some(b'D' | b'd') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
+                        Some(b'A' | b'a') => match cs.next() {
                             None => Keyword::DATA,
-                            Some('B' | 'b') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('S' | 's') => match cs.next() {
-                                        Some('E' | 'e') => match cs.next() {
+                            Some(b'B' | b'b') => match cs.next() {
+                                Some(b'A' | b'a') => match cs.next() {
+                                    Some(b'S' | b's') => match cs.next() {
+                                        Some(b'E' | b'e') => match cs.next() {
                                             None => Keyword::DATABASE,
-                                            Some('S' | 's') => Keyword::DATABASES,
+                                            Some(b'S' | b's') => Keyword::DATABASES,
                                             _ => Keyword::NOT_A_KEYWORD,
                                         },
                                         _ => Keyword::NOT_A_KEYWORD,
@@ -2470,10 +2472,10 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('F' | 'f') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'F' | b'f') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::DATAFILE
                                 } else {
@@ -2482,53 +2484,53 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('E' | 'e') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
                             None => Keyword::DATE,
-                            Some('D' | 'd') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('F' | 'f'))
-                                    && matches!(cs.next(), Some('F' | 'f'))
+                            Some(b'D' | b'd') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'F' | b'f'))
+                                    && matches!(cs.next(), Some(b'F' | b'f'))
                                 {
                                     Keyword::DATEDIFF
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('T' | 't') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('M' | 'm'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'T' | b't') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'M' | b'm'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::DATETIME
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('_') => match cs.next() {
-                                Some('A' | 'a') => {
-                                    if matches!(cs.next(), Some('D' | 'd'))
-                                        && matches!(cs.next(), Some('D' | 'd'))
+                            Some(b'_') => match cs.next() {
+                                Some(b'A' | b'a') => {
+                                    if matches!(cs.next(), Some(b'D' | b'd'))
+                                        && matches!(cs.next(), Some(b'D' | b'd'))
                                     {
                                         Keyword::DATE_ADD
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('F' | 'f') => {
-                                    if matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('M' | 'm'))
-                                        && matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('T' | 't'))
+                                Some(b'F' | b'f') => {
+                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'M' | b'm'))
+                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
                                     {
                                         Keyword::DATE_FORMAT
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('S' | 's') => {
-                                    if matches!(cs.next(), Some('U' | 'u'))
-                                        && matches!(cs.next(), Some('B' | 'b'))
+                                Some(b'S' | b's') => {
+                                    if matches!(cs.next(), Some(b'U' | b'u'))
+                                        && matches!(cs.next(), Some(b'B' | b'b'))
                                     {
                                         Keyword::DATE_SUB
                                     } else {
@@ -2541,45 +2543,45 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('Y' | 'y') => match cs.next() {
+                    Some(b'Y' | b'y') => match cs.next() {
                         None => Keyword::DAY,
-                        Some('N' | 'n') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'N' | b'n') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::DAYNAME
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('O' | 'o') => match cs.next() {
-                            Some('F' | 'f') => match cs.next() {
-                                Some('M' | 'm') => {
-                                    if matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('H' | 'h'))
+                        Some(b'O' | b'o') => match cs.next() {
+                            Some(b'F' | b'f') => match cs.next() {
+                                Some(b'M' | b'm') => {
+                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                        && matches!(cs.next(), Some(b'H' | b'h'))
                                     {
                                         Keyword::DAYOFMONTH
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('W' | 'w') => {
-                                    if matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('K' | 'k'))
+                                Some(b'W' | b'w') => {
+                                    if matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'K' | b'k'))
                                     {
                                         Keyword::DAYOFWEEK
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('Y' | 'y') => {
-                                    if matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
+                                Some(b'Y' | b'y') => {
+                                    if matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
                                     {
                                         Keyword::DAYOFYEAR
                                     } else {
@@ -2590,38 +2592,38 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('_') => match cs.next() {
-                            Some('H' | 'h') => {
-                                if matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
+                        Some(b'_') => match cs.next() {
+                            Some(b'H' | b'h') => {
+                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
                                 {
                                     Keyword::DAY_HOUR
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('M' | 'm') => match cs.next() {
-                                Some('I' | 'i') => match cs.next() {
-                                    Some('C' | 'c') => {
-                                        if matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('C' | 'c'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('D' | 'd'))
+                            Some(b'M' | b'm') => match cs.next() {
+                                Some(b'I' | b'i') => match cs.next() {
+                                    Some(b'C' | b'c') => {
+                                        if matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'C' | b'c'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'D' | b'd'))
                                         {
                                             Keyword::DAY_MICROSECOND
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('N' | 'n') => {
-                                        if matches!(cs.next(), Some('U' | 'u'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                                    Some(b'N' | b'n') => {
+                                        if matches!(cs.next(), Some(b'U' | b'u'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::DAY_MINUTE
                                         } else {
@@ -2632,12 +2634,12 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('S' | 's') => {
-                                if matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('D' | 'd'))
+                            Some(b'S' | b's') => {
+                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'D' | b'd'))
                                 {
                                     Keyword::DAY_SECOND
                                 } else {
@@ -2650,37 +2652,37 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('E' | 'e') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::DEALLOCATE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('C' | 'c') => match cs.next() {
+                    Some(b'C' | b'c') => match cs.next() {
                         None => Keyword::DEC,
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('L' | 'l'))
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
                             {
                                 Keyword::DECIMAL
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('L' | 'l') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'L' | b'l') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::DECLARE
                             } else {
@@ -2689,21 +2691,21 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('F' | 'f') => match cs.next() {
-                        Some('A' | 'a') => {
-                            if matches!(cs.next(), Some('U' | 'u'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'F' | b'f') => match cs.next() {
+                        Some(b'A' | b'a') => {
+                            if matches!(cs.next(), Some(b'U' | b'u'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::DEFAULT
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('R' | 'r'))
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
                             {
                                 Keyword::DEFINER
                             } else {
@@ -2712,37 +2714,37 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('G' | 'g') => {
-                        if matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'G' | b'g') => {
+                        if matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::DEGREES
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('L' | 'l') => match cs.next() {
-                        Some('A' | 'a') => match cs.next() {
-                            Some('Y' | 'y') => match cs.next() {
-                                Some('E' | 'e') => {
-                                    if matches!(cs.next(), Some('D' | 'd')) {
+                    Some(b'L' | b'l') => match cs.next() {
+                        Some(b'A' | b'a') => match cs.next() {
+                            Some(b'Y' | b'y') => match cs.next() {
+                                Some(b'E' | b'e') => {
+                                    if matches!(cs.next(), Some(b'D' | b'd')) {
                                         Keyword::DELAYED
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('_') => {
-                                    if matches!(cs.next(), Some('K' | 'k'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('Y' | 'y'))
-                                        && matches!(cs.next(), Some('_'))
-                                        && matches!(cs.next(), Some('W' | 'w'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
+                                Some(b'_') => {
+                                    if matches!(cs.next(), Some(b'K' | b'k'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'Y' | b'y'))
+                                        && matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'W' | b'w'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
                                     {
                                         Keyword::DELAY_KEY_WRITE
                                     } else {
@@ -2753,20 +2755,20 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('E' | 'e') => match cs.next() {
-                            Some('T' | 't') => match cs.next() {
-                                Some('E' | 'e') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
                                     None => Keyword::DELETE,
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('D' | 'd'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('M' | 'm'))
-                                            && matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('_'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('D' | 'd'))
+                                    Some(b'_') => {
+                                        if matches!(cs.next(), Some(b'D' | b'd'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'_'))
+                                            && matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'D' | b'd'))
                                         {
                                             Keyword::DELETE_DOMAIN_ID
                                         } else {
@@ -2779,12 +2781,12 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('R' | 'r'))
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
                             {
                                 Keyword::DELIMITER
                             } else {
@@ -2793,13 +2795,13 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('S' | 's') => match cs.next() {
-                        Some('C' | 'c') => match cs.next() {
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'C' | b'c') => match cs.next() {
                             None => Keyword::DESC,
-                            Some('R' | 'r') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('B' | 'b'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'R' | b'r') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'B' | b'b'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::DESCRIBE
                                 } else {
@@ -2808,15 +2810,15 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('_') => {
-                            if matches!(cs.next(), Some('K' | 'k'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('Y' | 'y'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('F' | 'f'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'K' | b'k'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'Y' | b'y'))
+                                && matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'F' | b'f'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::DES_KEY_FILE
                             } else {
@@ -2825,17 +2827,17 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('M' | 'm'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('C' | 'c'))
+                    Some(b'T' | b't') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'M' | b'm'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
                         {
                             Keyword::DETERMINISTIC
                         } else {
@@ -2844,66 +2846,66 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::DIAGNOSTICS
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('R' | 'r') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('Y' | 'y'))
+                    Some(b'R' | b'r') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'Y' | b'y'))
                         {
                             Keyword::DIRECTORY
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => match cs.next() {
-                        Some('A' | 'a') => {
-                            if matches!(cs.next(), Some('B' | 'b'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'A' | b'a') => {
+                            if matches!(cs.next(), Some(b'B' | b'b'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::DISABLE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('D' | 'd'))
+                        Some(b'C' | b'c') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
                             {
                                 Keyword::DISCARD
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('K' | 'k') => Keyword::DISK,
-                        Some('T' | 't') => match cs.next() {
-                            Some('I' | 'i') => match cs.next() {
-                                Some('N' | 'n') => match cs.next() {
-                                    Some('C' | 'c') => match cs.next() {
-                                        Some('T' | 't') => match cs.next() {
+                        Some(b'K' | b'k') => Keyword::DISK,
+                        Some(b'T' | b't') => match cs.next() {
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'N' | b'n') => match cs.next() {
+                                    Some(b'C' | b'c') => match cs.next() {
+                                        Some(b'T' | b't') => match cs.next() {
                                             None => Keyword::DISTINCT,
-                                            Some('R' | 'r') => {
-                                                if matches!(cs.next(), Some('O' | 'o'))
-                                                    && matches!(cs.next(), Some('W' | 'w'))
+                                            Some(b'R' | b'r') => {
+                                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'W' | b'w'))
                                                 {
                                                     Keyword::DISTINCTROW
                                                 } else {
@@ -2922,42 +2924,42 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('V' | 'v') => Keyword::DIV,
+                    Some(b'V' | b'v') => Keyword::DIV,
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('O' | 'o') => match cs.next() {
+                Some(b'O' | b'o') => match cs.next() {
                     None => Keyword::DO,
-                    Some('M' | 'm') => {
-                        if matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'M' | b'm') => {
+                        if matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::DOMAIN
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('U' | 'u') => {
-                        if matches!(cs.next(), Some('B' | 'b'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'U' | b'u') => {
+                        if matches!(cs.next(), Some(b'B' | b'b'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::DOUBLE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('_') => {
-                        if matches!(cs.next(), Some('D' | 'd'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('M' | 'm'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('_'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('D' | 'd'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'_') => {
+                        if matches!(cs.next(), Some(b'D' | b'd'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'M' | b'm'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'_'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::DO_DOMAIN_IDS
                         } else {
@@ -2966,41 +2968,42 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('R' | 'r') => {
-                    if matches!(cs.next(), Some('O' | 'o')) && matches!(cs.next(), Some('P' | 'p'))
+                Some(b'R' | b'r') => {
+                    if matches!(cs.next(), Some(b'O' | b'o'))
+                        && matches!(cs.next(), Some(b'P' | b'p'))
                     {
                         Keyword::DROP
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('U' | 'u') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('L' | 'l')) {
+                Some(b'U' | b'u') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'L' | b'l')) {
                             Keyword::DUAL
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('M' | 'm') => {
-                        if matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('F' | 'f'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'M' | b'm') => {
+                        if matches!(cs.next(), Some(b'P' | b'p'))
+                            && matches!(cs.next(), Some(b'F' | b'f'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::DUMPFILE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('P' | 'p') => {
-                        if matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'P' | b'p') => {
+                        if matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::DUPLICATE
                         } else {
@@ -3009,12 +3012,12 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('Y' | 'y') => {
-                    if matches!(cs.next(), Some('N' | 'n'))
-                        && matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('M' | 'm'))
-                        && matches!(cs.next(), Some('I' | 'i'))
-                        && matches!(cs.next(), Some('C' | 'c'))
+                Some(b'Y' | b'y') => {
+                    if matches!(cs.next(), Some(b'N' | b'n'))
+                        && matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'M' | b'm'))
+                        && matches!(cs.next(), Some(b'I' | b'i'))
+                        && matches!(cs.next(), Some(b'C' | b'c'))
                     {
                         Keyword::DYNAMIC
                     } else {
@@ -3023,21 +3026,22 @@ impl From<&str> for Keyword {
                 }
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('E' | 'e') => match cs.next() {
-                Some('A' | 'a') => {
-                    if matches!(cs.next(), Some('C' | 'c')) && matches!(cs.next(), Some('H' | 'h'))
+            Some(b'E' | b'e') => match cs.next() {
+                Some(b'A' | b'a') => {
+                    if matches!(cs.next(), Some(b'C' | b'c'))
+                        && matches!(cs.next(), Some(b'H' | b'h'))
                     {
                         Keyword::EACH
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('L' | 'l') => match cs.next() {
-                    Some('S' | 's') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
+                Some(b'L' | b'l') => match cs.next() {
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
                             None => Keyword::ELSE,
-                            Some('I' | 'i') => {
-                                if matches!(cs.next(), Some('F' | 'f')) {
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'F' | b'f')) {
                                     Keyword::ELSEIF
                                 } else {
                                     Keyword::NOT_A_KEYWORD
@@ -3045,8 +3049,8 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('F' | 'f')) {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'F' | b'f')) {
                                 Keyword::ELSIF
                             } else {
                                 Keyword::NOT_A_KEYWORD
@@ -3054,56 +3058,56 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => Keyword::ELT,
+                    Some(b'T' | b't') => Keyword::ELT,
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('M' | 'm') => {
-                    if matches!(cs.next(), Some('P' | 'p'))
-                        && matches!(cs.next(), Some('T' | 't'))
-                        && matches!(cs.next(), Some('Y' | 'y'))
+                Some(b'M' | b'm') => {
+                    if matches!(cs.next(), Some(b'P' | b'p'))
+                        && matches!(cs.next(), Some(b'T' | b't'))
+                        && matches!(cs.next(), Some(b'Y' | b'y'))
                     {
                         Keyword::EMPTY
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('N' | 'n') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('B' | 'b'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'N' | b'n') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'B' | b'b'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::ENABLE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('C' | 'c') => match cs.next() {
-                        Some('L' | 'l') => {
-                            if matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'L' | b'l') => {
+                            if matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
                             {
                                 Keyword::ENCLOSED
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('R' | 'r') => match cs.next() {
-                            Some('Y' | 'y') => match cs.next() {
-                                Some('P' | 'p') => match cs.next() {
-                                    Some('T' | 't') => match cs.next() {
-                                        Some('E' | 'e') => {
-                                            if matches!(cs.next(), Some('D' | 'd')) {
+                        Some(b'R' | b'r') => match cs.next() {
+                            Some(b'Y' | b'y') => match cs.next() {
+                                Some(b'P' | b'p') => match cs.next() {
+                                    Some(b'T' | b't') => match cs.next() {
+                                        Some(b'E' | b'e') => {
+                                            if matches!(cs.next(), Some(b'D' | b'd')) {
                                                 Keyword::ENCRYPTED
                                             } else {
                                                 Keyword::NOT_A_KEYWORD
                                             }
                                         }
-                                        Some('I' | 'i') => {
-                                            if matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('N' | 'n'))
+                                        Some(b'I' | b'i') => {
+                                            if matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'N' | b'n'))
                                             {
                                                 Keyword::ENCRYPTION
                                             } else {
@@ -3120,27 +3124,27 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('D' | 'd') => match cs.next() {
+                    Some(b'D' | b'd') => match cs.next() {
                         None => Keyword::END,
-                        Some('S' | 's') => Keyword::ENDS,
+                        Some(b'S' | b's') => Keyword::ENDS,
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('G' | 'g') => match cs.next() {
-                        Some('I' | 'i') => match cs.next() {
-                            Some('N' | 'n') => match cs.next() {
-                                Some('E' | 'e') => match cs.next() {
+                    Some(b'G' | b'g') => match cs.next() {
+                        Some(b'I' | b'i') => match cs.next() {
+                            Some(b'N' | b'n') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
                                     None => Keyword::ENGINE,
-                                    Some('S' | 's') => Keyword::ENGINES,
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('B' | 'b'))
-                                            && matches!(cs.next(), Some('U' | 'u'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                                    Some(b'S' | b's') => Keyword::ENGINES,
+                                    Some(b'_') => {
+                                        if matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'B' | b'b'))
+                                            && matches!(cs.next(), Some(b'U' | b'u'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::ENGINE_ATTRIBUTE
                                         } else {
@@ -3155,8 +3159,8 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('U' | 'u') => {
-                        if matches!(cs.next(), Some('M' | 'm')) {
+                    Some(b'U' | b'u') => {
+                        if matches!(cs.next(), Some(b'M' | b'm')) {
                             Keyword::ENUM
                         } else {
                             Keyword::NOT_A_KEYWORD
@@ -3164,12 +3168,12 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('R' | 'r') => match cs.next() {
-                    Some('R' | 'r') => match cs.next() {
-                        Some('O' | 'o') => match cs.next() {
-                            Some('R' | 'r') => match cs.next() {
+                Some(b'R' | b'r') => match cs.next() {
+                    Some(b'R' | b'r') => match cs.next() {
+                        Some(b'O' | b'o') => match cs.next() {
+                            Some(b'R' | b'r') => match cs.next() {
                                 None => Keyword::ERROR,
-                                Some('S' | 's') => Keyword::ERRORS,
+                                Some(b'S' | b's') => Keyword::ERRORS,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
@@ -3178,13 +3182,13 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('S' | 's') => match cs.next() {
-                    Some('C' | 'c') => match cs.next() {
-                        Some('A' | 'a') => match cs.next() {
-                            Some('P' | 'p') => match cs.next() {
-                                Some('E' | 'e') => match cs.next() {
+                Some(b'S' | b's') => match cs.next() {
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'A' | b'a') => match cs.next() {
+                            Some(b'P' | b'p') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
                                     None => Keyword::ESCAPE,
-                                    Some('D' | 'd') => Keyword::ESCAPED,
+                                    Some(b'D' | b'd') => Keyword::ESCAPED,
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
@@ -3195,18 +3199,18 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('V' | 'v') => match cs.next() {
-                    Some('E' | 'e') => match cs.next() {
-                        Some('N' | 'n') => match cs.next() {
-                            Some('T' | 't') => match cs.next() {
+                Some(b'V' | b'v') => match cs.next() {
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'N' | b'n') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
                                 None => Keyword::EVENT,
-                                Some('S' | 's') => Keyword::EVENTS,
+                                Some(b'S' | b's') => Keyword::EVENTS,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('R' | 'r') => {
-                            if matches!(cs.next(), Some('Y' | 'y')) {
+                        Some(b'R' | b'r') => {
+                            if matches!(cs.next(), Some(b'Y' | b'y')) {
                                 Keyword::EVERY
                             } else {
                                 Keyword::NOT_A_KEYWORD
@@ -3216,27 +3220,27 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('X' | 'x') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('M' | 'm'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                Some(b'X' | b'x') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'M' | b'm'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::EXAMINED
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('C' | 'c') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
-                            Some('P' | 'p') => match cs.next() {
-                                Some('T' | 't') => match cs.next() {
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'P' | b'p') => match cs.next() {
+                                Some(b'T' | b't') => match cs.next() {
                                     None => Keyword::EXCEPT,
-                                    Some('I' | 'i') => {
-                                        if matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
+                                    Some(b'I' | b'i') => {
+                                        if matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
                                         {
                                             Keyword::EXCEPTION
                                         } else {
@@ -3249,30 +3253,30 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('H' | 'h') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'H' | b'h') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::EXCHANGE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('L' | 'l') => match cs.next() {
-                            Some('U' | 'u') => match cs.next() {
-                                Some('D' | 'd') => {
-                                    if matches!(cs.next(), Some('E' | 'e')) {
+                        Some(b'L' | b'l') => match cs.next() {
+                            Some(b'U' | b'u') => match cs.next() {
+                                Some(b'D' | b'd') => {
+                                    if matches!(cs.next(), Some(b'E' | b'e')) {
                                         Keyword::EXCLUDE
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('S' | 's') => {
-                                    if matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('V' | 'v'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
+                                Some(b'S' | b's') => {
+                                    if matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'V' | b'v'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
                                     {
                                         Keyword::EXCLUSIVE
                                     } else {
@@ -3285,71 +3289,71 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('E' | 'e') => {
-                        if matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'E' | b'e') => {
+                        if matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::EXECUTE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('I' | 'i') => match cs.next() {
-                        Some('S' | 's') => {
-                            if matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'I' | b'i') => match cs.next() {
+                        Some(b'S' | b's') => {
+                            if matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
                             {
                                 Keyword::EXISTS
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('T' | 't') => Keyword::EXIT,
+                        Some(b'T' | b't') => Keyword::EXIT,
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('P' | 'p') => match cs.next() {
+                    Some(b'P' | b'p') => match cs.next() {
                         None => Keyword::EXP,
-                        Some('A' | 'a') => {
-                            if matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('N' | 'n'))
+                        Some(b'A' | b'a') => {
+                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
                             {
                                 Keyword::EXPANSION
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::EXPIRE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('L' | 'l') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('N' | 'n'))
+                        Some(b'L' | b'l') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
                             {
                                 Keyword::EXPLAIN
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('O' | 'o') => match cs.next() {
-                            Some('R' | 'r') => match cs.next() {
-                                Some('T' | 't') => match cs.next() {
+                        Some(b'O' | b'o') => match cs.next() {
+                            Some(b'R' | b'r') => match cs.next() {
+                                Some(b'T' | b't') => match cs.next() {
                                     None => Keyword::EXPORT,
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('T' | 't'))
+                                    Some(b'_') => {
+                                        if matches!(cs.next(), Some(b'S' | b's'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
                                         {
                                             Keyword::EXPORT_SET
                                         } else {
@@ -3364,34 +3368,34 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
-                            Some('N' | 'n') => match cs.next() {
-                                Some('D' | 'd') => {
-                                    if matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'T' | b't') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'N' | b'n') => match cs.next() {
+                                Some(b'D' | b'd') => {
+                                    if matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'D' | b'd'))
                                     {
                                         Keyword::EXTENDED
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('S' | 's') => {
-                                    if matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('N' | 'n'))
+                                Some(b'S' | b's') => {
+                                    if matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
                                     {
                                         Keyword::EXTENSION
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('T' | 't') => {
-                                    if matches!(cs.next(), Some('_'))
-                                        && matches!(cs.next(), Some('S' | 's'))
-                                        && matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('Z' | 'z'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
+                                Some(b'T' | b't') => {
+                                    if matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'Z' | b'z'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
                                     {
                                         Keyword::EXTENT_SIZE
                                     } else {
@@ -3402,16 +3406,16 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('R' | 'r') => match cs.next() {
-                            Some('A' | 'a') => match cs.next() {
-                                Some('C' | 'c') => match cs.next() {
-                                    Some('T' | 't') => match cs.next() {
+                        Some(b'R' | b'r') => match cs.next() {
+                            Some(b'A' | b'a') => match cs.next() {
+                                Some(b'C' | b'c') => match cs.next() {
+                                    Some(b'T' | b't') => match cs.next() {
                                         None => Keyword::EXTRACT,
-                                        Some('V' | 'v') => {
-                                            if matches!(cs.next(), Some('A' | 'a'))
-                                                && matches!(cs.next(), Some('L' | 'l'))
-                                                && matches!(cs.next(), Some('U' | 'u'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
+                                        Some(b'V' | b'v') => {
+                                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                                && matches!(cs.next(), Some(b'U' | b'u'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
                                             {
                                                 Keyword::EXTRACTVALUE
                                             } else {
@@ -3432,38 +3436,38 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('F' | 'f') => match cs.next() {
-                Some('A' | 'a') => match cs.next() {
-                    Some('L' | 'l') => {
-                        if matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+            Some(b'F' | b'f') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'L' | b'l') => {
+                        if matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::FALSE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('M' | 'm') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('Y' | 'y'))
+                    Some(b'M' | b'm') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'Y' | b'y'))
                         {
                             Keyword::FAMILY
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('T' | 't')) {
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'T' | b't')) {
                             Keyword::FAST
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('U' | 'u') => {
-                        if matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'U' | b'u') => {
+                        if matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::FAULTS
                         } else {
@@ -3472,23 +3476,23 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('E' | 'e') => match cs.next() {
-                    Some('D' | 'd') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'D' | b'd') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::FEDERATED
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('T' | 't') => {
-                        if matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('H' | 'h'))
+                    Some(b'T' | b't') => {
+                        if matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'H' | b'h'))
                         {
                             Keyword::FETCH
                         } else {
@@ -3497,52 +3501,52 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('E' | 'e') => match cs.next() {
-                        Some('L' | 'l') => match cs.next() {
-                            Some('D' | 'd') => match cs.next() {
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'L' | b'l') => match cs.next() {
+                            Some(b'D' | b'd') => match cs.next() {
                                 None => Keyword::FIELD,
-                                Some('S' | 's') => Keyword::FIELDS,
+                                Some(b'S' | b's') => Keyword::FIELDS,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('L' | 'l') => {
-                        if matches!(cs.next(), Some('E' | 'e')) {
+                    Some(b'L' | b'l') => {
+                        if matches!(cs.next(), Some(b'E' | b'e')) {
                             Keyword::FILE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('D' | 'd'))
-                            && matches!(cs.next(), Some('_'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('_'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'D' | b'd'))
+                            && matches!(cs.next(), Some(b'_'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'_'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::FIND_IN_SET
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('R' | 'r') => {
-                        if matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'R' | b'r') => {
+                        if matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::FIRST
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('X' | 'x') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'X' | b'x') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::FIXED
                         } else {
@@ -3551,19 +3555,19 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('L' | 'l') => match cs.next() {
-                    Some('O' | 'o') => match cs.next() {
-                        Some('A' | 'a') => match cs.next() {
-                            Some('T' | 't') => match cs.next() {
+                Some(b'L' | b'l') => match cs.next() {
+                    Some(b'O' | b'o') => match cs.next() {
+                        Some(b'A' | b'a') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
                                 None => Keyword::FLOAT,
-                                Some('4') => Keyword::FLOAT4,
-                                Some('8') => Keyword::FLOAT8,
+                                Some(b'4') => Keyword::FLOAT4,
+                                Some(b'8') => Keyword::FLOAT8,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('O' | 'o') => {
-                            if matches!(cs.next(), Some('R' | 'r')) {
+                        Some(b'O' | b'o') => {
+                            if matches!(cs.next(), Some(b'R' | b'r')) {
                                 Keyword::FLOOR
                             } else {
                                 Keyword::NOT_A_KEYWORD
@@ -3571,9 +3575,9 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('U' | 'u') => {
-                        if matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('H' | 'h'))
+                    Some(b'U' | b'u') => {
+                        if matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'H' | b'h'))
                         {
                             Keyword::FLUSH
                         } else {
@@ -3582,21 +3586,21 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('O' | 'o') => match cs.next() {
-                    Some('L' | 'l') => match cs.next() {
-                        Some('L' | 'l') => match cs.next() {
-                            Some('O' | 'o') => match cs.next() {
-                                Some('W' | 'w') => match cs.next() {
-                                    Some('I' | 'i') => {
-                                        if matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('G' | 'g'))
+                Some(b'O' | b'o') => match cs.next() {
+                    Some(b'L' | b'l') => match cs.next() {
+                        Some(b'L' | b'l') => match cs.next() {
+                            Some(b'O' | b'o') => match cs.next() {
+                                Some(b'W' | b'w') => match cs.next() {
+                                    Some(b'I' | b'i') => {
+                                        if matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'G' | b'g'))
                                         {
                                             Keyword::FOLLOWING
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('S' | 's') => Keyword::FOLLOWS,
+                                    Some(b'S' | b's') => Keyword::FOLLOWS,
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
@@ -3605,28 +3609,28 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('R' | 'r') => match cs.next() {
+                    Some(b'R' | b'r') => match cs.next() {
                         None => Keyword::FOR,
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('E' | 'e')) {
+                        Some(b'C' | b'c') => {
+                            if matches!(cs.next(), Some(b'E' | b'e')) {
                                 Keyword::FORCE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('N' | 'n'))
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
                             {
                                 Keyword::FOREIGN
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('M' | 'm') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'M' | b'm') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::FORMAT
                             } else {
@@ -3635,9 +3639,9 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('U' | 'u') => {
-                        if matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'U' | b'u') => {
+                        if matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::FOUND
                         } else {
@@ -3646,41 +3650,41 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('R' | 'r') => match cs.next() {
-                    Some('O' | 'o') => match cs.next() {
-                        Some('M' | 'm') => match cs.next() {
+                Some(b'R' | b'r') => match cs.next() {
+                    Some(b'O' | b'o') => match cs.next() {
+                        Some(b'M' | b'm') => match cs.next() {
                             None => Keyword::FROM,
-                            Some('_') => match cs.next() {
-                                Some('B' | 'b') => {
-                                    if matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('S' | 's'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('6'))
-                                        && matches!(cs.next(), Some('4'))
+                            Some(b'_') => match cs.next() {
+                                Some(b'B' | b'b') => {
+                                    if matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'6'))
+                                        && matches!(cs.next(), Some(b'4'))
                                     {
                                         Keyword::FROM_BASE64
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('D' | 'd') => {
-                                    if matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('Y' | 'y'))
-                                        && matches!(cs.next(), Some('S' | 's'))
+                                Some(b'D' | b'd') => {
+                                    if matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'Y' | b'y'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
                                     {
                                         Keyword::FROM_DAYS
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('U' | 'u') => {
-                                    if matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('X' | 'x'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('M' | 'm'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
+                                Some(b'U' | b'u') => {
+                                    if matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'X' | b'x'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'M' | b'm'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
                                     {
                                         Keyword::FROM_UNIXTIME
                                     } else {
@@ -3695,14 +3699,14 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('U' | 'u') => match cs.next() {
-                    Some('L' | 'l') => match cs.next() {
-                        Some('L' | 'l') => match cs.next() {
+                Some(b'U' | b'u') => match cs.next() {
+                    Some(b'L' | b'l') => match cs.next() {
+                        Some(b'L' | b'l') => match cs.next() {
                             None => Keyword::FULL,
-                            Some('T' | 't') => {
-                                if matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('X' | 'x'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'T' | b't') => {
+                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'X' | b'x'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::FULLTEXT
                                 } else {
@@ -3713,12 +3717,12 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::FUNCTION
                         } else {
@@ -3729,16 +3733,16 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('G' | 'g') => match cs.next() {
-                Some('E' | 'e') => match cs.next() {
-                    Some('N' | 'n') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
-                            Some('R' | 'r') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('L' | 'l') => Keyword::GENERAL,
-                                    Some('T' | 't') => {
-                                        if matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('D' | 'd'))
+            Some(b'G' | b'g') => match cs.next() {
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'N' | b'n') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'R' | b'r') => match cs.next() {
+                                Some(b'A' | b'a') => match cs.next() {
+                                    Some(b'L' | b'l') => Keyword::GENERAL,
+                                    Some(b'T' | b't') => {
+                                        if matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'D' | b'd'))
                                         {
                                             Keyword::GENERATED
                                         } else {
@@ -3753,15 +3757,15 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
                         None => Keyword::GET,
-                        Some('_') => {
-                            if matches!(cs.next(), Some('F' | 'f'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'F' | b'f'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::GET_FORMAT
                             } else {
@@ -3772,10 +3776,10 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('N' | 'n') => Keyword::GIN,
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('T' | 't')) {
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'N' | b'n') => Keyword::GIN,
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'T' | b't')) {
                             Keyword::GIST
                         } else {
                             Keyword::NOT_A_KEYWORD
@@ -3783,60 +3787,61 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('L' | 'l') => {
-                    if matches!(cs.next(), Some('O' | 'o'))
-                        && matches!(cs.next(), Some('B' | 'b'))
-                        && matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('L' | 'l'))
+                Some(b'L' | b'l') => {
+                    if matches!(cs.next(), Some(b'O' | b'o'))
+                        && matches!(cs.next(), Some(b'B' | b'b'))
+                        && matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'L' | b'l'))
                     {
                         Keyword::GLOBAL
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('O' | 'o') => {
-                    if matches!(cs.next(), Some('T' | 't')) && matches!(cs.next(), Some('O' | 'o'))
+                Some(b'O' | b'o') => {
+                    if matches!(cs.next(), Some(b'T' | b't'))
+                        && matches!(cs.next(), Some(b'O' | b'o'))
                     {
                         Keyword::GOTO
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('R' | 'r') => match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('N' | 'n') => match cs.next() {
-                            Some('T' | 't') => match cs.next() {
+                Some(b'R' | b'r') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'N' | b'n') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
                                 None => Keyword::GRANT,
-                                Some('S' | 's') => Keyword::GRANTS,
+                                Some(b'S' | b's') => Keyword::GRANTS,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('E' | 'e') => {
-                        if matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'E' | b'e') => {
+                        if matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::GREATEST
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('O' | 'o') => match cs.next() {
-                        Some('U' | 'u') => match cs.next() {
-                            Some('P' | 'p') => match cs.next() {
+                    Some(b'O' | b'o') => match cs.next() {
+                        Some(b'U' | b'u') => match cs.next() {
+                            Some(b'P' | b'p') => match cs.next() {
                                 None => Keyword::GROUP,
-                                Some('_') => {
-                                    if matches!(cs.next(), Some('C' | 'c'))
-                                        && matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('C' | 'c'))
-                                        && matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('T' | 't'))
+                                Some(b'_') => {
+                                    if matches!(cs.next(), Some(b'C' | b'c'))
+                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'C' | b'c'))
+                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
                                     {
                                         Keyword::GROUP_CONCAT
                                     } else {
@@ -3853,31 +3858,31 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('H' | 'h') => match cs.next() {
-                Some('A' | 'a') => match cs.next() {
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('D' | 'd'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+            Some(b'H' | b'h') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'D' | b'd'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::HANDLER
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('R' | 'r') => {
-                        if matches!(cs.next(), Some('D' | 'd')) {
+                    Some(b'R' | b'r') => {
+                        if matches!(cs.next(), Some(b'D' | b'd')) {
                             Keyword::HARD
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => match cs.next() {
-                        Some('H' | 'h') => match cs.next() {
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'H' | b'h') => match cs.next() {
                             None => Keyword::HASH,
-                            Some('E' | 'e') => {
-                                if matches!(cs.next(), Some('S' | 's')) {
+                            Some(b'E' | b'e') => {
+                                if matches!(cs.next(), Some(b'S' | b's')) {
                                     Keyword::HASHES
                                 } else {
                                     Keyword::NOT_A_KEYWORD
@@ -3887,10 +3892,10 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('V' | 'v') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('G' | 'g'))
+                    Some(b'V' | b'v') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
                         {
                             Keyword::HAVING
                         } else {
@@ -3899,40 +3904,40 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('E' | 'e') => match cs.next() {
-                    Some('L' | 'l') => {
-                        if matches!(cs.next(), Some('P' | 'p')) {
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'L' | b'l') => {
+                        if matches!(cs.next(), Some(b'P' | b'p')) {
                             Keyword::HELP
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('X' | 'x') => Keyword::HEX,
+                    Some(b'X' | b'x') => Keyword::HEX,
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('G' | 'g') => {
-                        if matches!(cs.next(), Some('H' | 'h'))
-                            && matches!(cs.next(), Some('_'))
-                            && matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('Y' | 'y'))
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'G' | b'g') => {
+                        if matches!(cs.next(), Some(b'H' | b'h'))
+                            && matches!(cs.next(), Some(b'_'))
+                            && matches!(cs.next(), Some(b'P' | b'p'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'Y' | b'y'))
                         {
                             Keyword::HIGH_PRIORITY
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('Y' | 'y'))
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'Y' | b'y'))
                         {
                             Keyword::HISTORY
                         } else {
@@ -3941,48 +3946,49 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('N' | 'n') => {
-                    if matches!(cs.next(), Some('S' | 's')) && matches!(cs.next(), Some('W' | 'w'))
+                Some(b'N' | b'n') => {
+                    if matches!(cs.next(), Some(b'S' | b's'))
+                        && matches!(cs.next(), Some(b'W' | b'w'))
                     {
                         Keyword::HNSW
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('O' | 'o') => match cs.next() {
-                    Some('S' | 's') => match cs.next() {
-                        Some('T' | 't') => match cs.next() {
+                Some(b'O' | b'o') => match cs.next() {
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'T' | b't') => match cs.next() {
                             None => Keyword::HOST,
-                            Some('S' | 's') => Keyword::HOSTS,
+                            Some(b'S' | b's') => Keyword::HOSTS,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('U' | 'u') => match cs.next() {
-                        Some('R' | 'r') => match cs.next() {
+                    Some(b'U' | b'u') => match cs.next() {
+                        Some(b'R' | b'r') => match cs.next() {
                             None => Keyword::HOUR,
-                            Some('_') => match cs.next() {
-                                Some('M' | 'm') => match cs.next() {
-                                    Some('I' | 'i') => match cs.next() {
-                                        Some('C' | 'c') => {
-                                            if matches!(cs.next(), Some('R' | 'r'))
-                                                && matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('S' | 's'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('C' | 'c'))
-                                                && matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('N' | 'n'))
-                                                && matches!(cs.next(), Some('D' | 'd'))
+                            Some(b'_') => match cs.next() {
+                                Some(b'M' | b'm') => match cs.next() {
+                                    Some(b'I' | b'i') => match cs.next() {
+                                        Some(b'C' | b'c') => {
+                                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'S' | b's'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'C' | b'c'))
+                                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                                && matches!(cs.next(), Some(b'D' | b'd'))
                                             {
                                                 Keyword::HOUR_MICROSECOND
                                             } else {
                                                 Keyword::NOT_A_KEYWORD
                                             }
                                         }
-                                        Some('N' | 'n') => {
-                                            if matches!(cs.next(), Some('U' | 'u'))
-                                                && matches!(cs.next(), Some('T' | 't'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
+                                        Some(b'N' | b'n') => {
+                                            if matches!(cs.next(), Some(b'U' | b'u'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
                                             {
                                                 Keyword::HOUR_MINUTE
                                             } else {
@@ -3993,12 +3999,12 @@ impl From<&str> for Keyword {
                                     },
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
-                                Some('S' | 's') => {
-                                    if matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('C' | 'c'))
-                                        && matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('D' | 'd'))
+                                Some(b'S' | b's') => {
+                                    if matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'C' | b'c'))
+                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'D' | b'd'))
                                     {
                                         Keyword::HOUR_SECOND
                                     } else {
@@ -4015,25 +4021,25 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('I' | 'i') => match cs.next() {
-                Some('D' | 'd') => match cs.next() {
+            Some(b'I' | b'i') => match cs.next() {
+                Some(b'D' | b'd') => match cs.next() {
                     None => Keyword::ID,
-                    Some('E' | 'e') => match cs.next() {
-                        Some('N' | 'n') => match cs.next() {
-                            Some('T' | 't') => match cs.next() {
-                                Some('I' | 'i') => match cs.next() {
-                                    Some('F' | 'f') => {
-                                        if matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'N' | b'n') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
+                                Some(b'I' | b'i') => match cs.next() {
+                                    Some(b'F' | b'f') => {
+                                        if matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'D' | b'd'))
                                         {
                                             Keyword::IDENTIFIED
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('T' | 't') => {
-                                        if matches!(cs.next(), Some('Y' | 'y')) {
+                                    Some(b'T' | b't') => {
+                                        if matches!(cs.next(), Some(b'Y' | b'y')) {
                                             Keyword::IDENTITY
                                         } else {
                                             Keyword::NOT_A_KEYWORD
@@ -4049,12 +4055,12 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('F' | 'f') => match cs.next() {
+                Some(b'F' | b'f') => match cs.next() {
                     None => Keyword::IF,
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('L' | 'l'))
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
                         {
                             Keyword::IFNULL
                         } else {
@@ -4063,40 +4069,40 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('G' | 'g') => match cs.next() {
-                    Some('N' | 'n') => match cs.next() {
-                        Some('O' | 'o') => match cs.next() {
-                            Some('R' | 'r') => match cs.next() {
-                                Some('E' | 'e') => match cs.next() {
+                Some(b'G' | b'g') => match cs.next() {
+                    Some(b'N' | b'n') => match cs.next() {
+                        Some(b'O' | b'o') => match cs.next() {
+                            Some(b'R' | b'r') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
                                     None => Keyword::IGNORE,
-                                    Some('D' | 'd') => Keyword::IGNORED,
-                                    Some('_') => match cs.next() {
-                                        Some('D' | 'd') => {
-                                            if matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('M' | 'm'))
-                                                && matches!(cs.next(), Some('A' | 'a'))
-                                                && matches!(cs.next(), Some('I' | 'i'))
-                                                && matches!(cs.next(), Some('N' | 'n'))
-                                                && matches!(cs.next(), Some('_'))
-                                                && matches!(cs.next(), Some('I' | 'i'))
-                                                && matches!(cs.next(), Some('D' | 'd'))
-                                                && matches!(cs.next(), Some('S' | 's'))
+                                    Some(b'D' | b'd') => Keyword::IGNORED,
+                                    Some(b'_') => match cs.next() {
+                                        Some(b'D' | b'd') => {
+                                            if matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                                && matches!(cs.next(), Some(b'_'))
+                                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                                && matches!(cs.next(), Some(b'D' | b'd'))
+                                                && matches!(cs.next(), Some(b'S' | b's'))
                                             {
                                                 Keyword::IGNORE_DOMAIN_IDS
                                             } else {
                                                 Keyword::NOT_A_KEYWORD
                                             }
                                         }
-                                        Some('S' | 's') => {
-                                            if matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('R' | 'r'))
-                                                && matches!(cs.next(), Some('V' | 'v'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('R' | 'r'))
-                                                && matches!(cs.next(), Some('_'))
-                                                && matches!(cs.next(), Some('I' | 'i'))
-                                                && matches!(cs.next(), Some('D' | 'd'))
-                                                && matches!(cs.next(), Some('S' | 's'))
+                                        Some(b'S' | b's') => {
+                                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                                && matches!(cs.next(), Some(b'V' | b'v'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                                && matches!(cs.next(), Some(b'_'))
+                                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                                && matches!(cs.next(), Some(b'D' | b'd'))
+                                                && matches!(cs.next(), Some(b'S' | b's'))
                                             {
                                                 Keyword::IGNORE_SERVER_IDS
                                             } else {
@@ -4115,24 +4121,24 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('M' | 'm') => match cs.next() {
-                    Some('M' | 'm') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('D' | 'd'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'M' | b'm') => match cs.next() {
+                    Some(b'M' | b'm') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::IMMEDIATE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('P' | 'p') => {
-                        if matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'P' | b'p') => {
+                        if matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::IMPORT
                         } else {
@@ -4141,25 +4147,25 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('N' | 'n') => match cs.next() {
+                Some(b'N' | b'n') => match cs.next() {
                     None => Keyword::IN,
-                    Some('C' | 'c') => match cs.next() {
-                        Some('L' | 'l') => {
-                            if matches!(cs.next(), Some('U' | 'u'))
-                                && matches!(cs.next(), Some('D' | 'd'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'L' | b'l') => {
+                            if matches!(cs.next(), Some(b'U' | b'u'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::INCLUDE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('R' | 'r') => {
-                            if matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'R' | b'r') => {
+                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::INCREMENT
                             } else {
@@ -4168,12 +4174,12 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('D' | 'd') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
-                            Some('X' | 'x') => match cs.next() {
+                    Some(b'D' | b'd') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'X' | b'x') => match cs.next() {
                                 None => Keyword::INDEX,
-                                Some('E' | 'e') => {
-                                    if matches!(cs.next(), Some('S' | 's')) {
+                                Some(b'E' | b'e') => {
+                                    if matches!(cs.next(), Some(b'S' | b's')) {
                                         Keyword::INDEXES
                                     } else {
                                         Keyword::NOT_A_KEYWORD
@@ -4185,31 +4191,31 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('E' | 'e') => match cs.next() {
-                        Some('T' | 't') => match cs.next() {
-                            Some('4') => Keyword::INET4,
-                            Some('6') => Keyword::INET6,
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'T' | b't') => match cs.next() {
+                            Some(b'4') => Keyword::INET4,
+                            Some(b'6') => Keyword::INET6,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('F' | 'f') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'F' | b'f') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::INFILE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('H' | 'h') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
-                            Some('R' | 'r') => match cs.next() {
-                                Some('I' | 'i') => match cs.next() {
-                                    Some('T' | 't') => match cs.next() {
+                    Some(b'H' | b'h') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'R' | b'r') => match cs.next() {
+                                Some(b'I' | b'i') => match cs.next() {
+                                    Some(b'T' | b't') => match cs.next() {
                                         None => Keyword::INHERIT,
-                                        Some('S' | 's') => Keyword::INHERITS,
+                                        Some(b'S' | b's') => Keyword::INHERITS,
                                         _ => Keyword::NOT_A_KEYWORD,
                                     },
                                     _ => Keyword::NOT_A_KEYWORD,
@@ -4220,76 +4226,76 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('_'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('Z' | 'z'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'_'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'Z' | b'z'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::INITIAL_SIZE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::INNER
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('O' | 'o') => {
-                        if matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'O' | b'o') => {
+                        if matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::INOUT
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('P' | 'p') => {
-                        if matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'P' | b'p') => {
+                        if matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::INPLACE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
-                            Some('N' | 'n') => {
-                                if matches!(cs.next(), Some('S' | 's'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('V' | 'v'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'N' | b'n') => {
+                                if matches!(cs.next(), Some(b'S' | b's'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'V' | b'v'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::INSENSITIVE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('R' | 'r') => match cs.next() {
-                                Some('T' | 't') => match cs.next() {
+                            Some(b'R' | b'r') => match cs.next() {
+                                Some(b'T' | b't') => match cs.next() {
                                     None => Keyword::INSERT,
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('M' | 'm'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('H' | 'h'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('D' | 'd'))
+                                    Some(b'_') => {
+                                        if matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'H' | b'h'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'D' | b'd'))
                                         {
                                             Keyword::INSERT_METHOD
                                         } else {
@@ -4302,17 +4308,17 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('T' | 't') => match cs.next() {
-                            Some('A' | 'a') => match cs.next() {
-                                Some('L' | 'l') => {
-                                    if matches!(cs.next(), Some('L' | 'l')) {
+                        Some(b'T' | b't') => match cs.next() {
+                            Some(b'A' | b'a') => match cs.next() {
+                                Some(b'L' | b'l') => {
+                                    if matches!(cs.next(), Some(b'L' | b'l')) {
                                         Keyword::INSTALL
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('N' | 'n') => {
-                                    if matches!(cs.next(), Some('T' | 't')) {
+                                Some(b'N' | b'n') => {
+                                    if matches!(cs.next(), Some(b'T' | b't')) {
                                         Keyword::INSTANT
                                     } else {
                                         Keyword::NOT_A_KEYWORD
@@ -4320,20 +4326,20 @@ impl From<&str> for Keyword {
                                 }
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('R' | 'r') => Keyword::INSTR,
+                            Some(b'R' | b'r') => Keyword::INSTR,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
                         None => Keyword::INT,
-                        Some('1') => Keyword::INT1,
-                        Some('2') => match cs.next() {
+                        Some(b'1') => Keyword::INT1,
+                        Some(b'2') => match cs.next() {
                             None => Keyword::INT2,
-                            Some('_') => {
-                                if matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('P' | 'p'))
-                                    && matches!(cs.next(), Some('S' | 's'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'P' | b'p'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
                                 {
                                     Keyword::INT2_OPS
                                 } else {
@@ -4342,13 +4348,13 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('3') => Keyword::INT3,
-                        Some('4') => match cs.next() {
+                        Some(b'3') => Keyword::INT3,
+                        Some(b'4') => match cs.next() {
                             None => Keyword::INT4,
-                            Some('_') => {
-                                if matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('P' | 'p'))
-                                    && matches!(cs.next(), Some('S' | 's'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'P' | b'p'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
                                 {
                                     Keyword::INT4_OPS
                                 } else {
@@ -4357,12 +4363,12 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('8') => match cs.next() {
+                        Some(b'8') => match cs.next() {
                             None => Keyword::INT8,
-                            Some('_') => {
-                                if matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('P' | 'p'))
-                                    && matches!(cs.next(), Some('S' | 's'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'P' | b'p'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
                                 {
                                     Keyword::INT8_OPS
                                 } else {
@@ -4371,23 +4377,23 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('E' | 'e') => match cs.next() {
-                            Some('G' | 'g') => {
-                                if matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'G' | b'g') => {
+                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
                                 {
                                     Keyword::INTEGER
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('R' | 'r') => match cs.next() {
-                                Some('S' | 's') => match cs.next() {
-                                    Some('E' | 'e') => match cs.next() {
-                                        Some('C' | 'c') => match cs.next() {
-                                            Some('T' | 't') => match cs.next() {
+                            Some(b'R' | b'r') => match cs.next() {
+                                Some(b'S' | b's') => match cs.next() {
+                                    Some(b'E' | b'e') => match cs.next() {
+                                        Some(b'C' | b'c') => match cs.next() {
+                                            Some(b'T' | b't') => match cs.next() {
                                                 None => Keyword::INTERSECT,
-                                                Some('A' | 'a') => Keyword::INTERSECTA,
+                                                Some(b'A' | b'a') => Keyword::INTERSECTA,
                                                 _ => Keyword::NOT_A_KEYWORD,
                                             },
                                             _ => Keyword::NOT_A_KEYWORD,
@@ -4396,9 +4402,9 @@ impl From<&str> for Keyword {
                                     },
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
-                                Some('V' | 'v') => {
-                                    if matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('L' | 'l'))
+                                Some(b'V' | b'v') => {
+                                    if matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'L' | b'l'))
                                     {
                                         Keyword::INTERVAL
                                     } else {
@@ -4409,26 +4415,26 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('O' | 'o') => Keyword::INTO,
+                        Some(b'O' | b'o') => Keyword::INTO,
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('V' | 'v') => match cs.next() {
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('B' | 'b'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'V' | b'v') => match cs.next() {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'B' | b'b'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::INVISIBLE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('O' | 'o') => {
-                            if matches!(cs.next(), Some('K' | 'k'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('R' | 'r'))
+                        Some(b'O' | b'o') => {
+                            if matches!(cs.next(), Some(b'K' | b'k'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
                             {
                                 Keyword::INVOKER
                             } else {
@@ -4439,15 +4445,15 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('O' | 'o') => match cs.next() {
+                Some(b'O' | b'o') => match cs.next() {
                     None => Keyword::IO,
-                    Some('_') => {
-                        if matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('H' | 'h'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'_') => {
+                        if matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'H' | b'h'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::IO_THREAD
                         } else {
@@ -4456,31 +4462,31 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('P' | 'p') => {
-                    if matches!(cs.next(), Some('C' | 'c')) {
+                Some(b'P' | b'p') => {
+                    if matches!(cs.next(), Some(b'C' | b'c')) {
                         Keyword::IPC
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('S' | 's') => match cs.next() {
+                Some(b'S' | b's') => match cs.next() {
                     None => Keyword::IS,
-                    Some('O' | 'o') => match cs.next() {
-                        Some('L' | 'l') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'O' | b'o') => match cs.next() {
+                        Some(b'L' | b'l') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
                             {
                                 Keyword::ISOLATION
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('P' | 'p') => {
-                            if matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('N' | 'n'))
+                        Some(b'P' | b'p') => {
+                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
                             {
                                 Keyword::ISOPEN
                             } else {
@@ -4489,10 +4495,10 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::ISSUER
                         } else {
@@ -4501,12 +4507,12 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('T' | 't') => {
-                    if matches!(cs.next(), Some('E' | 'e'))
-                        && matches!(cs.next(), Some('R' | 'r'))
-                        && matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('T' | 't'))
-                        && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'T' | b't') => {
+                    if matches!(cs.next(), Some(b'E' | b'e'))
+                        && matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'T' | b't'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
                     {
                         Keyword::ITERATE
                     } else {
@@ -4515,73 +4521,74 @@ impl From<&str> for Keyword {
                 }
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('J' | 'j') => match cs.next() {
-                Some('O' | 'o') => {
-                    if matches!(cs.next(), Some('I' | 'i')) && matches!(cs.next(), Some('N' | 'n'))
-                    {
-                        Keyword::JOIN
-                    } else {
-                        Keyword::NOT_A_KEYWORD
+            Some(b'J' | b'j') => {
+                match cs.next() {
+                    Some(b'O' | b'o') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                        {
+                            Keyword::JOIN
+                        } else {
+                            Keyword::NOT_A_KEYWORD
+                        }
                     }
-                }
-                Some('S' | 's') => {
-                    match cs.next() {
-                        Some('O' | 'o') => {
-                            match cs.next() {
-                                Some('N' | 'n') => {
-                                    match cs.next() {
-                                        None => Keyword::JSON,
-                                        Some('_') => match cs.next() {
-                                            Some('A' | 'a') => {
-                                                match cs.next() {
-                                                    Some('R' | 'r') => {
-                                                        match cs.next() {
-                                                            Some('R' | 'r') => match cs.next() {
-                                                                Some('A' | 'a') => match cs.next() {
-                                                                    Some('Y' | 'y') => {
+                    Some(b'S' | b's') => {
+                        match cs.next() {
+                            Some(b'O' | b'o') => match cs.next() {
+                                Some(b'N' | b'n') => match cs.next() {
+                                    None => Keyword::JSON,
+                                    Some(b'_') => match cs.next() {
+                                        Some(b'A' | b'a') => {
+                                            match cs.next() {
+                                                Some(b'R' | b'r') => {
+                                                    match cs.next() {
+                                                        Some(b'R' | b'r') => match cs.next() {
+                                                            Some(b'A' | b'a') => {
+                                                                match cs.next() {
+                                                                    Some(b'Y' | b'y') => {
                                                                         match cs.next() {
                                                                                             None => Keyword::JSON_ARRAY,
-                                                                                            Some('A' | 'a') => {
-                                                                                                if matches!(cs.next(), Some('G' | 'g'))
-                                                                                                  && matches!(cs.next(), Some('G' | 'g')) {
+                                                                                            Some(b'A' | b'a') => {
+                                                                                                if matches!(cs.next(), Some(b'G' | b'g'))
+                                                                                                  && matches!(cs.next(), Some(b'G' | b'g')) {
                                                                                                     Keyword::JSON_ARRAYAGG
                                                                                                 } else {
                                                                                                     Keyword::NOT_A_KEYWORD
                                                                                                 }
                                                                                             }
-                                                                                            Some('_') => {
+                                                                                            Some(b'_') => {
                                                                                                 match cs.next() {
-                                                                                                    Some('A' | 'a') => {
-                                                                                                        if matches!(cs.next(), Some('P' | 'p'))
-                                                                                                          && matches!(cs.next(), Some('P' | 'p'))
-                                                                                                          && matches!(cs.next(), Some('E' | 'e'))
-                                                                                                          && matches!(cs.next(), Some('N' | 'n'))
-                                                                                                          && matches!(cs.next(), Some('D' | 'd')) {
+                                                                                                    Some(b'A' | b'a') => {
+                                                                                                        if matches!(cs.next(), Some(b'P' | b'p'))
+                                                                                                          && matches!(cs.next(), Some(b'P' | b'p'))
+                                                                                                          && matches!(cs.next(), Some(b'E' | b'e'))
+                                                                                                          && matches!(cs.next(), Some(b'N' | b'n'))
+                                                                                                          && matches!(cs.next(), Some(b'D' | b'd')) {
                                                                                                             Keyword::JSON_ARRAY_APPEND
                                                                                                         } else {
                                                                                                             Keyword::NOT_A_KEYWORD
                                                                                                         }
                                                                                                     }
-                                                                                                    Some('I' | 'i') => {
+                                                                                                    Some(b'I' | b'i') => {
                                                                                                         match cs.next() {
-                                                                                                            Some('N' | 'n') => {
+                                                                                                            Some(b'N' | b'n') => {
                                                                                                                 match cs.next() {
-                                                                                                                    Some('S' | 's') => {
-                                                                                                                        if matches!(cs.next(), Some('E' | 'e'))
-                                                                                                                          && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                                          && matches!(cs.next(), Some('T' | 't')) {
+                                                                                                                    Some(b'S' | b's') => {
+                                                                                                                        if matches!(cs.next(), Some(b'E' | b'e'))
+                                                                                                                          && matches!(cs.next(), Some(b'R' | b'r'))
+                                                                                                                          && matches!(cs.next(), Some(b'T' | b't')) {
                                                                                                                             Keyword::JSON_ARRAY_INSERT
                                                                                                                         } else {
                                                                                                                             Keyword::NOT_A_KEYWORD
                                                                                                                         }
                                                                                                                     }
-                                                                                                                    Some('T' | 't') => {
-                                                                                                                        if matches!(cs.next(), Some('E' | 'e'))
-                                                                                                                          && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                                          && matches!(cs.next(), Some('S' | 's'))
-                                                                                                                          && matches!(cs.next(), Some('E' | 'e'))
-                                                                                                                          && matches!(cs.next(), Some('C' | 'c'))
-                                                                                                                          && matches!(cs.next(), Some('T' | 't')) {
+                                                                                                                    Some(b'T' | b't') => {
+                                                                                                                        if matches!(cs.next(), Some(b'E' | b'e'))
+                                                                                                                          && matches!(cs.next(), Some(b'R' | b'r'))
+                                                                                                                          && matches!(cs.next(), Some(b'S' | b's'))
+                                                                                                                          && matches!(cs.next(), Some(b'E' | b'e'))
+                                                                                                                          && matches!(cs.next(), Some(b'C' | b'c'))
+                                                                                                                          && matches!(cs.next(), Some(b'T' | b't')) {
                                                                                                                             Keyword::JSON_ARRAY_INTERSECT
                                                                                                                         } else {
                                                                                                                             Keyword::NOT_A_KEYWORD
@@ -4600,42 +4607,43 @@ impl From<&str> for Keyword {
                                                                                         }
                                                                     }
                                                                     _ => Keyword::NOT_A_KEYWORD,
-                                                                },
-                                                                _ => Keyword::NOT_A_KEYWORD,
-                                                            },
+                                                                }
+                                                            }
                                                             _ => Keyword::NOT_A_KEYWORD,
-                                                        }
+                                                        },
+                                                        _ => Keyword::NOT_A_KEYWORD,
                                                     }
-                                                    _ => Keyword::NOT_A_KEYWORD,
                                                 }
+                                                _ => Keyword::NOT_A_KEYWORD,
                                             }
-                                            Some('C' | 'c') => match cs.next() {
-                                                Some('O' | 'o') => match cs.next() {
-                                                    Some('M' | 'm') => {
-                                                        if matches!(cs.next(), Some('P' | 'p'))
-                                                            && matches!(cs.next(), Some('A' | 'a'))
-                                                            && matches!(cs.next(), Some('C' | 'c'))
-                                                            && matches!(cs.next(), Some('T' | 't'))
-                                                        {
-                                                            Keyword::JSON_COMPACT
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
+                                        }
+                                        Some(b'C' | b'c') => match cs.next() {
+                                            Some(b'O' | b'o') => match cs.next() {
+                                                Some(b'M' | b'm') => {
+                                                    if matches!(cs.next(), Some(b'P' | b'p'))
+                                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                                        && matches!(cs.next(), Some(b'C' | b'c'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                                    {
+                                                        Keyword::JSON_COMPACT
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
                                                     }
-                                                    Some('N' | 'n') => match cs.next() {
-                                                        Some('T' | 't') => match cs.next() {
-                                                            Some('A' | 'a') => match cs.next() {
-                                                                Some('I' | 'i') => match cs.next() {
-                                                                    Some('N' | 'n') => {
-                                                                        match cs.next() {
-                                                                                                            Some('S' | 's') => {
+                                                }
+                                                Some(b'N' | b'n') => match cs.next() {
+                                                    Some(b'T' | b't') => match cs.next() {
+                                                        Some(b'A' | b'a') => match cs.next() {
+                                                            Some(b'I' | b'i') => match cs.next() {
+                                                                Some(b'N' | b'n') => {
+                                                                    match cs.next() {
+                                                                                                            Some(b'S' | b's') => {
                                                                                                                 match cs.next() {
                                                                                                                     None => Keyword::JSON_CONTAINS,
-                                                                                                                    Some('_') => {
-                                                                                                                        if matches!(cs.next(), Some('P' | 'p'))
-                                                                                                                          && matches!(cs.next(), Some('A' | 'a'))
-                                                                                                                          && matches!(cs.next(), Some('T' | 't'))
-                                                                                                                          && matches!(cs.next(), Some('H' | 'h')) {
+                                                                                                                    Some(b'_') => {
+                                                                                                                        if matches!(cs.next(), Some(b'P' | b'p'))
+                                                                                                                          && matches!(cs.next(), Some(b'A' | b'a'))
+                                                                                                                          && matches!(cs.next(), Some(b'T' | b't'))
+                                                                                                                          && matches!(cs.next(), Some(b'H' | b'h')) {
                                                                                                                             Keyword::JSON_CONTAINS_PATH
                                                                                                                         } else {
                                                                                                                             Keyword::NOT_A_KEYWORD
@@ -4646,9 +4654,7 @@ impl From<&str> for Keyword {
                                                                                                             }
                                                                                                             _ => Keyword::NOT_A_KEYWORD,
                                                                                                         }
-                                                                    }
-                                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                                },
+                                                                }
                                                                 _ => Keyword::NOT_A_KEYWORD,
                                                             },
                                                             _ => Keyword::NOT_A_KEYWORD,
@@ -4659,142 +4665,145 @@ impl From<&str> for Keyword {
                                                 },
                                                 _ => Keyword::NOT_A_KEYWORD,
                                             },
-                                            Some('D' | 'd') => match cs.next() {
-                                                Some('E' | 'e') => match cs.next() {
-                                                    Some('P' | 'p') => {
-                                                        if matches!(cs.next(), Some('T' | 't'))
-                                                            && matches!(cs.next(), Some('H' | 'h'))
-                                                        {
-                                                            Keyword::JSON_DEPTH
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    Some('T' | 't') => {
-                                                        if matches!(cs.next(), Some('A' | 'a'))
-                                                            && matches!(cs.next(), Some('I' | 'i'))
-                                                            && matches!(cs.next(), Some('L' | 'l'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
-                                                            && matches!(cs.next(), Some('D' | 'd'))
-                                                        {
-                                                            Keyword::JSON_DETAILED
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                },
-                                                _ => Keyword::NOT_A_KEYWORD,
-                                            },
-                                            Some('E' | 'e') => match cs.next() {
-                                                Some('Q' | 'q') => {
-                                                    if matches!(cs.next(), Some('U' | 'u'))
-                                                        && matches!(cs.next(), Some('A' | 'a'))
-                                                        && matches!(cs.next(), Some('L' | 'l'))
-                                                        && matches!(cs.next(), Some('S' | 's'))
+                                            _ => Keyword::NOT_A_KEYWORD,
+                                        },
+                                        Some(b'D' | b'd') => match cs.next() {
+                                            Some(b'E' | b'e') => match cs.next() {
+                                                Some(b'P' | b'p') => {
+                                                    if matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'H' | b'h'))
                                                     {
-                                                        Keyword::JSON_EQUALS
+                                                        Keyword::JSON_DEPTH
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
                                                     }
                                                 }
-                                                Some('X' | 'x') => match cs.next() {
-                                                    Some('I' | 'i') => {
-                                                        if matches!(cs.next(), Some('S' | 's'))
-                                                            && matches!(cs.next(), Some('T' | 't'))
-                                                            && matches!(cs.next(), Some('S' | 's'))
-                                                        {
-                                                            Keyword::JSON_EXISTS
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
+                                                Some(b'T' | b't') => {
+                                                    if matches!(cs.next(), Some(b'A' | b'a'))
+                                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                                        && matches!(cs.next(), Some(b'L' | b'l'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                        && matches!(cs.next(), Some(b'D' | b'd'))
+                                                    {
+                                                        Keyword::JSON_DETAILED
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
                                                     }
-                                                    Some('T' | 't') => {
-                                                        if matches!(cs.next(), Some('R' | 'r'))
-                                                            && matches!(cs.next(), Some('A' | 'a'))
-                                                            && matches!(cs.next(), Some('C' | 'c'))
-                                                            && matches!(cs.next(), Some('T' | 't'))
-                                                        {
-                                                            Keyword::JSON_EXTRACT
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                },
+                                                }
                                                 _ => Keyword::NOT_A_KEYWORD,
                                             },
-                                            Some('I' | 'i') => {
-                                                if matches!(cs.next(), Some('N' | 'n'))
-                                                    && matches!(cs.next(), Some('S' | 's'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('R' | 'r'))
-                                                    && matches!(cs.next(), Some('T' | 't'))
+                                            _ => Keyword::NOT_A_KEYWORD,
+                                        },
+                                        Some(b'E' | b'e') => match cs.next() {
+                                            Some(b'Q' | b'q') => {
+                                                if matches!(cs.next(), Some(b'U' | b'u'))
+                                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                                    && matches!(cs.next(), Some(b'S' | b's'))
                                                 {
-                                                    Keyword::JSON_INSERT
+                                                    Keyword::JSON_EQUALS
                                                 } else {
                                                     Keyword::NOT_A_KEYWORD
                                                 }
                                             }
-                                            Some('K' | 'k') => {
-                                                if matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('Y' | 'y'))
-                                                    && matches!(cs.next(), Some('S' | 's'))
-                                                {
-                                                    Keyword::JSON_KEYS
-                                                } else {
-                                                    Keyword::NOT_A_KEYWORD
-                                                }
-                                            }
-                                            Some('L' | 'l') => match cs.next() {
-                                                Some('E' | 'e') => {
-                                                    if matches!(cs.next(), Some('N' | 'n'))
-                                                        && matches!(cs.next(), Some('G' | 'g'))
-                                                        && matches!(cs.next(), Some('T' | 't'))
-                                                        && matches!(cs.next(), Some('H' | 'h'))
+                                            Some(b'X' | b'x') => match cs.next() {
+                                                Some(b'I' | b'i') => {
+                                                    if matches!(cs.next(), Some(b'S' | b's'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'S' | b's'))
                                                     {
-                                                        Keyword::JSON_LENGTH
+                                                        Keyword::JSON_EXISTS
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
                                                     }
                                                 }
-                                                Some('O' | 'o') => {
-                                                    if matches!(cs.next(), Some('O' | 'o'))
-                                                        && matches!(cs.next(), Some('S' | 's'))
-                                                        && matches!(cs.next(), Some('E' | 'e'))
+                                                Some(b'T' | b't') => {
+                                                    if matches!(cs.next(), Some(b'R' | b'r'))
+                                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                                        && matches!(cs.next(), Some(b'C' | b'c'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
                                                     {
-                                                        Keyword::JSON_LOOSE
+                                                        Keyword::JSON_EXTRACT
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
                                                     }
                                                 }
                                                 _ => Keyword::NOT_A_KEYWORD,
                                             },
-                                            Some('M' | 'm') => match cs.next() {
-                                                Some('E' | 'e') => match cs.next() {
-                                                    Some('R' | 'r') => match cs.next() {
-                                                        Some('G' | 'g') => match cs.next() {
-                                                            Some('E' | 'e') => match cs.next() {
+                                            _ => Keyword::NOT_A_KEYWORD,
+                                        },
+                                        Some(b'I' | b'i') => {
+                                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                                && matches!(cs.next(), Some(b'S' | b's'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                            {
+                                                Keyword::JSON_INSERT
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
+                                            }
+                                        }
+                                        Some(b'K' | b'k') => {
+                                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'Y' | b'y'))
+                                                && matches!(cs.next(), Some(b'S' | b's'))
+                                            {
+                                                Keyword::JSON_KEYS
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
+                                            }
+                                        }
+                                        Some(b'L' | b'l') => match cs.next() {
+                                            Some(b'E' | b'e') => {
+                                                if matches!(cs.next(), Some(b'N' | b'n'))
+                                                    && matches!(cs.next(), Some(b'G' | b'g'))
+                                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                                    && matches!(cs.next(), Some(b'H' | b'h'))
+                                                {
+                                                    Keyword::JSON_LENGTH
+                                                } else {
+                                                    Keyword::NOT_A_KEYWORD
+                                                }
+                                            }
+                                            Some(b'O' | b'o') => {
+                                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                                {
+                                                    Keyword::JSON_LOOSE
+                                                } else {
+                                                    Keyword::NOT_A_KEYWORD
+                                                }
+                                            }
+                                            _ => Keyword::NOT_A_KEYWORD,
+                                        },
+                                        Some(b'M' | b'm') => {
+                                            match cs.next() {
+                                                Some(b'E' | b'e') => match cs.next() {
+                                                    Some(b'R' | b'r') => match cs.next() {
+                                                        Some(b'G' | b'g') => match cs.next() {
+                                                            Some(b'E' | b'e') => match cs.next() {
                                                                 None => Keyword::JSON_MERGE,
-                                                                Some('_') => match cs.next() {
-                                                                    Some('P' | 'p') => {
+                                                                Some(b'_') => match cs.next() {
+                                                                    Some(b'P' | b'p') => {
                                                                         match cs.next() {
-                                                                                                            Some('A' | 'a') => {
-                                                                                                                if matches!(cs.next(), Some('T' | 't'))
-                                                                                                                  && matches!(cs.next(), Some('C' | 'c'))
-                                                                                                                  && matches!(cs.next(), Some('H' | 'h')) {
+                                                                                                            Some(b'A' | b'a') => {
+                                                                                                                if matches!(cs.next(), Some(b'T' | b't'))
+                                                                                                                  && matches!(cs.next(), Some(b'C' | b'c'))
+                                                                                                                  && matches!(cs.next(), Some(b'H' | b'h')) {
                                                                                                                     Keyword::JSON_MERGE_PATCH
                                                                                                                 } else {
                                                                                                                     Keyword::NOT_A_KEYWORD
                                                                                                                 }
                                                                                                             }
-                                                                                                            Some('R' | 'r') => {
-                                                                                                                if matches!(cs.next(), Some('E' | 'e'))
-                                                                                                                  && matches!(cs.next(), Some('S' | 's'))
-                                                                                                                  && matches!(cs.next(), Some('E' | 'e'))
-                                                                                                                  && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                                  && matches!(cs.next(), Some('V' | 'v'))
-                                                                                                                  && matches!(cs.next(), Some('E' | 'e')) {
+                                                                                                            Some(b'R' | b'r') => {
+                                                                                                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                                                                                                  && matches!(cs.next(), Some(b'S' | b's'))
+                                                                                                                  && matches!(cs.next(), Some(b'E' | b'e'))
+                                                                                                                  && matches!(cs.next(), Some(b'R' | b'r'))
+                                                                                                                  && matches!(cs.next(), Some(b'V' | b'v'))
+                                                                                                                  && matches!(cs.next(), Some(b'E' | b'e')) {
                                                                                                                     Keyword::JSON_MERGE_PRESERVE
                                                                                                                 } else {
                                                                                                                     Keyword::NOT_A_KEYWORD
@@ -4814,65 +4823,67 @@ impl From<&str> for Keyword {
                                                     _ => Keyword::NOT_A_KEYWORD,
                                                 },
                                                 _ => Keyword::NOT_A_KEYWORD,
-                                            },
-                                            Some('N' | 'n') => {
-                                                if matches!(cs.next(), Some('O' | 'o'))
-                                                    && matches!(cs.next(), Some('R' | 'r'))
-                                                    && matches!(cs.next(), Some('M' | 'm'))
-                                                    && matches!(cs.next(), Some('A' | 'a'))
-                                                    && matches!(cs.next(), Some('L' | 'l'))
-                                                    && matches!(cs.next(), Some('I' | 'i'))
-                                                    && matches!(cs.next(), Some('Z' | 'z'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
-                                                {
-                                                    Keyword::JSON_NORMALIZE
-                                                } else {
-                                                    Keyword::NOT_A_KEYWORD
-                                                }
                                             }
-                                            Some('O' | 'o') => {
-                                                match cs.next() {
-                                                    Some('B' | 'b') => match cs.next() {
-                                                        Some('J' | 'j') => match cs.next() {
-                                                            Some('E' | 'e') => match cs.next() {
-                                                                Some('C' | 'c') => match cs.next() {
-                                                                    Some('T' | 't') => {
+                                        }
+                                        Some(b'N' | b'n') => {
+                                            if matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                                && matches!(cs.next(), Some(b'Z' | b'z'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                            {
+                                                Keyword::JSON_NORMALIZE
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
+                                            }
+                                        }
+                                        Some(b'O' | b'o') => {
+                                            match cs.next() {
+                                                Some(b'B' | b'b') => match cs.next() {
+                                                    Some(b'J' | b'j') => match cs.next() {
+                                                        Some(b'E' | b'e') => match cs.next() {
+                                                            Some(b'C' | b'c') => {
+                                                                match cs.next() {
+                                                                    Some(b'T' | b't') => {
                                                                         match cs.next() {
                                                                                                     None => Keyword::JSON_OBJECT,
-                                                                                                    Some('A' | 'a') => {
-                                                                                                        if matches!(cs.next(), Some('G' | 'g'))
-                                                                                                          && matches!(cs.next(), Some('G' | 'g')) {
+                                                                                                    Some(b'A' | b'a') => {
+                                                                                                        if matches!(cs.next(), Some(b'G' | b'g'))
+                                                                                                          && matches!(cs.next(), Some(b'G' | b'g')) {
                                                                                                             Keyword::JSON_OBJECTAGG
                                                                                                         } else {
                                                                                                             Keyword::NOT_A_KEYWORD
                                                                                                         }
                                                                                                     }
-                                                                                                    Some('_') => {
+                                                                                                    Some(b'_') => {
                                                                                                         match cs.next() {
-                                                                                                            Some('F' | 'f') => {
-                                                                                                                if matches!(cs.next(), Some('I' | 'i'))
-                                                                                                                  && matches!(cs.next(), Some('L' | 'l'))
-                                                                                                                  && matches!(cs.next(), Some('T' | 't'))
-                                                                                                                  && matches!(cs.next(), Some('E' | 'e'))
-                                                                                                                  && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                                  && matches!(cs.next(), Some('_'))
-                                                                                                                  && matches!(cs.next(), Some('K' | 'k'))
-                                                                                                                  && matches!(cs.next(), Some('E' | 'e'))
-                                                                                                                  && matches!(cs.next(), Some('Y' | 'y'))
-                                                                                                                  && matches!(cs.next(), Some('S' | 's')) {
+                                                                                                            Some(b'F' | b'f') => {
+                                                                                                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                                                                                                  && matches!(cs.next(), Some(b'L' | b'l'))
+                                                                                                                  && matches!(cs.next(), Some(b'T' | b't'))
+                                                                                                                  && matches!(cs.next(), Some(b'E' | b'e'))
+                                                                                                                  && matches!(cs.next(), Some(b'R' | b'r'))
+                                                                                                                  && matches!(cs.next(), Some(b'_'))
+                                                                                                                  && matches!(cs.next(), Some(b'K' | b'k'))
+                                                                                                                  && matches!(cs.next(), Some(b'E' | b'e'))
+                                                                                                                  && matches!(cs.next(), Some(b'Y' | b'y'))
+                                                                                                                  && matches!(cs.next(), Some(b'S' | b's')) {
                                                                                                                     Keyword::JSON_OBJECT_FILTER_KEYS
                                                                                                                 } else {
                                                                                                                     Keyword::NOT_A_KEYWORD
                                                                                                                 }
                                                                                                             }
-                                                                                                            Some('T' | 't') => {
-                                                                                                                if matches!(cs.next(), Some('O' | 'o'))
-                                                                                                                  && matches!(cs.next(), Some('_'))
-                                                                                                                  && matches!(cs.next(), Some('A' | 'a'))
-                                                                                                                  && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                                  && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                                  && matches!(cs.next(), Some('A' | 'a'))
-                                                                                                                  && matches!(cs.next(), Some('Y' | 'y')) {
+                                                                                                            Some(b'T' | b't') => {
+                                                                                                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                                                                                                  && matches!(cs.next(), Some(b'_'))
+                                                                                                                  && matches!(cs.next(), Some(b'A' | b'a'))
+                                                                                                                  && matches!(cs.next(), Some(b'R' | b'r'))
+                                                                                                                  && matches!(cs.next(), Some(b'R' | b'r'))
+                                                                                                                  && matches!(cs.next(), Some(b'A' | b'a'))
+                                                                                                                  && matches!(cs.next(), Some(b'Y' | b'y')) {
                                                                                                                     Keyword::JSON_OBJECT_TO_ARRAY
                                                                                                                 } else {
                                                                                                                     Keyword::NOT_A_KEYWORD
@@ -4885,182 +4896,179 @@ impl From<&str> for Keyword {
                                                                                                 }
                                                                     }
                                                                     _ => Keyword::NOT_A_KEYWORD,
-                                                                },
-                                                                _ => Keyword::NOT_A_KEYWORD,
-                                                            },
+                                                                }
+                                                            }
                                                             _ => Keyword::NOT_A_KEYWORD,
                                                         },
                                                         _ => Keyword::NOT_A_KEYWORD,
                                                     },
-                                                    Some('V' | 'v') => {
-                                                        if matches!(cs.next(), Some('E' | 'e'))
-                                                            && matches!(cs.next(), Some('R' | 'r'))
-                                                            && matches!(cs.next(), Some('L' | 'l'))
-                                                            && matches!(cs.next(), Some('A' | 'a'))
-                                                            && matches!(cs.next(), Some('P' | 'p'))
-                                                            && matches!(cs.next(), Some('S' | 's'))
-                                                        {
-                                                            Keyword::JSON_OVERLAPS
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
                                                     _ => Keyword::NOT_A_KEYWORD,
+                                                },
+                                                Some(b'V' | b'v') => {
+                                                    if matches!(cs.next(), Some(b'E' | b'e'))
+                                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                                        && matches!(cs.next(), Some(b'L' | b'l'))
+                                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                                        && matches!(cs.next(), Some(b'P' | b'p'))
+                                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                                    {
+                                                        Keyword::JSON_OVERLAPS
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
+                                                    }
                                                 }
+                                                _ => Keyword::NOT_A_KEYWORD,
                                             }
-                                            Some('P' | 'p') => {
-                                                if matches!(cs.next(), Some('R' | 'r'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('T' | 't'))
-                                                    && matches!(cs.next(), Some('T' | 't'))
-                                                    && matches!(cs.next(), Some('Y' | 'y'))
+                                        }
+                                        Some(b'P' | b'p') => {
+                                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                                && matches!(cs.next(), Some(b'Y' | b'y'))
+                                            {
+                                                Keyword::JSON_PRETTY
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
+                                            }
+                                        }
+                                        Some(b'Q' | b'q') => match cs.next() {
+                                            Some(b'U' | b'u') => match cs.next() {
+                                                Some(b'E' | b'e') => {
+                                                    if matches!(cs.next(), Some(b'R' | b'r'))
+                                                        && matches!(cs.next(), Some(b'Y' | b'y'))
+                                                    {
+                                                        Keyword::JSON_QUERY
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
+                                                    }
+                                                }
+                                                Some(b'O' | b'o') => {
+                                                    if matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    {
+                                                        Keyword::JSON_QUOTE
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
+                                                    }
+                                                }
+                                                _ => Keyword::NOT_A_KEYWORD,
+                                            },
+                                            _ => Keyword::NOT_A_KEYWORD,
+                                        },
+                                        Some(b'R' | b'r') => match cs.next() {
+                                            Some(b'E' | b'e') => match cs.next() {
+                                                Some(b'M' | b'm') => {
+                                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                                        && matches!(cs.next(), Some(b'V' | b'v'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    {
+                                                        Keyword::JSON_REMOVE
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
+                                                    }
+                                                }
+                                                Some(b'P' | b'p') => {
+                                                    if matches!(cs.next(), Some(b'L' | b'l'))
+                                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                                        && matches!(cs.next(), Some(b'C' | b'c'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    {
+                                                        Keyword::JSON_REPLACE
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
+                                                    }
+                                                }
+                                                _ => Keyword::NOT_A_KEYWORD,
+                                            },
+                                            _ => Keyword::NOT_A_KEYWORD,
+                                        },
+                                        Some(b'S' | b's') => match cs.next() {
+                                            Some(b'C' | b'c') => {
+                                                if matches!(cs.next(), Some(b'H' | b'h'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'M' | b'm'))
+                                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                                    && matches!(cs.next(), Some(b'_'))
+                                                    && matches!(cs.next(), Some(b'V' | b'v'))
+                                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                                    && matches!(cs.next(), Some(b'D' | b'd'))
                                                 {
-                                                    Keyword::JSON_PRETTY
+                                                    Keyword::JSON_SCHEMA_VALID
                                                 } else {
                                                     Keyword::NOT_A_KEYWORD
                                                 }
                                             }
-                                            Some('Q' | 'q') => match cs.next() {
-                                                Some('U' | 'u') => match cs.next() {
-                                                    Some('E' | 'e') => {
-                                                        if matches!(cs.next(), Some('R' | 'r'))
-                                                            && matches!(cs.next(), Some('Y' | 'y'))
-                                                        {
-                                                            Keyword::JSON_QUERY
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    Some('O' | 'o') => {
-                                                        if matches!(cs.next(), Some('T' | 't'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
-                                                        {
-                                                            Keyword::JSON_QUOTE
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                },
-                                                _ => Keyword::NOT_A_KEYWORD,
-                                            },
-                                            Some('R' | 'r') => match cs.next() {
-                                                Some('E' | 'e') => match cs.next() {
-                                                    Some('M' | 'm') => {
-                                                        if matches!(cs.next(), Some('O' | 'o'))
-                                                            && matches!(cs.next(), Some('V' | 'v'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
-                                                        {
-                                                            Keyword::JSON_REMOVE
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    Some('P' | 'p') => {
-                                                        if matches!(cs.next(), Some('L' | 'l'))
-                                                            && matches!(cs.next(), Some('A' | 'a'))
-                                                            && matches!(cs.next(), Some('C' | 'c'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
-                                                        {
-                                                            Keyword::JSON_REPLACE
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                },
-                                                _ => Keyword::NOT_A_KEYWORD,
-                                            },
-                                            Some('S' | 's') => match cs.next() {
-                                                Some('C' | 'c') => {
-                                                    if matches!(cs.next(), Some('H' | 'h'))
-                                                        && matches!(cs.next(), Some('E' | 'e'))
-                                                        && matches!(cs.next(), Some('M' | 'm'))
-                                                        && matches!(cs.next(), Some('A' | 'a'))
-                                                        && matches!(cs.next(), Some('_'))
-                                                        && matches!(cs.next(), Some('V' | 'v'))
-                                                        && matches!(cs.next(), Some('A' | 'a'))
-                                                        && matches!(cs.next(), Some('L' | 'l'))
-                                                        && matches!(cs.next(), Some('I' | 'i'))
-                                                        && matches!(cs.next(), Some('D' | 'd'))
+                                            Some(b'E' | b'e') => match cs.next() {
+                                                Some(b'A' | b'a') => {
+                                                    if matches!(cs.next(), Some(b'R' | b'r'))
+                                                        && matches!(cs.next(), Some(b'C' | b'c'))
+                                                        && matches!(cs.next(), Some(b'H' | b'h'))
                                                     {
-                                                        Keyword::JSON_SCHEMA_VALID
+                                                        Keyword::JSON_SEARCH
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
                                                     }
                                                 }
-                                                Some('E' | 'e') => match cs.next() {
-                                                    Some('A' | 'a') => {
-                                                        if matches!(cs.next(), Some('R' | 'r'))
-                                                            && matches!(cs.next(), Some('C' | 'c'))
-                                                            && matches!(cs.next(), Some('H' | 'h'))
-                                                        {
-                                                            Keyword::JSON_SEARCH
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    Some('T' | 't') => Keyword::JSON_SET,
-                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                },
+                                                Some(b'T' | b't') => Keyword::JSON_SET,
                                                 _ => Keyword::NOT_A_KEYWORD,
                                             },
-                                            Some('T' | 't') => match cs.next() {
-                                                Some('A' | 'a') => {
-                                                    if matches!(cs.next(), Some('B' | 'b'))
-                                                        && matches!(cs.next(), Some('L' | 'l'))
-                                                        && matches!(cs.next(), Some('E' | 'e'))
-                                                    {
-                                                        Keyword::JSON_TABLE
-                                                    } else {
-                                                        Keyword::NOT_A_KEYWORD
-                                                    }
-                                                }
-                                                Some('Y' | 'y') => {
-                                                    if matches!(cs.next(), Some('P' | 'p'))
-                                                        && matches!(cs.next(), Some('E' | 'e'))
-                                                    {
-                                                        Keyword::JSON_TYPE
-                                                    } else {
-                                                        Keyword::NOT_A_KEYWORD
-                                                    }
-                                                }
-                                                _ => Keyword::NOT_A_KEYWORD,
-                                            },
-                                            Some('U' | 'u') => {
-                                                if matches!(cs.next(), Some('N' | 'n'))
-                                                    && matches!(cs.next(), Some('Q' | 'q'))
-                                                    && matches!(cs.next(), Some('U' | 'u'))
-                                                    && matches!(cs.next(), Some('O' | 'o'))
-                                                    && matches!(cs.next(), Some('T' | 't'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
+                                            _ => Keyword::NOT_A_KEYWORD,
+                                        },
+                                        Some(b'T' | b't') => match cs.next() {
+                                            Some(b'A' | b'a') => {
+                                                if matches!(cs.next(), Some(b'B' | b'b'))
+                                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                                 {
-                                                    Keyword::JSON_UNQUOTE
+                                                    Keyword::JSON_TABLE
                                                 } else {
                                                     Keyword::NOT_A_KEYWORD
                                                 }
                                             }
-                                            Some('V' | 'v') => match cs.next() {
-                                                Some('A' | 'a') => match cs.next() {
-                                                    Some('L' | 'l') => match cs.next() {
-                                                        Some('I' | 'i') => {
-                                                            if matches!(cs.next(), Some('D' | 'd'))
-                                                            {
-                                                                Keyword::JSON_VALID
-                                                            } else {
-                                                                Keyword::NOT_A_KEYWORD
-                                                            }
+                                            Some(b'Y' | b'y') => {
+                                                if matches!(cs.next(), Some(b'P' | b'p'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                                {
+                                                    Keyword::JSON_TYPE
+                                                } else {
+                                                    Keyword::NOT_A_KEYWORD
+                                                }
+                                            }
+                                            _ => Keyword::NOT_A_KEYWORD,
+                                        },
+                                        Some(b'U' | b'u') => {
+                                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                                && matches!(cs.next(), Some(b'Q' | b'q'))
+                                                && matches!(cs.next(), Some(b'U' | b'u'))
+                                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                            {
+                                                Keyword::JSON_UNQUOTE
+                                            } else {
+                                                Keyword::NOT_A_KEYWORD
+                                            }
+                                        }
+                                        Some(b'V' | b'v') => match cs.next() {
+                                            Some(b'A' | b'a') => match cs.next() {
+                                                Some(b'L' | b'l') => match cs.next() {
+                                                    Some(b'I' | b'i') => {
+                                                        if matches!(cs.next(), Some(b'D' | b'd')) {
+                                                            Keyword::JSON_VALID
+                                                        } else {
+                                                            Keyword::NOT_A_KEYWORD
                                                         }
-                                                        Some('U' | 'u') => {
-                                                            if matches!(cs.next(), Some('E' | 'e'))
-                                                            {
-                                                                Keyword::JSON_VALUE
-                                                            } else {
-                                                                Keyword::NOT_A_KEYWORD
-                                                            }
+                                                    }
+                                                    Some(b'U' | b'u') => {
+                                                        if matches!(cs.next(), Some(b'E' | b'e')) {
+                                                            Keyword::JSON_VALUE
+                                                        } else {
+                                                            Keyword::NOT_A_KEYWORD
                                                         }
-                                                        _ => Keyword::NOT_A_KEYWORD,
-                                                    },
+                                                    }
                                                     _ => Keyword::NOT_A_KEYWORD,
                                                 },
                                                 _ => Keyword::NOT_A_KEYWORD,
@@ -5068,32 +5076,33 @@ impl From<&str> for Keyword {
                                             _ => Keyword::NOT_A_KEYWORD,
                                         },
                                         _ => Keyword::NOT_A_KEYWORD,
-                                    }
-                                }
+                                    },
+                                    _ => Keyword::NOT_A_KEYWORD,
+                                },
                                 _ => Keyword::NOT_A_KEYWORD,
-                            }
+                            },
+                            _ => Keyword::NOT_A_KEYWORD,
                         }
-                        _ => Keyword::NOT_A_KEYWORD,
                     }
+                    _ => Keyword::NOT_A_KEYWORD,
                 }
-                _ => Keyword::NOT_A_KEYWORD,
-            },
-            Some('K' | 'k') => match cs.next() {
-                Some('E' | 'e') => match cs.next() {
-                    Some('Y' | 'y') => match cs.next() {
+            }
+            Some(b'K' | b'k') => match cs.next() {
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'Y' | b'y') => match cs.next() {
                         None => Keyword::KEY,
-                        Some('S' | 's') => Keyword::KEYS,
-                        Some('_') => {
-                            if matches!(cs.next(), Some('B' | 'b'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('K' | 'k'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('Z' | 'z'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'S' | b's') => Keyword::KEYS,
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'B' | b'b'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'K' | b'k'))
+                                && matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'Z' | b'z'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::KEY_BLOCK_SIZE
                             } else {
@@ -5104,8 +5113,9 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => {
-                    if matches!(cs.next(), Some('L' | 'l')) && matches!(cs.next(), Some('L' | 'l'))
+                Some(b'I' | b'i') => {
+                    if matches!(cs.next(), Some(b'L' | b'l'))
+                        && matches!(cs.next(), Some(b'L' | b'l'))
                     {
                         Keyword::KILL
                     } else {
@@ -5114,48 +5124,48 @@ impl From<&str> for Keyword {
                 }
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('L' | 'l') => match cs.next() {
-                Some('A' | 'a') => match cs.next() {
-                    Some('G' | 'g') => Keyword::LAG,
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+            Some(b'L' | b'l') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'G' | b'g') => Keyword::LAG,
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::LANGUAGE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => match cs.next() {
-                        Some('T' | 't') => match cs.next() {
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'T' | b't') => match cs.next() {
                             None => Keyword::LAST,
-                            Some('V' | 'v') => {
-                                if matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
+                            Some(b'V' | b'v') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
                                 {
                                     Keyword::LASTVAL
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('_') => match cs.next() {
-                                Some('D' | 'd') => {
-                                    if matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('Y' | 'y'))
+                            Some(b'_') => match cs.next() {
+                                Some(b'D' | b'd') => {
+                                    if matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'Y' | b'y'))
                                     {
                                         Keyword::LAST_DAY
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('V' | 'v') => {
-                                    if matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('L' | 'l'))
-                                        && matches!(cs.next(), Some('U' | 'u'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
+                                Some(b'V' | b'v') => {
+                                    if matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'L' | b'l'))
+                                        && matches!(cs.next(), Some(b'U' | b'u'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
                                     {
                                         Keyword::LAST_VALUE
                                     } else {
@@ -5170,23 +5180,23 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('C' | 'c') => {
-                    if matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('S' | 's'))
-                        && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'C' | b'c') => {
+                    if matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'S' | b's'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
                     {
                         Keyword::LCASE
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('E' | 'e') => match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('D' | 'd') => match cs.next() {
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'D' | b'd') => match cs.next() {
                             None => Keyword::LEAD,
-                            Some('I' | 'i') => {
-                                if matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('G' | 'g'))
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'G' | b'g'))
                                 {
                                     Keyword::LEADING
                                 } else {
@@ -5195,29 +5205,29 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('S' | 's') => {
-                            if matches!(cs.next(), Some('T' | 't')) {
+                        Some(b'S' | b's') => {
+                            if matches!(cs.next(), Some(b'T' | b't')) {
                                 Keyword::LEAST
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('V' | 'v') => match cs.next() {
-                            Some('E' | 'e') => match cs.next() {
+                        Some(b'V' | b'v') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
                                 None => Keyword::LEAVE,
-                                Some('S' | 's') => Keyword::LEAVES,
+                                Some(b'S' | b's') => Keyword::LEAVES,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('F' | 'f') => match cs.next() {
-                        Some('T' | 't') => match cs.next() {
+                    Some(b'F' | b'f') => match cs.next() {
+                        Some(b'T' | b't') => match cs.next() {
                             None => Keyword::LEFT,
-                            Some('A' | 'a') => {
-                                if matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('G' | 'g'))
+                            Some(b'A' | b'a') => {
+                                if matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'G' | b'g'))
                                 {
                                     Keyword::LEFTARG
                                 } else {
@@ -5228,12 +5238,12 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('N' | 'n') => match cs.next() {
-                        Some('G' | 'g') => match cs.next() {
-                            Some('T' | 't') => match cs.next() {
-                                Some('H' | 'h') => match cs.next() {
+                    Some(b'N' | b'n') => match cs.next() {
+                        Some(b'G' | b'g') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
+                                Some(b'H' | b'h') => match cs.next() {
                                     None => Keyword::LENGTH,
-                                    Some('B' | 'b') => Keyword::LENGTHB,
+                                    Some(b'B' | b'b') => Keyword::LENGTHB,
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
@@ -5242,16 +5252,16 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('S' | 's')) {
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'S' | b's')) {
                             Keyword::LESS
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('V' | 'v') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('L' | 'l'))
+                    Some(b'V' | b'v') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
                         {
                             Keyword::LEVEL
                         } else {
@@ -5260,39 +5270,39 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('K' | 'k') => {
-                        if matches!(cs.next(), Some('E' | 'e')) {
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'K' | b'k') => {
+                        if matches!(cs.next(), Some(b'E' | b'e')) {
                             Keyword::LIKE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('M' | 'm') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'M' | b'm') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::LIMIT
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('N' | 'n') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
-                            Some('A' | 'a') => {
-                                if matches!(cs.next(), Some('R' | 'r')) {
+                    Some(b'N' | b'n') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'A' | b'a') => {
+                                if matches!(cs.next(), Some(b'R' | b'r')) {
                                     Keyword::LINEAR
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('S' | 's') => Keyword::LINES,
+                            Some(b'S' | b's') => Keyword::LINES,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('T' | 't')) {
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'T' | b't')) {
                             Keyword::LIST
                         } else {
                             Keyword::NOT_A_KEYWORD
@@ -5300,16 +5310,16 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('N' | 'n') => Keyword::LN,
-                Some('O' | 'o') => match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('D' | 'd') => match cs.next() {
+                Some(b'N' | b'n') => Keyword::LN,
+                Some(b'O' | b'o') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'D' | b'd') => match cs.next() {
                             None => Keyword::LOAD,
-                            Some('_') => {
-                                if matches!(cs.next(), Some('F' | 'f'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'F' | b'f'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::LOAD_FILE
                                 } else {
@@ -5320,20 +5330,20 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('C' | 'c') => match cs.next() {
-                        Some('A' | 'a') => match cs.next() {
-                            Some('L' | 'l') => match cs.next() {
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'A' | b'a') => match cs.next() {
+                            Some(b'L' | b'l') => match cs.next() {
                                 None => Keyword::LOCAL,
-                                Some('T' | 't') => match cs.next() {
-                                    Some('I' | 'i') => match cs.next() {
-                                        Some('M' | 'm') => match cs.next() {
-                                            Some('E' | 'e') => match cs.next() {
+                                Some(b'T' | b't') => match cs.next() {
+                                    Some(b'I' | b'i') => match cs.next() {
+                                        Some(b'M' | b'm') => match cs.next() {
+                                            Some(b'E' | b'e') => match cs.next() {
                                                 None => Keyword::LOCALTIME,
-                                                Some('S' | 's') => {
-                                                    if matches!(cs.next(), Some('T' | 't'))
-                                                        && matches!(cs.next(), Some('A' | 'a'))
-                                                        && matches!(cs.next(), Some('M' | 'm'))
-                                                        && matches!(cs.next(), Some('P' | 'p'))
+                                                Some(b'S' | b's') => {
+                                                    if matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                                        && matches!(cs.next(), Some(b'M' | b'm'))
+                                                        && matches!(cs.next(), Some(b'P' | b'p'))
                                                     {
                                                         Keyword::LOCALTIMESTAMP
                                                     } else {
@@ -5350,8 +5360,8 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('T' | 't') => {
-                                if matches!(cs.next(), Some('E' | 'e')) {
+                            Some(b'T' | b't') => {
+                                if matches!(cs.next(), Some(b'E' | b'e')) {
                                     Keyword::LOCATE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
@@ -5359,67 +5369,67 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('K' | 'k') => match cs.next() {
+                        Some(b'K' | b'k') => match cs.next() {
                             None => Keyword::LOCK,
-                            Some('E' | 'e') => {
-                                if matches!(cs.next(), Some('D' | 'd')) {
+                            Some(b'E' | b'e') => {
+                                if matches!(cs.next(), Some(b'D' | b'd')) {
                                     Keyword::LOCKED
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('S' | 's') => Keyword::LOCKS,
+                            Some(b'S' | b's') => Keyword::LOCKS,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('G' | 'g') => match cs.next() {
+                    Some(b'G' | b'g') => match cs.next() {
                         None => Keyword::LOG,
-                        Some('1') => {
-                            if matches!(cs.next(), Some('0')) {
+                        Some(b'1') => {
+                            if matches!(cs.next(), Some(b'0')) {
                                 Keyword::LOG10
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('2') => Keyword::LOG2,
-                        Some('F' | 'f') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'2') => Keyword::LOG2,
+                        Some(b'F' | b'f') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::LOGFILE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('N' | 'n')) {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'N' | b'n')) {
                                 Keyword::LOGIN
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('S' | 's') => Keyword::LOGS,
+                        Some(b'S' | b's') => Keyword::LOGS,
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('N' | 'n') => match cs.next() {
-                        Some('G' | 'g') => match cs.next() {
+                    Some(b'N' | b'n') => match cs.next() {
+                        Some(b'G' | b'g') => match cs.next() {
                             None => Keyword::LONG,
-                            Some('B' | 'b') => {
-                                if matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('B' | 'b'))
+                            Some(b'B' | b'b') => {
+                                if matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'B' | b'b'))
                                 {
                                     Keyword::LONGBLOB
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('T' | 't') => {
-                                if matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('X' | 'x'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'T' | b't') => {
+                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'X' | b'x'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::LONGTEXT
                                 } else {
@@ -5430,30 +5440,30 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('O' | 'o') => {
-                        if matches!(cs.next(), Some('P' | 'p')) {
+                    Some(b'O' | b'o') => {
+                        if matches!(cs.next(), Some(b'P' | b'p')) {
                             Keyword::LOOP
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('W' | 'w') => match cs.next() {
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('R' | 'r')) {
+                    Some(b'W' | b'w') => match cs.next() {
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'R' | b'r')) {
                                 Keyword::LOWER
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('_') => {
-                            if matches!(cs.next(), Some('P' | 'p'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('Y' | 'y'))
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'P' | b'p'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'Y' | b'y'))
                             {
                                 Keyword::LOW_PRIORITY
                             } else {
@@ -5464,18 +5474,19 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('P' | 'p') => {
-                    if matches!(cs.next(), Some('A' | 'a')) && matches!(cs.next(), Some('D' | 'd'))
+                Some(b'P' | b'p') => {
+                    if matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'D' | b'd'))
                     {
                         Keyword::LPAD
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('T' | 't') => {
-                    if matches!(cs.next(), Some('R' | 'r'))
-                        && matches!(cs.next(), Some('I' | 'i'))
-                        && matches!(cs.next(), Some('M' | 'm'))
+                Some(b'T' | b't') => {
+                    if matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'I' | b'i'))
+                        && matches!(cs.next(), Some(b'M' | b'm'))
                     {
                         Keyword::LTRIM
                     } else {
@@ -5484,238 +5495,223 @@ impl From<&str> for Keyword {
                 }
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('M' | 'm') => {
+            Some(b'M' | b'm') => {
                 match cs.next() {
-                    Some('A' | 'a') => {
-                        match cs.next() {
-                            Some('K' | 'k') => match cs.next() {
-                                Some('E' | 'e') => match cs.next() {
-                                    Some('D' | 'd') => {
-                                        if matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                        {
-                                            Keyword::MAKEDATE
-                                        } else {
-                                            Keyword::NOT_A_KEYWORD
-                                        }
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'K' | b'k') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
+                                Some(b'D' | b'd') => {
+                                    if matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                    {
+                                        Keyword::MAKEDATE
+                                    } else {
+                                        Keyword::NOT_A_KEYWORD
                                     }
-                                    Some('T' | 't') => {
-                                        if matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('M' | 'm'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                        {
-                                            Keyword::MAKETIME
-                                        } else {
-                                            Keyword::NOT_A_KEYWORD
-                                        }
+                                }
+                                Some(b'T' | b't') => {
+                                    if matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'M' | b'm'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                    {
+                                        Keyword::MAKETIME
+                                    } else {
+                                        Keyword::NOT_A_KEYWORD
                                     }
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                        {
-                                            Keyword::MAKE_SET
-                                        } else {
-                                            Keyword::NOT_A_KEYWORD
-                                        }
+                                }
+                                Some(b'_') => {
+                                    if matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                    {
+                                        Keyword::MAKE_SET
+                                    } else {
+                                        Keyword::NOT_A_KEYWORD
                                     }
-                                    _ => Keyword::NOT_A_KEYWORD,
-                                },
+                                }
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('S' | 's') => match cs.next() {
-                                Some('T' | 't') => match cs.next() {
-                                    Some('E' | 'e') => match cs.next() {
-                                        Some('R' | 'r') => match cs.next() {
-                                            None => Keyword::MASTER,
-                                            Some('_') => match cs.next() {
-                                                Some('C' | 'c') => {
-                                                    if matches!(cs.next(), Some('O' | 'o'))
-                                                        && matches!(cs.next(), Some('N' | 'n'))
-                                                        && matches!(cs.next(), Some('N' | 'n'))
-                                                        && matches!(cs.next(), Some('E' | 'e'))
-                                                        && matches!(cs.next(), Some('C' | 'c'))
-                                                        && matches!(cs.next(), Some('T' | 't'))
-                                                        && matches!(cs.next(), Some('_'))
-                                                        && matches!(cs.next(), Some('R' | 'r'))
-                                                        && matches!(cs.next(), Some('E' | 'e'))
-                                                        && matches!(cs.next(), Some('T' | 't'))
-                                                        && matches!(cs.next(), Some('R' | 'r'))
-                                                        && matches!(cs.next(), Some('Y' | 'y'))
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        Some(b'S' | b's') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
+                                    Some(b'R' | b'r') => match cs.next() {
+                                        None => Keyword::MASTER,
+                                        Some(b'_') => match cs.next() {
+                                            Some(b'C' | b'c') => {
+                                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                                    && matches!(cs.next(), Some(b'_'))
+                                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                                    && matches!(cs.next(), Some(b'Y' | b'y'))
+                                                {
+                                                    Keyword::MASTER_CONNECT_RETRY
+                                                } else {
+                                                    Keyword::NOT_A_KEYWORD
+                                                }
+                                            }
+                                            Some(b'D' | b'd') => {
+                                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                                    && matches!(cs.next(), Some(b'Y' | b'y'))
+                                                {
+                                                    Keyword::MASTER_DELAY
+                                                } else {
+                                                    Keyword::NOT_A_KEYWORD
+                                                }
+                                            }
+                                            Some(b'G' | b'g') => {
+                                                if matches!(cs.next(), Some(b'T' | b't'))
+                                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                                    && matches!(cs.next(), Some(b'D' | b'd'))
+                                                    && matches!(cs.next(), Some(b'_'))
+                                                    && matches!(cs.next(), Some(b'P' | b'p'))
+                                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                                {
+                                                    Keyword::MASTER_GTID_POS
+                                                } else {
+                                                    Keyword::NOT_A_KEYWORD
+                                                }
+                                            }
+                                            Some(b'H' | b'h') => match cs.next() {
+                                                Some(b'E' | b'e') => {
+                                                    if matches!(cs.next(), Some(b'A' | b'a'))
+                                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'B' | b'b'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'_'))
+                                                        && matches!(cs.next(), Some(b'P' | b'p'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                                        && matches!(cs.next(), Some(b'D' | b'd'))
                                                     {
-                                                        Keyword::MASTER_CONNECT_RETRY
+                                                        Keyword::MASTER_HEARTBEAT_PERIOD
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
                                                     }
                                                 }
-                                                Some('D' | 'd') => {
-                                                    if matches!(cs.next(), Some('E' | 'e'))
-                                                        && matches!(cs.next(), Some('L' | 'l'))
-                                                        && matches!(cs.next(), Some('A' | 'a'))
-                                                        && matches!(cs.next(), Some('Y' | 'y'))
+                                                Some(b'O' | b'o') => {
+                                                    if matches!(cs.next(), Some(b'S' | b's'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
                                                     {
-                                                        Keyword::MASTER_DELAY
+                                                        Keyword::MASTER_HOST
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
                                                     }
                                                 }
-                                                Some('G' | 'g') => {
-                                                    if matches!(cs.next(), Some('T' | 't'))
-                                                        && matches!(cs.next(), Some('I' | 'i'))
-                                                        && matches!(cs.next(), Some('D' | 'd'))
-                                                        && matches!(cs.next(), Some('_'))
-                                                        && matches!(cs.next(), Some('P' | 'p'))
-                                                        && matches!(cs.next(), Some('O' | 'o'))
-                                                        && matches!(cs.next(), Some('S' | 's'))
-                                                    {
-                                                        Keyword::MASTER_GTID_POS
-                                                    } else {
-                                                        Keyword::NOT_A_KEYWORD
-                                                    }
-                                                }
-                                                Some('H' | 'h') => match cs.next() {
-                                                    Some('E' | 'e') => {
-                                                        if matches!(cs.next(), Some('A' | 'a'))
-                                                            && matches!(cs.next(), Some('R' | 'r'))
-                                                            && matches!(cs.next(), Some('T' | 't'))
-                                                            && matches!(cs.next(), Some('B' | 'b'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
-                                                            && matches!(cs.next(), Some('A' | 'a'))
-                                                            && matches!(cs.next(), Some('T' | 't'))
-                                                            && matches!(cs.next(), Some('_'))
-                                                            && matches!(cs.next(), Some('P' | 'p'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
-                                                            && matches!(cs.next(), Some('R' | 'r'))
-                                                            && matches!(cs.next(), Some('I' | 'i'))
-                                                            && matches!(cs.next(), Some('O' | 'o'))
-                                                            && matches!(cs.next(), Some('D' | 'd'))
-                                                        {
-                                                            Keyword::MASTER_HEARTBEAT_PERIOD
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    Some('O' | 'o') => {
-                                                        if matches!(cs.next(), Some('S' | 's'))
-                                                            && matches!(cs.next(), Some('T' | 't'))
-                                                        {
-                                                            Keyword::MASTER_HOST
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                },
-                                                Some('L' | 'l') => {
-                                                    match cs.next() {
-                                                        Some('O' | 'o') => {
-                                                            match cs.next() {
-                                                                Some('G' | 'g') => {
-                                                                    match cs.next() {
-                                                                        Some('_') => {
-                                                                            match cs.next() {
-                                                                                                    Some('F' | 'f') => {
-                                                                                                        if matches!(cs.next(), Some('I' | 'i'))
-                                                                                                          && matches!(cs.next(), Some('L' | 'l'))
-                                                                                                          && matches!(cs.next(), Some('E' | 'e')) {
-                                                                                                            Keyword::MASTER_LOG_FILE
-                                                                                                        } else {
-                                                                                                            Keyword::NOT_A_KEYWORD
-                                                                                                        }
-                                                                                                    }
-                                                                                                    Some('P' | 'p') => {
-                                                                                                        if matches!(cs.next(), Some('O' | 'o'))
-                                                                                                          && matches!(cs.next(), Some('S' | 's')) {
-                                                                                                            Keyword::MASTER_LOG_POS
-                                                                                                        } else {
-                                                                                                            Keyword::NOT_A_KEYWORD
-                                                                                                        }
-                                                                                                    }
-                                                                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                                                                }
-                                                                        }
-                                                                        _ => Keyword::NOT_A_KEYWORD,
-                                                                    }
+                                                _ => Keyword::NOT_A_KEYWORD,
+                                            },
+                                            Some(b'L' | b'l') => match cs.next() {
+                                                Some(b'O' | b'o') => match cs.next() {
+                                                    Some(b'G' | b'g') => match cs.next() {
+                                                        Some(b'_') => match cs.next() {
+                                                            Some(b'F' | b'f') => {
+                                                                if matches!(
+                                                                    cs.next(),
+                                                                    Some(b'I' | b'i')
+                                                                ) && matches!(
+                                                                    cs.next(),
+                                                                    Some(b'L' | b'l')
+                                                                ) && matches!(
+                                                                    cs.next(),
+                                                                    Some(b'E' | b'e')
+                                                                ) {
+                                                                    Keyword::MASTER_LOG_FILE
+                                                                } else {
+                                                                    Keyword::NOT_A_KEYWORD
                                                                 }
-                                                                _ => Keyword::NOT_A_KEYWORD,
                                                             }
-                                                        }
+                                                            Some(b'P' | b'p') => {
+                                                                if matches!(
+                                                                    cs.next(),
+                                                                    Some(b'O' | b'o')
+                                                                ) && matches!(
+                                                                    cs.next(),
+                                                                    Some(b'S' | b's')
+                                                                ) {
+                                                                    Keyword::MASTER_LOG_POS
+                                                                } else {
+                                                                    Keyword::NOT_A_KEYWORD
+                                                                }
+                                                            }
+                                                            _ => Keyword::NOT_A_KEYWORD,
+                                                        },
                                                         _ => Keyword::NOT_A_KEYWORD,
-                                                    }
-                                                }
-                                                Some('P' | 'p') => match cs.next() {
-                                                    Some('A' | 'a') => {
-                                                        if matches!(cs.next(), Some('S' | 's'))
-                                                            && matches!(cs.next(), Some('S' | 's'))
-                                                            && matches!(cs.next(), Some('W' | 'w'))
-                                                            && matches!(cs.next(), Some('O' | 'o'))
-                                                            && matches!(cs.next(), Some('R' | 'r'))
-                                                            && matches!(cs.next(), Some('D' | 'd'))
-                                                        {
-                                                            Keyword::MASTER_PASSWORD
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
-                                                    Some('O' | 'o') => {
-                                                        if matches!(cs.next(), Some('R' | 'r'))
-                                                            && matches!(cs.next(), Some('T' | 't'))
-                                                        {
-                                                            Keyword::MASTER_PORT
-                                                        } else {
-                                                            Keyword::NOT_A_KEYWORD
-                                                        }
-                                                    }
+                                                    },
                                                     _ => Keyword::NOT_A_KEYWORD,
                                                 },
-                                                Some('S' | 's') => {
+                                                _ => Keyword::NOT_A_KEYWORD,
+                                            },
+                                            Some(b'P' | b'p') => match cs.next() {
+                                                Some(b'A' | b'a') => {
+                                                    if matches!(cs.next(), Some(b'S' | b's'))
+                                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                                        && matches!(cs.next(), Some(b'W' | b'w'))
+                                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                                        && matches!(cs.next(), Some(b'D' | b'd'))
+                                                    {
+                                                        Keyword::MASTER_PASSWORD
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
+                                                    }
+                                                }
+                                                Some(b'O' | b'o') => {
+                                                    if matches!(cs.next(), Some(b'R' | b'r'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                                    {
+                                                        Keyword::MASTER_PORT
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
+                                                    }
+                                                }
+                                                _ => Keyword::NOT_A_KEYWORD,
+                                            },
+                                            Some(b'S' | b's') => match cs.next() {
+                                                Some(b'E' | b'e') => {
+                                                    if matches!(cs.next(), Some(b'R' | b'r'))
+                                                        && matches!(cs.next(), Some(b'V' | b'v'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                                        && matches!(cs.next(), Some(b'_'))
+                                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                                        && matches!(cs.next(), Some(b'D' | b'd'))
+                                                    {
+                                                        Keyword::MASTER_SERVER_ID
+                                                    } else {
+                                                        Keyword::NOT_A_KEYWORD
+                                                    }
+                                                }
+                                                Some(b'S' | b's') => {
                                                     match cs.next() {
-                                                        Some('E' | 'e') => {
-                                                            if matches!(cs.next(), Some('R' | 'r'))
-                                                                && matches!(
-                                                                    cs.next(),
-                                                                    Some('V' | 'v')
-                                                                )
-                                                                && matches!(
-                                                                    cs.next(),
-                                                                    Some('E' | 'e')
-                                                                )
-                                                                && matches!(
-                                                                    cs.next(),
-                                                                    Some('R' | 'r')
-                                                                )
-                                                                && matches!(cs.next(), Some('_'))
-                                                                && matches!(
-                                                                    cs.next(),
-                                                                    Some('I' | 'i')
-                                                                )
-                                                                && matches!(
-                                                                    cs.next(),
-                                                                    Some('D' | 'd')
-                                                                )
-                                                            {
-                                                                Keyword::MASTER_SERVER_ID
-                                                            } else {
-                                                                Keyword::NOT_A_KEYWORD
-                                                            }
-                                                        }
-                                                        Some('S' | 's') => {
-                                                            match cs.next() {
-                                                                Some('L' | 'l') => {
+                                                        Some(b'L' | b'l') => match cs.next() {
+                                                            None => Keyword::MASTER_SSL,
+                                                            Some(b'_') => match cs.next() {
+                                                                Some(b'C' | b'c') => {
                                                                     match cs.next() {
-                                                                        None => Keyword::MASTER_SSL,
-                                                                        Some('_') => {
-                                                                            match cs.next() {
-                                                                                                    Some('C' | 'c') => {
-                                                                                                        match cs.next() {
-                                                                                                            Some('A' | 'a') => {
+                                                                                                            Some(b'A' | b'a') => {
                                                                                                                 match cs.next() {
                                                                                                                     None => Keyword::MASTER_SSL_CA,
-                                                                                                                    Some('P' | 'p') => {
-                                                                                                                        if matches!(cs.next(), Some('A' | 'a'))
-                                                                                                                          && matches!(cs.next(), Some('T' | 't'))
-                                                                                                                          && matches!(cs.next(), Some('H' | 'h')) {
+                                                                                                                    Some(b'P' | b'p') => {
+                                                                                                                        if matches!(cs.next(), Some(b'A' | b'a'))
+                                                                                                                          && matches!(cs.next(), Some(b'T' | b't'))
+                                                                                                                          && matches!(cs.next(), Some(b'H' | b'h')) {
                                                                                                                             Keyword::MASTER_SSL_CAPATH
                                                                                                                         } else {
                                                                                                                             Keyword::NOT_A_KEYWORD
@@ -5724,33 +5720,33 @@ impl From<&str> for Keyword {
                                                                                                                     _ => Keyword::NOT_A_KEYWORD,
                                                                                                                 }
                                                                                                             }
-                                                                                                            Some('E' | 'e') => {
-                                                                                                                if matches!(cs.next(), Some('R' | 'r'))
-                                                                                                                  && matches!(cs.next(), Some('T' | 't')) {
+                                                                                                            Some(b'E' | b'e') => {
+                                                                                                                if matches!(cs.next(), Some(b'R' | b'r'))
+                                                                                                                  && matches!(cs.next(), Some(b'T' | b't')) {
                                                                                                                     Keyword::MASTER_SSL_CERT
                                                                                                                 } else {
                                                                                                                     Keyword::NOT_A_KEYWORD
                                                                                                                 }
                                                                                                             }
-                                                                                                            Some('I' | 'i') => {
-                                                                                                                if matches!(cs.next(), Some('P' | 'p'))
-                                                                                                                  && matches!(cs.next(), Some('H' | 'h'))
-                                                                                                                  && matches!(cs.next(), Some('E' | 'e'))
-                                                                                                                  && matches!(cs.next(), Some('R' | 'r')) {
+                                                                                                            Some(b'I' | b'i') => {
+                                                                                                                if matches!(cs.next(), Some(b'P' | b'p'))
+                                                                                                                  && matches!(cs.next(), Some(b'H' | b'h'))
+                                                                                                                  && matches!(cs.next(), Some(b'E' | b'e'))
+                                                                                                                  && matches!(cs.next(), Some(b'R' | b'r')) {
                                                                                                                     Keyword::MASTER_SSL_CIPHER
                                                                                                                 } else {
                                                                                                                     Keyword::NOT_A_KEYWORD
                                                                                                                 }
                                                                                                             }
-                                                                                                            Some('R' | 'r') => {
+                                                                                                            Some(b'R' | b'r') => {
                                                                                                                 match cs.next() {
-                                                                                                                    Some('L' | 'l') => {
+                                                                                                                    Some(b'L' | b'l') => {
                                                                                                                         match cs.next() {
                                                                                                                             None => Keyword::MASTER_SSL_CRL,
-                                                                                                                            Some('P' | 'p') => {
-                                                                                                                                if matches!(cs.next(), Some('A' | 'a'))
-                                                                                                                                  && matches!(cs.next(), Some('T' | 't'))
-                                                                                                                                  && matches!(cs.next(), Some('H' | 'h')) {
+                                                                                                                            Some(b'P' | b'p') => {
+                                                                                                                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                                                                                                                  && matches!(cs.next(), Some(b'T' | b't'))
+                                                                                                                                  && matches!(cs.next(), Some(b'H' | b'h')) {
                                                                                                                                     Keyword::MASTER_SSL_CRLPATH
                                                                                                                                 } else {
                                                                                                                                     Keyword::NOT_A_KEYWORD
@@ -5764,75 +5760,110 @@ impl From<&str> for Keyword {
                                                                                                             }
                                                                                                             _ => Keyword::NOT_A_KEYWORD,
                                                                                                         }
-                                                                                                    }
-                                                                                                    Some('K' | 'k') => {
-                                                                                                        if matches!(cs.next(), Some('E' | 'e'))
-                                                                                                          && matches!(cs.next(), Some('Y' | 'y')) {
-                                                                                                            Keyword::MASTER_SSL_KEY
-                                                                                                        } else {
-                                                                                                            Keyword::NOT_A_KEYWORD
-                                                                                                        }
-                                                                                                    }
-                                                                                                    Some('V' | 'v') => {
-                                                                                                        if matches!(cs.next(), Some('E' | 'e'))
-                                                                                                          && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                          && matches!(cs.next(), Some('I' | 'i'))
-                                                                                                          && matches!(cs.next(), Some('F' | 'f'))
-                                                                                                          && matches!(cs.next(), Some('Y' | 'y'))
-                                                                                                          && matches!(cs.next(), Some('_'))
-                                                                                                          && matches!(cs.next(), Some('S' | 's'))
-                                                                                                          && matches!(cs.next(), Some('E' | 'e'))
-                                                                                                          && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                          && matches!(cs.next(), Some('V' | 'v'))
-                                                                                                          && matches!(cs.next(), Some('E' | 'e'))
-                                                                                                          && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                          && matches!(cs.next(), Some('_'))
-                                                                                                          && matches!(cs.next(), Some('C' | 'c'))
-                                                                                                          && matches!(cs.next(), Some('E' | 'e'))
-                                                                                                          && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                          && matches!(cs.next(), Some('T' | 't')) {
-                                                                                                            Keyword::MASTER_SSL_VERIFY_SERVER_CERT
-                                                                                                        } else {
-                                                                                                            Keyword::NOT_A_KEYWORD
-                                                                                                        }
-                                                                                                    }
-                                                                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                                                                }
-                                                                        }
-                                                                        _ => Keyword::NOT_A_KEYWORD,
+                                                                }
+                                                                Some(b'K' | b'k') => {
+                                                                    if matches!(
+                                                                        cs.next(),
+                                                                        Some(b'E' | b'e')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'Y' | b'y')
+                                                                    ) {
+                                                                        Keyword::MASTER_SSL_KEY
+                                                                    } else {
+                                                                        Keyword::NOT_A_KEYWORD
+                                                                    }
+                                                                }
+                                                                Some(b'V' | b'v') => {
+                                                                    if matches!(
+                                                                        cs.next(),
+                                                                        Some(b'E' | b'e')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'R' | b'r')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'I' | b'i')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'F' | b'f')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'Y' | b'y')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'_')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'S' | b's')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'E' | b'e')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'R' | b'r')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'V' | b'v')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'E' | b'e')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'R' | b'r')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'_')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'C' | b'c')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'E' | b'e')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'R' | b'r')
+                                                                    ) && matches!(
+                                                                        cs.next(),
+                                                                        Some(b'T' | b't')
+                                                                    ) {
+                                                                        Keyword::MASTER_SSL_VERIFY_SERVER_CERT
+                                                                    } else {
+                                                                        Keyword::NOT_A_KEYWORD
                                                                     }
                                                                 }
                                                                 _ => Keyword::NOT_A_KEYWORD,
-                                                            }
-                                                        }
+                                                            },
+                                                            _ => Keyword::NOT_A_KEYWORD,
+                                                        },
                                                         _ => Keyword::NOT_A_KEYWORD,
                                                     }
                                                 }
-                                                Some('U' | 'u') => match cs.next() {
-                                                    Some('S' | 's') => match cs.next() {
-                                                        Some('E' | 'e') => match cs.next() {
-                                                            Some('R' | 'r') => Keyword::MASTER_USER,
-                                                            Some('_') => {
-                                                                if matches!(
-                                                                    cs.next(),
-                                                                    Some('G' | 'g')
-                                                                ) && matches!(
-                                                                    cs.next(),
-                                                                    Some('T' | 't')
-                                                                ) && matches!(
-                                                                    cs.next(),
-                                                                    Some('I' | 'i')
-                                                                ) && matches!(
-                                                                    cs.next(),
-                                                                    Some('D' | 'd')
-                                                                ) {
-                                                                    Keyword::MASTER_USE_GTID
-                                                                } else {
-                                                                    Keyword::NOT_A_KEYWORD
-                                                                }
+                                                _ => Keyword::NOT_A_KEYWORD,
+                                            },
+                                            Some(b'U' | b'u') => match cs.next() {
+                                                Some(b'S' | b's') => match cs.next() {
+                                                    Some(b'E' | b'e') => match cs.next() {
+                                                        Some(b'R' | b'r') => Keyword::MASTER_USER,
+                                                        Some(b'_') => {
+                                                            if matches!(
+                                                                cs.next(),
+                                                                Some(b'G' | b'g')
+                                                            ) && matches!(
+                                                                cs.next(),
+                                                                Some(b'T' | b't')
+                                                            ) && matches!(
+                                                                cs.next(),
+                                                                Some(b'I' | b'i')
+                                                            ) && matches!(
+                                                                cs.next(),
+                                                                Some(b'D' | b'd')
+                                                            ) {
+                                                                Keyword::MASTER_USE_GTID
+                                                            } else {
+                                                                Keyword::NOT_A_KEYWORD
                                                             }
-                                                            _ => Keyword::NOT_A_KEYWORD,
-                                                        },
+                                                        }
                                                         _ => Keyword::NOT_A_KEYWORD,
                                                     },
                                                     _ => Keyword::NOT_A_KEYWORD,
@@ -5847,215 +5878,216 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('T' | 't') => match cs.next() {
-                                Some('C' | 'c') => {
-                                    if matches!(cs.next(), Some('H' | 'h')) {
-                                        Keyword::MATCH
-                                    } else {
-                                        Keyword::NOT_A_KEYWORD
-                                    }
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        Some(b'T' | b't') => match cs.next() {
+                            Some(b'C' | b'c') => {
+                                if matches!(cs.next(), Some(b'H' | b'h')) {
+                                    Keyword::MATCH
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
                                 }
-                                Some('E' | 'e') => {
-                                    if matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('L' | 'l'))
-                                        && matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('Z' | 'z'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('D' | 'd'))
+                            }
+                            Some(b'E' | b'e') => {
+                                if matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'Z' | b'z'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'D' | b'd'))
+                                {
+                                    Keyword::MATERIALIZED
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            _ => Keyword::NOT_A_KEYWORD,
+                        },
+                        Some(b'X' | b'x') => match cs.next() {
+                            None => Keyword::MAX,
+                            Some(b'V' | b'v') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                {
+                                    Keyword::MAXVALUE
+                                } else {
+                                    Keyword::NOT_A_KEYWORD
+                                }
+                            }
+                            Some(b'_') => match cs.next() {
+                                Some(b'C' | b'c') => {
+                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'C' | b'c'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'P' | b'p'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'H' | b'h'))
+                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'U' | b'u'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
                                     {
-                                        Keyword::MATERIALIZED
+                                        Keyword::MAX_CONNECTIONS_PER_HOUR
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                _ => Keyword::NOT_A_KEYWORD,
-                            },
-                            Some('X' | 'x') => match cs.next() {
-                                None => Keyword::MAX,
-                                Some('V' | 'v') => {
-                                    if matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('L' | 'l'))
-                                        && matches!(cs.next(), Some('U' | 'u'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
+                                Some(b'Q' | b'q') => {
+                                    if matches!(cs.next(), Some(b'U' | b'u'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'P' | b'p'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'H' | b'h'))
+                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'U' | b'u'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
                                     {
-                                        Keyword::MAXVALUE
+                                        Keyword::MAX_QUERIES_PER_HOUR
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('_') => match cs.next() {
-                                    Some('C' | 'c') => {
-                                        if matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('C' | 'c'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('_'))
-                                            && matches!(cs.next(), Some('P' | 'p'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('_'))
-                                            && matches!(cs.next(), Some('H' | 'h'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('U' | 'u'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
+                                Some(b'R' | b'r') => {
+                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'W' | b'w'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                    {
+                                        Keyword::MAX_ROWS
+                                    } else {
+                                        Keyword::NOT_A_KEYWORD
+                                    }
+                                }
+                                Some(b'S' | b's') => match cs.next() {
+                                    Some(b'I' | b'i') => {
+                                        if matches!(cs.next(), Some(b'Z' | b'z'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
-                                            Keyword::MAX_CONNECTIONS_PER_HOUR
+                                            Keyword::MAX_SIZE
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('Q' | 'q') => {
-                                        if matches!(cs.next(), Some('U' | 'u'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('_'))
-                                            && matches!(cs.next(), Some('P' | 'p'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('_'))
-                                            && matches!(cs.next(), Some('H' | 'h'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('U' | 'u'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
+                                    Some(b'T' | b't') => {
+                                        if matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'_'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
-                                            Keyword::MAX_QUERIES_PER_HOUR
+                                            Keyword::MAX_STATEMENT_TIME
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('R' | 'r') => {
-                                        if matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('W' | 'w'))
-                                            && matches!(cs.next(), Some('S' | 's'))
+                                    _ => Keyword::NOT_A_KEYWORD,
+                                },
+                                Some(b'U' | b'u') => match cs.next() {
+                                    Some(b'P' | b'p') => {
+                                        if matches!(cs.next(), Some(b'D' | b'd'))
+                                            && matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
+                                            && matches!(cs.next(), Some(b'_'))
+                                            && matches!(cs.next(), Some(b'P' | b'p'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'_'))
+                                            && matches!(cs.next(), Some(b'H' | b'h'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'U' | b'u'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
                                         {
-                                            Keyword::MAX_ROWS
+                                            Keyword::MAX_UPDATES_PER_HOUR
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('S' | 's') => match cs.next() {
-                                        Some('I' | 'i') => {
-                                            if matches!(cs.next(), Some('Z' | 'z'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                            {
-                                                Keyword::MAX_SIZE
-                                            } else {
-                                                Keyword::NOT_A_KEYWORD
-                                            }
+                                    Some(b'S' | b's') => {
+                                        if matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'_'))
+                                            && matches!(cs.next(), Some(b'C' | b'c'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'C' | b'c'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
+                                        {
+                                            Keyword::MAX_USER_CONNECTIONS
+                                        } else {
+                                            Keyword::NOT_A_KEYWORD
                                         }
-                                        Some('T' | 't') => {
-                                            if matches!(cs.next(), Some('A' | 'a'))
-                                                && matches!(cs.next(), Some('T' | 't'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('M' | 'm'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('N' | 'n'))
-                                                && matches!(cs.next(), Some('T' | 't'))
-                                                && matches!(cs.next(), Some('_'))
-                                                && matches!(cs.next(), Some('T' | 't'))
-                                                && matches!(cs.next(), Some('I' | 'i'))
-                                                && matches!(cs.next(), Some('M' | 'm'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                            {
-                                                Keyword::MAX_STATEMENT_TIME
-                                            } else {
-                                                Keyword::NOT_A_KEYWORD
-                                            }
-                                        }
-                                        _ => Keyword::NOT_A_KEYWORD,
-                                    },
-                                    Some('U' | 'u') => match cs.next() {
-                                        Some('P' | 'p') => {
-                                            if matches!(cs.next(), Some('D' | 'd'))
-                                                && matches!(cs.next(), Some('A' | 'a'))
-                                                && matches!(cs.next(), Some('T' | 't'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('S' | 's'))
-                                                && matches!(cs.next(), Some('_'))
-                                                && matches!(cs.next(), Some('P' | 'p'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('R' | 'r'))
-                                                && matches!(cs.next(), Some('_'))
-                                                && matches!(cs.next(), Some('H' | 'h'))
-                                                && matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('U' | 'u'))
-                                                && matches!(cs.next(), Some('R' | 'r'))
-                                            {
-                                                Keyword::MAX_UPDATES_PER_HOUR
-                                            } else {
-                                                Keyword::NOT_A_KEYWORD
-                                            }
-                                        }
-                                        Some('S' | 's') => {
-                                            if matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('R' | 'r'))
-                                                && matches!(cs.next(), Some('_'))
-                                                && matches!(cs.next(), Some('C' | 'c'))
-                                                && matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('N' | 'n'))
-                                                && matches!(cs.next(), Some('N' | 'n'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('C' | 'c'))
-                                                && matches!(cs.next(), Some('T' | 't'))
-                                                && matches!(cs.next(), Some('I' | 'i'))
-                                                && matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('N' | 'n'))
-                                                && matches!(cs.next(), Some('S' | 's'))
-                                            {
-                                                Keyword::MAX_USER_CONNECTIONS
-                                            } else {
-                                                Keyword::NOT_A_KEYWORD
-                                            }
-                                        }
-                                        _ => Keyword::NOT_A_KEYWORD,
-                                    },
+                                    }
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
-                        }
-                    }
-                    Some('E' | 'e') => match cs.next() {
-                        Some('D' | 'd') => match cs.next() {
-                            Some('I' | 'i') => match cs.next() {
-                                Some('U' | 'u') => match cs.next() {
-                                    Some('M' | 'm') => match cs.next() {
+                        },
+                        _ => Keyword::NOT_A_KEYWORD,
+                    },
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'D' | b'd') => match cs.next() {
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'U' | b'u') => match cs.next() {
+                                    Some(b'M' | b'm') => match cs.next() {
                                         None => Keyword::MEDIUM,
-                                        Some('B' | 'b') => {
-                                            if matches!(cs.next(), Some('L' | 'l'))
-                                                && matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('B' | 'b'))
+                                        Some(b'B' | b'b') => {
+                                            if matches!(cs.next(), Some(b'L' | b'l'))
+                                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'B' | b'b'))
                                             {
                                                 Keyword::MEDIUMBLOB
                                             } else {
                                                 Keyword::NOT_A_KEYWORD
                                             }
                                         }
-                                        Some('I' | 'i') => {
-                                            if matches!(cs.next(), Some('N' | 'n'))
-                                                && matches!(cs.next(), Some('T' | 't'))
+                                        Some(b'I' | b'i') => {
+                                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
                                             {
                                                 Keyword::MEDIUMINT
                                             } else {
                                                 Keyword::NOT_A_KEYWORD
                                             }
                                         }
-                                        Some('T' | 't') => {
-                                            if matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('X' | 'x'))
-                                                && matches!(cs.next(), Some('T' | 't'))
+                                        Some(b'T' | b't') => {
+                                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'X' | b'x'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
                                             {
                                                 Keyword::MEDIUMTEXT
                                             } else {
@@ -6070,19 +6102,19 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('M' | 'm') => match cs.next() {
-                            Some('B' | 'b') => {
-                                if matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
+                        Some(b'M' | b'm') => match cs.next() {
+                            Some(b'B' | b'b') => {
+                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
                                 {
                                     Keyword::MEMBER
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('O' | 'o') => {
-                                if matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('Y' | 'y'))
+                            Some(b'O' | b'o') => {
+                                if matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'Y' | b'y'))
                                 {
                                     Keyword::MEMORY
                                 } else {
@@ -6091,27 +6123,27 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('R' | 'r') => match cs.next() {
-                            Some('G' | 'g') => match cs.next() {
-                                Some('E' | 'e') => match cs.next() {
+                        Some(b'R' | b'r') => match cs.next() {
+                            Some(b'G' | b'g') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
                                     None => Keyword::MERGE,
-                                    Some('S' | 's') => Keyword::MERGES,
+                                    Some(b'S' | b's') => Keyword::MERGES,
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('S' | 's') => {
-                            if matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('X' | 'x'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'S' | b's') => {
+                            if matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'X' | b'x'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::MESSAGE_TEXT
                             } else {
@@ -6120,30 +6152,30 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('I' | 'i') => match cs.next() {
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'I' | b'i') => match cs.next() {
+                        Some(b'C' | b'c') => {
+                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
                             {
                                 Keyword::MICROSECOND
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('D' | 'd') => match cs.next() {
+                        Some(b'D' | b'd') => match cs.next() {
                             None => Keyword::MID,
-                            Some('D' | 'd') => {
-                                if matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'D' | b'd') => {
+                                if matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::MIDDLEINT
                                 } else {
@@ -6152,48 +6184,48 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('G' | 'g') => {
-                            if matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'G' | b'g') => {
+                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::MIGRATE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('N' | 'n') => match cs.next() {
+                        Some(b'N' | b'n') => match cs.next() {
                             None => Keyword::MIN,
-                            Some('U' | 'u') => match cs.next() {
-                                Some('S' | 's') => Keyword::MINUS,
-                                Some('T' | 't') => match cs.next() {
-                                    Some('E' | 'e') => match cs.next() {
+                            Some(b'U' | b'u') => match cs.next() {
+                                Some(b'S' | b's') => Keyword::MINUS,
+                                Some(b'T' | b't') => match cs.next() {
+                                    Some(b'E' | b'e') => match cs.next() {
                                         None => Keyword::MINUTE,
-                                        Some('_') => match cs.next() {
-                                            Some('M' | 'm') => {
-                                                if matches!(cs.next(), Some('I' | 'i'))
-                                                    && matches!(cs.next(), Some('C' | 'c'))
-                                                    && matches!(cs.next(), Some('R' | 'r'))
-                                                    && matches!(cs.next(), Some('O' | 'o'))
-                                                    && matches!(cs.next(), Some('S' | 's'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('C' | 'c'))
-                                                    && matches!(cs.next(), Some('O' | 'o'))
-                                                    && matches!(cs.next(), Some('N' | 'n'))
-                                                    && matches!(cs.next(), Some('D' | 'd'))
+                                        Some(b'_') => match cs.next() {
+                                            Some(b'M' | b'm') => {
+                                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                                    && matches!(cs.next(), Some(b'D' | b'd'))
                                                 {
                                                     Keyword::MINUTE_MICROSECOND
                                                 } else {
                                                     Keyword::NOT_A_KEYWORD
                                                 }
                                             }
-                                            Some('S' | 's') => {
-                                                if matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('C' | 'c'))
-                                                    && matches!(cs.next(), Some('O' | 'o'))
-                                                    && matches!(cs.next(), Some('N' | 'n'))
-                                                    && matches!(cs.next(), Some('D' | 'd'))
+                                            Some(b'S' | b's') => {
+                                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                                    && matches!(cs.next(), Some(b'D' | b'd'))
                                                 {
                                                     Keyword::MINUTE_SECOND
                                                 } else {
@@ -6208,22 +6240,22 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('V' | 'v') => {
-                                if matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'V' | b'v') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::MINVALUE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('_') => {
-                                if matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('W' | 'w'))
-                                    && matches!(cs.next(), Some('S' | 's'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'W' | b'w'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
                                 {
                                     Keyword::MIN_ROWS
                                 } else {
@@ -6234,46 +6266,46 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('O' | 'o') => match cs.next() {
-                        Some('D' | 'd') => match cs.next() {
+                    Some(b'O' | b'o') => match cs.next() {
+                        Some(b'D' | b'd') => match cs.next() {
                             None => Keyword::MOD,
-                            Some('E' | 'e') => Keyword::MODE,
-                            Some('I' | 'i') => match cs.next() {
-                                Some('F' | 'f') => match cs.next() {
-                                    Some('I' | 'i') => {
-                                        if matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('S' | 's'))
+                            Some(b'E' | b'e') => Keyword::MODE,
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'F' | b'f') => match cs.next() {
+                                    Some(b'I' | b'i') => {
+                                        if matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
                                         {
                                             Keyword::MODIFIES
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('Y' | 'y') => Keyword::MODIFY,
+                                    Some(b'Y' | b'y') => Keyword::MODIFY,
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('N' | 'n') => match cs.next() {
-                            Some('I' | 'i') => {
-                                if matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
+                        Some(b'N' | b'n') => match cs.next() {
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
                                 {
                                     Keyword::MONITOR
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('T' | 't') => match cs.next() {
-                                Some('H' | 'h') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
+                                Some(b'H' | b'h') => match cs.next() {
                                     None => Keyword::MONTH,
-                                    Some('N' | 'n') => {
-                                        if matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('M' | 'm'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                                    Some(b'N' | b'n') => {
+                                        if matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::MONTHNAME
                                         } else {
@@ -6288,27 +6320,27 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('U' | 'u') => {
-                        if matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('X' | 'x'))
+                    Some(b'U' | b'u') => {
+                        if matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'X' | b'x'))
                         {
                             Keyword::MUTEX
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('Y' | 'y') => match cs.next() {
-                        Some('S' | 's') => match cs.next() {
-                            Some('Q' | 'q') => match cs.next() {
-                                Some('L' | 'l') => match cs.next() {
+                    Some(b'Y' | b'y') => match cs.next() {
+                        Some(b'S' | b's') => match cs.next() {
+                            Some(b'Q' | b'q') => match cs.next() {
+                                Some(b'L' | b'l') => match cs.next() {
                                     None => Keyword::MYSQL,
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
+                                    Some(b'_') => {
+                                        if matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
                                         {
                                             Keyword::MYSQL_ERRNO
                                         } else {
@@ -6326,42 +6358,42 @@ impl From<&str> for Keyword {
                     _ => Keyword::NOT_A_KEYWORD,
                 }
             }
-            Some('N' | 'n') => match cs.next() {
-                Some('A' | 'a') => match cs.next() {
-                    Some('M' | 'm') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
+            Some(b'N' | b'n') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'M' | b'm') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
                             None => Keyword::NAME,
-                            Some('S' | 's') => Keyword::NAMES,
+                            Some(b'S' | b's') => Keyword::NAMES,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => match cs.next() {
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('L' | 'l'))
+                    Some(b'T' | b't') => match cs.next() {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
                             {
                                 Keyword::NATIONAL
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('U' | 'u') => match cs.next() {
-                            Some('R' | 'r') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('L' | 'l') => match cs.next() {
+                        Some(b'U' | b'u') => match cs.next() {
+                            Some(b'R' | b'r') => match cs.next() {
+                                Some(b'A' | b'a') => match cs.next() {
+                                    Some(b'L' | b'l') => match cs.next() {
                                         None => Keyword::NATURAL,
-                                        Some('_') => {
-                                            if matches!(cs.next(), Some('S' | 's'))
-                                                && matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('R' | 'r'))
-                                                && matches!(cs.next(), Some('T' | 't'))
-                                                && matches!(cs.next(), Some('_'))
-                                                && matches!(cs.next(), Some('K' | 'k'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('Y' | 'y'))
+                                        Some(b'_') => {
+                                            if matches!(cs.next(), Some(b'S' | b's'))
+                                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                                && matches!(cs.next(), Some(b'_'))
+                                                && matches!(cs.next(), Some(b'K' | b'k'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'Y' | b'y'))
                                             {
                                                 Keyword::NATURAL_SORT_KEY
                                             } else {
@@ -6380,54 +6412,54 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('C' | 'c') => {
-                    if matches!(cs.next(), Some('H' | 'h'))
-                        && matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('R' | 'r'))
+                Some(b'C' | b'c') => {
+                    if matches!(cs.next(), Some(b'H' | b'h'))
+                        && matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'R' | b'r'))
                     {
                         Keyword::NCHAR
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('E' | 'e') => match cs.next() {
-                    Some('G' | 'g') => {
-                        if matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'G' | b'g') => {
+                        if matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::NEGATOR
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::NESTED
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('V' | 'v') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'V' | b'v') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::NEVER
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('W' | 'w') => Keyword::NEW,
-                    Some('X' | 'x') => match cs.next() {
-                        Some('T' | 't') => match cs.next() {
+                    Some(b'W' | b'w') => Keyword::NEW,
+                    Some(b'X' | b'x') => match cs.next() {
+                        Some(b'T' | b't') => match cs.next() {
                             None => Keyword::NEXT,
-                            Some('V' | 'v') => {
-                                if matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
+                            Some(b'V' | b'v') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
                                 {
                                     Keyword::NEXTVAL
                                 } else {
@@ -6440,50 +6472,50 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('O' | 'o') => match cs.next() {
+                Some(b'O' | b'o') => match cs.next() {
                     None => Keyword::NO,
-                    Some('B' | 'b') => {
-                        if matches!(cs.next(), Some('Y' | 'y'))
-                            && matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'B' | b'b') => {
+                        if matches!(cs.next(), Some(b'Y' | b'y'))
+                            && matches!(cs.next(), Some(b'P' | b'p'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::NOBYPASSRLS
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('C' | 'c') => match cs.next() {
-                        Some('A' | 'a') => {
-                            if matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('H' | 'h'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'A' | b'a') => {
+                            if matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'H' | b'h'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::NOCACHE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('R' | 'r') => match cs.next() {
-                            Some('E' | 'e') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('T' | 't') => match cs.next() {
-                                        Some('E' | 'e') => match cs.next() {
-                                            Some('D' | 'd') => {
-                                                if matches!(cs.next(), Some('B' | 'b')) {
+                        Some(b'R' | b'r') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
+                                Some(b'A' | b'a') => match cs.next() {
+                                    Some(b'T' | b't') => match cs.next() {
+                                        Some(b'E' | b'e') => match cs.next() {
+                                            Some(b'D' | b'd') => {
+                                                if matches!(cs.next(), Some(b'B' | b'b')) {
                                                     Keyword::NOCREATEDB
                                                 } else {
                                                     Keyword::NOT_A_KEYWORD
                                                 }
                                             }
-                                            Some('R' | 'r') => {
-                                                if matches!(cs.next(), Some('O' | 'o'))
-                                                    && matches!(cs.next(), Some('L' | 'l'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
+                                            Some(b'R' | b'r') => {
+                                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                                 {
                                                     Keyword::NOCREATEROLE
                                                 } else {
@@ -6500,10 +6532,10 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('Y' | 'y') => {
-                            if matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'Y' | b'y') => {
+                            if matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::NOCYCLE
                             } else {
@@ -6512,64 +6544,64 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('D' | 'd') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('P' | 'p'))
+                    Some(b'D' | b'd') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'P' | b'p'))
                         {
                             Keyword::NODEGROUP
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('H' | 'h'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'H' | b'h'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::NOINHERIT
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('L' | 'l') => {
-                        if matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'L' | b'l') => {
+                        if matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::NOLOGIN
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('M' | 'm') => match cs.next() {
-                        Some('A' | 'a') => {
-                            if matches!(cs.next(), Some('X' | 'x'))
-                                && matches!(cs.next(), Some('V' | 'v'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('U' | 'u'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'M' | b'm') => match cs.next() {
+                        Some(b'A' | b'a') => {
+                            if matches!(cs.next(), Some(b'X' | b'x'))
+                                && matches!(cs.next(), Some(b'V' | b'v'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'U' | b'u'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::NOMAXVALUE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('V' | 'v'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('U' | 'u'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'V' | b'v'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'U' | b'u'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::NOMINVALUE
                             } else {
@@ -6578,71 +6610,71 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('E' | 'e')) {
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'E' | b'e')) {
                             Keyword::NONE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('R' | 'r') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'R' | b'r') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'P' | b'p'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::NOREPLICATION
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'P' | b'p'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::NOSUPERUSER
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('T' | 't') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
                         None => Keyword::NOT,
-                        Some('F' | 'f') => {
-                            if matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('U' | 'u'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('D' | 'd'))
+                        Some(b'F' | b'f') => {
+                            if matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'U' | b'u'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
                             {
                                 Keyword::NOTFOUND
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('H' | 'h') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('G' | 'g'))
+                        Some(b'H' | b'h') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
                             {
                                 Keyword::NOTHING
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::NOTICE
                             } else {
@@ -6651,11 +6683,11 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('W' | 'w') => match cs.next() {
+                    Some(b'W' | b'w') => match cs.next() {
                         None => Keyword::NOW,
-                        Some('A' | 'a') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'A' | b'a') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::NOWAIT
                             } else {
@@ -6664,31 +6696,31 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('_') => match cs.next() {
-                        Some('W' | 'w') => match cs.next() {
-                            Some('A' | 'a') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'_') => match cs.next() {
+                        Some(b'W' | b'w') => match cs.next() {
+                            Some(b'A' | b'a') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::NO_WAIT
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('R' | 'r') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('_'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('_'))
-                                    && matches!(cs.next(), Some('B' | 'b'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('G' | 'g'))
+                            Some(b'R' | b'r') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'_'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'_'))
+                                    && matches!(cs.next(), Some(b'B' | b'b'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'G' | b'g'))
                                 {
                                     Keyword::NO_WRITE_TO_BINLOG
                                 } else {
@@ -6701,36 +6733,36 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('U' | 'u') => match cs.next() {
-                    Some('L' | 'l') => match cs.next() {
-                        Some('L' | 'l') => match cs.next() {
+                Some(b'U' | b'u') => match cs.next() {
+                    Some(b'L' | b'l') => match cs.next() {
+                        Some(b'L' | b'l') => match cs.next() {
                             None => Keyword::NULL,
-                            Some('I' | 'i') => {
-                                if matches!(cs.next(), Some('F' | 'f')) {
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'F' | b'f')) {
                                     Keyword::NULLIF
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('S' | 's') => Keyword::NULLS,
+                            Some(b'S' | b's') => Keyword::NULLS,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('M' | 'm') => match cs.next() {
-                        Some('B' | 'b') => {
-                            if matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'M' | b'm') => match cs.next() {
+                        Some(b'B' | b'b') => {
+                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
                             {
                                 Keyword::NUMBER
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('C' | 'c'))
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'C' | b'c'))
                             {
                                 Keyword::NUMERIC
                             } else {
@@ -6741,41 +6773,41 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('V' | 'v') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('H' | 'h'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+                Some(b'V' | b'v') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'H' | b'h'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::NVARCHAR
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('L' | 'l') => match cs.next() {
+                    Some(b'L' | b'l') => match cs.next() {
                         None => Keyword::NVL,
-                        Some('2') => Keyword::NVL2,
+                        Some(b'2') => Keyword::NVL2,
                         _ => Keyword::NOT_A_KEYWORD,
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('O' | 'o') => match cs.next() {
-                Some('C' | 'c') => match cs.next() {
-                    Some('T' | 't') => match cs.next() {
+            Some(b'O' | b'o') => match cs.next() {
+                Some(b'C' | b'c') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
                         None => Keyword::OCT,
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('H' | 'h'))
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'H' | b'h'))
                             {
                                 Keyword::OCTET_LENGTH
                             } else {
@@ -6786,12 +6818,12 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('F' | 'f') => match cs.next() {
+                Some(b'F' | b'f') => match cs.next() {
                     None => Keyword::OF,
-                    Some('F' | 'f') => {
-                        if matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'F' | b'f') => {
+                        if matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::OFFSET
                         } else {
@@ -6800,49 +6832,49 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('L' | 'l') => {
-                    if matches!(cs.next(), Some('D' | 'd'))
-                        && matches!(cs.next(), Some('_'))
-                        && matches!(cs.next(), Some('P' | 'p'))
-                        && matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('S' | 's'))
-                        && matches!(cs.next(), Some('S' | 's'))
-                        && matches!(cs.next(), Some('W' | 'w'))
-                        && matches!(cs.next(), Some('O' | 'o'))
-                        && matches!(cs.next(), Some('R' | 'r'))
-                        && matches!(cs.next(), Some('D' | 'd'))
+                Some(b'L' | b'l') => {
+                    if matches!(cs.next(), Some(b'D' | b'd'))
+                        && matches!(cs.next(), Some(b'_'))
+                        && matches!(cs.next(), Some(b'P' | b'p'))
+                        && matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'S' | b's'))
+                        && matches!(cs.next(), Some(b'S' | b's'))
+                        && matches!(cs.next(), Some(b'W' | b'w'))
+                        && matches!(cs.next(), Some(b'O' | b'o'))
+                        && matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'D' | b'd'))
                     {
                         Keyword::OLD_PASSWORD
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('N' | 'n') => match cs.next() {
+                Some(b'N' | b'n') => match cs.next() {
                     None => Keyword::ON,
-                    Some('E' | 'e') => Keyword::ONE,
-                    Some('L' | 'l') => match cs.next() {
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'E' | b'e') => Keyword::ONE,
+                    Some(b'L' | b'l') => match cs.next() {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::ONLINE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('Y' | 'y') => Keyword::ONLY,
+                        Some(b'Y' | b'y') => Keyword::ONLY,
                         _ => Keyword::NOT_A_KEYWORD,
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('P' | 'p') => match cs.next() {
-                    Some('E' | 'e') => match cs.next() {
-                        Some('N' | 'n') => Keyword::OPEN,
-                        Some('R' | 'r') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('R' | 'r'))
+                Some(b'P' | b'p') => match cs.next() {
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'N' | b'n') => Keyword::OPEN,
+                        Some(b'R' | b'r') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
                             {
                                 Keyword::OPERATOR
                             } else {
@@ -6851,21 +6883,21 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => match cs.next() {
-                        Some('I' | 'i') => match cs.next() {
-                            Some('M' | 'm') => match cs.next() {
-                                Some('I' | 'i') => match cs.next() {
-                                    Some('Z' | 'z') => match cs.next() {
-                                        Some('E' | 'e') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
+                        Some(b'I' | b'i') => match cs.next() {
+                            Some(b'M' | b'm') => match cs.next() {
+                                Some(b'I' | b'i') => match cs.next() {
+                                    Some(b'Z' | b'z') => match cs.next() {
+                                        Some(b'E' | b'e') => match cs.next() {
                                             None => Keyword::OPTIMIZE,
-                                            Some('R' | 'r') => match cs.next() {
+                                            Some(b'R' | b'r') => match cs.next() {
                                                 None => Keyword::OPTIMIZER,
-                                                Some('_') => {
-                                                    if matches!(cs.next(), Some('C' | 'c'))
-                                                        && matches!(cs.next(), Some('O' | 'o'))
-                                                        && matches!(cs.next(), Some('S' | 's'))
-                                                        && matches!(cs.next(), Some('T' | 't'))
-                                                        && matches!(cs.next(), Some('S' | 's'))
+                                                Some(b'_') => {
+                                                    if matches!(cs.next(), Some(b'C' | b'c'))
+                                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'S' | b's'))
                                                     {
                                                         Keyword::OPTIMIZER_COSTS
                                                     } else {
@@ -6882,20 +6914,20 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('O' | 'o') => match cs.next() {
-                                Some('N' | 'n') => match cs.next() {
+                            Some(b'O' | b'o') => match cs.next() {
+                                Some(b'N' | b'n') => match cs.next() {
                                     None => Keyword::OPTION,
-                                    Some('A' | 'a') => {
-                                        if matches!(cs.next(), Some('L' | 'l'))
-                                            && matches!(cs.next(), Some('L' | 'l'))
-                                            && matches!(cs.next(), Some('Y' | 'y'))
+                                    Some(b'A' | b'a') => {
+                                        if matches!(cs.next(), Some(b'L' | b'l'))
+                                            && matches!(cs.next(), Some(b'L' | b'l'))
+                                            && matches!(cs.next(), Some(b'Y' | b'y'))
                                         {
                                             Keyword::OPTIONALLY
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('S' | 's') => Keyword::OPTIONS,
+                                    Some(b'S' | b's') => Keyword::OPTIONS,
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
@@ -6906,24 +6938,24 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('R' | 'r') => match cs.next() {
+                Some(b'R' | b'r') => match cs.next() {
                     None => Keyword::OR,
-                    Some('D' | 'd') => match cs.next() {
+                    Some(b'D' | b'd') => match cs.next() {
                         None => Keyword::ORD,
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('R' | 'r')) {
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'R' | b'r')) {
                                 Keyword::ORDER
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('Y' | 'y'))
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'Y' | b'y'))
                             {
                                 Keyword::ORDINALITY
                             } else {
@@ -6934,31 +6966,31 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('T' | 't') => {
-                    if matches!(cs.next(), Some('H' | 'h'))
-                        && matches!(cs.next(), Some('E' | 'e'))
-                        && matches!(cs.next(), Some('R' | 'r'))
-                        && matches!(cs.next(), Some('S' | 's'))
+                Some(b'T' | b't') => {
+                    if matches!(cs.next(), Some(b'H' | b'h'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
+                        && matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'S' | b's'))
                     {
                         Keyword::OTHERS
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('U' | 'u') => match cs.next() {
-                    Some('T' | 't') => match cs.next() {
+                Some(b'U' | b'u') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
                         None => Keyword::OUT,
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('R' | 'r')) {
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'R' | b'r')) {
                                 Keyword::OUTER
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('F' | 'f') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'F' | b'f') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::OUTFILE
                             } else {
@@ -6969,14 +7001,14 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('V' | 'v') => match cs.next() {
-                    Some('E' | 'e') => match cs.next() {
-                        Some('R' | 'r') => match cs.next() {
+                Some(b'V' | b'v') => match cs.next() {
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'R' | b'r') => match cs.next() {
                             None => Keyword::OVER,
-                            Some('L' | 'l') => {
-                                if matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('P' | 'p'))
-                                    && matches!(cs.next(), Some('S' | 's'))
+                            Some(b'L' | b'l') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'P' | b'p'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
                                 {
                                     Keyword::OVERLAPS
                                 } else {
@@ -6989,11 +7021,11 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('W' | 'w') => match cs.next() {
-                    Some('N' | 'n') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
-                            Some('D' | 'd') => Keyword::OWNED,
-                            Some('R' | 'r') => Keyword::OWNER,
+                Some(b'W' | b'w') => match cs.next() {
+                    Some(b'N' | b'n') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'D' | b'd') => Keyword::OWNED,
+                            Some(b'R' | b'r') => Keyword::OWNER,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
@@ -7002,24 +7034,24 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('P' | 'p') => match cs.next() {
-                Some('A' | 'a') => match cs.next() {
-                    Some('C' | 'c') => match cs.next() {
-                        Some('K' | 'k') => match cs.next() {
-                            Some('A' | 'a') => {
-                                if matches!(cs.next(), Some('G' | 'g'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+            Some(b'P' | b'p') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'K' | b'k') => match cs.next() {
+                            Some(b'A' | b'a') => {
+                                if matches!(cs.next(), Some(b'G' | b'g'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::PACKAGE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('_') => {
-                                if matches!(cs.next(), Some('K' | 'k'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('Y' | 'y'))
-                                    && matches!(cs.next(), Some('S' | 's'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'K' | b'k'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'Y' | b'y'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
                                 {
                                     Keyword::PACK_KEYS
                                 } else {
@@ -7030,18 +7062,18 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('G' | 'g') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
+                    Some(b'G' | b'g') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
                             None => Keyword::PAGE,
-                            Some('_') => {
-                                if matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('H' | 'h'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('K' | 'k'))
-                                    && matches!(cs.next(), Some('S' | 's'))
-                                    && matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('M' | 'm'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'C' | b'c'))
+                                    && matches!(cs.next(), Some(b'H' | b'h'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                    && matches!(cs.next(), Some(b'K' | b'k'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'M' | b'm'))
                                 {
                                     Keyword::PAGE_CHECKSUM
                                 } else {
@@ -7052,20 +7084,20 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('R' | 'r') => match cs.next() {
-                        Some('S' | 's') => match cs.next() {
-                            Some('E' | 'e') => match cs.next() {
-                                Some('R' | 'r') => Keyword::PARSER,
-                                Some('_') => {
-                                    if matches!(cs.next(), Some('V' | 'v'))
-                                        && matches!(cs.next(), Some('C' | 'c'))
-                                        && matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('L' | 'l'))
-                                        && matches!(cs.next(), Some('_'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('X' | 'x'))
-                                        && matches!(cs.next(), Some('P' | 'p'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'R' | b'r') => match cs.next() {
+                        Some(b'S' | b's') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
+                                Some(b'R' | b'r') => Keyword::PARSER,
+                                Some(b'_') => {
+                                    if matches!(cs.next(), Some(b'V' | b'v'))
+                                        && matches!(cs.next(), Some(b'C' | b'c'))
+                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'L' | b'l'))
+                                        && matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'X' | b'x'))
+                                        && matches!(cs.next(), Some(b'P' | b'p'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
                                     {
                                         Keyword::PARSE_VCOL_EXPR
                                     } else {
@@ -7076,30 +7108,30 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('T' | 't') => match cs.next() {
-                            Some('I' | 'i') => match cs.next() {
-                                Some('A' | 'a') => {
-                                    if matches!(cs.next(), Some('L' | 'l')) {
+                        Some(b'T' | b't') => match cs.next() {
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'A' | b'a') => {
+                                    if matches!(cs.next(), Some(b'L' | b'l')) {
                                         Keyword::PARTIAL
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('T' | 't') => match cs.next() {
-                                    Some('I' | 'i') => match cs.next() {
-                                        Some('O' | 'o') => match cs.next() {
-                                            Some('N' | 'n') => match cs.next() {
+                                Some(b'T' | b't') => match cs.next() {
+                                    Some(b'I' | b'i') => match cs.next() {
+                                        Some(b'O' | b'o') => match cs.next() {
+                                            Some(b'N' | b'n') => match cs.next() {
                                                 None => Keyword::PARTITION,
-                                                Some('I' | 'i') => {
-                                                    if matches!(cs.next(), Some('N' | 'n'))
-                                                        && matches!(cs.next(), Some('G' | 'g'))
+                                                Some(b'I' | b'i') => {
+                                                    if matches!(cs.next(), Some(b'N' | b'n'))
+                                                        && matches!(cs.next(), Some(b'G' | b'g'))
                                                     {
                                                         Keyword::PARTITIONING
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
                                                     }
                                                 }
-                                                Some('S' | 's') => Keyword::PARTITIONS,
+                                                Some(b'S' | b's') => Keyword::PARTITIONS,
                                                 _ => Keyword::NOT_A_KEYWORD,
                                             },
                                             _ => Keyword::NOT_A_KEYWORD,
@@ -7114,20 +7146,20 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('W' | 'w'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'W' | b'w'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::PASSWORD
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('T' | 't') => {
-                        if matches!(cs.next(), Some('H' | 'h')) {
+                    Some(b'T' | b't') => {
+                        if matches!(cs.next(), Some(b'H' | b'h')) {
                             Keyword::PATH
                         } else {
                             Keyword::NOT_A_KEYWORD
@@ -7135,26 +7167,26 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('E' | 'e') => match cs.next() {
-                    Some('R' | 'r') => match cs.next() {
-                        Some('I' | 'i') => match cs.next() {
-                            Some('O' | 'o') => match cs.next() {
-                                Some('D' | 'd') => match cs.next() {
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'R' | b'r') => match cs.next() {
+                        Some(b'I' | b'i') => match cs.next() {
+                            Some(b'O' | b'o') => match cs.next() {
+                                Some(b'D' | b'd') => match cs.next() {
                                     None => Keyword::PERIOD,
-                                    Some('_') => match cs.next() {
-                                        Some('A' | 'a') => {
-                                            if matches!(cs.next(), Some('D' | 'd'))
-                                                && matches!(cs.next(), Some('D' | 'd'))
+                                    Some(b'_') => match cs.next() {
+                                        Some(b'A' | b'a') => {
+                                            if matches!(cs.next(), Some(b'D' | b'd'))
+                                                && matches!(cs.next(), Some(b'D' | b'd'))
                                             {
                                                 Keyword::PERIOD_ADD
                                             } else {
                                                 Keyword::NOT_A_KEYWORD
                                             }
                                         }
-                                        Some('D' | 'd') => {
-                                            if matches!(cs.next(), Some('I' | 'i'))
-                                                && matches!(cs.next(), Some('F' | 'f'))
-                                                && matches!(cs.next(), Some('F' | 'f'))
+                                        Some(b'D' | b'd') => {
+                                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                                && matches!(cs.next(), Some(b'F' | b'f'))
+                                                && matches!(cs.next(), Some(b'F' | b'f'))
                                             {
                                                 Keyword::PERIOD_DIFF
                                             } else {
@@ -7169,13 +7201,13 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('S' | 's') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'S' | b's') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::PERSISTENT
                             } else {
@@ -7186,35 +7218,35 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('H' | 'h') => {
-                    if matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('S' | 's'))
-                        && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'H' | b'h') => {
+                    if matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'S' | b's'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
                     {
                         Keyword::PHASE
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('I' | 'i') => Keyword::PI,
-                Some('L' | 'l') => match cs.next() {
-                    Some('P' | 'p') => {
-                        if matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('Q' | 'q'))
-                            && matches!(cs.next(), Some('L' | 'l'))
+                Some(b'I' | b'i') => Keyword::PI,
+                Some(b'L' | b'l') => match cs.next() {
+                    Some(b'P' | b'p') => {
+                        if matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'Q' | b'q'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
                         {
                             Keyword::PLPGSQL
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('U' | 'u') => match cs.next() {
-                        Some('G' | 'g') => match cs.next() {
-                            Some('I' | 'i') => match cs.next() {
-                                Some('N' | 'n') => match cs.next() {
+                    Some(b'U' | b'u') => match cs.next() {
+                        Some(b'G' | b'g') => match cs.next() {
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'N' | b'n') => match cs.next() {
                                     None => Keyword::PLUGIN,
-                                    Some('S' | 's') => Keyword::PLUGINS,
+                                    Some(b'S' | b's') => Keyword::PLUGINS,
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
@@ -7225,13 +7257,13 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('O' | 'o') => match cs.next() {
-                    Some('R' | 'r') => match cs.next() {
-                        Some('T' | 't') => match cs.next() {
+                Some(b'O' | b'o') => match cs.next() {
+                    Some(b'R' | b'r') => match cs.next() {
+                        Some(b'T' | b't') => match cs.next() {
                             None => Keyword::PORT,
-                            Some('I' | 'i') => {
-                                if matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
                                 {
                                     Keyword::PORTION
                                 } else {
@@ -7242,22 +7274,22 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::POSITION
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('W' | 'w') => match cs.next() {
+                    Some(b'W' | b'w') => match cs.next() {
                         None => Keyword::POW,
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('R' | 'r')) {
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'R' | b'r')) {
                                 Keyword::POWER
                             } else {
                                 Keyword::NOT_A_KEYWORD
@@ -7267,21 +7299,21 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('R' | 'r') => match cs.next() {
-                    Some('E' | 'e') => match cs.next() {
-                        Some('C' | 'c') => match cs.next() {
-                            Some('E' | 'e') => match cs.next() {
-                                Some('D' | 'd') => match cs.next() {
-                                    Some('E' | 'e') => {
-                                        if matches!(cs.next(), Some('S' | 's')) {
+                Some(b'R' | b'r') => match cs.next() {
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'C' | b'c') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
+                                Some(b'D' | b'd') => match cs.next() {
+                                    Some(b'E' | b'e') => {
+                                        if matches!(cs.next(), Some(b'S' | b's')) {
                                             Keyword::PRECEDES
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('I' | 'i') => {
-                                        if matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('G' | 'g'))
+                                    Some(b'I' | b'i') => {
+                                        if matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'G' | b'g'))
                                         {
                                             Keyword::PRECEDING
                                         } else {
@@ -7292,11 +7324,11 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('I' | 'i') => {
-                                if matches!(cs.next(), Some('S' | 's'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'S' | b's'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
                                 {
                                     Keyword::PRECISION
                                 } else {
@@ -7305,33 +7337,33 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('P' | 'p') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'P' | b'p') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::PREPARE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('S' | 's') => {
-                            if matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('V' | 'v'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'S' | b's') => {
+                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'V' | b'v'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::PRESERVE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('V' | 'v') => match cs.next() {
+                        Some(b'V' | b'v') => match cs.next() {
                             None => Keyword::PREV,
-                            Some('I' | 'i') => {
-                                if matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('S' | 's'))
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
                                 {
                                     Keyword::PREVIOUS
                                 } else {
@@ -7342,24 +7374,24 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('I' | 'i') => match cs.next() {
-                        Some('M' | 'm') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('Y' | 'y'))
+                    Some(b'I' | b'i') => match cs.next() {
+                        Some(b'M' | b'm') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'Y' | b'y'))
                             {
                                 Keyword::PRIMARY
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('V' | 'v') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('S' | 's'))
+                        Some(b'V' | b'v') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
                             {
                                 Keyword::PRIVILEGES
                             } else {
@@ -7368,26 +7400,26 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('O' | 'o') => match cs.next() {
-                        Some('C' | 'c') => match cs.next() {
-                            Some('E' | 'e') => match cs.next() {
-                                Some('D' | 'd') => {
-                                    if matches!(cs.next(), Some('U' | 'u'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'O' | b'o') => match cs.next() {
+                        Some(b'C' | b'c') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
+                                Some(b'D' | b'd') => {
+                                    if matches!(cs.next(), Some(b'U' | b'u'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
                                     {
                                         Keyword::PROCEDURE
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('S' | 's') => match cs.next() {
-                                    Some('S' | 's') => match cs.next() {
+                                Some(b'S' | b's') => match cs.next() {
+                                    Some(b'S' | b's') => match cs.next() {
                                         None => Keyword::PROCESS,
-                                        Some('L' | 'l') => {
-                                            if matches!(cs.next(), Some('I' | 'i'))
-                                                && matches!(cs.next(), Some('S' | 's'))
-                                                && matches!(cs.next(), Some('T' | 't'))
+                                        Some(b'L' | b'l') => {
+                                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                                && matches!(cs.next(), Some(b'S' | b's'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
                                             {
                                                 Keyword::PROCESSLIST
                                             } else {
@@ -7402,12 +7434,12 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('F' | 'f') => match cs.next() {
-                            Some('I' | 'i') => match cs.next() {
-                                Some('L' | 'l') => match cs.next() {
-                                    Some('E' | 'e') => match cs.next() {
+                        Some(b'F' | b'f') => match cs.next() {
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'L' | b'l') => match cs.next() {
+                                    Some(b'E' | b'e') => match cs.next() {
                                         None => Keyword::PROFILE,
-                                        Some('S' | 's') => Keyword::PROFILES,
+                                        Some(b'S' | b's') => Keyword::PROFILES,
                                         _ => Keyword::NOT_A_KEYWORD,
                                     },
                                     _ => Keyword::NOT_A_KEYWORD,
@@ -7416,8 +7448,8 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('X' | 'x') => {
-                            if matches!(cs.next(), Some('Y' | 'y')) {
+                        Some(b'X' | b'x') => {
+                            if matches!(cs.next(), Some(b'Y' | b'y')) {
                                 Keyword::PROXY
                             } else {
                                 Keyword::NOT_A_KEYWORD
@@ -7427,10 +7459,10 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('U' | 'u') => {
-                    if matches!(cs.next(), Some('R' | 'r'))
-                        && matches!(cs.next(), Some('G' | 'g'))
-                        && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'U' | b'u') => {
+                    if matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'G' | b'g'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
                     {
                         Keyword::PURGE
                     } else {
@@ -7439,40 +7471,40 @@ impl From<&str> for Keyword {
                 }
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('Q' | 'q') => match cs.next() {
-                Some('U' | 'u') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+            Some(b'Q' | b'q') => match cs.next() {
+                Some(b'U' | b'u') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::QUARTER
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('E' | 'e') => {
-                        if matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('Y' | 'y'))
+                    Some(b'E' | b'e') => {
+                        if matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'Y' | b'y'))
                         {
                             Keyword::QUERY
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('K' | 'k'))
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'K' | b'k'))
                         {
                             Keyword::QUICK
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('O' | 'o') => {
-                        if matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'O' | b'o') => {
+                        if matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::QUOTE
                         } else {
@@ -7483,32 +7515,32 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('R' | 'r') => match cs.next() {
-                Some('A' | 'a') => match cs.next() {
-                    Some('D' | 'd') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('S' | 's'))
+            Some(b'R' | b'r') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'D' | b'd') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::RADIANS
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::RAISE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('N' | 'n') => match cs.next() {
-                        Some('D' | 'd') => Keyword::RAND,
-                        Some('G' | 'g') => {
-                            if matches!(cs.next(), Some('E' | 'e')) {
+                    Some(b'N' | b'n') => match cs.next() {
+                        Some(b'D' | b'd') => Keyword::RAND,
+                        Some(b'G' | b'g') => {
+                            if matches!(cs.next(), Some(b'E' | b'e')) {
                                 Keyword::RANGE
                             } else {
                                 Keyword::NOT_A_KEYWORD
@@ -7516,30 +7548,30 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('W' | 'w') => Keyword::RAW,
+                    Some(b'W' | b'w') => Keyword::RAW,
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('E' | 'e') => match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('D' | 'd') => match cs.next() {
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'D' | b'd') => match cs.next() {
                             None => Keyword::READ,
-                            Some('S' | 's') => Keyword::READS,
-                            Some('_') => match cs.next() {
-                                Some('O' | 'o') => {
-                                    if matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('L' | 'l'))
-                                        && matches!(cs.next(), Some('Y' | 'y'))
+                            Some(b'S' | b's') => Keyword::READS,
+                            Some(b'_') => match cs.next() {
+                                Some(b'O' | b'o') => {
+                                    if matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'L' | b'l'))
+                                        && matches!(cs.next(), Some(b'Y' | b'y'))
                                     {
                                         Keyword::READ_ONLY
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('W' | 'w') => {
-                                    if matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
+                                Some(b'W' | b'w') => {
+                                    if matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
                                     {
                                         Keyword::READ_WRITE
                                     } else {
@@ -7550,37 +7582,37 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('L' | 'l') => Keyword::REAL,
+                        Some(b'L' | b'l') => Keyword::REAL,
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('B' | 'b') => {
-                        if matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'B' | b'b') => {
+                        if matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::REBUILD
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('C' | 'c') => match cs.next() {
-                        Some('O' | 'o') => {
-                            if matches!(cs.next(), Some('V' | 'v'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'O' | b'o') => {
+                            if matches!(cs.next(), Some(b'V' | b'v'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
                             {
                                 Keyword::RECOVER
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('U' | 'u') => {
-                            if matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('V' | 'v'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'U' | b'u') => {
+                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'V' | b'v'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::RECURSIVE
                             } else {
@@ -7589,30 +7621,30 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('D' | 'd') => match cs.next() {
-                        Some('O' | 'o') => match cs.next() {
-                            Some('F' | 'f') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'D' | b'd') => match cs.next() {
+                        Some(b'O' | b'o') => match cs.next() {
+                            Some(b'F' | b'f') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::REDOFILE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('_') => {
-                                if matches!(cs.next(), Some('B' | 'b'))
-                                    && matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('F' | 'f'))
-                                    && matches!(cs.next(), Some('F' | 'f'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('_'))
-                                    && matches!(cs.next(), Some('S' | 's'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('Z' | 'z'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'B' | b'b'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'F' | b'f'))
+                                    && matches!(cs.next(), Some(b'F' | b'f'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'_'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'Z' | b'z'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::REDO_BUFFER_SIZE
                                 } else {
@@ -7621,12 +7653,12 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('U' | 'u') => {
-                            if matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('D' | 'd'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'U' | b'u') => {
+                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::REDUNDANT
                             } else {
@@ -7635,30 +7667,30 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('F' | 'f') => match cs.next() {
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'F' | b'f') => match cs.next() {
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
                             {
                                 Keyword::REFERENCES
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('_') => {
-                            if matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('Y' | 'y'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('D' | 'd'))
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'Y' | b'y'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
                             {
                                 Keyword::REF_SYSTEM_ID
                             } else {
@@ -7667,47 +7699,56 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('G' | 'g') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('X' | 'x'))
-                            && matches!(cs.next(), Some('P' | 'p'))
+                    Some(b'G' | b'g') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'X' | b'x'))
+                            && matches!(cs.next(), Some(b'P' | b'p'))
                         {
                             Keyword::REGEXP
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('L' | 'l') => match cs.next() {
-                        Some('A' | 'a') => match cs.next() {
-                            Some('Y' | 'y') => match cs.next() {
+                    Some(b'L' | b'l') => match cs.next() {
+                        Some(b'A' | b'a') => match cs.next() {
+                            Some(b'Y' | b'y') => match cs.next() {
                                 None => Keyword::RELAY,
-                                Some('L' | 'l') => {
-                                    if matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('G' | 'g'))
+                                Some(b'L' | b'l') => {
+                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'G' | b'g'))
                                     {
                                         Keyword::RELAYLOG
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('_') => match cs.next() {
-                                    Some('L' | 'l') => match cs.next() {
-                                        Some('O' | 'o') => match cs.next() {
-                                            Some('G' | 'g') => match cs.next() {
-                                                Some('_') => match cs.next() {
-                                                    Some('F' | 'f') => {
-                                                        if matches!(cs.next(), Some('I' | 'i'))
-                                                            && matches!(cs.next(), Some('L' | 'l'))
-                                                            && matches!(cs.next(), Some('E' | 'e'))
+                                Some(b'_') => match cs.next() {
+                                    Some(b'L' | b'l') => match cs.next() {
+                                        Some(b'O' | b'o') => match cs.next() {
+                                            Some(b'G' | b'g') => match cs.next() {
+                                                Some(b'_') => match cs.next() {
+                                                    Some(b'F' | b'f') => {
+                                                        if matches!(cs.next(), Some(b'I' | b'i'))
+                                                            && matches!(
+                                                                cs.next(),
+                                                                Some(b'L' | b'l')
+                                                            )
+                                                            && matches!(
+                                                                cs.next(),
+                                                                Some(b'E' | b'e')
+                                                            )
                                                         {
                                                             Keyword::RELAY_LOG_FILE
                                                         } else {
                                                             Keyword::NOT_A_KEYWORD
                                                         }
                                                     }
-                                                    Some('P' | 'p') => {
-                                                        if matches!(cs.next(), Some('O' | 'o'))
-                                                            && matches!(cs.next(), Some('S' | 's'))
+                                                    Some(b'P' | b'p') => {
+                                                        if matches!(cs.next(), Some(b'O' | b'o'))
+                                                            && matches!(
+                                                                cs.next(),
+                                                                Some(b'S' | b's')
+                                                            )
                                                         {
                                                             Keyword::RELAY_LOG_POS
                                                         } else {
@@ -7722,12 +7763,12 @@ impl From<&str> for Keyword {
                                         },
                                         _ => Keyword::NOT_A_KEYWORD,
                                     },
-                                    Some('T' | 't') => {
-                                        if matches!(cs.next(), Some('H' | 'h'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('D' | 'd'))
+                                    Some(b'T' | b't') => {
+                                        if matches!(cs.next(), Some(b'H' | b'h'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'D' | b'd'))
                                         {
                                             Keyword::RELAY_THREAD
                                         } else {
@@ -7740,19 +7781,19 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::RELEASE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('O' | 'o') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('D' | 'd'))
+                        Some(b'O' | b'o') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
                             {
                                 Keyword::RELOAD
                             } else {
@@ -7761,58 +7802,58 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('M' | 'm') => {
-                        if matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('V' | 'v'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'M' | b'm') => {
+                        if matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'V' | b'v'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::REMOVE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('M' | 'm'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'M' | b'm'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::RENAME
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('O' | 'o') => {
-                        if matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('Z' | 'z'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'O' | b'o') => {
+                        if matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'Z' | b'z'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::REORGANIZE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('P' | 'p') => match cs.next() {
-                        Some('A' | 'a') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'P' | b'p') => match cs.next() {
+                        Some(b'A' | b'a') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
                             {
                                 Keyword::REPAIR
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('E' | 'e') => match cs.next() {
-                            Some('A' | 'a') => match cs.next() {
-                                Some('T' | 't') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'A' | b'a') => match cs.next() {
+                                Some(b'T' | b't') => match cs.next() {
                                     None => Keyword::REPEAT,
-                                    Some('A' | 'a') => {
-                                        if matches!(cs.next(), Some('B' | 'b'))
-                                            && matches!(cs.next(), Some('L' | 'l'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                                    Some(b'A' | b'a') => {
+                                        if matches!(cs.next(), Some(b'B' | b'b'))
+                                            && matches!(cs.next(), Some(b'L' | b'l'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::REPEATABLE
                                         } else {
@@ -7825,37 +7866,37 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('L' | 'l') => match cs.next() {
-                            Some('A' | 'a') => match cs.next() {
-                                Some('C' | 'c') => {
-                                    if matches!(cs.next(), Some('E' | 'e')) {
+                        Some(b'L' | b'l') => match cs.next() {
+                            Some(b'A' | b'a') => match cs.next() {
+                                Some(b'C' | b'c') => {
+                                    if matches!(cs.next(), Some(b'E' | b'e')) {
                                         Keyword::REPLACE
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('Y' | 'y') => Keyword::REPLAY,
+                                Some(b'Y' | b'y') => Keyword::REPLAY,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('I' | 'i') => match cs.next() {
-                                Some('C' | 'c') => match cs.next() {
-                                    Some('A' | 'a') => match cs.next() {
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'C' | b'c') => match cs.next() {
+                                    Some(b'A' | b'a') => match cs.next() {
                                         None => Keyword::REPLICA,
-                                        Some('S' | 's') => Keyword::REPLICAS,
-                                        Some('T' | 't') => {
-                                            if matches!(cs.next(), Some('I' | 'i'))
-                                                && matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('N' | 'n'))
+                                        Some(b'S' | b's') => Keyword::REPLICAS,
+                                        Some(b'T' | b't') => {
+                                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'N' | b'n'))
                                             {
                                                 Keyword::REPLICATION
                                             } else {
                                                 Keyword::NOT_A_KEYWORD
                                             }
                                         }
-                                        Some('_') => {
-                                            if matches!(cs.next(), Some('P' | 'p'))
-                                                && matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('S' | 's'))
+                                        Some(b'_') => {
+                                            if matches!(cs.next(), Some(b'P' | b'p'))
+                                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'S' | b's'))
                                             {
                                                 Keyword::REPLICA_POS
                                             } else {
@@ -7872,59 +7913,59 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('Q' | 'q') => {
-                        if matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'Q' | b'q') => {
+                        if matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::REQUIRE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => match cs.next() {
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('T' | 't')) {
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'T' | b't')) {
                                 Keyword::RESET
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('L' | 'l'))
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'G' | b'g'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
                             {
                                 Keyword::RESIGNAL
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('T' | 't') => match cs.next() {
-                            Some('A' | 'a') => {
-                                if matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'T' | b't') => match cs.next() {
+                            Some(b'A' | b'a') => {
+                                if matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::RESTART
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('O' | 'o') => {
-                                if matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'O' | b'o') => {
+                                if matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::RESTORE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('R' | 'r') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'R' | b'r') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::RESTRICT
                                 } else {
@@ -7933,9 +7974,9 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('U' | 'u') => {
-                            if matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'U' | b'u') => {
+                            if matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::RESUME
                             } else {
@@ -7944,38 +7985,38 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => match cs.next() {
-                        Some('U' | 'u') => match cs.next() {
-                            Some('R' | 'r') => match cs.next() {
-                                Some('N' | 'n') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
+                        Some(b'U' | b'u') => match cs.next() {
+                            Some(b'R' | b'r') => match cs.next() {
+                                Some(b'N' | b'n') => match cs.next() {
                                     None => Keyword::RETURN,
-                                    Some('E' | 'e') => {
-                                        if matches!(cs.next(), Some('D' | 'd'))
-                                            && matches!(cs.next(), Some('_'))
-                                            && matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('Q' | 'q'))
-                                            && matches!(cs.next(), Some('L' | 'l'))
-                                            && matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                                    Some(b'E' | b'e') => {
+                                        if matches!(cs.next(), Some(b'D' | b'd'))
+                                            && matches!(cs.next(), Some(b'_'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
+                                            && matches!(cs.next(), Some(b'Q' | b'q'))
+                                            && matches!(cs.next(), Some(b'L' | b'l'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::RETURNED_SQLSTATE
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('I' | 'i') => {
-                                        if matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('G' | 'g'))
+                                    Some(b'I' | b'i') => {
+                                        if matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'G' | b'g'))
                                         {
                                             Keyword::RETURNING
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('S' | 's') => Keyword::RETURNS,
+                                    Some(b'S' | b's') => Keyword::RETURNS,
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
@@ -7984,29 +8025,29 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('U' | 'u') => {
-                        if matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'U' | b'u') => {
+                        if matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::REUSE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('V' | 'v') => match cs.next() {
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'V' | b'v') => match cs.next() {
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::REVERSE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('O' | 'o') => {
-                            if matches!(cs.next(), Some('K' | 'k'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'O' | b'o') => {
+                            if matches!(cs.next(), Some(b'K' | b'k'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::REVOKE
                             } else {
@@ -8017,14 +8058,14 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('G' | 'g') => match cs.next() {
-                        Some('H' | 'h') => match cs.next() {
-                            Some('T' | 't') => match cs.next() {
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'G' | b'g') => match cs.next() {
+                        Some(b'H' | b'h') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
                                 None => Keyword::RIGHT,
-                                Some('A' | 'a') => {
-                                    if matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('G' | 'g'))
+                                Some(b'A' | b'a') => {
+                                    if matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'G' | b'g'))
                                     {
                                         Keyword::RIGHTARG
                                     } else {
@@ -8039,32 +8080,32 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('L' | 'l') => {
-                    if matches!(cs.next(), Some('I' | 'i'))
-                        && matches!(cs.next(), Some('K' | 'k'))
-                        && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'L' | b'l') => {
+                    if matches!(cs.next(), Some(b'I' | b'i'))
+                        && matches!(cs.next(), Some(b'K' | b'k'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
                     {
                         Keyword::RLIKE
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('O' | 'o') => match cs.next() {
-                    Some('L' | 'l') => match cs.next() {
-                        Some('E' | 'e') => Keyword::ROLE,
-                        Some('L' | 'l') => match cs.next() {
-                            Some('B' | 'b') => {
-                                if matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('K' | 'k'))
+                Some(b'O' | b'o') => match cs.next() {
+                    Some(b'L' | b'l') => match cs.next() {
+                        Some(b'E' | b'e') => Keyword::ROLE,
+                        Some(b'L' | b'l') => match cs.next() {
+                            Some(b'B' | b'b') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                    && matches!(cs.next(), Some(b'K' | b'k'))
                                 {
                                     Keyword::ROLLBACK
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('U' | 'u') => {
-                                if matches!(cs.next(), Some('P' | 'p')) {
+                            Some(b'U' | b'u') => {
+                                if matches!(cs.next(), Some(b'P' | b'p')) {
                                     Keyword::ROLLUP
                                 } else {
                                     Keyword::NOT_A_KEYWORD
@@ -8074,18 +8115,18 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('U' | 'u') => match cs.next() {
-                        Some('N' | 'n') => {
-                            if matches!(cs.next(), Some('D' | 'd')) {
+                    Some(b'U' | b'u') => match cs.next() {
+                        Some(b'N' | b'n') => {
+                            if matches!(cs.next(), Some(b'D' | b'd')) {
                                 Keyword::ROUND
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('T' | 't') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'T' | b't') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::ROUTINE
                             } else {
@@ -8094,57 +8135,57 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('W' | 'w') => match cs.next() {
+                    Some(b'W' | b'w') => match cs.next() {
                         None => Keyword::ROW,
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('U' | 'u'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'C' | b'c') => {
+                            if matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'U' | b'u'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::ROWCOUNT
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('N' | 'n') => {
-                            if matches!(cs.next(), Some('U' | 'u'))
-                                && matches!(cs.next(), Some('M' | 'm'))
+                        Some(b'N' | b'n') => {
+                            if matches!(cs.next(), Some(b'U' | b'u'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
                             {
                                 Keyword::ROWNUM
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('S' | 's') => Keyword::ROWS,
-                        Some('T' | 't') => {
-                            if matches!(cs.next(), Some('Y' | 'y'))
-                                && matches!(cs.next(), Some('P' | 'p'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'S' | b's') => Keyword::ROWS,
+                        Some(b'T' | b't') => {
+                            if matches!(cs.next(), Some(b'Y' | b'y'))
+                                && matches!(cs.next(), Some(b'P' | b'p'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::ROWTYPE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('_') => match cs.next() {
-                            Some('C' | 'c') => {
-                                if matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'_') => match cs.next() {
+                            Some(b'C' | b'c') => {
+                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::ROW_COUNT
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('F' | 'f') => {
-                                if matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('M' | 'm'))
-                                    && matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'F' | b'f') => {
+                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'M' | b'm'))
+                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::ROW_FORMAT
                                 } else {
@@ -8157,25 +8198,26 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('P' | 'p') => {
-                    if matches!(cs.next(), Some('A' | 'a')) && matches!(cs.next(), Some('D' | 'd'))
+                Some(b'P' | b'p') => {
+                    if matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'D' | b'd'))
                     {
                         Keyword::RPAD
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('T' | 't') => match cs.next() {
-                    Some('R' | 'r') => match cs.next() {
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('E' | 'e')) {
+                Some(b'T' | b't') => match cs.next() {
+                    Some(b'R' | b'r') => match cs.next() {
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'E' | b'e')) {
                                 Keyword::RTREE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('M' | 'm')) {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'M' | b'm')) {
                                 Keyword::RTRIM
                             } else {
                                 Keyword::NOT_A_KEYWORD
@@ -8187,43 +8229,43 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('S' | 's') => match cs.next() {
-                Some('A' | 'a') => {
-                    if matches!(cs.next(), Some('V' | 'v'))
-                        && matches!(cs.next(), Some('E' | 'e'))
-                        && matches!(cs.next(), Some('P' | 'p'))
-                        && matches!(cs.next(), Some('O' | 'o'))
-                        && matches!(cs.next(), Some('I' | 'i'))
-                        && matches!(cs.next(), Some('N' | 'n'))
-                        && matches!(cs.next(), Some('T' | 't'))
+            Some(b'S' | b's') => match cs.next() {
+                Some(b'A' | b'a') => {
+                    if matches!(cs.next(), Some(b'V' | b'v'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
+                        && matches!(cs.next(), Some(b'P' | b'p'))
+                        && matches!(cs.next(), Some(b'O' | b'o'))
+                        && matches!(cs.next(), Some(b'I' | b'i'))
+                        && matches!(cs.next(), Some(b'N' | b'n'))
+                        && matches!(cs.next(), Some(b'T' | b't'))
                     {
                         Keyword::SAVEPOINT
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('C' | 'c') => match cs.next() {
-                    Some('H' | 'h') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
-                            Some('D' | 'd') => {
-                                if matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'C' | b'c') => match cs.next() {
+                    Some(b'H' | b'h') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'D' | b'd') => {
+                                if matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::SCHEDULE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('M' | 'm') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
+                            Some(b'M' | b'm') => match cs.next() {
+                                Some(b'A' | b'a') => match cs.next() {
                                     None => Keyword::SCHEMA,
-                                    Some('S' | 's') => Keyword::SCHEMAS,
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('M' | 'm'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                                    Some(b'S' | b's') => Keyword::SCHEMAS,
+                                    Some(b'_') => {
+                                        if matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::SCHEMA_NAME
                                         } else {
@@ -8240,46 +8282,47 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('E' | 'e') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('H' | 'h'))
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'H' | b'h'))
                         {
                             Keyword::SEARCH
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('C' | 'c') => match cs.next() {
-                        Some('O' | 'o') => match cs.next() {
-                            Some('N' | 'n') => match cs.next() {
-                                Some('D' | 'd') => match cs.next() {
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'O' | b'o') => match cs.next() {
+                            Some(b'N' | b'n') => match cs.next() {
+                                Some(b'D' | b'd') => match cs.next() {
                                     None => Keyword::SECOND,
-                                    Some('A' | 'a') => match cs.next() {
-                                        Some('R' | 'r') => match cs.next() {
-                                            Some('Y' | 'y') => match cs.next() {
+                                    Some(b'A' | b'a') => match cs.next() {
+                                        Some(b'R' | b'r') => match cs.next() {
+                                            Some(b'Y' | b'y') => match cs.next() {
                                                 None => Keyword::SECONDARY,
-                                                Some('_') => match cs.next() {
-                                                    Some('E' | 'e') => match cs.next() {
-                                                        Some('N' | 'n') => match cs.next() {
-                                                            Some('G' | 'g') => match cs.next() {
-                                                                Some('I' | 'i') => match cs.next() {
-                                                                    Some('N' | 'n') => {
-                                                                        match cs.next() {
-                                                                                                                                    Some('E' | 'e') => {
+                                                Some(b'_') => match cs.next() {
+                                                    Some(b'E' | b'e') => match cs.next() {
+                                                        Some(b'N' | b'n') => match cs.next() {
+                                                            Some(b'G' | b'g') => match cs.next() {
+                                                                Some(b'I' | b'i') => {
+                                                                    match cs.next() {
+                                                                                                                            Some(b'N' | b'n') => {
+                                                                                                                                match cs.next() {
+                                                                                                                                    Some(b'E' | b'e') => {
                                                                                                                                         match cs.next() {
                                                                                                                                             None => Keyword::SECONDARY_ENGINE,
-                                                                                                                                            Some('_') => {
-                                                                                                                                                if matches!(cs.next(), Some('A' | 'a'))
-                                                                                                                                                  && matches!(cs.next(), Some('T' | 't'))
-                                                                                                                                                  && matches!(cs.next(), Some('T' | 't'))
-                                                                                                                                                  && matches!(cs.next(), Some('R' | 'r'))
-                                                                                                                                                  && matches!(cs.next(), Some('I' | 'i'))
-                                                                                                                                                  && matches!(cs.next(), Some('B' | 'b'))
-                                                                                                                                                  && matches!(cs.next(), Some('U' | 'u'))
-                                                                                                                                                  && matches!(cs.next(), Some('T' | 't'))
-                                                                                                                                                  && matches!(cs.next(), Some('E' | 'e')) {
+                                                                                                                                            Some(b'_') => {
+                                                                                                                                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                                                                                                                                  && matches!(cs.next(), Some(b'T' | b't'))
+                                                                                                                                                  && matches!(cs.next(), Some(b'T' | b't'))
+                                                                                                                                                  && matches!(cs.next(), Some(b'R' | b'r'))
+                                                                                                                                                  && matches!(cs.next(), Some(b'I' | b'i'))
+                                                                                                                                                  && matches!(cs.next(), Some(b'B' | b'b'))
+                                                                                                                                                  && matches!(cs.next(), Some(b'U' | b'u'))
+                                                                                                                                                  && matches!(cs.next(), Some(b'T' | b't'))
+                                                                                                                                                  && matches!(cs.next(), Some(b'E' | b'e')) {
                                                                                                                                                     Keyword::SECONDARY_ENGINE_ATTRIBUTE
                                                                                                                                                 } else {
                                                                                                                                                     Keyword::NOT_A_KEYWORD
@@ -8290,9 +8333,10 @@ impl From<&str> for Keyword {
                                                                                                                                     }
                                                                                                                                     _ => Keyword::NOT_A_KEYWORD,
                                                                                                                                 }
-                                                                    }
-                                                                    _ => Keyword::NOT_A_KEYWORD,
-                                                                },
+                                                                                                                            }
+                                                                                                                            _ => Keyword::NOT_A_KEYWORD,
+                                                                                                                        }
+                                                                }
                                                                 _ => Keyword::NOT_A_KEYWORD,
                                                             },
                                                             _ => Keyword::NOT_A_KEYWORD,
@@ -8307,18 +8351,18 @@ impl From<&str> for Keyword {
                                         },
                                         _ => Keyword::NOT_A_KEYWORD,
                                     },
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('M' | 'm'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('C' | 'c'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('C' | 'c'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('D' | 'd'))
+                                    Some(b'_') => {
+                                        if matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'C' | b'c'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'C' | b'c'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'D' | b'd'))
                                         {
                                             Keyword::SECOND_MICROSECOND
                                         } else {
@@ -8331,25 +8375,25 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('U' | 'u') => {
-                            if matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('Y' | 'y'))
+                        Some(b'U' | b'u') => {
+                            if matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'Y' | b'y'))
                             {
                                 Keyword::SECURITY
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('_') => {
-                            if matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::SEC_TO_TIME
                             } else {
@@ -8358,65 +8402,65 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('L' | 'l') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                    Some(b'L' | b'l') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::SELECT
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('V' | 'v'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'V' | b'v'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::SENSITIVE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('P' | 'p') => {
-                        if matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'P' | b'p') => {
+                        if matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::SEPARATOR
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('Q' | 'q') => {
-                        if matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'Q' | b'q') => {
+                        if matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::SEQUENCE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('R' | 'r') => match cs.next() {
-                        Some('I' | 'i') => match cs.next() {
-                            Some('A' | 'a') => match cs.next() {
-                                Some('L' | 'l') => match cs.next() {
+                    Some(b'R' | b'r') => match cs.next() {
+                        Some(b'I' | b'i') => match cs.next() {
+                            Some(b'A' | b'a') => match cs.next() {
+                                Some(b'L' | b'l') => match cs.next() {
                                     None => Keyword::SERIAL,
-                                    Some('I' | 'i') => {
-                                        if matches!(cs.next(), Some('Z' | 'z'))
-                                            && matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('B' | 'b'))
-                                            && matches!(cs.next(), Some('L' | 'l'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                                    Some(b'I' | b'i') => {
+                                        if matches!(cs.next(), Some(b'Z' | b'z'))
+                                            && matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'B' | b'b'))
+                                            && matches!(cs.next(), Some(b'L' | b'l'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::SERIALIZABLE
                                         } else {
@@ -8429,9 +8473,9 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('V' | 'v') => {
-                            if matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('R' | 'r'))
+                        Some(b'V' | b'v') => {
+                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
                             {
                                 Keyword::SERVER
                             } else {
@@ -8440,17 +8484,17 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('S' | 's') => match cs.next() {
-                        Some('S' | 's') => match cs.next() {
-                            Some('I' | 'i') => match cs.next() {
-                                Some('O' | 'o') => match cs.next() {
-                                    Some('N' | 'n') => match cs.next() {
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'S' | b's') => match cs.next() {
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'O' | b'o') => match cs.next() {
+                                    Some(b'N' | b'n') => match cs.next() {
                                         None => Keyword::SESSION,
-                                        Some('_') => {
-                                            if matches!(cs.next(), Some('U' | 'u'))
-                                                && matches!(cs.next(), Some('S' | 's'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('R' | 'r'))
+                                        Some(b'_') => {
+                                            if matches!(cs.next(), Some(b'U' | b'u'))
+                                                && matches!(cs.next(), Some(b'S' | b's'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'R' | b'r'))
                                             {
                                                 Keyword::SESSION_USER
                                             } else {
@@ -8467,11 +8511,11 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('T' | 't') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
                         None => Keyword::SET,
-                        Some('V' | 'v') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('L' | 'l'))
+                        Some(b'V' | b'v') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
                             {
                                 Keyword::SETVAL
                             } else {
@@ -8482,43 +8526,43 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('F' | 'f') => {
-                    if matches!(cs.next(), Some('O' | 'o'))
-                        && matches!(cs.next(), Some('R' | 'r'))
-                        && matches!(cs.next(), Some('M' | 'm'))
-                        && matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('T' | 't'))
+                Some(b'F' | b'f') => {
+                    if matches!(cs.next(), Some(b'O' | b'o'))
+                        && matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'M' | b'm'))
+                        && matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'T' | b't'))
                     {
                         Keyword::SFORMAT
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('H' | 'h') => match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('R' | 'r') => match cs.next() {
-                            Some('E' | 'e') => match cs.next() {
+                Some(b'H' | b'h') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'R' | b'r') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
                                 None => Keyword::SHARE,
-                                Some('D' | 'd') => Keyword::SHARED,
+                                Some(b'D' | b'd') => Keyword::SHARED,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('O' | 'o') => {
-                        if matches!(cs.next(), Some('W' | 'w')) {
+                    Some(b'O' | b'o') => {
+                        if matches!(cs.next(), Some(b'W' | b'w')) {
                             Keyword::SHOW
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('U' | 'u') => {
-                        if matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('D' | 'd'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('W' | 'w'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'U' | b'u') => {
+                        if matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'W' | b'w'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::SHUTDOWN
                         } else {
@@ -8527,19 +8571,19 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('G' | 'g') => match cs.next() {
-                        Some('N' | 'n') => match cs.next() {
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'G' | b'g') => match cs.next() {
+                        Some(b'N' | b'n') => match cs.next() {
                             None => Keyword::SIGN,
-                            Some('A' | 'a') => {
-                                if matches!(cs.next(), Some('L' | 'l')) {
+                            Some(b'A' | b'a') => {
+                                if matches!(cs.next(), Some(b'L' | b'l')) {
                                     Keyword::SIGNAL
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('E' | 'e') => {
-                                if matches!(cs.next(), Some('D' | 'd')) {
+                            Some(b'E' | b'e') => {
+                                if matches!(cs.next(), Some(b'D' | b'd')) {
                                     Keyword::SIGNED
                                 } else {
                                     Keyword::NOT_A_KEYWORD
@@ -8549,37 +8593,38 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('M' | 'm') => {
-                        if matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'M' | b'm') => {
+                        if matches!(cs.next(), Some(b'P' | b'p'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::SIMPLE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('N' | 'n') => Keyword::SIN,
+                    Some(b'N' | b'n') => Keyword::SIN,
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('K' | 'k') => {
-                    if matches!(cs.next(), Some('I' | 'i')) && matches!(cs.next(), Some('P' | 'p'))
+                Some(b'K' | b'k') => {
+                    if matches!(cs.next(), Some(b'I' | b'i'))
+                        && matches!(cs.next(), Some(b'P' | b'p'))
                     {
                         Keyword::SKIP
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('L' | 'l') => match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('V' | 'v') => match cs.next() {
-                            Some('E' | 'e') => match cs.next() {
+                Some(b'L' | b'l') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'V' | b'v') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
                                 None => Keyword::SLAVE,
-                                Some('S' | 's') => Keyword::SLAVES,
-                                Some('_') => {
-                                    if matches!(cs.next(), Some('P' | 'p'))
-                                        && matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('S' | 's'))
+                                Some(b'S' | b's') => Keyword::SLAVES,
+                                Some(b'_') => {
+                                    if matches!(cs.next(), Some(b'P' | b'p'))
+                                        && matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
                                     {
                                         Keyword::SLAVE_POS
                                     } else {
@@ -8592,17 +8637,17 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('E' | 'e') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('P' | 'p'))
+                    Some(b'E' | b'e') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'P' | b'p'))
                         {
                             Keyword::SLEEP
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('O' | 'o') => {
-                        if matches!(cs.next(), Some('W' | 'w')) {
+                    Some(b'O' | b'o') => {
+                        if matches!(cs.next(), Some(b'W' | b'w')) {
                             Keyword::SLOW
                         } else {
                             Keyword::NOT_A_KEYWORD
@@ -8610,85 +8655,85 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('M' | 'm') => {
-                    if matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('L' | 'l'))
-                        && matches!(cs.next(), Some('L' | 'l'))
-                        && matches!(cs.next(), Some('I' | 'i'))
-                        && matches!(cs.next(), Some('N' | 'n'))
-                        && matches!(cs.next(), Some('T' | 't'))
+                Some(b'M' | b'm') => {
+                    if matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'L' | b'l'))
+                        && matches!(cs.next(), Some(b'L' | b'l'))
+                        && matches!(cs.next(), Some(b'I' | b'i'))
+                        && matches!(cs.next(), Some(b'N' | b'n'))
+                        && matches!(cs.next(), Some(b'T' | b't'))
                     {
                         Keyword::SMALLINT
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('N' | 'n') => {
-                    if matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('P' | 'p'))
-                        && matches!(cs.next(), Some('S' | 's'))
-                        && matches!(cs.next(), Some('H' | 'h'))
-                        && matches!(cs.next(), Some('O' | 'o'))
-                        && matches!(cs.next(), Some('T' | 't'))
+                Some(b'N' | b'n') => {
+                    if matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'P' | b'p'))
+                        && matches!(cs.next(), Some(b'S' | b's'))
+                        && matches!(cs.next(), Some(b'H' | b'h'))
+                        && matches!(cs.next(), Some(b'O' | b'o'))
+                        && matches!(cs.next(), Some(b'T' | b't'))
                     {
                         Keyword::SNAPSHOT
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('O' | 'o') => match cs.next() {
-                    Some('C' | 'c') => {
-                        if matches!(cs.next(), Some('K' | 'k'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('T' | 't'))
+                Some(b'O' | b'o') => match cs.next() {
+                    Some(b'C' | b'c') => {
+                        if matches!(cs.next(), Some(b'K' | b'k'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
                         {
                             Keyword::SOCKET
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('F' | 'f') => {
-                        if matches!(cs.next(), Some('T' | 't')) {
+                    Some(b'F' | b'f') => {
+                        if matches!(cs.next(), Some(b'T' | b't')) {
                             Keyword::SOFT
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('M' | 'm') => {
-                        if matches!(cs.next(), Some('E' | 'e')) {
+                    Some(b'M' | b'm') => {
+                        if matches!(cs.next(), Some(b'E' | b'e')) {
                             Keyword::SOME
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('M' | 'm'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'M' | b'm'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::SONAME
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('U' | 'u') => match cs.next() {
-                        Some('N' | 'n') => match cs.next() {
-                            Some('D' | 'd') => match cs.next() {
-                                Some('E' | 'e') => {
-                                    if matches!(cs.next(), Some('X' | 'x')) {
+                    Some(b'U' | b'u') => match cs.next() {
+                        Some(b'N' | b'n') => match cs.next() {
+                            Some(b'D' | b'd') => match cs.next() {
+                                Some(b'E' | b'e') => {
+                                    if matches!(cs.next(), Some(b'X' | b'x')) {
                                         Keyword::SOUNDEX
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('S' | 's') => Keyword::SOUNDS,
+                                Some(b'S' | b's') => Keyword::SOUNDS,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('R' | 'r') => {
-                            if matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'R' | b'r') => {
+                            if matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::SOURCE
                             } else {
@@ -8699,19 +8744,19 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('P' | 'p') => match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('E' | 'e')) {
+                Some(b'P' | b'p') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'C' | b'c') => {
+                            if matches!(cs.next(), Some(b'E' | b'e')) {
                                 Keyword::SPACE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('T' | 't') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('L' | 'l'))
+                        Some(b'T' | b't') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
                             {
                                 Keyword::SPATIAL
                             } else {
@@ -8720,12 +8765,12 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('E' | 'e') => {
-                        if matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('F' | 'f'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('C' | 'c'))
+                    Some(b'E' | b'e') => {
+                        if matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'F' | b'f'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
                         {
                             Keyword::SPECIFIC
                         } else {
@@ -8734,77 +8779,77 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('Q' | 'q') => match cs.next() {
-                    Some('L' | 'l') => match cs.next() {
+                Some(b'Q' | b'q') => match cs.next() {
+                    Some(b'L' | b'l') => match cs.next() {
                         None => Keyword::SQL,
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('X' | 'x'))
-                                && matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('P' | 'p'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('N' | 'n'))
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'X' | b'x'))
+                                && matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'P' | b'p'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
                             {
                                 Keyword::SQLEXCEPTION
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('S' | 's') => {
-                            if matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'S' | b's') => {
+                            if matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::SQLSTATE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('W' | 'w') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('G' | 'g'))
+                        Some(b'W' | b'w') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
                             {
                                 Keyword::SQLWARNING
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('_') => match cs.next() {
-                            Some('B' | 'b') => match cs.next() {
-                                Some('I' | 'i') => {
-                                    if matches!(cs.next(), Some('G' | 'g'))
-                                        && matches!(cs.next(), Some('_'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('S' | 's'))
-                                        && matches!(cs.next(), Some('U' | 'u'))
-                                        && matches!(cs.next(), Some('L' | 'l'))
-                                        && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'_') => match cs.next() {
+                            Some(b'B' | b'b') => match cs.next() {
+                                Some(b'I' | b'i') => {
+                                    if matches!(cs.next(), Some(b'G' | b'g'))
+                                        && matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'U' | b'u'))
+                                        && matches!(cs.next(), Some(b'L' | b'l'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
                                     {
                                         Keyword::SQL_BIG_RESULT
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('U' | 'u') => {
-                                    if matches!(cs.next(), Some('F' | 'f'))
-                                        && matches!(cs.next(), Some('F' | 'f'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('_'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('S' | 's'))
-                                        && matches!(cs.next(), Some('U' | 'u'))
-                                        && matches!(cs.next(), Some('L' | 'l'))
-                                        && matches!(cs.next(), Some('T' | 't'))
+                                Some(b'U' | b'u') => {
+                                    if matches!(cs.next(), Some(b'F' | b'f'))
+                                        && matches!(cs.next(), Some(b'F' | b'f'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'U' | b'u'))
+                                        && matches!(cs.next(), Some(b'L' | b'l'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
                                     {
                                         Keyword::SQL_BUFFER_RESULT
                                     } else {
@@ -8813,30 +8858,30 @@ impl From<&str> for Keyword {
                                 }
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('C' | 'c') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('C' | 'c') => {
-                                        if matches!(cs.next(), Some('H' | 'h'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'C' | b'c') => match cs.next() {
+                                Some(b'A' | b'a') => match cs.next() {
+                                    Some(b'C' | b'c') => {
+                                        if matches!(cs.next(), Some(b'H' | b'h'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::SQL_CACHE
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('L' | 'l') => {
-                                        if matches!(cs.next(), Some('C' | 'c'))
-                                            && matches!(cs.next(), Some('_'))
-                                            && matches!(cs.next(), Some('F' | 'f'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('U' | 'u'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('D' | 'd'))
-                                            && matches!(cs.next(), Some('_'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('W' | 'w'))
-                                            && matches!(cs.next(), Some('S' | 's'))
+                                    Some(b'L' | b'l') => {
+                                        if matches!(cs.next(), Some(b'C' | b'c'))
+                                            && matches!(cs.next(), Some(b'_'))
+                                            && matches!(cs.next(), Some(b'F' | b'f'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'U' | b'u'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'D' | b'd'))
+                                            && matches!(cs.next(), Some(b'_'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'W' | b'w'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
                                         {
                                             Keyword::SQL_CALC_FOUND_ROWS
                                         } else {
@@ -8847,88 +8892,88 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('N' | 'n') => {
-                                if matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('_'))
-                                    && matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('H' | 'h'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'N' | b'n') => {
+                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'_'))
+                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                    && matches!(cs.next(), Some(b'H' | b'h'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::SQL_NO_CACHE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('S' | 's') => {
-                                if matches!(cs.next(), Some('M' | 'm'))
-                                    && matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('_'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('S' | 's'))
-                                    && matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'S' | b's') => {
+                                if matches!(cs.next(), Some(b'M' | b'm'))
+                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'_'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::SQL_SMALL_RESULT
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('T' | 't') => match cs.next() {
-                                Some('H' | 'h') => {
-                                    if matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('D' | 'd'))
+                            Some(b'T' | b't') => match cs.next() {
+                                Some(b'H' | b'h') => {
+                                    if matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'D' | b'd'))
                                     {
                                         Keyword::SQL_THREAD
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('S' | 's') => match cs.next() {
-                                    Some('I' | 'i') => match cs.next() {
-                                        Some('_') => match cs.next() {
-                                            Some('D' | 'd') => {
-                                                if matches!(cs.next(), Some('A' | 'a'))
-                                                    && matches!(cs.next(), Some('Y' | 'y'))
+                                Some(b'S' | b's') => match cs.next() {
+                                    Some(b'I' | b'i') => match cs.next() {
+                                        Some(b'_') => match cs.next() {
+                                            Some(b'D' | b'd') => {
+                                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                                    && matches!(cs.next(), Some(b'Y' | b'y'))
                                                 {
                                                     Keyword::SQL_TSI_DAY
                                                 } else {
                                                     Keyword::NOT_A_KEYWORD
                                                 }
                                             }
-                                            Some('H' | 'h') => {
-                                                if matches!(cs.next(), Some('O' | 'o'))
-                                                    && matches!(cs.next(), Some('U' | 'u'))
-                                                    && matches!(cs.next(), Some('R' | 'r'))
+                                            Some(b'H' | b'h') => {
+                                                if matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                                    && matches!(cs.next(), Some(b'R' | b'r'))
                                                 {
                                                     Keyword::SQL_TSI_HOUR
                                                 } else {
                                                     Keyword::NOT_A_KEYWORD
                                                 }
                                             }
-                                            Some('M' | 'm') => match cs.next() {
-                                                Some('I' | 'i') => {
-                                                    if matches!(cs.next(), Some('N' | 'n'))
-                                                        && matches!(cs.next(), Some('U' | 'u'))
-                                                        && matches!(cs.next(), Some('T' | 't'))
-                                                        && matches!(cs.next(), Some('E' | 'e'))
+                                            Some(b'M' | b'm') => match cs.next() {
+                                                Some(b'I' | b'i') => {
+                                                    if matches!(cs.next(), Some(b'N' | b'n'))
+                                                        && matches!(cs.next(), Some(b'U' | b'u'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
                                                     {
                                                         Keyword::SQL_TSI_MINUTE
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
                                                     }
                                                 }
-                                                Some('O' | 'o') => {
-                                                    if matches!(cs.next(), Some('N' | 'n'))
-                                                        && matches!(cs.next(), Some('T' | 't'))
-                                                        && matches!(cs.next(), Some('H' | 'h'))
+                                                Some(b'O' | b'o') => {
+                                                    if matches!(cs.next(), Some(b'N' | b'n'))
+                                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                                        && matches!(cs.next(), Some(b'H' | b'h'))
                                                     {
                                                         Keyword::SQL_TSI_MONTH
                                                     } else {
@@ -8937,45 +8982,45 @@ impl From<&str> for Keyword {
                                                 }
                                                 _ => Keyword::NOT_A_KEYWORD,
                                             },
-                                            Some('Q' | 'q') => {
-                                                if matches!(cs.next(), Some('U' | 'u'))
-                                                    && matches!(cs.next(), Some('A' | 'a'))
-                                                    && matches!(cs.next(), Some('R' | 'r'))
-                                                    && matches!(cs.next(), Some('T' | 't'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('R' | 'r'))
+                                            Some(b'Q' | b'q') => {
+                                                if matches!(cs.next(), Some(b'U' | b'u'))
+                                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'R' | b'r'))
                                                 {
                                                     Keyword::SQL_TSI_QUARTER
                                                 } else {
                                                     Keyword::NOT_A_KEYWORD
                                                 }
                                             }
-                                            Some('S' | 's') => {
-                                                if matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('C' | 'c'))
-                                                    && matches!(cs.next(), Some('O' | 'o'))
-                                                    && matches!(cs.next(), Some('N' | 'n'))
-                                                    && matches!(cs.next(), Some('D' | 'd'))
+                                            Some(b'S' | b's') => {
+                                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                                    && matches!(cs.next(), Some(b'D' | b'd'))
                                                 {
                                                     Keyword::SQL_TSI_SECOND
                                                 } else {
                                                     Keyword::NOT_A_KEYWORD
                                                 }
                                             }
-                                            Some('W' | 'w') => {
-                                                if matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('K' | 'k'))
+                                            Some(b'W' | b'w') => {
+                                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'K' | b'k'))
                                                 {
                                                     Keyword::SQL_TSI_WEEK
                                                 } else {
                                                     Keyword::NOT_A_KEYWORD
                                                 }
                                             }
-                                            Some('Y' | 'y') => {
-                                                if matches!(cs.next(), Some('E' | 'e'))
-                                                    && matches!(cs.next(), Some('A' | 'a'))
-                                                    && matches!(cs.next(), Some('R' | 'r'))
+                                            Some(b'Y' | b'y') => {
+                                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                                    && matches!(cs.next(), Some(b'R' | b'r'))
                                                 {
                                                     Keyword::SQL_TSI_YEAR
                                                 } else {
@@ -8994,8 +9039,8 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('R' | 'r') => {
-                        if matches!(cs.next(), Some('T' | 't')) {
+                    Some(b'R' | b'r') => {
+                        if matches!(cs.next(), Some(b'T' | b't')) {
                             Keyword::SQRT
                         } else {
                             Keyword::NOT_A_KEYWORD
@@ -9003,41 +9048,41 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('S' | 's') => {
-                    if matches!(cs.next(), Some('L' | 'l')) {
+                Some(b'S' | b's') => {
+                    if matches!(cs.next(), Some(b'L' | b'l')) {
                         Keyword::SSL
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('T' | 't') => match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('G' | 'g') => {
-                            if matches!(cs.next(), Some('E' | 'e')) {
+                Some(b'T' | b't') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'G' | b'g') => {
+                            if matches!(cs.next(), Some(b'E' | b'e')) {
                                 Keyword::STAGE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('R' | 'r') => match cs.next() {
-                            Some('T' | 't') => match cs.next() {
+                        Some(b'R' | b'r') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
                                 None => Keyword::START,
-                                Some('I' | 'i') => {
-                                    if matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('G' | 'g'))
+                                Some(b'I' | b'i') => {
+                                    if matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'G' | b'g'))
                                     {
                                         Keyword::STARTING
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('S' | 's') => match cs.next() {
+                                Some(b'S' | b's') => match cs.next() {
                                     None => Keyword::STARTS,
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('W' | 'w'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('H' | 'h'))
+                                    Some(b'_') => {
+                                        if matches!(cs.next(), Some(b'W' | b'w'))
+                                            && matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'H' | b'h'))
                                         {
                                             Keyword::STARTS_WITH
                                         } else {
@@ -9050,65 +9095,65 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('T' | 't') => match cs.next() {
-                            Some('E' | 'e') => {
-                                if matches!(cs.next(), Some('M' | 'm'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'T' | b't') => match cs.next() {
+                            Some(b'E' | b'e') => {
+                                if matches!(cs.next(), Some(b'M' | b'm'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::STATEMENT
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('S' | 's') => match cs.next() {
-                                Some('_') => match cs.next() {
-                                    Some('A' | 'a') => {
-                                        if matches!(cs.next(), Some('U' | 'u'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('O' | 'o'))
-                                            && matches!(cs.next(), Some('_'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('C' | 'c'))
-                                            && matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('L' | 'l'))
-                                            && matches!(cs.next(), Some('C' | 'c'))
+                            Some(b'S' | b's') => match cs.next() {
+                                Some(b'_') => match cs.next() {
+                                    Some(b'A' | b'a') => {
+                                        if matches!(cs.next(), Some(b'U' | b'u'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'O' | b'o'))
+                                            && matches!(cs.next(), Some(b'_'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'C' | b'c'))
+                                            && matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'L' | b'l'))
+                                            && matches!(cs.next(), Some(b'C' | b'c'))
                                         {
                                             Keyword::STATS_AUTO_RECALC
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('P' | 'p') => {
-                                        if matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('R' | 'r'))
-                                            && matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('N' | 'n'))
-                                            && matches!(cs.next(), Some('T' | 't'))
+                                    Some(b'P' | b'p') => {
+                                        if matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'R' | b'r'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
+                                            && matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'N' | b'n'))
+                                            && matches!(cs.next(), Some(b'T' | b't'))
                                         {
                                             Keyword::STATS_PERSISTENT
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('S' | 's') => {
-                                        if matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('M' | 'm'))
-                                            && matches!(cs.next(), Some('P' | 'p'))
-                                            && matches!(cs.next(), Some('L' | 'l'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('_'))
-                                            && matches!(cs.next(), Some('P' | 'p'))
-                                            && matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('G' | 'g'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('S' | 's'))
+                                    Some(b'S' | b's') => {
+                                        if matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'P' | b'p'))
+                                            && matches!(cs.next(), Some(b'L' | b'l'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'_'))
+                                            && matches!(cs.next(), Some(b'P' | b'p'))
+                                            && matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'G' | b'g'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
                                         {
                                             Keyword::STATS_SAMPLE_PAGES
                                         } else {
@@ -9119,8 +9164,8 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('U' | 'u') => {
-                                if matches!(cs.next(), Some('S' | 's')) {
+                            Some(b'U' | b'u') => {
+                                if matches!(cs.next(), Some(b'S' | b's')) {
                                     Keyword::STATUS
                                 } else {
                                     Keyword::NOT_A_KEYWORD
@@ -9130,29 +9175,29 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('D' | 'd') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'D' | b'd') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::STDIN
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('O' | 'o') => match cs.next() {
-                        Some('P' | 'p') => Keyword::STOP,
-                        Some('R' | 'r') => match cs.next() {
-                            Some('A' | 'a') => {
-                                if matches!(cs.next(), Some('G' | 'g'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'O' | b'o') => match cs.next() {
+                        Some(b'P' | b'p') => Keyword::STOP,
+                        Some(b'R' | b'r') => match cs.next() {
+                            Some(b'A' | b'a') => {
+                                if matches!(cs.next(), Some(b'G' | b'g'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::STORAGE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('E' | 'e') => {
-                                if matches!(cs.next(), Some('D' | 'd')) {
+                            Some(b'E' | b'e') => {
+                                if matches!(cs.next(), Some(b'D' | b'd')) {
                                     Keyword::STORED
                                 } else {
                                     Keyword::NOT_A_KEYWORD
@@ -9162,53 +9207,53 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('R' | 'r') => match cs.next() {
-                        Some('A' | 'a') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('H' | 'h'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('J' | 'j'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'R' | b'r') => match cs.next() {
+                        Some(b'A' | b'a') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
+                                && matches!(cs.next(), Some(b'H' | b'h'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'J' | b'j'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
                             {
                                 Keyword::STRAIGHT_JOIN
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('P' | 'p'))
+                        Some(b'C' | b'c') => {
+                            if matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'P' | b'p'))
                             {
                                 Keyword::STRCMP
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('F' | 'f') => {
-                            if matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'F' | b'f') => {
+                            if matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::STRFTIME
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('I' | 'i') => match cs.next() {
-                            Some('C' | 'c') => {
-                                if matches!(cs.next(), Some('T' | 't')) {
+                        Some(b'I' | b'i') => match cs.next() {
+                            Some(b'C' | b'c') => {
+                                if matches!(cs.next(), Some(b'T' | b't')) {
                                     Keyword::STRICT
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('N' | 'n') => {
-                                if matches!(cs.next(), Some('G' | 'g')) {
+                            Some(b'N' | b'n') => {
+                                if matches!(cs.next(), Some(b'G' | b'g')) {
                                     Keyword::STRING
                                 } else {
                                     Keyword::NOT_A_KEYWORD
@@ -9216,14 +9261,14 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('_') => {
-                            if matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('D' | 'd'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::STR_TO_DATE
                             } else {
@@ -9234,57 +9279,57 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('U' | 'u') => match cs.next() {
-                    Some('B' | 'b') => match cs.next() {
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('G' | 'g'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('N' | 'n'))
+                Some(b'U' | b'u') => match cs.next() {
+                    Some(b'B' | b'b') => match cs.next() {
+                        Some(b'C' | b'c') => {
+                            if matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
                             {
                                 Keyword::SUBCLASS_ORIGIN
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('D' | 'd') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'D' | b'd') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::SUBDATE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('J' | 'j') => {
-                            if matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('T' | 't'))
+                        Some(b'J' | b'j') => {
+                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
                             {
                                 Keyword::SUBJECT
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('P' | 'p') => match cs.next() {
-                            Some('A' | 'a') => match cs.next() {
-                                Some('R' | 'r') => match cs.next() {
-                                    Some('T' | 't') => match cs.next() {
-                                        Some('I' | 'i') => match cs.next() {
-                                            Some('T' | 't') => match cs.next() {
-                                                Some('I' | 'i') => match cs.next() {
-                                                    Some('O' | 'o') => match cs.next() {
-                                                        Some('N' | 'n') => match cs.next() {
+                        Some(b'P' | b'p') => match cs.next() {
+                            Some(b'A' | b'a') => match cs.next() {
+                                Some(b'R' | b'r') => match cs.next() {
+                                    Some(b'T' | b't') => match cs.next() {
+                                        Some(b'I' | b'i') => match cs.next() {
+                                            Some(b'T' | b't') => match cs.next() {
+                                                Some(b'I' | b'i') => match cs.next() {
+                                                    Some(b'O' | b'o') => match cs.next() {
+                                                        Some(b'N' | b'n') => match cs.next() {
                                                             None => Keyword::SUBPARTITION,
-                                                            Some('S' | 's') => {
+                                                            Some(b'S' | b's') => {
                                                                 Keyword::SUBPARTITIONS
                                                             }
                                                             _ => Keyword::NOT_A_KEYWORD,
@@ -9305,20 +9350,20 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('S' | 's') => match cs.next() {
-                            Some('T' | 't') => match cs.next() {
-                                Some('R' | 'r') => match cs.next() {
+                        Some(b'S' | b's') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
+                                Some(b'R' | b'r') => match cs.next() {
                                     None => Keyword::SUBSTR,
-                                    Some('I' | 'i') => match cs.next() {
-                                        Some('N' | 'n') => match cs.next() {
-                                            Some('G' | 'g') => match cs.next() {
+                                    Some(b'I' | b'i') => match cs.next() {
+                                        Some(b'N' | b'n') => match cs.next() {
+                                            Some(b'G' | b'g') => match cs.next() {
                                                 None => Keyword::SUBSTRING,
-                                                Some('_') => {
-                                                    if matches!(cs.next(), Some('I' | 'i'))
-                                                        && matches!(cs.next(), Some('N' | 'n'))
-                                                        && matches!(cs.next(), Some('D' | 'd'))
-                                                        && matches!(cs.next(), Some('E' | 'e'))
-                                                        && matches!(cs.next(), Some('X' | 'x'))
+                                                Some(b'_') => {
+                                                    if matches!(cs.next(), Some(b'I' | b'i'))
+                                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                                        && matches!(cs.next(), Some(b'D' | b'd'))
+                                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                                        && matches!(cs.next(), Some(b'X' | b'x'))
                                                     {
                                                         Keyword::SUBSTRING_INDEX
                                                     } else {
@@ -9337,10 +9382,10 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('T' | 't') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'T' | b't') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::SUBTIME
                             } else {
@@ -9349,15 +9394,15 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('M' | 'm') => Keyword::SUM,
-                    Some('P' | 'p') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
-                            Some('R' | 'r') => match cs.next() {
+                    Some(b'M' | b'm') => Keyword::SUM,
+                    Some(b'P' | b'p') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
+                            Some(b'R' | b'r') => match cs.next() {
                                 None => Keyword::SUPER,
-                                Some('U' | 'u') => {
-                                    if matches!(cs.next(), Some('S' | 's'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
+                                Some(b'U' | b'u') => {
+                                    if matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
                                     {
                                         Keyword::SUPERUSER
                                     } else {
@@ -9370,11 +9415,11 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'P' | b'p'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::SUSPEND
                         } else {
@@ -9383,22 +9428,22 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('W' | 'w') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                Some(b'W' | b'w') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'P' | b'p'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::SWAPS
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('H' | 'h'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'H' | b'h'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::SWITCHES
                         } else {
@@ -9407,34 +9452,34 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('Y' | 'y') => match cs.next() {
-                    Some('S' | 's') => match cs.next() {
-                        Some('D' | 'd') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'Y' | b'y') => match cs.next() {
+                    Some(b'S' | b's') => match cs.next() {
+                        Some(b'D' | b'd') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::SYSDATE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('D' | 'd')) {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'D' | b'd')) {
                                 Keyword::SYSID
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('T' | 't') => match cs.next() {
-                            Some('E' | 'e') => match cs.next() {
-                                Some('M' | 'm') => match cs.next() {
+                        Some(b'T' | b't') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
+                                Some(b'M' | b'm') => match cs.next() {
                                     None => Keyword::SYSTEM,
-                                    Some('_') => {
-                                        if matches!(cs.next(), Some('T' | 't'))
-                                            && matches!(cs.next(), Some('I' | 'i'))
-                                            && matches!(cs.next(), Some('M' | 'm'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                                    Some(b'_') => {
+                                        if matches!(cs.next(), Some(b'T' | b't'))
+                                            && matches!(cs.next(), Some(b'I' | b'i'))
+                                            && matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::SYSTEM_TIME
                                         } else {
@@ -9453,18 +9498,18 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('T' | 't') => match cs.next() {
-                Some('A' | 'a') => match cs.next() {
-                    Some('B' | 'b') => match cs.next() {
-                        Some('L' | 'l') => match cs.next() {
-                            Some('E' | 'e') => match cs.next() {
+            Some(b'T' | b't') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'B' | b'b') => match cs.next() {
+                        Some(b'L' | b'l') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
                                 None => Keyword::TABLE,
-                                Some('S' | 's') => match cs.next() {
+                                Some(b'S' | b's') => match cs.next() {
                                     None => Keyword::TABLES,
-                                    Some('P' | 'p') => {
-                                        if matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('C' | 'c'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                                    Some(b'P' | b'p') => {
+                                        if matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'C' | b'c'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::TABLESPACE
                                         } else {
@@ -9473,25 +9518,25 @@ impl From<&str> for Keyword {
                                     }
                                     _ => Keyword::NOT_A_KEYWORD,
                                 },
-                                Some('_') => match cs.next() {
-                                    Some('C' | 'c') => {
-                                        if matches!(cs.next(), Some('H' | 'h'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
-                                            && matches!(cs.next(), Some('C' | 'c'))
-                                            && matches!(cs.next(), Some('K' | 'k'))
-                                            && matches!(cs.next(), Some('S' | 's'))
-                                            && matches!(cs.next(), Some('U' | 'u'))
-                                            && matches!(cs.next(), Some('M' | 'm'))
+                                Some(b'_') => match cs.next() {
+                                    Some(b'C' | b'c') => {
+                                        if matches!(cs.next(), Some(b'H' | b'h'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
+                                            && matches!(cs.next(), Some(b'C' | b'c'))
+                                            && matches!(cs.next(), Some(b'K' | b'k'))
+                                            && matches!(cs.next(), Some(b'S' | b's'))
+                                            && matches!(cs.next(), Some(b'U' | b'u'))
+                                            && matches!(cs.next(), Some(b'M' | b'm'))
                                         {
                                             Keyword::TABLE_CHECKSUM
                                         } else {
                                             Keyword::NOT_A_KEYWORD
                                         }
                                     }
-                                    Some('N' | 'n') => {
-                                        if matches!(cs.next(), Some('A' | 'a'))
-                                            && matches!(cs.next(), Some('M' | 'm'))
-                                            && matches!(cs.next(), Some('E' | 'e'))
+                                    Some(b'N' | b'n') => {
+                                        if matches!(cs.next(), Some(b'A' | b'a'))
+                                            && matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'E' | b'e'))
                                         {
                                             Keyword::TABLE_NAME
                                         } else {
@@ -9506,28 +9551,28 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('N' | 'n') => Keyword::TAN,
+                    Some(b'N' | b'n') => Keyword::TAN,
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('E' | 'e') => match cs.next() {
-                    Some('M' | 'm') => match cs.next() {
-                        Some('P' | 'p') => match cs.next() {
-                            Some('O' | 'o') => {
-                                if matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('Y' | 'y'))
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'M' | b'm') => match cs.next() {
+                        Some(b'P' | b'p') => match cs.next() {
+                            Some(b'O' | b'o') => {
+                                if matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'Y' | b'y'))
                                 {
                                     Keyword::TEMPORARY
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('T' | 't') => {
-                                if matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('B' | 'b'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'T' | b't') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'B' | b'b'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::TEMPTABLE
                                 } else {
@@ -9538,35 +9583,35 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('R' | 'r') => {
-                        if matches!(cs.next(), Some('M' | 'm'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'R' | b'r') => {
+                        if matches!(cs.next(), Some(b'M' | b'm'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::TERMINATED
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('X' | 'x') => match cs.next() {
-                        Some('T' | 't') => match cs.next() {
+                    Some(b'X' | b'x') => match cs.next() {
+                        Some(b'T' | b't') => match cs.next() {
                             None => Keyword::TEXT,
-                            Some('_') => {
-                                if matches!(cs.next(), Some('P' | 'p'))
-                                    && matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('_'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('P' | 'p'))
-                                    && matches!(cs.next(), Some('S' | 's'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'P' | b'p'))
+                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'_'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'P' | b'p'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
                                 {
                                     Keyword::TEXT_PATTERN_OPS
                                 } else {
@@ -9579,26 +9624,26 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('H' | 'h') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('N' | 'n')) {
+                Some(b'H' | b'h') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'N' | b'n')) {
                             Keyword::THAN
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('E' | 'e') => {
-                        if matches!(cs.next(), Some('N' | 'n')) {
+                    Some(b'E' | b'e') => {
+                        if matches!(cs.next(), Some(b'N' | b'n')) {
                             Keyword::THEN
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('R' | 'r') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('D' | 'd'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'R' | b'r') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::THREADS
                         } else {
@@ -9607,54 +9652,54 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('E' | 'e') => {
-                        if matches!(cs.next(), Some('S' | 's')) {
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'E' | b'e') => {
+                        if matches!(cs.next(), Some(b'S' | b's')) {
                             Keyword::TIES
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('M' | 'm') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
+                    Some(b'M' | b'm') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
                             None => Keyword::TIME,
-                            Some('D' | 'd') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('F' | 'f'))
-                                    && matches!(cs.next(), Some('F' | 'f'))
+                            Some(b'D' | b'd') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'F' | b'f'))
+                                    && matches!(cs.next(), Some(b'F' | b'f'))
                                 {
                                     Keyword::TIMEDIFF
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('S' | 's') => match cs.next() {
-                                Some('T' | 't') => match cs.next() {
-                                    Some('A' | 'a') => match cs.next() {
-                                        Some('M' | 'm') => match cs.next() {
-                                            Some('P' | 'p') => match cs.next() {
+                            Some(b'S' | b's') => match cs.next() {
+                                Some(b'T' | b't') => match cs.next() {
+                                    Some(b'A' | b'a') => match cs.next() {
+                                        Some(b'M' | b'm') => match cs.next() {
+                                            Some(b'P' | b'p') => match cs.next() {
                                                 None => Keyword::TIMESTAMP,
-                                                Some('A' | 'a') => {
-                                                    if matches!(cs.next(), Some('D' | 'd'))
-                                                        && matches!(cs.next(), Some('D' | 'd'))
+                                                Some(b'A' | b'a') => {
+                                                    if matches!(cs.next(), Some(b'D' | b'd'))
+                                                        && matches!(cs.next(), Some(b'D' | b'd'))
                                                     {
                                                         Keyword::TIMESTAMPADD
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
                                                     }
                                                 }
-                                                Some('D' | 'd') => {
-                                                    if matches!(cs.next(), Some('I' | 'i'))
-                                                        && matches!(cs.next(), Some('F' | 'f'))
-                                                        && matches!(cs.next(), Some('F' | 'f'))
+                                                Some(b'D' | b'd') => {
+                                                    if matches!(cs.next(), Some(b'I' | b'i'))
+                                                        && matches!(cs.next(), Some(b'F' | b'f'))
+                                                        && matches!(cs.next(), Some(b'F' | b'f'))
                                                     {
                                                         Keyword::TIMESTAMPDIFF
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
                                                     }
                                                 }
-                                                Some('T' | 't') => {
-                                                    if matches!(cs.next(), Some('Z' | 'z')) {
+                                                Some(b'T' | b't') => {
+                                                    if matches!(cs.next(), Some(b'Z' | b'z')) {
                                                         Keyword::TIMESTAMPTZ
                                                     } else {
                                                         Keyword::NOT_A_KEYWORD
@@ -9670,35 +9715,35 @@ impl From<&str> for Keyword {
                                 },
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
-                            Some('_') => match cs.next() {
-                                Some('F' | 'f') => {
-                                    if matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('M' | 'm'))
-                                        && matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'_') => match cs.next() {
+                                Some(b'F' | b'f') => {
+                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'M' | b'm'))
+                                        && matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
                                     {
                                         Keyword::TIME_FORMAT
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('T' | 't') => {
-                                    if matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('_'))
-                                        && matches!(cs.next(), Some('S' | 's'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('C' | 'c'))
+                                Some(b'T' | b't') => {
+                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'C' | b'c'))
                                     {
                                         Keyword::TIME_TO_SEC
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('Z' | 'z') => {
-                                    if matches!(cs.next(), Some('O' | 'o'))
-                                        && matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
+                                Some(b'Z' | b'z') => {
+                                    if matches!(cs.next(), Some(b'O' | b'o'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
                                     {
                                         Keyword::TIME_ZONE
                                     } else {
@@ -9711,31 +9756,31 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('N' | 'n') => match cs.next() {
-                        Some('Y' | 'y') => match cs.next() {
-                            Some('B' | 'b') => {
-                                if matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('B' | 'b'))
+                    Some(b'N' | b'n') => match cs.next() {
+                        Some(b'Y' | b'y') => match cs.next() {
+                            Some(b'B' | b'b') => {
+                                if matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'B' | b'b'))
                                 {
                                     Keyword::TINYBLOB
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('I' | 'i') => {
-                                if matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::TINYINT
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('T' | 't') => {
-                                if matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('X' | 'x'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'T' | b't') => {
+                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'X' | b'x'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::TINYTEXT
                                 } else {
@@ -9748,48 +9793,48 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('O' | 'o') => match cs.next() {
+                Some(b'O' | b'o') => match cs.next() {
                     None => Keyword::TO,
-                    Some('_') => match cs.next() {
-                        Some('B' | 'b') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('6'))
-                                && matches!(cs.next(), Some('4'))
+                    Some(b'_') => match cs.next() {
+                        Some(b'B' | b'b') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'6'))
+                                && matches!(cs.next(), Some(b'4'))
                             {
                                 Keyword::TO_BASE64
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('H' | 'h'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('R' | 'r'))
+                        Some(b'C' | b'c') => {
+                            if matches!(cs.next(), Some(b'H' | b'h'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
                             {
                                 Keyword::TO_CHAR
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('D' | 'd') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('Y' | 'y'))
-                                && matches!(cs.next(), Some('S' | 's'))
+                        Some(b'D' | b'd') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'Y' | b'y'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
                             {
                                 Keyword::TO_DAYS
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('S' | 's') => {
-                            if matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('D' | 'd'))
-                                && matches!(cs.next(), Some('S' | 's'))
+                        Some(b'S' | b's') => {
+                            if matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
                             {
                                 Keyword::TO_SECONDS
                             } else {
@@ -9800,31 +9845,33 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('R' | 'r') => match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('G' | 'g'))
+                Some(b'R' | b'r') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
                             {
                                 Keyword::TRAILING
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('N' | 'n') => match cs.next() {
-                            Some('S' | 's') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('C' | 'c') => match cs.next() {
-                                        Some('T' | 't') => match cs.next() {
-                                            Some('I' | 'i') => match cs.next() {
-                                                Some('O' | 'o') => match cs.next() {
-                                                    Some('N' | 'n') => match cs.next() {
+                        Some(b'N' | b'n') => match cs.next() {
+                            Some(b'S' | b's') => match cs.next() {
+                                Some(b'A' | b'a') => match cs.next() {
+                                    Some(b'C' | b'c') => match cs.next() {
+                                        Some(b'T' | b't') => match cs.next() {
+                                            Some(b'I' | b'i') => match cs.next() {
+                                                Some(b'O' | b'o') => match cs.next() {
+                                                    Some(b'N' | b'n') => match cs.next() {
                                                         None => Keyword::TRANSACTION,
-                                                        Some('A' | 'a') => {
-                                                            if matches!(cs.next(), Some('L' | 'l'))
-                                                            {
+                                                        Some(b'A' | b'a') => {
+                                                            if matches!(
+                                                                cs.next(),
+                                                                Some(b'L' | b'l')
+                                                            ) {
                                                                 Keyword::TRANSACTIONAL
                                                             } else {
                                                                 Keyword::NOT_A_KEYWORD
@@ -9848,13 +9895,13 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('I' | 'i') => match cs.next() {
-                        Some('G' | 'g') => match cs.next() {
-                            Some('G' | 'g') => match cs.next() {
-                                Some('E' | 'e') => match cs.next() {
-                                    Some('R' | 'r') => match cs.next() {
+                    Some(b'I' | b'i') => match cs.next() {
+                        Some(b'G' | b'g') => match cs.next() {
+                            Some(b'G' | b'g') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
+                                    Some(b'R' | b'r') => match cs.next() {
                                         None => Keyword::TRIGGER,
-                                        Some('S' | 's') => Keyword::TRIGGERS,
+                                        Some(b'S' | b's') => Keyword::TRIGGERS,
                                         _ => Keyword::NOT_A_KEYWORD,
                                     },
                                     _ => Keyword::NOT_A_KEYWORD,
@@ -9865,13 +9912,13 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('U' | 'u') => match cs.next() {
-                        Some('E' | 'e') => Keyword::TRUE,
-                        Some('N' | 'n') => {
-                            if matches!(cs.next(), Some('C' | 'c'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'U' | b'u') => match cs.next() {
+                        Some(b'E' | b'e') => Keyword::TRUE,
+                        Some(b'N' | b'n') => {
+                            if matches!(cs.next(), Some(b'C' | b'c'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::TRUNCATE
                             } else {
@@ -9882,11 +9929,11 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('Y' | 'y') => match cs.next() {
-                    Some('P' | 'p') => match cs.next() {
-                        Some('E' | 'e') => match cs.next() {
+                Some(b'Y' | b'y') => match cs.next() {
+                    Some(b'P' | b'p') => match cs.next() {
+                        Some(b'E' | b'e') => match cs.next() {
                             None => Keyword::TYPE,
-                            Some('S' | 's') => Keyword::TYPES,
+                            Some(b'S' | b's') => Keyword::TYPES,
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
@@ -9895,60 +9942,60 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('U' | 'u') => match cs.next() {
-                Some('C' | 'c') => {
-                    if matches!(cs.next(), Some('A' | 'a'))
-                        && matches!(cs.next(), Some('S' | 's'))
-                        && matches!(cs.next(), Some('E' | 'e'))
+            Some(b'U' | b'u') => match cs.next() {
+                Some(b'C' | b'c') => {
+                    if matches!(cs.next(), Some(b'A' | b'a'))
+                        && matches!(cs.next(), Some(b'S' | b's'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
                     {
                         Keyword::UCASE
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('N' | 'n') => match cs.next() {
-                    Some('B' | 'b') => {
-                        if matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('D' | 'd'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                Some(b'N' | b'n') => match cs.next() {
+                    Some(b'B' | b'b') => {
+                        if matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::UNBOUNDED
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('C' | 'c') => match cs.next() {
-                        Some('O' | 'o') => match cs.next() {
-                            Some('M' | 'm') => match cs.next() {
-                                Some('M' | 'm') => {
-                                    if matches!(cs.next(), Some('I' | 'i'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'O' | b'o') => match cs.next() {
+                            Some(b'M' | b'm') => match cs.next() {
+                                Some(b'M' | b'm') => {
+                                    if matches!(cs.next(), Some(b'I' | b'i'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'D' | b'd'))
                                     {
                                         Keyword::UNCOMMITTED
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('P' | 'p') => {
-                                    if matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('S' | 's'))
-                                        && matches!(cs.next(), Some('S' | 's'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('D' | 'd'))
-                                        && matches!(cs.next(), Some('_'))
-                                        && matches!(cs.next(), Some('L' | 'l'))
-                                        && matches!(cs.next(), Some('E' | 'e'))
-                                        && matches!(cs.next(), Some('N' | 'n'))
-                                        && matches!(cs.next(), Some('G' | 'g'))
-                                        && matches!(cs.next(), Some('T' | 't'))
-                                        && matches!(cs.next(), Some('H' | 'h'))
+                                Some(b'P' | b'p') => {
+                                    if matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'S' | b's'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'D' | b'd'))
+                                        && matches!(cs.next(), Some(b'_'))
+                                        && matches!(cs.next(), Some(b'L' | b'l'))
+                                        && matches!(cs.next(), Some(b'E' | b'e'))
+                                        && matches!(cs.next(), Some(b'N' | b'n'))
+                                        && matches!(cs.next(), Some(b'G' | b'g'))
+                                        && matches!(cs.next(), Some(b'T' | b't'))
+                                        && matches!(cs.next(), Some(b'H' | b'h'))
                                     {
                                         Keyword::UNCOMPRESSED_LENGTH
                                     } else {
@@ -9961,43 +10008,43 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('D' | 'd') => match cs.next() {
-                        Some('E' | 'e') => {
-                            if matches!(cs.next(), Some('F' | 'f'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'D' | b'd') => match cs.next() {
+                        Some(b'E' | b'e') => {
+                            if matches!(cs.next(), Some(b'F' | b'f'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
                             {
                                 Keyword::UNDEFINED
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('O' | 'o') => match cs.next() {
+                        Some(b'O' | b'o') => match cs.next() {
                             None => Keyword::UNDO,
-                            Some('F' | 'f') => {
-                                if matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('L' | 'l'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'F' | b'f') => {
+                                if matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'L' | b'l'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::UNDOFILE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('_') => {
-                                if matches!(cs.next(), Some('B' | 'b'))
-                                    && matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('F' | 'f'))
-                                    && matches!(cs.next(), Some('F' | 'f'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('_'))
-                                    && matches!(cs.next(), Some('S' | 's'))
-                                    && matches!(cs.next(), Some('I' | 'i'))
-                                    && matches!(cs.next(), Some('Z' | 'z'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'B' | b'b'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'F' | b'f'))
+                                    && matches!(cs.next(), Some(b'F' | b'f'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'_'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                    && matches!(cs.next(), Some(b'I' | b'i'))
+                                    && matches!(cs.next(), Some(b'Z' | b'z'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::UNDO_BUFFER_SIZE
                                 } else {
@@ -10008,65 +10055,65 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('H' | 'h') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('X' | 'x'))
+                    Some(b'H' | b'h') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'X' | b'x'))
                         {
                             Keyword::UNHEX
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('I' | 'i') => match cs.next() {
-                        Some('C' | 'c') => {
-                            if matches!(cs.next(), Some('O' | 'o'))
-                                && matches!(cs.next(), Some('D' | 'd'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'I' | b'i') => match cs.next() {
+                        Some(b'C' | b'c') => {
+                            if matches!(cs.next(), Some(b'O' | b'o'))
+                                && matches!(cs.next(), Some(b'D' | b'd'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::UNICODE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('N' | 'n') => {
-                            if matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('L' | 'l'))
+                        Some(b'N' | b'n') => {
+                            if matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
                             {
                                 Keyword::UNINSTALL
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('O' | 'o') => {
-                            if matches!(cs.next(), Some('N' | 'n')) {
+                        Some(b'O' | b'o') => {
+                            if matches!(cs.next(), Some(b'N' | b'n')) {
                                 Keyword::UNION
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('Q' | 'q') => {
-                            if matches!(cs.next(), Some('U' | 'u'))
-                                && matches!(cs.next(), Some('E' | 'e'))
+                        Some(b'Q' | b'q') => {
+                            if matches!(cs.next(), Some(b'U' | b'u'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
                             {
                                 Keyword::UNIQUE
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('X' | 'x') => {
-                            if matches!(cs.next(), Some('_'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('S' | 's'))
-                                && matches!(cs.next(), Some('T' | 't'))
-                                && matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('M' | 'm'))
-                                && matches!(cs.next(), Some('P' | 'p'))
+                        Some(b'X' | b'x') => {
+                            if matches!(cs.next(), Some(b'_'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
+                                && matches!(cs.next(), Some(b'T' | b't'))
+                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
+                                && matches!(cs.next(), Some(b'P' | b'p'))
                             {
                                 Keyword::UNIX_TIMESTAMP
                             } else {
@@ -10075,42 +10122,42 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('K' | 'k') => {
-                        if matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('W' | 'w'))
-                            && matches!(cs.next(), Some('N' | 'n'))
+                    Some(b'K' | b'k') => {
+                        if matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'W' | b'w'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
                         {
                             Keyword::UNKNOWN
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('L' | 'l') => {
-                        if matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('C' | 'c'))
-                            && matches!(cs.next(), Some('K' | 'k'))
+                    Some(b'L' | b'l') => {
+                        if matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'C' | b'c'))
+                            && matches!(cs.next(), Some(b'K' | b'k'))
                         {
                             Keyword::UNLOCK
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('D' | 'd'))
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
                         {
                             Keyword::UNSIGNED
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('T' | 't') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('L' | 'l'))
+                    Some(b'T' | b't') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
                         {
                             Keyword::UNTIL
                         } else {
@@ -10119,15 +10166,15 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('P' | 'p') => match cs.next() {
-                    Some('D' | 'd') => match cs.next() {
-                        Some('A' | 'a') => match cs.next() {
-                            Some('T' | 't') => match cs.next() {
-                                Some('E' | 'e') => match cs.next() {
+                Some(b'P' | b'p') => match cs.next() {
+                    Some(b'D' | b'd') => match cs.next() {
+                        Some(b'A' | b'a') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
+                                Some(b'E' | b'e') => match cs.next() {
                                     None => Keyword::UPDATE,
-                                    Some('X' | 'x') => {
-                                        if matches!(cs.next(), Some('M' | 'm'))
-                                            && matches!(cs.next(), Some('L' | 'l'))
+                                    Some(b'X' | b'x') => {
+                                        if matches!(cs.next(), Some(b'M' | b'm'))
+                                            && matches!(cs.next(), Some(b'L' | b'l'))
                                         {
                                             Keyword::UPDATEXML
                                         } else {
@@ -10142,20 +10189,20 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('G' | 'g') => {
-                        if matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('D' | 'd'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'G' | b'g') => {
+                        if matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'D' | b'd'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::UPGRADE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('P' | 'p') => {
-                        if matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+                    Some(b'P' | b'p') => {
+                        if matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::UPPER
                         } else {
@@ -10164,30 +10211,30 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('S' | 's') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'S' | b's') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::USAGE
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('E' | 'e') => match cs.next() {
+                    Some(b'E' | b'e') => match cs.next() {
                         None => Keyword::USE,
-                        Some('R' | 'r') => match cs.next() {
+                        Some(b'R' | b'r') => match cs.next() {
                             None => Keyword::USER,
-                            Some('_') => {
-                                if matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('S' | 's'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
-                                    && matches!(cs.next(), Some('C' | 'c'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('S' | 's'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
+                                    && matches!(cs.next(), Some(b'C' | b'c'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'S' | b's'))
                                 {
                                     Keyword::USER_RESOURCES
                                 } else {
@@ -10196,10 +10243,10 @@ impl From<&str> for Keyword {
                             }
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('_') => {
-                            if matches!(cs.next(), Some('F' | 'f'))
-                                && matches!(cs.next(), Some('R' | 'r'))
-                                && matches!(cs.next(), Some('M' | 'm'))
+                        Some(b'_') => {
+                            if matches!(cs.next(), Some(b'F' | b'f'))
+                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                && matches!(cs.next(), Some(b'M' | b'm'))
                             {
                                 Keyword::USE_FRM
                             } else {
@@ -10208,9 +10255,9 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('G' | 'g'))
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
                         {
                             Keyword::USING
                         } else {
@@ -10219,29 +10266,29 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('T' | 't') => match cs.next() {
-                    Some('C' | 'c') => match cs.next() {
-                        Some('_') => match cs.next() {
-                            Some('D' | 'd') => {
-                                if matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'T' | b't') => match cs.next() {
+                    Some(b'C' | b'c') => match cs.next() {
+                        Some(b'_') => match cs.next() {
+                            Some(b'D' | b'd') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
                                 {
                                     Keyword::UTC_DATE
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('T' | 't') => match cs.next() {
-                                Some('I' | 'i') => match cs.next() {
-                                    Some('M' | 'm') => match cs.next() {
-                                        Some('E' | 'e') => match cs.next() {
+                            Some(b'T' | b't') => match cs.next() {
+                                Some(b'I' | b'i') => match cs.next() {
+                                    Some(b'M' | b'm') => match cs.next() {
+                                        Some(b'E' | b'e') => match cs.next() {
                                             None => Keyword::UTC_TIME,
-                                            Some('S' | 's') => {
-                                                if matches!(cs.next(), Some('T' | 't'))
-                                                    && matches!(cs.next(), Some('A' | 'a'))
-                                                    && matches!(cs.next(), Some('M' | 'm'))
-                                                    && matches!(cs.next(), Some('P' | 'p'))
+                                            Some(b'S' | b's') => {
+                                                if matches!(cs.next(), Some(b'T' | b't'))
+                                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                                    && matches!(cs.next(), Some(b'M' | b'm'))
+                                                    && matches!(cs.next(), Some(b'P' | b'p'))
                                                 {
                                                     Keyword::UTC_TIMESTAMP
                                                 } else {
@@ -10264,73 +10311,73 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('V' | 'v') => match cs.next() {
-                Some('A' | 'a') => match cs.next() {
-                    Some('L' | 'l') => match cs.next() {
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('D' | 'd')) {
+            Some(b'V' | b'v') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'L' | b'l') => match cs.next() {
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'D' | b'd')) {
                                 Keyword::VALID
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('U' | 'u') => match cs.next() {
-                            Some('E' | 'e') => match cs.next() {
+                        Some(b'U' | b'u') => match cs.next() {
+                            Some(b'E' | b'e') => match cs.next() {
                                 None => Keyword::VALUE,
-                                Some('S' | 's') => Keyword::VALUES,
+                                Some(b'S' | b's') => Keyword::VALUES,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('R' | 'r') => match cs.next() {
-                        Some('B' | 'b') => match cs.next() {
-                            Some('I' | 'i') => match cs.next() {
-                                Some('N' | 'n') => {
-                                    if matches!(cs.next(), Some('A' | 'a'))
-                                        && matches!(cs.next(), Some('R' | 'r'))
-                                        && matches!(cs.next(), Some('Y' | 'y'))
+                    Some(b'R' | b'r') => match cs.next() {
+                        Some(b'B' | b'b') => match cs.next() {
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'N' | b'n') => {
+                                    if matches!(cs.next(), Some(b'A' | b'a'))
+                                        && matches!(cs.next(), Some(b'R' | b'r'))
+                                        && matches!(cs.next(), Some(b'Y' | b'y'))
                                     {
                                         Keyword::VARBINARY
                                     } else {
                                         Keyword::NOT_A_KEYWORD
                                     }
                                 }
-                                Some('T' | 't') => Keyword::VARBIT,
+                                Some(b'T' | b't') => Keyword::VARBIT,
                                 _ => Keyword::NOT_A_KEYWORD,
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('C' | 'c') => match cs.next() {
-                            Some('H' | 'h') => match cs.next() {
-                                Some('A' | 'a') => match cs.next() {
-                                    Some('R' | 'r') => match cs.next() {
+                        Some(b'C' | b'c') => match cs.next() {
+                            Some(b'H' | b'h') => match cs.next() {
+                                Some(b'A' | b'a') => match cs.next() {
+                                    Some(b'R' | b'r') => match cs.next() {
                                         None => Keyword::VARCHAR,
-                                        Some('2') => Keyword::VARCHAR2,
-                                        Some('A' | 'a') => {
-                                            if matches!(cs.next(), Some('C' | 'c'))
-                                                && matches!(cs.next(), Some('T' | 't'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('R' | 'r'))
+                                        Some(b'2') => Keyword::VARCHAR2,
+                                        Some(b'A' | b'a') => {
+                                            if matches!(cs.next(), Some(b'C' | b'c'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'R' | b'r'))
                                             {
                                                 Keyword::VARCHARACTER
                                             } else {
                                                 Keyword::NOT_A_KEYWORD
                                             }
                                         }
-                                        Some('_') => {
-                                            if matches!(cs.next(), Some('P' | 'p'))
-                                                && matches!(cs.next(), Some('A' | 'a'))
-                                                && matches!(cs.next(), Some('T' | 't'))
-                                                && matches!(cs.next(), Some('T' | 't'))
-                                                && matches!(cs.next(), Some('E' | 'e'))
-                                                && matches!(cs.next(), Some('R' | 'r'))
-                                                && matches!(cs.next(), Some('N' | 'n'))
-                                                && matches!(cs.next(), Some('_'))
-                                                && matches!(cs.next(), Some('O' | 'o'))
-                                                && matches!(cs.next(), Some('P' | 'p'))
-                                                && matches!(cs.next(), Some('S' | 's'))
+                                        Some(b'_') => {
+                                            if matches!(cs.next(), Some(b'P' | b'p'))
+                                                && matches!(cs.next(), Some(b'A' | b'a'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                                && matches!(cs.next(), Some(b'T' | b't'))
+                                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                                && matches!(cs.next(), Some(b'R' | b'r'))
+                                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                                && matches!(cs.next(), Some(b'_'))
+                                                && matches!(cs.next(), Some(b'O' | b'o'))
+                                                && matches!(cs.next(), Some(b'P' | b'p'))
+                                                && matches!(cs.next(), Some(b'S' | b's'))
                                             {
                                                 Keyword::VARCHAR_PATTERN_OPS
                                             } else {
@@ -10345,22 +10392,22 @@ impl From<&str> for Keyword {
                             },
                             _ => Keyword::NOT_A_KEYWORD,
                         },
-                        Some('I' | 'i') => {
-                            if matches!(cs.next(), Some('A' | 'a'))
-                                && matches!(cs.next(), Some('B' | 'b'))
-                                && matches!(cs.next(), Some('L' | 'l'))
-                                && matches!(cs.next(), Some('E' | 'e'))
-                                && matches!(cs.next(), Some('S' | 's'))
+                        Some(b'I' | b'i') => {
+                            if matches!(cs.next(), Some(b'A' | b'a'))
+                                && matches!(cs.next(), Some(b'B' | b'b'))
+                                && matches!(cs.next(), Some(b'L' | b'l'))
+                                && matches!(cs.next(), Some(b'E' | b'e'))
+                                && matches!(cs.next(), Some(b'S' | b's'))
                             {
                                 Keyword::VARIABLES
                             } else {
                                 Keyword::NOT_A_KEYWORD
                             }
                         }
-                        Some('Y' | 'y') => {
-                            if matches!(cs.next(), Some('I' | 'i'))
-                                && matches!(cs.next(), Some('N' | 'n'))
-                                && matches!(cs.next(), Some('G' | 'g'))
+                        Some(b'Y' | b'y') => {
+                            if matches!(cs.next(), Some(b'I' | b'i'))
+                                && matches!(cs.next(), Some(b'N' | b'n'))
+                                && matches!(cs.next(), Some(b'G' | b'g'))
                             {
                                 Keyword::VARYING
                             } else {
@@ -10371,16 +10418,16 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('E' | 'e') => match cs.next() {
-                    Some('R' | 'r') => match cs.next() {
-                        Some('S' | 's') => match cs.next() {
-                            Some('I' | 'i') => match cs.next() {
-                                Some('O' | 'o') => match cs.next() {
-                                    Some('N' | 'n') => match cs.next() {
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'R' | b'r') => match cs.next() {
+                        Some(b'S' | b's') => match cs.next() {
+                            Some(b'I' | b'i') => match cs.next() {
+                                Some(b'O' | b'o') => match cs.next() {
+                                    Some(b'N' | b'n') => match cs.next() {
                                         None => Keyword::VERSION,
-                                        Some('I' | 'i') => {
-                                            if matches!(cs.next(), Some('N' | 'n'))
-                                                && matches!(cs.next(), Some('G' | 'g'))
+                                        Some(b'I' | b'i') => {
+                                            if matches!(cs.next(), Some(b'N' | b'n'))
+                                                && matches!(cs.next(), Some(b'G' | b'g'))
                                             {
                                                 Keyword::VERSIONING
                                             } else {
@@ -10399,31 +10446,31 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('A' | 'a') => Keyword::VIA,
-                    Some('E' | 'e') => {
-                        if matches!(cs.next(), Some('W' | 'w')) {
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'A' | b'a') => Keyword::VIA,
+                    Some(b'E' | b'e') => {
+                        if matches!(cs.next(), Some(b'W' | b'w')) {
                             Keyword::VIEW
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('R' | 'r') => {
-                        if matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('U' | 'u'))
-                            && matches!(cs.next(), Some('A' | 'a'))
-                            && matches!(cs.next(), Some('L' | 'l'))
+                    Some(b'R' | b'r') => {
+                        if matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'U' | b'u'))
+                            && matches!(cs.next(), Some(b'A' | b'a'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
                         {
                             Keyword::VIRTUAL
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('S' | 's') => {
-                        if matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('B' | 'b'))
-                            && matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'S' | b's') => {
+                        if matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'B' | b'b'))
+                            && matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::VISIBLE
                         } else {
@@ -10434,21 +10481,21 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('W' | 'w') => match cs.next() {
-                Some('A' | 'a') => match cs.next() {
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('T' | 't')) {
+            Some(b'W' | b'w') => match cs.next() {
+                Some(b'A' | b'a') => match cs.next() {
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'T' | b't')) {
                             Keyword::WAIT
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('R' | 'r') => {
-                        if matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('S' | 's'))
+                    Some(b'R' | b'r') => {
+                        if matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
                         {
                             Keyword::WARNINGS
                         } else {
@@ -10457,25 +10504,25 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('E' | 'e') => match cs.next() {
-                    Some('E' | 'e') => match cs.next() {
-                        Some('K' | 'k') => match cs.next() {
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'K' | b'k') => match cs.next() {
                             None => Keyword::WEEK,
-                            Some('D' | 'd') => {
-                                if matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('Y' | 'y'))
+                            Some(b'D' | b'd') => {
+                                if matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'Y' | b'y'))
                                 {
                                     Keyword::WEEKDAY
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('O' | 'o') => {
-                                if matches!(cs.next(), Some('F' | 'f'))
-                                    && matches!(cs.next(), Some('Y' | 'y'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('A' | 'a'))
-                                    && matches!(cs.next(), Some('R' | 'r'))
+                            Some(b'O' | b'o') => {
+                                if matches!(cs.next(), Some(b'F' | b'f'))
+                                    && matches!(cs.next(), Some(b'Y' | b'y'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'A' | b'a'))
+                                    && matches!(cs.next(), Some(b'R' | b'r'))
                                 {
                                     Keyword::WEEKOFYEAR
                                 } else {
@@ -10486,17 +10533,17 @@ impl From<&str> for Keyword {
                         },
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('G' | 'g'))
-                            && matches!(cs.next(), Some('H' | 'h'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('_'))
-                            && matches!(cs.next(), Some('S' | 's'))
-                            && matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('R' | 'r'))
-                            && matches!(cs.next(), Some('I' | 'i'))
-                            && matches!(cs.next(), Some('N' | 'n'))
-                            && matches!(cs.next(), Some('G' | 'g'))
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'G' | b'g'))
+                            && matches!(cs.next(), Some(b'H' | b'h'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'_'))
+                            && matches!(cs.next(), Some(b'S' | b's'))
+                            && matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
+                            && matches!(cs.next(), Some(b'I' | b'i'))
+                            && matches!(cs.next(), Some(b'N' | b'n'))
+                            && matches!(cs.next(), Some(b'G' | b'g'))
                         {
                             Keyword::WEIGHT_STRING
                         } else {
@@ -10505,11 +10552,11 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('H' | 'h') => match cs.next() {
-                    Some('E' | 'e') => match cs.next() {
-                        Some('N' | 'n') => Keyword::WHEN,
-                        Some('R' | 'r') => {
-                            if matches!(cs.next(), Some('E' | 'e')) {
+                Some(b'H' | b'h') => match cs.next() {
+                    Some(b'E' | b'e') => match cs.next() {
+                        Some(b'N' | b'n') => Keyword::WHEN,
+                        Some(b'R' | b'r') => {
+                            if matches!(cs.next(), Some(b'E' | b'e')) {
                                 Keyword::WHERE
                             } else {
                                 Keyword::NOT_A_KEYWORD
@@ -10517,9 +10564,9 @@ impl From<&str> for Keyword {
                         }
                         _ => Keyword::NOT_A_KEYWORD,
                     },
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('L' | 'l'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'L' | b'l'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::WHILE
                         } else {
@@ -10528,30 +10575,30 @@ impl From<&str> for Keyword {
                     }
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('I' | 'i') => match cs.next() {
-                    Some('N' | 'n') => {
-                        if matches!(cs.next(), Some('D' | 'd'))
-                            && matches!(cs.next(), Some('O' | 'o'))
-                            && matches!(cs.next(), Some('W' | 'w'))
+                Some(b'I' | b'i') => match cs.next() {
+                    Some(b'N' | b'n') => {
+                        if matches!(cs.next(), Some(b'D' | b'd'))
+                            && matches!(cs.next(), Some(b'O' | b'o'))
+                            && matches!(cs.next(), Some(b'W' | b'w'))
                         {
                             Keyword::WINDOW
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('T' | 't') => match cs.next() {
-                        Some('H' | 'h') => match cs.next() {
+                    Some(b'T' | b't') => match cs.next() {
+                        Some(b'H' | b'h') => match cs.next() {
                             None => Keyword::WITH,
-                            Some('I' | 'i') => {
-                                if matches!(cs.next(), Some('N' | 'n')) {
+                            Some(b'I' | b'i') => {
+                                if matches!(cs.next(), Some(b'N' | b'n')) {
                                     Keyword::WITHIN
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('O' | 'o') => {
-                                if matches!(cs.next(), Some('U' | 'u'))
-                                    && matches!(cs.next(), Some('T' | 't'))
+                            Some(b'O' | b'o') => {
+                                if matches!(cs.next(), Some(b'U' | b'u'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
                                 {
                                     Keyword::WITHOUT
                                 } else {
@@ -10564,29 +10611,30 @@ impl From<&str> for Keyword {
                     },
                     _ => Keyword::NOT_A_KEYWORD,
                 },
-                Some('O' | 'o') => {
-                    if matches!(cs.next(), Some('R' | 'r')) && matches!(cs.next(), Some('K' | 'k'))
+                Some(b'O' | b'o') => {
+                    if matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'K' | b'k'))
                     {
                         Keyword::WORK
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('R' | 'r') => match cs.next() {
-                    Some('A' | 'a') => {
-                        if matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('P' | 'p'))
-                            && matches!(cs.next(), Some('E' | 'e'))
-                            && matches!(cs.next(), Some('R' | 'r'))
+                Some(b'R' | b'r') => match cs.next() {
+                    Some(b'A' | b'a') => {
+                        if matches!(cs.next(), Some(b'P' | b'p'))
+                            && matches!(cs.next(), Some(b'P' | b'p'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
+                            && matches!(cs.next(), Some(b'R' | b'r'))
                         {
                             Keyword::WRAPPER
                         } else {
                             Keyword::NOT_A_KEYWORD
                         }
                     }
-                    Some('I' | 'i') => {
-                        if matches!(cs.next(), Some('T' | 't'))
-                            && matches!(cs.next(), Some('E' | 'e'))
+                    Some(b'I' | b'i') => {
+                        if matches!(cs.next(), Some(b'T' | b't'))
+                            && matches!(cs.next(), Some(b'E' | b'e'))
                         {
                             Keyword::WRITE
                         } else {
@@ -10597,24 +10645,24 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('X' | 'x') => match cs.next() {
-                Some('5') => {
-                    if matches!(cs.next(), Some('0')) && matches!(cs.next(), Some('9')) {
+            Some(b'X' | b'x') => match cs.next() {
+                Some(b'5') => {
+                    if matches!(cs.next(), Some(b'0')) && matches!(cs.next(), Some(b'9')) {
                         Keyword::X509
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('A' | 'a') => Keyword::XA,
-                Some('M' | 'm') => {
-                    if matches!(cs.next(), Some('L' | 'l')) {
+                Some(b'A' | b'a') => Keyword::XA,
+                Some(b'M' | b'm') => {
+                    if matches!(cs.next(), Some(b'L' | b'l')) {
                         Keyword::XML
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('O' | 'o') => {
-                    if matches!(cs.next(), Some('R' | 'r')) {
+                Some(b'O' | b'o') => {
+                    if matches!(cs.next(), Some(b'R' | b'r')) {
                         Keyword::XOR
                     } else {
                         Keyword::NOT_A_KEYWORD
@@ -10622,27 +10670,27 @@ impl From<&str> for Keyword {
                 }
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('Y' | 'y') => match cs.next() {
-                Some('E' | 'e') => match cs.next() {
-                    Some('A' | 'a') => match cs.next() {
-                        Some('R' | 'r') => match cs.next() {
+            Some(b'Y' | b'y') => match cs.next() {
+                Some(b'E' | b'e') => match cs.next() {
+                    Some(b'A' | b'a') => match cs.next() {
+                        Some(b'R' | b'r') => match cs.next() {
                             None => Keyword::YEAR,
-                            Some('W' | 'w') => {
-                                if matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('E' | 'e'))
-                                    && matches!(cs.next(), Some('K' | 'k'))
+                            Some(b'W' | b'w') => {
+                                if matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'E' | b'e'))
+                                    && matches!(cs.next(), Some(b'K' | b'k'))
                                 {
                                     Keyword::YEARWEEK
                                 } else {
                                     Keyword::NOT_A_KEYWORD
                                 }
                             }
-                            Some('_') => {
-                                if matches!(cs.next(), Some('M' | 'm'))
-                                    && matches!(cs.next(), Some('O' | 'o'))
-                                    && matches!(cs.next(), Some('N' | 'n'))
-                                    && matches!(cs.next(), Some('T' | 't'))
-                                    && matches!(cs.next(), Some('H' | 'h'))
+                            Some(b'_') => {
+                                if matches!(cs.next(), Some(b'M' | b'm'))
+                                    && matches!(cs.next(), Some(b'O' | b'o'))
+                                    && matches!(cs.next(), Some(b'N' | b'n'))
+                                    && matches!(cs.next(), Some(b'T' | b't'))
+                                    && matches!(cs.next(), Some(b'H' | b'h'))
                                 {
                                     Keyword::YEAR_MONTH
                                 } else {
@@ -10657,22 +10705,23 @@ impl From<&str> for Keyword {
                 },
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('Z' | 'z') => match cs.next() {
-                Some('E' | 'e') => {
-                    if matches!(cs.next(), Some('R' | 'r'))
-                        && matches!(cs.next(), Some('O' | 'o'))
-                        && matches!(cs.next(), Some('F' | 'f'))
-                        && matches!(cs.next(), Some('I' | 'i'))
-                        && matches!(cs.next(), Some('L' | 'l'))
-                        && matches!(cs.next(), Some('L' | 'l'))
+            Some(b'Z' | b'z') => match cs.next() {
+                Some(b'E' | b'e') => {
+                    if matches!(cs.next(), Some(b'R' | b'r'))
+                        && matches!(cs.next(), Some(b'O' | b'o'))
+                        && matches!(cs.next(), Some(b'F' | b'f'))
+                        && matches!(cs.next(), Some(b'I' | b'i'))
+                        && matches!(cs.next(), Some(b'L' | b'l'))
+                        && matches!(cs.next(), Some(b'L' | b'l'))
                     {
                         Keyword::ZEROFILL
                     } else {
                         Keyword::NOT_A_KEYWORD
                     }
                 }
-                Some('O' | 'o') => {
-                    if matches!(cs.next(), Some('N' | 'n')) && matches!(cs.next(), Some('E' | 'e'))
+                Some(b'O' | b'o') => {
+                    if matches!(cs.next(), Some(b'N' | b'n'))
+                        && matches!(cs.next(), Some(b'E' | b'e'))
                     {
                         Keyword::ZONE
                     } else {
@@ -10681,12 +10730,12 @@ impl From<&str> for Keyword {
                 }
                 _ => Keyword::NOT_A_KEYWORD,
             },
-            Some('_') => {
-                if matches!(cs.next(), Some('L' | 'l'))
-                    && matches!(cs.next(), Some('I' | 'i'))
-                    && matches!(cs.next(), Some('S' | 's'))
-                    && matches!(cs.next(), Some('T' | 't'))
-                    && matches!(cs.next(), Some('_'))
+            Some(b'_') => {
+                if matches!(cs.next(), Some(b'L' | b'l'))
+                    && matches!(cs.next(), Some(b'I' | b'i'))
+                    && matches!(cs.next(), Some(b'S' | b's'))
+                    && matches!(cs.next(), Some(b'T' | b't'))
+                    && matches!(cs.next(), Some(b'_'))
                 {
                     Keyword::_LIST_
                 } else {

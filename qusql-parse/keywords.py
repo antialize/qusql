@@ -1224,13 +1224,13 @@ with open("src/keywords.rs", "w") as f:
     f.write("\n")
     f.write("impl From<&str> for Keyword {\n")
     f.write("    fn from(v: &str) -> Self {\n")
-    f.write("        let mut cs = v.chars();\n")
+    f.write("        let mut cs = v.as_bytes().iter();\n")
 
     def c_pat(c: str) -> str:
         if c.lower() == c:
-            return f"'{c}'"
+            return f"b'{c}'"
         else:
-            return f"'{c}' | '{c.lower()}'"
+            return f"b'{c}' | b'{c.lower()}'"
 
     def generate_kw_match(i: int, keywords: list[str]) -> str:
         if len(keywords) == 1:

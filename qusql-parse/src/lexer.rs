@@ -151,7 +151,7 @@ impl<'a> Token<'a> {
 
 #[derive(Debug, Clone)]
 struct CharsIter<'a> {
-    idx : usize,
+    idx: usize,
     rem: &'a [u8],
 }
 
@@ -175,8 +175,6 @@ impl<'a> CharsIter<'a> {
     }
 }
 
-
-
 pub(crate) struct Lexer<'a> {
     src: &'a str,
     chars: CharsIter<'a>,
@@ -187,13 +185,17 @@ impl<'a> Lexer<'a> {
     pub fn new(src: &'a str, dialect: &SQLDialect) -> Self {
         Self {
             src,
-            chars: CharsIter { idx: 0, rem: src.as_bytes() },
+            chars: CharsIter {
+                idx: 0,
+                rem: src.as_bytes(),
+            },
             dialect: dialect.clone(),
         }
     }
 
     pub(crate) fn s(&self, span: Span) -> &'a str {
-        core::str::from_utf8(&self.src.as_bytes()[span]).unwrap()
+        // Safety: The span is expected to match the unicode boundaries
+        unsafe { core::str::from_utf8_unchecked(&self.src.as_bytes()[span]) }
     }
 
     fn simple_literal(&mut self, start: usize) -> Token<'a> {
@@ -209,7 +211,9 @@ impl<'a> Lexer<'a> {
                 // MySQL allows Unicode characters (U+0080 and above) in identifiers
                 Some((_, c)) if self.dialect.is_maria() && (c & 0xc0) == 0xc0 => {
                     self.chars.next();
-                    while let Some((_, c)) = self.chars.peek() && (c & 0xc0) == 0x80 {
+                    while let Some((_, c)) = self.chars.peek()
+                        && (c & 0xc0) == 0x80
+                    {
                         self.chars.next();
                     }
                 }
@@ -294,8 +298,8 @@ impl<'a> Lexer<'a> {
             match self.chars.peek() {
                 Some((
                     _,
-                    b'!' | b'@' | b'#' | b'$' | b'%' | b'^' | b'&' | b'(' | b')' | b'+' | b'=' | b'~' | b'<'
-                    | b'>' | b'|' | b'/' | b'?' | b':',
+                    b'!' | b'@' | b'#' | b'$' | b'%' | b'^' | b'&' | b'(' | b')' | b'+' | b'='
+                    | b'~' | b'<' | b'>' | b'|' | b'/' | b'?' | b':',
                 )) => {
                     last = self.chars.next().unwrap();
                     token = None;
@@ -463,8 +467,7 @@ impl<'a> Lexer<'a> {
                         let mut v = (self.chars.peek().unwrap().1 - b'0') as usize;
                         self.chars.next();
                         while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
-                            v = v * 10
-                                + (self.chars.peek().unwrap().1 - b'0') as usize;
+                            v = v * 10 + (self.chars.peek().unwrap().1 - b'0') as usize;
                             self.chars.next();
                         }
                         Token::DollarArg(v)
@@ -595,7 +598,9 @@ impl<'a> Lexer<'a> {
                         self.chars.next(); // consume the '
                         loop {
                             match self.chars.next() {
-                                Some((i, b'\'')) => break Token::BinaryString(self.s(start + 2..i)),
+                                Some((i, b'\'')) => {
+                                    break Token::BinaryString(self.s(start + 2..i));
+                                }
                                 Some((_, b'0' | b'1')) => (),
                                 Some((_, _)) => break Token::Invalid,
                                 None => break Token::Invalid,
@@ -671,12 +676,26 @@ impl<'a> Lexer<'a> {
                             // If followed by identifier char (not e/E or .), it's an identifier
                             Some((
                                 _,
-                                b'_' | b'a'..=b'd' | b'f'..=b'z' | b'A'..=b'D' | b'F'..=b'Z' | b'$' | b'@',
+                                b'_'
+                                | b'a'..=b'd'
+                                | b'f'..=b'z'
+                                | b'A'..=b'D'
+                                | b'F'..=b'Z'
+                                | b'$'
+                                | b'@',
                             )) => {
                                 // It's an identifier - consume remaining identifier chars
                                 while matches!(
                                     self.chars.peek(),
-                                    Some((_, b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'$' | b'@'))
+                                    Some((
+                                        _,
+                                        b'_'
+                                        | b'a'..=b'z'
+                                        | b'A'..=b'Z'
+                                        | b'0'..=b'9'
+                                        | b'$'
+                                        | b'@',
+                                    ))
                                 ) {
                                     self.chars.next();
                                 }
@@ -714,7 +733,12 @@ impl<'a> Lexer<'a> {
                                             self.chars.peek(),
                                             Some((
                                                 _,
-                                                b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'$' | b'@',
+                                                b'_'
+                                                | b'a'..=b'z'
+                                                | b'A'..=b'Z'
+                                                | b'0'..=b'9'
+                                                | b'$'
+                                                | b'@',
                                             ))
                                         ) {
                                             self.chars.next();
@@ -739,7 +763,12 @@ impl<'a> Lexer<'a> {
                                         self.chars.peek(),
                                         Some((
                                             _,
-                                            b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'$' | b'@',
+                                            b'_'
+                                            | b'a'..=b'z'
+                                            | b'A'..=b'Z'
+                                            | b'0'..=b'9'
+                                            | b'$'
+                                            | b'@',
                                         ))
                                     ) {
                                         self.chars.next();
@@ -774,8 +803,10 @@ impl<'a> Lexer<'a> {
                                             if matches!(self.chars.peek(), Some((_, b'+' | b'-'))) {
                                                 self.chars.next();
                                             }
-                                            while matches!(self.chars.peek(), Some((_, b'0'..=b'9')))
-                                            {
+                                            while matches!(
+                                                self.chars.peek(),
+                                                Some((_, b'0'..=b'9'))
+                                            ) {
                                                 self.chars.next();
                                             }
                                         }
