@@ -104,6 +104,7 @@ pub use delete::{Delete, DeleteFlag};
 pub use drop::{
     DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
     DropOperatorItem, DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView,
+    DropOperatorFamily
 };
 pub use expression::{
     ArgExpression, BinaryExpression, BinaryOperator, BoolExpression, CaseExpression,

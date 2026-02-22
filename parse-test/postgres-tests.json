@@ -2843,25 +2843,34 @@
   },
   {
     "input": "DROP OPERATOR FAMILY IF EXISTS USING btree",
-    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"FAMILY\",\n                        span: 14..20,\n                    },\n                },\n                left_type: None,\n                right_type: None,\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
+    "output": "DropOperatorFamily(\n    DropOperatorFamily {\n        drop_operator_family_span: 0..20,\n        if_exists: Some(\n            21..30,\n        ),\n        family: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"USING\",\n                span: 31..36,\n            },\n        },\n        using: None,\n        cascade: None,\n        restrict: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 21..23,\n    sql_segment: \"IF\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"'USING' is a reserved identifier use `USING`\",\n    span: 31..36,\n    sql_segment: \"USING\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 37..42,\n    sql_segment: \"btree\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
+  },
+  {
+    "input": "DROP OPERATOR FAMILY IF EXISTS monkey USING btree CASCADE",
+    "output": "DropOperatorFamily(\n    DropOperatorFamily {\n        drop_operator_family_span: 0..20,\n        if_exists: Some(\n            21..30,\n        ),\n        family: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"monkey\",\n                span: 31..37,\n            },\n        },\n        using: Some(\n            (\n                38..43,\n                Identifier {\n                    value: \"btree\",\n                    span: 44..49,\n                },\n            ),\n        ),\n        cascade: Some(\n            50..57,\n        ),\n        restrict: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP OPERATOR FAMILY USING btree",
-    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"FAMILY\",\n                        span: 14..20,\n                    },\n                },\n                left_type: None,\n                right_type: None,\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
+    "output": "DropOperatorFamily(\n    DropOperatorFamily {\n        drop_operator_family_span: 0..20,\n        if_exists: None,\n        family: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"USING\",\n                span: 21..26,\n            },\n        },\n        using: None,\n        cascade: None,\n        restrict: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 21..26,\n    sql_segment: \"USING\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"'USING' is a reserved identifier use `USING`\",\n    span: 21..26,\n    sql_segment: \"USING\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 27..32,\n    sql_segment: \"btree\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "DROP OPERATOR FAMILY{} {} USING {}{}",
-    "output": "DropOperator(\n    DropOperator {\n        drop_span: 0..4,\n        operator_span: 5..13,\n        if_exists: None,\n        operators: [\n            DropOperatorItem {\n                name: QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"FAMILY\",\n                        span: 14..20,\n                    },\n                },\n                left_type: None,\n                right_type: None,\n            },\n        ],\n        cascade: None,\n        restrict: None,\n    },\n)",
+    "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 20..21,\n    sql_segment: \"{\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 20..21,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
