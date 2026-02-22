@@ -381,6 +381,7 @@ fn consume_operator_or_identifier<'a>(
         Token::RArrowJson => Ok(Identifier::new("->>", parser.consume())),
         Token::RDoubleArrowJson => Ok(Identifier::new("#>>", parser.consume())),
         Token::DoubleExclamationMark => Ok(Identifier::new("!!", parser.consume())),
+        Token::PostgresOperator(op) => Ok(Identifier::new(op, parser.consume())),
         // Regular identifiers
         _ => parser.consume_plain_identifier(),
     }

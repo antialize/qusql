@@ -244,43 +244,64 @@ impl<'a> Lexer<'a> {
     }
 
     fn next_operator(&mut self, start: usize, mut last: (usize, char), token: Token<'a>) -> Token<'a> {
-        if !matches!(self.chars.peek(), Some((_, next_c)) if "!@#$%^&*+-=~<>|/?".contains(*next_c)) {
+        if self.dialect.is_postgresql() {
+            // In PostgreSQL, many operators can be multiple characters long and can contain a wide range of special characters.
+            // We will consume characters until we encounter one that cannot be part of an operator.
+            // Valid operator characters in PostgreSQL include: ! @ # $ % ^ & * ( ) - + = ~ < > | / ? :
+            // Additionally, we will allow operators to end with a '*' if it is preceded by a '/' to support C-style comments as operators (e.g. '/*' and '*/').
+        } else {
+            // In other dialects, we only consider the single character as the operator.
             return token;
         }
-
+        let mut token = Some(token);
         loop {
             match self.chars.peek() {
-                Some((_, '!' | '@' | '#' | '$' | '%' | '^' | '&' | '(' | ')'  | '+' | '=' | '~' | '<' | '>' | '|' | '/' | '?')) => {
+                Some((_, '!' | '@' | '#' | '$' | '%' | '^' | '&' | '(' | ')'  | '+' | '=' | '~' | '<' | '>' | '|' | '/' | '?' | ':')) => {
                     last = self.chars.next().unwrap();
+                    token = None;
                 }
                 Some((_, '*')) => {
                     if last.1 == '/' {
-                        // Don't consume '*' if it's part of a comment end '*/'
-                        break;
+                        self.chars.next();
+                        let ok = loop {
+                            match self.chars.next() {
+                                Some((_, '*')) => {
+                                    if matches!(self.chars.peek(), Some((_, '/'))) {
+                                        self.chars.next();
+                                        break true;
+                                    }
+                                }
+                                Some(_) => (),
+                                None => break false,
+                            }
+                        };
+                        if ok {
+                            return Token::PostgresOperator(self.s(start..last.0 ));
+                        } else {
+                            return Token::Invalid;
+                        }
                     }
                     last = self.chars.next().unwrap();
+                    token = None;
                 }
                 Some((_, '-')) => {
                     if last.1 == '-' {
-                        // Don't consume '-' if it's part of a comment start '--'
-                        break;
+                        while !matches!(self.chars.next(), Some((_, '\r' | '\n')) | None) {}
+                        return Token::PostgresOperator(self.s(start..last.0));
                     }
                     last = self.chars.next().unwrap();
+                    token = None;
                 }
                 _ => {
-                    let end = match self.chars.peek() {
-                        Some((i, _)) => *i,
-                        None => self.src.len(),
-                    };
-                    let s = self.s(start..end);
-                    return Token::PostgresOperator(s);
+                    if let Some(t) = token {
+                        return t;
+                    } else {
+                        let s = self.s(start..last.0 + last.1.len_utf8());
+                        return Token::PostgresOperator(s);
+                    }
                 }
             }
         }
-
-        //+ - * / < > = ~ ! @ # % ^ & | ` ?
-        //Token::PostgresOperator(s)
-        todo!()
     }
 
     //+ - * / < > = ~ ! @ # % ^ & | ` ?
@@ -388,12 +409,12 @@ impl<'a> Lexer<'a> {
                 '~' => self.next_operator(start, (start, c), Token::Tilde),
                 ':' => match self.chars.peek() {
                     Some((_, ':')) => {
-                        let next = self.chars.next();
-                        self.next_operator(start, next.unwrap(), Token::DoubleColon)
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::DoubleColon)
                     }
                     Some((_, '=')) => {
-                        let next = self.chars.next();
-                        self.next_operator(start, next.unwrap(), Token::ColonEq)
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::ColonEq)
                     }
                     _ => self.next_operator(start, (start, c), Token::Colon),
                 },
@@ -1612,13 +1633,13 @@ mod tests {
         assert_eq!(lex_single(">=", &dialect), Token::GtEq);
         assert_eq!(lex_single("||", &dialect), Token::DoublePipe);
         // The following are not standard tokens, but may be handled as PostgresOperator
-        assert!(matches!(lex_single("!!=", &dialect), Token::PostgresOperator("!!=")));
-        assert!(matches!(lex_single("~~", &dialect), Token::PostgresOperator("~~")));
-        assert!(matches!(lex_single("!~~", &dialect), Token::PostgresOperator("!~~")));
+        assert_eq!(lex_single("!!=", &dialect), Token::PostgresOperator("!!="));
+        assert_eq!(lex_single("~~", &dialect), Token::PostgresOperator("~~"));
+        assert_eq!(lex_single("!~~", &dialect), Token::PostgresOperator("!~~"));
         assert_eq!(lex_single("~", &dialect), Token::Tilde);
-        assert!(matches!(lex_single("~*", &dialect), Token::PostgresOperator("~*")));
-        assert!(matches!(lex_single("!~", &dialect), Token::PostgresOperator("!~")));
-        assert!(matches!(lex_single("!~*", &dialect), Token::PostgresOperator("!~*")));
+        assert_eq!(lex_single("~*", &dialect), Token::PostgresOperator("~*"));
+        assert_eq!(lex_single("!~", &dialect), Token::PostgresOperator("!~"));
+        assert_eq!(lex_single("!~*", &dialect), Token::PostgresOperator("!~*"));
 
         // Table 9-2: Numerical operators
         assert_eq!(lex_single("!", &dialect), Token::ExclamationMark);
@@ -1628,81 +1649,81 @@ mod tests {
         assert_eq!(lex_single("+", &dialect), Token::Plus);
         assert_eq!(lex_single("-", &dialect), Token::Minus);
         assert_eq!(lex_single("/", &dialect), Token::Div);
-        assert!(matches!(lex_single(":", &dialect), Token::Colon));
-        assert!(matches!(lex_single(";", &dialect), Token::SemiColon));
+        assert_eq!(lex_single(":", &dialect), Token::Colon);
+        assert_eq!(lex_single(";", &dialect), Token::SemiColon);
         assert_eq!(lex_single("@", &dialect), Token::At);
         assert_eq!(lex_single("^", &dialect), Token::Caret);
-        assert!(matches!(lex_single("|/", &dialect), Token::PostgresOperator("|/")));
-        assert!(matches!(lex_single("||/", &dialect), Token::PostgresOperator("||/")));
+        assert_eq!(lex_single("|/", &dialect), Token::PostgresOperator("|/"));
+        assert_eq!(lex_single("||/", &dialect), Token::PostgresOperator("||/"));
 
         // Table 9-3: Geometric operators (a selection)
         assert_eq!(lex_single("#", &dialect), Token::Sharp);
-        assert!(matches!(lex_single("##", &dialect), Token::PostgresOperator("##")));
+        assert_eq!(lex_single("##", &dialect), Token::PostgresOperator("##"));
         assert_eq!(lex_single("&&", &dialect), Token::DoubleAmpersand);
-        assert!(matches!(lex_single("&<", &dialect), Token::PostgresOperator("&<")));
-        assert!(matches!(lex_single("&>", &dialect), Token::PostgresOperator("&>")));
-        assert!(matches!(lex_single("<->", &dialect), Token::PostgresOperator("<->")));
+        assert_eq!(lex_single("&<", &dialect), Token::PostgresOperator("&<"));
+        assert_eq!(lex_single("&>", &dialect), Token::PostgresOperator("&>"));
+        assert_eq!(lex_single("<->", &dialect), Token::PostgresOperator("<->"));
         assert_eq!(lex_single("<<", &dialect), Token::ShiftLeft); // Note: check if this is ShiftLeft or ShiftRight in your Token
-        assert!(matches!(lex_single("<^", &dialect), Token::PostgresOperator("<^")));
+        assert_eq!(lex_single("<^", &dialect), Token::PostgresOperator("<^"));
         assert_eq!(lex_single(">>", &dialect), Token::ShiftRight); // Note: check if this is ShiftLeft or ShiftRight in your Token
-        assert!(matches!(lex_single(">^", &dialect), Token::PostgresOperator(">^")));
-        assert!(matches!(lex_single("?#", &dialect), Token::PostgresOperator("?#")));
-        assert!(matches!(lex_single("?-", &dialect), Token::PostgresOperator("?-")));
-        assert!(matches!(lex_single("?-|", &dialect), Token::PostgresOperator("?-|")));
-        assert!(matches!(lex_single("@-@", &dialect), Token::PostgresOperator("@-@")));
-        assert!(matches!(lex_single("?|", &dialect), Token::PostgresOperator("?|")));
-        assert!(matches!(lex_single("?||", &dialect), Token::PostgresOperator("?||")));
+        assert_eq!(lex_single(">^", &dialect), Token::PostgresOperator(">^"));
+        assert_eq!(lex_single("?#", &dialect), Token::PostgresOperator("?#"));
+        assert_eq!(lex_single("?-", &dialect), Token::PostgresOperator("?-"));
+        assert_eq!(lex_single("?-|", &dialect), Token::PostgresOperator("?-|"));
+        assert_eq!(lex_single("@-@", &dialect), Token::PostgresOperator("@-@"));
+        assert_eq!(lex_single("?|", &dialect), Token::PostgresOperator("?|"));
+        assert_eq!(lex_single("?||", &dialect), Token::PostgresOperator("?||"));
         assert_eq!(lex_single("@", &dialect), Token::At);
         assert_eq!(lex_single("@@", &dialect), Token::AtAt);
-        assert!(matches!(lex_single("~=", &dialect), Token::PostgresOperator("~=")));
+        assert_eq!(lex_single("~=", &dialect), Token::PostgresOperator("~="));
 
         // Table 9-4: Time interval operators (a selection)
-        assert!(matches!(lex_single("#<", &dialect), Token::PostgresOperator("#<")));
-        assert!(matches!(lex_single("#<=", &dialect), Token::PostgresOperator("#<=")));
-        assert!(matches!(lex_single("#<>", &dialect), Token::PostgresOperator("#<>")));
-        assert!(matches!(lex_single("#=", &dialect), Token::PostgresOperator("#=")));
-        assert!(matches!(lex_single("#>", &dialect), Token::PostgresOperator("#>")));
-        assert!(matches!(lex_single("#>=", &dialect), Token::PostgresOperator("#>=")));
-        assert!(matches!(lex_single("<#>", &dialect), Token::PostgresOperator("<#>")));
-        assert!(matches!(lex_single("<?>", &dialect), Token::PostgresOperator("<?>")));
+        assert_eq!(lex_single("#<", &dialect), Token::PostgresOperator("#<"));
+        assert_eq!(lex_single("#<=", &dialect), Token::PostgresOperator("#<="));
+        assert_eq!(lex_single("#<>", &dialect), Token::PostgresOperator("#<>"));
+        assert_eq!(lex_single("#=", &dialect), Token::PostgresOperator("#="));
+        assert_eq!(lex_single("#>", &dialect), Token::PostgresOperator("#>"));
+        assert_eq!(lex_single("#>=", &dialect), Token::PostgresOperator("#>="));
+        assert_eq!(lex_single("<#>", &dialect), Token::PostgresOperator("<#>"));
+        assert_eq!(lex_single("<?>", &dialect), Token::PostgresOperator("<?>"));
 
         // Custom operator names (user-defined, valid in PostgreSQL)
-        assert!(matches!(lex_single("<<>>", &dialect), Token::PostgresOperator("<<>>")));
-        assert!(matches!(lex_single("++", &dialect), Token::PostgresOperator("++")));
-        assert!(matches!(lex_single("<+>", &dialect), Token::PostgresOperator("<+>")));
-        assert!(matches!(lex_single("@#@", &dialect), Token::PostgresOperator("@#@")));
-        assert!(matches!(lex_single("!@#", &dialect), Token::PostgresOperator("!@#")));
-        assert!(matches!(lex_single("<=>=", &dialect), Token::PostgresOperator("<=>=")));
-        assert!(matches!(lex_single("<->-<", &dialect), Token::PostgresOperator("<->-<")));
+        assert_eq!(lex_single("<<>>", &dialect), Token::PostgresOperator("<<>>"));
+        assert_eq!(lex_single("++", &dialect), Token::PostgresOperator("++"));
+        assert_eq!(lex_single("<+>", &dialect), Token::PostgresOperator("<+>"));
+        assert_eq!(lex_single("@#@", &dialect), Token::PostgresOperator("@#@"));
+        assert_eq!(lex_single("!@#", &dialect), Token::PostgresOperator("!@#"));
+        assert_eq!(lex_single("<=>=", &dialect), Token::PostgresOperator("<=>="));
+        assert_eq!(lex_single("<->-<", &dialect), Token::PostgresOperator("<->-<"));
         // Operator with question mark
-        assert!(matches!(lex_single("??", &dialect), Token::PostgresOperator("??")));
+        assert_eq!(lex_single("??", &dialect), Token::PostgresOperator("??"));
         // Operator with pipe and ampersand
-        assert!(matches!(lex_single("|&|", &dialect), Token::PostgresOperator("|&|")));
+        assert_eq!(lex_single("|&|", &dialect), Token::PostgresOperator("|&|"));
         // Operator with tilde and exclamation
-        assert!(matches!(lex_single("~!~", &dialect), Token::PostgresOperator("~!~")));
+        assert_eq!(lex_single("~!~", &dialect), Token::PostgresOperator("~!~"));
         // Operator with mixed symbols
-        assert!(matches!(lex_single("<@#>", &dialect), Token::PostgresOperator("<@#>")));
+        assert_eq!(lex_single("<@#>", &dialect), Token::PostgresOperator("<@#>"));
         // Operator with caret and percent
-        assert!(matches!(lex_single("^%", &dialect), Token::PostgresOperator("^%")));
+        assert_eq!(lex_single("^%", &dialect), Token::PostgresOperator("^%"));
         // Operator with colon and equals
-        assert!(matches!(lex_single(":=:", &dialect), Token::PostgresOperator(":=:")));
+        assert_eq!(lex_single(":=:", &dialect), Token::PostgresOperator(":=:"));
         // Operator with exclamation and equals
-        assert!(matches!(lex_single("!=!=", &dialect), Token::PostgresOperator("!=!=")));
+        assert_eq!(lex_single("!=!=", &dialect), Token::PostgresOperator("!=!="));
         // Operator with ampersand and at
-        assert!(matches!(lex_single("&@&", &dialect), Token::PostgresOperator("&@&")));
+        assert_eq!(lex_single("&@&", &dialect), Token::PostgresOperator("&@&"));
         // Operator with hash and tilde
-        assert!(matches!(lex_single("#~#", &dialect), Token::PostgresOperator("#~#")));
+        assert_eq!(lex_single("#~#", &dialect), Token::PostgresOperator("#~#"));
 
         // Operators containing comment delimiters, using lex_all
         // -- should start a comment, so only the first operator is returned
         let tokens = lex_all("<<>>--foo", &dialect);
         assert_eq!(tokens.len(), 1);
-        assert!(matches!(tokens[0], Token::PostgresOperator("<<>>")));
+        assert_eq!(tokens[0], Token::PostgresOperator("<<>>"));
 
         // /* should start a comment, so only the first operator is returned
         let tokens = lex_all("<<>>/*foo*/bar", &dialect);
         assert_eq!(tokens.len(), 2);
-        assert!(matches!(tokens[0], Token::PostgresOperator("<<>>")));
+        assert_eq!(tokens[0], Token::PostgresOperator("<<>>"));
         // After the comment, 'bar' is an identifier
         assert!(matches!(tokens[1], Token::Ident(_, _)));
 
@@ -1710,7 +1731,7 @@ mod tests {
         let tokens = lex_all("<-->", &dialect);
         // Should produce PostgresOperator("<-") and Minus
         assert!(tokens.len() == 2 || tokens.len() == 1); // Accept both if implementation varies
-        assert!(matches!(tokens[0], Token::PostgresOperator("<-") | Token::PostgresOperator("<-->") | Token::Minus));
+        assert!(matches!(tokens[0], Token::PostgresOperator("<") | Token::PostgresOperator("<-") | Token::PostgresOperator("<-->") | Token::Minus), "{tokens:?}");
     }
 
 }
