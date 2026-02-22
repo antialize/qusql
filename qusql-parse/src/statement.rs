@@ -13,16 +13,42 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    AlterOperatorFamily, AlterRole, AlterTable, CreateIndex, CreateOperator, CreateRole, CreateTrigger, DropOperatorClass, DropOperatorFamily, Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery, alter_role::parse_alter_role, alter_table::parse_alter_table, create::{
+    AlterOperatorFamily, AlterRole, AlterTable, CreateIndex, CreateOperator, CreateRole,
+    CreateTrigger, DropOperatorClass, DropOperatorFamily, Identifier, QualifiedName, RenameTable,
+    Span, Spanned, WithQuery,
+    alter_role::parse_alter_role,
+    alter_table::parse_alter_table,
+    create::{
         CreateDatabase, CreateSchema, CreateSequence, CreateServer, CreateTypeEnum, parse_create,
-    }, create_function::CreateFunction, create_table::CreateTable, create_view::CreateView, delete::{Delete, parse_delete}, drop::{
+    },
+    create_function::CreateFunction,
+    create_table::CreateTable,
+    create_view::CreateView,
+    delete::{Delete, parse_delete},
+    drop::{
         DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
         DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView, parse_drop,
-    }, expression::{Expression, parse_expression}, flush::{Flush, parse_flush}, insert_replace::{InsertReplace, parse_insert_replace}, keywords::Keyword, kill::{Kill, parse_kill}, lexer::Token, lock::{Lock, Unlock, parse_lock, parse_unlock}, parser::{ParseError, Parser}, qualified_name::parse_qualified_name, rename::parse_rename_table, select::{OrderFlag, Select, parse_select}, show::{
+    },
+    expression::{Expression, parse_expression},
+    flush::{Flush, parse_flush},
+    insert_replace::{InsertReplace, parse_insert_replace},
+    keywords::Keyword,
+    kill::{Kill, parse_kill},
+    lexer::Token,
+    lock::{Lock, Unlock, parse_lock, parse_unlock},
+    parser::{ParseError, Parser},
+    qualified_name::parse_qualified_name,
+    rename::parse_rename_table,
+    select::{OrderFlag, Select, parse_select},
+    show::{
         ShowCharacterSet, ShowCollation, ShowColumns, ShowCreateDatabase, ShowCreateTable,
         ShowCreateView, ShowDatabases, ShowEngines, ShowProcessList, ShowStatus, ShowTables,
         ShowVariables, parse_show,
-    }, span::OptSpanned, truncate::{TruncateTable, parse_truncate_table}, update::{Update, parse_update}, with_query::parse_with_query
+    },
+    span::OptSpanned,
+    truncate::{TruncateTable, parse_truncate_table},
+    update::{Update, parse_update},
+    with_query::parse_with_query,
 };
 
 #[derive(Clone, Debug)]

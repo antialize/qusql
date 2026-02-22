@@ -186,8 +186,7 @@ impl<'a> Lexer<'a> {
             }
         };
         let s = self.s(start..end);
-        let ss = s.to_ascii_uppercase();
-        Token::Ident(s, ss.as_str().into())
+        Token::Ident(s, s.into())
     }
 
     /// Simulate reading from standard input after a statement like `COPY ... FROM STDIN;`.
@@ -243,7 +242,12 @@ impl<'a> Lexer<'a> {
         (self.s(span.clone()), span)
     }
 
-    fn next_operator(&mut self, start: usize, mut last: (usize, char), token: Token<'a>) -> Token<'a> {
+    fn next_operator(
+        &mut self,
+        start: usize,
+        mut last: (usize, char),
+        token: Token<'a>,
+    ) -> Token<'a> {
         if self.dialect.is_postgresql() {
             // In PostgreSQL, many operators can be multiple characters long and can contain a wide range of special characters.
             // We will consume characters until we encounter one that cannot be part of an operator.
@@ -256,7 +260,11 @@ impl<'a> Lexer<'a> {
         let mut token = Some(token);
         loop {
             match self.chars.peek() {
-                Some((_, '!' | '@' | '#' | '$' | '%' | '^' | '&' | '(' | ')'  | '+' | '=' | '~' | '<' | '>' | '|' | '/' | '?' | ':')) => {
+                Some((
+                    _,
+                    '!' | '@' | '#' | '$' | '%' | '^' | '&' | '(' | ')' | '+' | '=' | '~' | '<'
+                    | '>' | '|' | '/' | '?' | ':',
+                )) => {
                     last = self.chars.next().unwrap();
                     token = None;
                 }
@@ -276,7 +284,7 @@ impl<'a> Lexer<'a> {
                             }
                         };
                         if ok {
-                            return Token::PostgresOperator(self.s(start..last.0 ));
+                            return Token::PostgresOperator(self.s(start..last.0));
                         } else {
                             return Token::Invalid;
                         }
@@ -444,8 +452,7 @@ impl<'a> Lexer<'a> {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::RArrow)
                     }
-                    _ =>
-                        self.next_operator(start, (start, c), Token::Eq)
+                    _ => self.next_operator(start, (start, c), Token::Eq),
                 },
                 '!' => match self.chars.peek() {
                     Some((_, '=')) => {
@@ -509,8 +516,7 @@ impl<'a> Lexer<'a> {
                                 let next = self.chars.next().unwrap();
                                 self.next_operator(start, next, Token::RDoubleArrowJson)
                             }
-                            _ =>
-                                self.next_operator(start, next, Token::RArrowJson)
+                            _ => self.next_operator(start, next, Token::RArrowJson),
                         }
                     }
                     _ => self.next_operator(start, (start, c), Token::Minus),
@@ -651,8 +657,7 @@ impl<'a> Lexer<'a> {
                                     None => self.src.len(),
                                 };
                                 let s = self.s(start..end);
-                                let ss = s.to_ascii_uppercase();
-                                Token::Ident(s, ss.as_str().into())
+                                Token::Ident(s, Keyword::NOT_A_KEYWORD)
                             }
                             // Check for exponent notation
                             Some((_, 'e' | 'E')) => {
@@ -691,8 +696,7 @@ impl<'a> Lexer<'a> {
                                             None => self.src.len(),
                                         };
                                         let s = self.s(start..end);
-                                        let ss = s.to_ascii_uppercase();
-                                        Token::Ident(s, ss.as_str().into())
+                                        Token::Ident(s, Keyword::NOT_A_KEYWORD)
                                     } else {
                                         // No identifier chars - it's a float
                                         let end = match self.chars.peek() {
@@ -717,8 +721,7 @@ impl<'a> Lexer<'a> {
                                         None => self.src.len(),
                                     };
                                     let s = self.s(start..end);
-                                    let ss = s.to_ascii_uppercase();
-                                    Token::Ident(s, ss.as_str().into())
+                                    Token::Ident(s, Keyword::NOT_A_KEYWORD)
                                 }
                             }
                             // Check for decimal point
@@ -1688,13 +1691,22 @@ mod tests {
         assert_eq!(lex_single("<?>", &dialect), Token::PostgresOperator("<?>"));
 
         // Custom operator names (user-defined, valid in PostgreSQL)
-        assert_eq!(lex_single("<<>>", &dialect), Token::PostgresOperator("<<>>"));
+        assert_eq!(
+            lex_single("<<>>", &dialect),
+            Token::PostgresOperator("<<>>")
+        );
         assert_eq!(lex_single("++", &dialect), Token::PostgresOperator("++"));
         assert_eq!(lex_single("<+>", &dialect), Token::PostgresOperator("<+>"));
         assert_eq!(lex_single("@#@", &dialect), Token::PostgresOperator("@#@"));
         assert_eq!(lex_single("!@#", &dialect), Token::PostgresOperator("!@#"));
-        assert_eq!(lex_single("<=>=", &dialect), Token::PostgresOperator("<=>="));
-        assert_eq!(lex_single("<->-<", &dialect), Token::PostgresOperator("<->-<"));
+        assert_eq!(
+            lex_single("<=>=", &dialect),
+            Token::PostgresOperator("<=>=")
+        );
+        assert_eq!(
+            lex_single("<->-<", &dialect),
+            Token::PostgresOperator("<->-<")
+        );
         // Operator with question mark
         assert_eq!(lex_single("??", &dialect), Token::PostgresOperator("??"));
         // Operator with pipe and ampersand
@@ -1702,13 +1714,19 @@ mod tests {
         // Operator with tilde and exclamation
         assert_eq!(lex_single("~!~", &dialect), Token::PostgresOperator("~!~"));
         // Operator with mixed symbols
-        assert_eq!(lex_single("<@#>", &dialect), Token::PostgresOperator("<@#>"));
+        assert_eq!(
+            lex_single("<@#>", &dialect),
+            Token::PostgresOperator("<@#>")
+        );
         // Operator with caret and percent
         assert_eq!(lex_single("^%", &dialect), Token::PostgresOperator("^%"));
         // Operator with colon and equals
         assert_eq!(lex_single(":=:", &dialect), Token::PostgresOperator(":=:"));
         // Operator with exclamation and equals
-        assert_eq!(lex_single("!=!=", &dialect), Token::PostgresOperator("!=!="));
+        assert_eq!(
+            lex_single("!=!=", &dialect),
+            Token::PostgresOperator("!=!=")
+        );
         // Operator with ampersand and at
         assert_eq!(lex_single("&@&", &dialect), Token::PostgresOperator("&@&"));
         // Operator with hash and tilde
@@ -1731,7 +1749,15 @@ mod tests {
         let tokens = lex_all("<-->", &dialect);
         // Should produce PostgresOperator("<-") and Minus
         assert!(tokens.len() == 2 || tokens.len() == 1); // Accept both if implementation varies
-        assert!(matches!(tokens[0], Token::PostgresOperator("<") | Token::PostgresOperator("<-") | Token::PostgresOperator("<-->") | Token::Minus), "{tokens:?}");
+        assert!(
+            matches!(
+                tokens[0],
+                Token::PostgresOperator("<")
+                    | Token::PostgresOperator("<-")
+                    | Token::PostgresOperator("<-->")
+                    | Token::Minus
+            ),
+            "{tokens:?}"
+        );
     }
-
 }

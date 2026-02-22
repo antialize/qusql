@@ -490,7 +490,7 @@ fn parse_drop_function<'a>(
         function_span,
         if_exists,
         functions,
-        restrict_or_cascade
+        restrict_or_cascade,
     })
 }
 
@@ -841,7 +841,7 @@ fn parse_drop_index<'a>(
         if_exists,
         index_name,
         on,
-        restrict_or_cascade
+        restrict_or_cascade,
     })
 }
 
@@ -1087,7 +1087,6 @@ fn parse_drop_operator<'a>(
     })
 }
 
-
 /// Represent a drop operator family statement (PostgreSQL)
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropOperatorFamily, Statement, Issues};
@@ -1250,21 +1249,26 @@ pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a
             match &parser.token {
                 Token::Ident(_, Keyword::FAMILY) => {
                     let family_span = parser.consume_keyword(Keyword::FAMILY)?;
-                    Ok(Statement::DropOperatorFamily(Box::new(parse_drop_operator_family(
-                        parser, drop_span.join_span(&operator_span).join_span(&family_span)
-                    )?)))
+                    Ok(Statement::DropOperatorFamily(Box::new(
+                        parse_drop_operator_family(
+                            parser,
+                            drop_span.join_span(&operator_span).join_span(&family_span),
+                        )?,
+                    )))
                 }
                 Token::Ident(_, Keyword::CLASS) => {
                     let class_span = parser.consume_keyword(Keyword::CLASS)?;
-                    Ok(Statement::DropOperatorClass(Box::new(parse_drop_operator_class(
-                        parser, drop_span.join_span(&operator_span).join_span(&class_span)
-                    )?)))
+                    Ok(Statement::DropOperatorClass(Box::new(
+                        parse_drop_operator_class(
+                            parser,
+                            drop_span.join_span(&operator_span).join_span(&class_span),
+                        )?,
+                    )))
                 }
-                _ => {
-                    Ok(Statement::DropOperator(Box::new(parse_drop_operator(
-                        parser, drop_span.join_span(&operator_span),
-                    )?)))
-                }
+                _ => Ok(Statement::DropOperator(Box::new(parse_drop_operator(
+                    parser,
+                    drop_span.join_span(&operator_span),
+                )?))),
             }
         }
         Token::Ident(_, Keyword::INDEX) => Ok(Statement::DropIndex(Box::new(parse_drop_index(
