@@ -22,7 +22,7 @@ use crate::{
     expression::parse_expression,
     keywords::Keyword,
     lexer::Token,
-    operator::{parse_create_operator, parse_create_operator_class},
+    operator::{parse_create_operator, parse_create_operator_class, parse_create_operator_family},
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
 };
@@ -810,20 +810,35 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
             )),
             Token::Ident(_, Keyword::OPERATOR) => {
                 let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
-                if let Some(class_span) = parser.skip_keyword(Keyword::CLASS) {
-                    // CREATE OPERATOR CLASS
-                    Statement::CreateOperatorClass(Box::new(parse_create_operator_class(
-                        parser,
-                        create_span.join_span(&operator_span).join_span(&class_span),
-                        create_options,
-                    )?))
-                } else {
-                    // CREATE OPERATOR
-                    Statement::CreateOperator(Box::new(parse_create_operator(
-                        parser,
-                        create_span.join_span(&operator_span),
-                        create_options,
-                    )?))
+                match parser.token {
+                    Token::Ident(_, Keyword::FAMILY) => {
+                        // CREATE OPERATOR FAMILY
+                        let family_span = parser.consume_keyword(Keyword::FAMILY)?;
+                        parser.postgres_only(&family_span);
+                        Statement::CreateOperatorFamily(Box::new(parse_create_operator_family(
+                            parser,
+                            create_span
+                                .join_span(&operator_span)
+                                .join_span(&family_span),
+                            create_options,
+                        )?))
+                    }
+                    Token::Ident(_, Keyword::CLASS) => {
+                        // CREATE OPERATOR CLASS
+                        Statement::CreateOperatorClass(Box::new(parse_create_operator_class(
+                            parser,
+                            create_span.join_span(&operator_span),
+                            create_options,
+                        )?))
+                    }
+                    _ => {
+                        // CREATE OPERATOR
+                        Statement::CreateOperator(Box::new(parse_create_operator(
+                            parser,
+                            create_span.join_span(&operator_span),
+                            create_options,
+                        )?))
+                    }
                 }
             }
             _ => return parser.expected_failure(CREATABLE),

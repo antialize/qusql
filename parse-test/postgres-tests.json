@@ -1797,6 +1797,38 @@
     "failure": true,
     "should_fail": true
   },
+    {
+    "input": "CREATE OPERATOR FAMILY my_family USING btree ()",
+    "output": null,
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 23..32,\n    sql_segment: \"my_family\",\n    fragments: [],\n}"
+    ],
+    "failure": true
+  },
+    {
+    "input": "CREATE OPERATOR FAMILY my_family USING hash ()",
+    "output": null,
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 23..32,\n    sql_segment: \"my_family\",\n    fragments: [],\n}"
+    ],
+    "failure": true
+  },
+    {
+    "input": "CREATE OPERATOR FAMILY my_family USING gist ()",
+    "output": null,
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 23..32,\n    sql_segment: \"my_family\",\n    fragments: [],\n}"
+    ],
+    "failure": true
+  },
+    {
+    "input": "CREATE OPERATOR FAMILY my_family USING gin ()",
+    "output": null,
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 23..32,\n    sql_segment: \"my_family\",\n    fragments: [],\n}"
+    ],
+    "failure": true
+  },
   {
     "input": "CREATE OPERATOR FAMILY myschema.test_family USING {index_method}",
     "output": null,
@@ -1805,6 +1837,14 @@
     ],
     "failure": true,
     "should_fail": true
+  },
+  {
+    "input": "CREATE OPERATOR FAMILY myschema.test_family USING gist ()",
+    "output": null,
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 23..31,\n    sql_segment: \"myschema\",\n    fragments: [],\n}"
+    ],
+    "failure": true,
   },
   {
     "input": "CREATE OPERATOR myschema.@@ (PROCEDURE = myschema.my_proc, LEFTARG = TIMESTAMP WITH TIME ZONE, RIGHTARG = VARCHAR(255), COMMUTATOR = schema.>, NEGATOR = schema.<=, RESTRICT = myschema.sel_func, JOIN = myschema.join_func, HASHES, MERGES)",

@@ -551,6 +551,7 @@ pub enum Statement<'a> {
     CreateOperator(Box<CreateOperator<'a>>),
     CreateTypeEnum(Box<CreateTypeEnum<'a>>),
     CreateOperatorClass(Box<crate::operator::CreateOperatorClass<'a>>),
+    CreateOperatorFamily(Box<crate::operator::CreateOperatorFamily<'a>>),
     Select(Box<Select<'a>>),
     Delete(Box<Delete<'a>>),
     InsertReplace(Box<InsertReplace<'a>>),
@@ -676,6 +677,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::ShowCollation(v) => v.span(),
             Statement::ShowEngines(v) => v.span(),
             Statement::Flush(v) => v.span(),
+            Statement::CreateOperatorFamily(v) => v.span(),
         }
     }
 }

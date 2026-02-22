@@ -13,7 +13,7 @@
 use alloc::vec::Vec;
 
 use crate::{
-    DataType, Identifier, QualifiedName, Span, Spanned, create,
+    CreateOption, DataType, Identifier, QualifiedName, Span, Spanned,
     data_type::parse_data_type,
     keywords::Keyword,
     lexer::Token,
@@ -510,7 +510,7 @@ impl<'a> Spanned for OperatorClassOperatorOption<'a> {
 pub(crate) fn parse_create_operator_class<'a>(
     parser: &mut Parser<'a, '_>,
     create_operator_class_span: Span,
-    create_options: Vec<crate::create_option::CreateOption<'a>>,
+    create_options: Vec<CreateOption<'a>>,
 ) -> Result<CreateOperatorClass<'a>, ParseError> {
     parser.postgres_only(&create_operator_class_span);
 
@@ -546,73 +546,73 @@ pub(crate) fn parse_create_operator_class<'a>(
     // AS
     let as_span = parser.consume_keyword(Keyword::AS)?;
 
-        // Parse items (operators, functions, storage)
-        let mut items = Vec::new();
-        loop {
-            match &parser.token {
-                Token::Ident(_, Keyword::OPERATOR) => {
-                    let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
-                    let (num, num_span) = parser.consume_int()?;
-                    let operator = parse_operator_name(parser)?;
-                    let mut rest = Vec::new();
-                    // Optional FOR SEARCH / FOR ORDER BY
-                    if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
-                        if let Some(search_span) = parser.skip_keyword(Keyword::SEARCH) {
-                            rest.push(OperatorClassOperatorOption::ForSearch(
-                                for_span.join_span(&search_span),
-                            ));
-                        } else if let Some(order_span) = parser.skip_keyword(Keyword::ORDER) {
-                            parser.consume_keyword(Keyword::BY)?;
-                            let opclass = parse_operator_name(parser)?;
-                            rest.push(OperatorClassOperatorOption::ForOrderBy(
-                                for_span.join_span(&order_span),
-                                opclass,
-                            ));
+    // Parse items (operators, functions, storage)
+    let mut items = Vec::new();
+    loop {
+        match &parser.token {
+            Token::Ident(_, Keyword::OPERATOR) => {
+                let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+                let (num, num_span) = parser.consume_int()?;
+                let operator = parse_operator_name(parser)?;
+                let mut rest = Vec::new();
+                // Optional FOR SEARCH / FOR ORDER BY
+                if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
+                    if let Some(search_span) = parser.skip_keyword(Keyword::SEARCH) {
+                        rest.push(OperatorClassOperatorOption::ForSearch(
+                            for_span.join_span(&search_span),
+                        ));
+                    } else if let Some(order_span) = parser.skip_keyword(Keyword::ORDER) {
+                        parser.consume_keyword(Keyword::BY)?;
+                        let opclass = parse_operator_name(parser)?;
+                        rest.push(OperatorClassOperatorOption::ForOrderBy(
+                            for_span.join_span(&order_span),
+                            opclass,
+                        ));
+                    }
+                }
+                items.push(OperatorClassItem::Operator {
+                    operator_span,
+                    number: (num, num_span),
+                    operator,
+                    rest,
+                });
+            }
+            Token::Ident(_, Keyword::FUNCTION) => {
+                let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
+                let (num, num_span) = parser.consume_int()?;
+                // Optional arg types in parens
+                let mut arg_types = Vec::new();
+                if parser.skip_token(Token::LParen).is_some() {
+                    loop {
+                        arg_types.push(parse_data_type(parser, false)?);
+                        if parser.skip_token(Token::Comma).is_none() {
+                            break;
                         }
                     }
-                    items.push(OperatorClassItem::Operator {
-                        operator_span,
-                        number: (num, num_span),
-                        operator,
-                        rest,
-                    });
+                    parser.consume_token(Token::RParen)?;
                 }
-                Token::Ident(_, Keyword::FUNCTION) => {
-                    let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
-                    let (num, num_span) = parser.consume_int()?;
-                    // Optional arg types in parens
-                    let mut arg_types = Vec::new();
-                    if parser.skip_token(Token::LParen).is_some() {
-                        loop {
-                            arg_types.push(parse_data_type(parser, false)?);
-                            if parser.skip_token(Token::Comma).is_none() {
-                                break;
-                            }
-                        }
-                        parser.consume_token(Token::RParen)?;
-                    }
-                    let function = parse_qualified_name(parser)?;
-                    items.push(OperatorClassItem::Function {
-                        function_span,
-                        number: (num, num_span),
-                        function,
-                        arg_types,
-                    });
-                }
-                Token::Ident(_, Keyword::STORAGE) => {
-                    let storage_span = parser.consume_keyword(Keyword::STORAGE)?;
-                    let data_type = parse_data_type(parser, false)?;
-                    items.push(OperatorClassItem::Storage {
-                        storage_span,
-                        data_type,
-                    });
-                }
-                _ => break,
+                let function = parse_qualified_name(parser)?;
+                items.push(OperatorClassItem::Function {
+                    function_span,
+                    number: (num, num_span),
+                    function,
+                    arg_types,
+                });
             }
-            if parser.skip_token(Token::Comma).is_none() {
-                break;
+            Token::Ident(_, Keyword::STORAGE) => {
+                let storage_span = parser.consume_keyword(Keyword::STORAGE)?;
+                let data_type = parse_data_type(parser, false)?;
+                items.push(OperatorClassItem::Storage {
+                    storage_span,
+                    data_type,
+                });
             }
+            _ => break,
         }
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
 
     Ok(CreateOperatorClass {
         create_operator_class_span,
@@ -625,5 +625,53 @@ pub(crate) fn parse_create_operator_class<'a>(
         family,
         as_span,
         items,
+    })
+}
+
+/// CREATE OPERATOR FAMILY statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct CreateOperatorFamily<'a> {
+    /// Span of "CREATE OPERATOR FAMILY"
+    pub create_operator_family_span: Span,
+    /// The operator family name
+    pub name: QualifiedName<'a>,
+    /// The index method (btree, hash, gist, gin)
+    pub index_method: Identifier<'a>,
+    /// Left parenthesis span
+    pub lparen_span: Span,
+    /// Right parenthesis span
+    pub rparen_span: Span,
+}
+
+impl<'a> Spanned for CreateOperatorFamily<'a> {
+    fn span(&self) -> Span {
+        self.create_operator_family_span.clone()
+    }
+}
+
+/// Parse CREATE OPERATOR FAMILY statement
+pub(crate) fn parse_create_operator_family<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_operator_family_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<CreateOperatorFamily<'a>, ParseError> {
+    parser.postgres_only(&create_operator_family_span);
+    for create_option in create_options {
+        parser.err(
+            "CREATE OPERATOR FAMILY does not support any options",
+            &create_option.span(),
+        );
+    }
+    let name = parse_qualified_name(parser)?;
+    let using_span = parser.consume_keyword(Keyword::USING)?;
+    let index_method = parser.consume_plain_identifier()?;
+    let lparen_span = parser.consume_token(Token::LParen)?;
+    let rparen_span = parser.consume_token(Token::RParen)?;
+    Ok(CreateOperatorFamily {
+        create_operator_family_span,
+        name,
+        index_method,
+        lparen_span,
+        rparen_span,
     })
 }
