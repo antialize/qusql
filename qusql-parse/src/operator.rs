@@ -546,73 +546,73 @@ pub(crate) fn parse_create_operator_class<'a>(
     // AS
     let as_span = parser.consume_keyword(Keyword::AS)?;
 
-    // Parse items (operators, functions, storage)
-    let mut items = Vec::new();
-    loop {
-        match &parser.token {
-            Token::Ident(_, Keyword::OPERATOR) => {
-                let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
-                let (num, num_span) = parser.consume_int()?;
-                let operator = parse_qualified_name(parser)?;
-                let mut rest = Vec::new();
-                // Optional FOR SEARCH / FOR ORDER BY
-                if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
-                    if let Some(search_span) = parser.skip_keyword(Keyword::SEARCH) {
-                        rest.push(OperatorClassOperatorOption::ForSearch(
-                            for_span.join_span(&search_span),
-                        ));
-                    } else if let Some(order_span) = parser.skip_keyword(Keyword::ORDER) {
-                        parser.consume_keyword(Keyword::BY)?;
-                        let opclass = parse_qualified_name(parser)?;
-                        rest.push(OperatorClassOperatorOption::ForOrderBy(
-                            for_span.join_span(&order_span),
-                            opclass,
-                        ));
-                    }
-                }
-                items.push(OperatorClassItem::Operator {
-                    operator_span,
-                    number: (num, num_span),
-                    operator,
-                    rest,
-                });
-            }
-            Token::Ident(_, Keyword::FUNCTION) => {
-                let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
-                let (num, num_span) = parser.consume_int()?;
-                // Optional arg types in parens
-                let mut arg_types = Vec::new();
-                if parser.skip_token(Token::LParen).is_some() {
-                    loop {
-                        arg_types.push(parse_data_type(parser, false)?);
-                        if parser.skip_token(Token::Comma).is_none() {
-                            break;
+        // Parse items (operators, functions, storage)
+        let mut items = Vec::new();
+        loop {
+            match &parser.token {
+                Token::Ident(_, Keyword::OPERATOR) => {
+                    let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+                    let (num, num_span) = parser.consume_int()?;
+                    let operator = parse_operator_name(parser)?;
+                    let mut rest = Vec::new();
+                    // Optional FOR SEARCH / FOR ORDER BY
+                    if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
+                        if let Some(search_span) = parser.skip_keyword(Keyword::SEARCH) {
+                            rest.push(OperatorClassOperatorOption::ForSearch(
+                                for_span.join_span(&search_span),
+                            ));
+                        } else if let Some(order_span) = parser.skip_keyword(Keyword::ORDER) {
+                            parser.consume_keyword(Keyword::BY)?;
+                            let opclass = parse_operator_name(parser)?;
+                            rest.push(OperatorClassOperatorOption::ForOrderBy(
+                                for_span.join_span(&order_span),
+                                opclass,
+                            ));
                         }
                     }
-                    parser.consume_token(Token::RParen)?;
+                    items.push(OperatorClassItem::Operator {
+                        operator_span,
+                        number: (num, num_span),
+                        operator,
+                        rest,
+                    });
                 }
-                let function = parse_qualified_name(parser)?;
-                items.push(OperatorClassItem::Function {
-                    function_span,
-                    number: (num, num_span),
-                    function,
-                    arg_types,
-                });
+                Token::Ident(_, Keyword::FUNCTION) => {
+                    let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
+                    let (num, num_span) = parser.consume_int()?;
+                    // Optional arg types in parens
+                    let mut arg_types = Vec::new();
+                    if parser.skip_token(Token::LParen).is_some() {
+                        loop {
+                            arg_types.push(parse_data_type(parser, false)?);
+                            if parser.skip_token(Token::Comma).is_none() {
+                                break;
+                            }
+                        }
+                        parser.consume_token(Token::RParen)?;
+                    }
+                    let function = parse_qualified_name(parser)?;
+                    items.push(OperatorClassItem::Function {
+                        function_span,
+                        number: (num, num_span),
+                        function,
+                        arg_types,
+                    });
+                }
+                Token::Ident(_, Keyword::STORAGE) => {
+                    let storage_span = parser.consume_keyword(Keyword::STORAGE)?;
+                    let data_type = parse_data_type(parser, false)?;
+                    items.push(OperatorClassItem::Storage {
+                        storage_span,
+                        data_type,
+                    });
+                }
+                _ => break,
             }
-            Token::Ident(_, Keyword::STORAGE) => {
-                let storage_span = parser.consume_keyword(Keyword::STORAGE)?;
-                let data_type = parse_data_type(parser, false)?;
-                items.push(OperatorClassItem::Storage {
-                    storage_span,
-                    data_type,
-                });
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
             }
-            _ => break,
         }
-        if parser.skip_token(Token::Comma).is_none() {
-            break;
-        }
-    }
 
     Ok(CreateOperatorClass {
         create_operator_class_span,
