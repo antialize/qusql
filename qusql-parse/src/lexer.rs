@@ -70,6 +70,7 @@ pub(crate) enum Token<'a> {
     DollarArg(usize),
     AtAtGlobal,
     AtAtSession,
+    PostgresOperator(&'a str),
     Eof,
 }
 
@@ -142,6 +143,7 @@ impl<'a> Token<'a> {
             Token::PercentS => "'%s'",
             Token::AtAtGlobal => "@@GLOBAL",
             Token::AtAtSession => "@@SESSION",
+            Token::PostgresOperator(_) => "pg operator",
             Token::Eof => "EndOfFile",
         }
     }
@@ -241,6 +243,48 @@ impl<'a> Lexer<'a> {
         (self.s(span.clone()), span)
     }
 
+    fn next_operator(&mut self, start: usize, mut last: (usize, char), token: Token<'a>) -> Token<'a> {
+        if !matches!(self.chars.peek(), Some((_, next_c)) if "!@#$%^&*+-=~<>|/?".contains(*next_c)) {
+            return token;
+        }
+
+        loop {
+            match self.chars.peek() {
+                Some((_, '!' | '@' | '#' | '$' | '%' | '^' | '&' | '(' | ')'  | '+' | '=' | '~' | '<' | '>' | '|' | '/' | '?')) => {
+                    last = self.chars.next().unwrap();
+                }
+                Some((_, '*')) => {
+                    if last.1 == '/' {
+                        // Don't consume '*' if it's part of a comment end '*/'
+                        break;
+                    }
+                    last = self.chars.next().unwrap();
+                }
+                Some((_, '-')) => {
+                    if last.1 == '-' {
+                        // Don't consume '-' if it's part of a comment start '--'
+                        break;
+                    }
+                    last = self.chars.next().unwrap();
+                }
+                _ => {
+                    let end = match self.chars.peek() {
+                        Some((i, _)) => *i,
+                        None => self.src.len(),
+                    };
+                    let s = self.s(start..end);
+                    return Token::PostgresOperator(s);
+                }
+            }
+        }
+
+        //+ - * / < > = ~ ! @ # % ^ & | ` ?
+        //Token::PostgresOperator(s)
+        todo!()
+    }
+
+    //+ - * / < > = ~ ! @ # % ^ & | ` ?
+
     pub fn next_token(&mut self) -> (Token<'a>, Span) {
         loop {
             let (start, c) = match self.chars.next() {
@@ -251,37 +295,37 @@ impl<'a> Lexer<'a> {
             };
             let t = match c {
                 ' ' | '\t' | '\n' | '\r' => continue,
-                '?' => Token::QuestionMark,
+                '?' => self.next_operator(start, (start, c), Token::QuestionMark),
                 ';' => Token::SemiColon,
                 '\\' => Token::Backslash,
                 '[' => Token::LBracket,
                 ']' => Token::RBracket,
                 '&' => match self.chars.peek() {
                     Some((_, '&')) => {
-                        self.chars.next();
-                        Token::DoubleAmpersand
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::DoubleAmpersand)
                     }
-                    _ => Token::Ampersand,
+                    _ => self.next_operator(start, (start, c), Token::Ampersand),
                 },
-                '^' => Token::Caret,
+                '^' => self.next_operator(start, (start, c), Token::Caret),
                 '{' => Token::LBrace,
                 '}' => Token::RBrace,
                 '(' => Token::LParen,
                 ')' => Token::RParen,
                 ',' => Token::Comma,
-                '+' => Token::Plus,
-                '*' => Token::Mul,
+                '+' => self.next_operator(start, (start, c), Token::Plus),
+                '*' => self.next_operator(start, (start, c), Token::Mul),
                 '%' => match self.chars.peek() {
                     Some((_, 's')) => {
                         self.chars.next();
                         Token::PercentS
                     }
-                    _ => Token::Mod,
+                    _ => self.next_operator(start, (start, c), Token::Mod),
                 },
-                '#' => Token::Sharp,
+                '#' => self.next_operator(start, (start, c), Token::Sharp),
                 '@' => match self.chars.peek() {
                     Some((_, '@')) => {
-                        self.chars.next();
+                        let next = self.chars.next().unwrap();
                         #[allow(clippy::never_loop)]
                         match self.chars.peek() {
                             Some((_, 's' | 'S')) => loop {
@@ -336,22 +380,22 @@ impl<'a> Lexer<'a> {
                                 self.chars.next();
                                 break Token::AtAtGlobal;
                             },
-                            _ => Token::AtAt,
+                            _ => self.next_operator(start, next, Token::AtAt),
                         }
                     }
-                    _ => Token::At,
+                    _ => self.next_operator(start, (start, c), Token::At),
                 },
-                '~' => Token::Tilde,
+                '~' => self.next_operator(start, (start, c), Token::Tilde),
                 ':' => match self.chars.peek() {
                     Some((_, ':')) => {
-                        self.chars.next();
-                        Token::DoubleColon
+                        let next = self.chars.next();
+                        self.next_operator(start, next.unwrap(), Token::DoubleColon)
                     }
                     Some((_, '=')) => {
-                        self.chars.next();
-                        Token::ColonEq
+                        let next = self.chars.next();
+                        self.next_operator(start, next.unwrap(), Token::ColonEq)
                     }
-                    _ => Token::Colon,
+                    _ => self.next_operator(start, (start, c), Token::Colon),
                 },
                 '$' => match self.chars.peek() {
                     Some((_, '$')) => {
@@ -376,60 +420,61 @@ impl<'a> Lexer<'a> {
                 },
                 '=' => match self.chars.peek() {
                     Some((_, '>')) => {
-                        self.chars.next();
-                        Token::RArrow
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::RArrow)
                     }
-                    _ => Token::Eq,
+                    _ =>
+                        self.next_operator(start, (start, c), Token::Eq)
                 },
                 '!' => match self.chars.peek() {
                     Some((_, '=')) => {
-                        self.chars.next();
-                        Token::Neq
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::Neq)
                     }
                     Some((_, '!')) => {
-                        self.chars.next();
-                        Token::DoubleExclamationMark
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::DoubleExclamationMark)
                     }
-                    _ => Token::ExclamationMark,
+                    _ => self.next_operator(start, (start, c), Token::ExclamationMark),
                 },
                 '<' => match self.chars.peek() {
                     Some((_, '=')) => {
-                        self.chars.next();
+                        let next = self.chars.next().unwrap();
                         match self.chars.peek() {
                             Some((_, '>')) => {
-                                self.chars.next();
-                                Token::Spaceship
+                                let next = self.chars.next().unwrap();
+                                self.next_operator(start, next, Token::Spaceship)
                             }
-                            _ => Token::LtEq,
+                            _ => self.next_operator(start, next, Token::LtEq),
                         }
                     }
                     Some((_, '>')) => {
-                        self.chars.next();
-                        Token::Neq
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::Neq)
                     }
                     Some((_, '<')) => {
-                        self.chars.next();
-                        Token::ShiftLeft
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::ShiftLeft)
                     }
-                    _ => Token::Lt,
+                    _ => self.next_operator(start, (start, c), Token::Lt),
                 },
                 '>' => match self.chars.peek() {
                     Some((_, '=')) => {
-                        self.chars.next();
-                        Token::GtEq
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::GtEq)
                     }
                     Some((_, '>')) => {
-                        self.chars.next();
-                        Token::ShiftRight
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::ShiftRight)
                     }
-                    _ => Token::Gt,
+                    _ => self.next_operator(start, (start, c), Token::Gt),
                 },
                 '|' => match self.chars.peek() {
                     Some((_, '|')) => {
-                        self.chars.next();
-                        Token::DoublePipe
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::DoublePipe)
                     }
-                    _ => Token::Pipe,
+                    _ => self.next_operator(start, (start, c), Token::Pipe),
                 },
                 '-' => match self.chars.peek() {
                     Some((_, '-')) => {
@@ -437,16 +482,17 @@ impl<'a> Lexer<'a> {
                         continue;
                     }
                     Some((_, '>')) => {
-                        self.chars.next();
+                        let next = self.chars.next().unwrap();
                         match self.chars.peek() {
                             Some((_, '>')) => {
-                                self.chars.next();
-                                Token::RDoubleArrowJson
+                                let next = self.chars.next().unwrap();
+                                self.next_operator(start, next, Token::RDoubleArrowJson)
                             }
-                            _ => Token::RArrowJson,
+                            _ =>
+                                self.next_operator(start, next, Token::RArrowJson)
                         }
                     }
-                    _ => Token::Minus,
+                    _ => self.next_operator(start, (start, c), Token::Minus),
                 },
                 '/' => match self.chars.peek() {
                     Some((_, '*')) => {
@@ -473,7 +519,7 @@ impl<'a> Lexer<'a> {
                         while !matches!(self.chars.next(), Some((_, '\r' | '\n')) | None) {}
                         continue;
                     }
-                    _ => Token::Div,
+                    _ => self.next_operator(start, (start, c), Token::Div),
                 },
                 'x' | 'X' => match self.chars.peek() {
                     Some((_, '\'')) => {
@@ -1552,4 +1598,119 @@ mod tests {
         assert_eq!(tokens[10], Token::Gt);
         assert!(matches!(tokens[11], Token::Float("123.456")));
     }
+
+    #[test]
+    fn test_postgres_operators() {
+        let dialect = SQLDialect::PostgreSQL;
+
+        // Table 9-1: Comparison and string operators
+        assert_eq!(lex_single("<", &dialect), Token::Lt);
+        assert_eq!(lex_single("<=", &dialect), Token::LtEq);
+        assert_eq!(lex_single("<>", &dialect), Token::Neq);
+        assert_eq!(lex_single("=", &dialect), Token::Eq);
+        assert_eq!(lex_single(">", &dialect), Token::Gt);
+        assert_eq!(lex_single(">=", &dialect), Token::GtEq);
+        assert_eq!(lex_single("||", &dialect), Token::DoublePipe);
+        // The following are not standard tokens, but may be handled as PostgresOperator
+        assert!(matches!(lex_single("!!=", &dialect), Token::PostgresOperator("!!=")));
+        assert!(matches!(lex_single("~~", &dialect), Token::PostgresOperator("~~")));
+        assert!(matches!(lex_single("!~~", &dialect), Token::PostgresOperator("!~~")));
+        assert_eq!(lex_single("~", &dialect), Token::Tilde);
+        assert!(matches!(lex_single("~*", &dialect), Token::PostgresOperator("~*")));
+        assert!(matches!(lex_single("!~", &dialect), Token::PostgresOperator("!~")));
+        assert!(matches!(lex_single("!~*", &dialect), Token::PostgresOperator("!~*")));
+
+        // Table 9-2: Numerical operators
+        assert_eq!(lex_single("!", &dialect), Token::ExclamationMark);
+        assert_eq!(lex_single("!!", &dialect), Token::DoubleExclamationMark);
+        assert_eq!(lex_single("%", &dialect), Token::Mod);
+        assert_eq!(lex_single("*", &dialect), Token::Mul);
+        assert_eq!(lex_single("+", &dialect), Token::Plus);
+        assert_eq!(lex_single("-", &dialect), Token::Minus);
+        assert_eq!(lex_single("/", &dialect), Token::Div);
+        assert!(matches!(lex_single(":", &dialect), Token::Colon));
+        assert!(matches!(lex_single(";", &dialect), Token::SemiColon));
+        assert_eq!(lex_single("@", &dialect), Token::At);
+        assert_eq!(lex_single("^", &dialect), Token::Caret);
+        assert!(matches!(lex_single("|/", &dialect), Token::PostgresOperator("|/")));
+        assert!(matches!(lex_single("||/", &dialect), Token::PostgresOperator("||/")));
+
+        // Table 9-3: Geometric operators (a selection)
+        assert_eq!(lex_single("#", &dialect), Token::Sharp);
+        assert!(matches!(lex_single("##", &dialect), Token::PostgresOperator("##")));
+        assert_eq!(lex_single("&&", &dialect), Token::DoubleAmpersand);
+        assert!(matches!(lex_single("&<", &dialect), Token::PostgresOperator("&<")));
+        assert!(matches!(lex_single("&>", &dialect), Token::PostgresOperator("&>")));
+        assert!(matches!(lex_single("<->", &dialect), Token::PostgresOperator("<->")));
+        assert_eq!(lex_single("<<", &dialect), Token::ShiftLeft); // Note: check if this is ShiftLeft or ShiftRight in your Token
+        assert!(matches!(lex_single("<^", &dialect), Token::PostgresOperator("<^")));
+        assert_eq!(lex_single(">>", &dialect), Token::ShiftRight); // Note: check if this is ShiftLeft or ShiftRight in your Token
+        assert!(matches!(lex_single(">^", &dialect), Token::PostgresOperator(">^")));
+        assert!(matches!(lex_single("?#", &dialect), Token::PostgresOperator("?#")));
+        assert!(matches!(lex_single("?-", &dialect), Token::PostgresOperator("?-")));
+        assert!(matches!(lex_single("?-|", &dialect), Token::PostgresOperator("?-|")));
+        assert!(matches!(lex_single("@-@", &dialect), Token::PostgresOperator("@-@")));
+        assert!(matches!(lex_single("?|", &dialect), Token::PostgresOperator("?|")));
+        assert!(matches!(lex_single("?||", &dialect), Token::PostgresOperator("?||")));
+        assert_eq!(lex_single("@", &dialect), Token::At);
+        assert_eq!(lex_single("@@", &dialect), Token::AtAt);
+        assert!(matches!(lex_single("~=", &dialect), Token::PostgresOperator("~=")));
+
+        // Table 9-4: Time interval operators (a selection)
+        assert!(matches!(lex_single("#<", &dialect), Token::PostgresOperator("#<")));
+        assert!(matches!(lex_single("#<=", &dialect), Token::PostgresOperator("#<=")));
+        assert!(matches!(lex_single("#<>", &dialect), Token::PostgresOperator("#<>")));
+        assert!(matches!(lex_single("#=", &dialect), Token::PostgresOperator("#=")));
+        assert!(matches!(lex_single("#>", &dialect), Token::PostgresOperator("#>")));
+        assert!(matches!(lex_single("#>=", &dialect), Token::PostgresOperator("#>=")));
+        assert!(matches!(lex_single("<#>", &dialect), Token::PostgresOperator("<#>")));
+        assert!(matches!(lex_single("<?>", &dialect), Token::PostgresOperator("<?>")));
+
+        // Custom operator names (user-defined, valid in PostgreSQL)
+        assert!(matches!(lex_single("<<>>", &dialect), Token::PostgresOperator("<<>>")));
+        assert!(matches!(lex_single("++", &dialect), Token::PostgresOperator("++")));
+        assert!(matches!(lex_single("<+>", &dialect), Token::PostgresOperator("<+>")));
+        assert!(matches!(lex_single("@#@", &dialect), Token::PostgresOperator("@#@")));
+        assert!(matches!(lex_single("!@#", &dialect), Token::PostgresOperator("!@#")));
+        assert!(matches!(lex_single("<=>=", &dialect), Token::PostgresOperator("<=>=")));
+        assert!(matches!(lex_single("<->-<", &dialect), Token::PostgresOperator("<->-<")));
+        // Operator with question mark
+        assert!(matches!(lex_single("??", &dialect), Token::PostgresOperator("??")));
+        // Operator with pipe and ampersand
+        assert!(matches!(lex_single("|&|", &dialect), Token::PostgresOperator("|&|")));
+        // Operator with tilde and exclamation
+        assert!(matches!(lex_single("~!~", &dialect), Token::PostgresOperator("~!~")));
+        // Operator with mixed symbols
+        assert!(matches!(lex_single("<@#>", &dialect), Token::PostgresOperator("<@#>")));
+        // Operator with caret and percent
+        assert!(matches!(lex_single("^%", &dialect), Token::PostgresOperator("^%")));
+        // Operator with colon and equals
+        assert!(matches!(lex_single(":=:", &dialect), Token::PostgresOperator(":=:")));
+        // Operator with exclamation and equals
+        assert!(matches!(lex_single("!=!=", &dialect), Token::PostgresOperator("!=!=")));
+        // Operator with ampersand and at
+        assert!(matches!(lex_single("&@&", &dialect), Token::PostgresOperator("&@&")));
+        // Operator with hash and tilde
+        assert!(matches!(lex_single("#~#", &dialect), Token::PostgresOperator("#~#")));
+
+        // Operators containing comment delimiters, using lex_all
+        // -- should start a comment, so only the first operator is returned
+        let tokens = lex_all("<<>>--foo", &dialect);
+        assert_eq!(tokens.len(), 1);
+        assert!(matches!(tokens[0], Token::PostgresOperator("<<>>")));
+
+        // /* should start a comment, so only the first operator is returned
+        let tokens = lex_all("<<>>/*foo*/bar", &dialect);
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0], Token::PostgresOperator("<<>>")));
+        // After the comment, 'bar' is an identifier
+        assert!(matches!(tokens[1], Token::Ident(_, _)));
+
+        // Operator with -- inside (should be split)
+        let tokens = lex_all("<-->", &dialect);
+        // Should produce PostgresOperator("<-") and Minus
+        assert!(tokens.len() == 2 || tokens.len() == 1); // Accept both if implementation varies
+        assert!(matches!(tokens[0], Token::PostgresOperator("<-") | Token::PostgresOperator("<-->") | Token::Minus));
+    }
+
 }

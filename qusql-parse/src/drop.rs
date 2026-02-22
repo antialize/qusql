@@ -22,6 +22,42 @@ use crate::{
     qualified_name::parse_qualified_name,
 };
 
+/// Drop cascade or restrict option (PostgreSQL)
+#[derive(Debug, Clone)]
+pub enum CascadeOrRestrict {
+    /// CASCADE option
+    Cascade(Span),
+    /// RESTRICT option
+    Restrict(Span),
+}
+
+impl Spanned for CascadeOrRestrict {
+    fn span(&self) -> Span {
+        match self {
+            CascadeOrRestrict::Cascade(s) => s.clone(),
+            CascadeOrRestrict::Restrict(s) => s.clone(),
+        }
+    }
+}
+
+fn parse_cascade_or_restrict<'a>(parser: &mut Parser<'a, '_>) -> Option<CascadeOrRestrict> {
+    let cascade_span = parser.skip_keyword(Keyword::CASCADE);
+    parser.postgres_only(&cascade_span);
+    let restrict_span = parser.skip_keyword(Keyword::RESTRICT);
+    parser.postgres_only(&restrict_span);
+    match (cascade_span, restrict_span) {
+        (Some(cascade), None) => Some(CascadeOrRestrict::Cascade(cascade)),
+        (None, Some(restrict)) => Some(CascadeOrRestrict::Restrict(restrict)),
+        (Some(cascade), Some(restrict)) => {
+            parser
+                .err("Cannot specify both CASCADE and RESTRICT", &cascade)
+                .frag("RESTRICT specified here", &restrict);
+            None
+        }
+        (None, None) => None,
+    }
+}
+
 /// Represent a drop table statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropTable, Statement, Issues};
@@ -52,8 +88,8 @@ pub struct DropTable<'a> {
     pub if_exists: Option<Span>,
     /// List of tables to drop
     pub tables: Vec<QualifiedName<'a>>,
-    /// Span of "CASCADE" if specified
-    pub cascade: Option<Span>,
+    /// Span of "CASCADE" or "RESTRICT" if specified (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropTable<'a> {
@@ -84,18 +120,14 @@ fn parse_drop_table<'a>(
             break;
         }
     }
-    let cascade = if parser.options.dialect.is_postgresql() {
-        parser.skip_keyword(Keyword::CASCADE)
-    } else {
-        None
-    };
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropTable {
         drop_span,
         temporary,
         table_span,
         if_exists,
         tables,
-        cascade,
+        restrict_or_cascade,
     })
 }
 
@@ -128,6 +160,8 @@ pub struct DropView<'a> {
     pub if_exists: Option<Span>,
     /// List of views to drop
     pub views: Vec<QualifiedName<'a>>,
+    /// Span of "CASCADE" or "RESTRICT" if specified (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropView<'a> {
@@ -137,6 +171,7 @@ impl<'a> Spanned for DropView<'a> {
             .join_span(&self.view_span)
             .join_span(&self.if_exists)
             .join_span(&self.views)
+            .join_span(&self.restrict_or_cascade)
     }
 }
 
@@ -158,13 +193,14 @@ fn parse_drop_view<'a>(
             break;
         }
     }
-    // TODO  [RESTRICT | CASCADE]
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropView {
         drop_span,
         temporary,
         view_span,
         if_exists,
         views,
+        restrict_or_cascade,
     })
 }
 
@@ -348,10 +384,8 @@ pub struct DropFunction<'a> {
     pub if_exists: Option<Span>,
     /// List of functions to drop (PostgreSQL: can be multiple)
     pub functions: Vec<(QualifiedName<'a>, Option<Vec<DropFunctionArg<'a>>>)>,
-    /// Span of "CASCADE" if specified
-    pub cascade: Option<Span>,
-    /// Span of "RESTRICT" if specified
-    pub restrict: Option<Span>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropFunction<'a> {
@@ -360,8 +394,7 @@ impl<'a> Spanned for DropFunction<'a> {
             .drop_span
             .join_span(&self.function_span)
             .join_span(&self.if_exists)
-            .join_span(&self.cascade)
-            .join_span(&self.restrict);
+            .join_span(&self.restrict_or_cascade);
         for (name, args) in &self.functions {
             span = span.join_span(name);
             if let Some(args) = args {
@@ -451,25 +484,13 @@ fn parse_drop_function<'a>(
             .err("Multiple function only supported by ", second)
             .frag("First function supplied here", first);
     }
-
-    let cascade = parser.skip_keyword(Keyword::CASCADE);
-    parser.postgres_only(&cascade);
-    let restrict = parser.skip_keyword(Keyword::RESTRICT);
-    parser.postgres_only(&restrict);
-    if let Some(cascade_span) = &cascade
-        && let Some(restrict_span) = &restrict
-    {
-        parser
-            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
-            .frag("RESTRICT", restrict_span);
-    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropFunction {
         drop_span,
         function_span,
         if_exists,
         functions,
-        cascade,
-        restrict,
+        restrict_or_cascade
     })
 }
 
@@ -558,10 +579,8 @@ pub struct DropSequence<'a> {
     pub if_exists: Option<Span>,
     /// List of sequences to drop
     pub sequences: Vec<QualifiedName<'a>>,
-    /// Span of "CASCADE" if specified
-    pub cascade: Option<Span>,
-    /// Span of "RESTRICT" if specified
-    pub restrict: Option<Span>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropSequence<'a> {
@@ -570,8 +589,7 @@ impl<'a> Spanned for DropSequence<'a> {
             .join_span(&self.sequence_span)
             .join_span(&self.if_exists)
             .join_span(&self.sequences)
-            .join_span(&self.cascade)
-            .join_span(&self.restrict)
+            .join_span(&self.restrict_or_cascade)
     }
 }
 
@@ -594,19 +612,13 @@ fn parse_drop_sequence<'a>(
             break;
         }
     }
-    let cascade = parser.skip_keyword(Keyword::CASCADE);
-    let restrict = if cascade.is_none() {
-        parser.skip_keyword(Keyword::RESTRICT)
-    } else {
-        None
-    };
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropSequence {
         drop_span,
         sequence_span,
         if_exists,
         sequences,
-        cascade,
-        restrict,
+        restrict_or_cascade,
     })
 }
 
@@ -697,6 +709,8 @@ pub struct DropTrigger<'a> {
     pub if_exists: Option<Span>,
     /// Trigger to drop
     pub identifier: QualifiedName<'a>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropTrigger<'a> {
@@ -705,6 +719,7 @@ impl<'a> Spanned for DropTrigger<'a> {
             .join_span(&self.trigger_span)
             .join_span(&self.if_exists)
             .join_span(&self.identifier)
+            .join_span(&self.restrict_or_cascade)
     }
 }
 
@@ -719,11 +734,13 @@ fn parse_drop_trigger<'a>(
         None
     };
     let identifier = parse_qualified_name(parser)?;
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropTrigger {
         drop_span,
         trigger_span,
         if_exists,
         identifier,
+        restrict_or_cascade,
     })
 }
 
@@ -773,8 +790,12 @@ pub struct DropIndex<'a> {
     pub index_span: Span,
     /// Span of "IF EXISTS" if specified
     pub if_exists: Option<Span>,
+    /// Name of index to drop
     pub index_name: Identifier<'a>,
+    // on tbl_name is required in MariaDB but not in PostgreSQL
     pub on: Option<(Span, QualifiedName<'a>)>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropIndex<'a> {
@@ -784,6 +805,7 @@ impl<'a> Spanned for DropIndex<'a> {
             .join_span(&self.if_exists)
             .join_span(&self.index_name)
             .join_span(&self.on)
+            .join_span(&self.restrict_or_cascade)
     }
 }
 
@@ -809,11 +831,9 @@ fn parse_drop_index<'a>(
     if on.is_none() && parser.options.dialect.is_maria() {
         parser.err("On required for index drops in MariaDb", &drop_span);
     }
-    if let Some((on_span, _)) = &on
-        && parser.options.dialect.is_postgresql()
-    {
-        parser.err("On not supported for index drops in PostgreSQL", on_span);
-    }
+    parser.maria_only(&on);
+
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
 
     Ok(DropIndex {
         drop_span,
@@ -821,6 +841,7 @@ fn parse_drop_index<'a>(
         if_exists,
         index_name,
         on,
+        restrict_or_cascade
     })
 }
 
@@ -850,10 +871,8 @@ pub struct DropDomain<'a> {
     pub if_exists: Option<Span>,
     /// List of domains to drop
     pub domains: Vec<QualifiedName<'a>>,
-    /// Span of "CASCADE" if specified
-    pub cascade: Option<Span>,
-    /// Span of "RESTRICT" if specified
-    pub restrict: Option<Span>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropDomain<'a> {
@@ -862,8 +881,7 @@ impl<'a> Spanned for DropDomain<'a> {
             .join_span(&self.domain_span)
             .join_span(&self.if_exists)
             .join_span(&self.domains)
-            .join_span(&self.cascade)
-            .join_span(&self.restrict)
+            .join_span(&self.restrict_or_cascade)
     }
 }
 
@@ -885,22 +903,13 @@ fn parse_drop_domain<'a>(
             break;
         }
     }
-    let cascade = parser.skip_keyword(Keyword::CASCADE);
-    let restrict = parser.skip_keyword(Keyword::RESTRICT);
-    if let Some(cascade_span) = &cascade
-        && let Some(restrict_span) = &restrict
-    {
-        parser
-            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
-            .frag("RESTRICT", restrict_span);
-    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropDomain {
         drop_span,
         domain_span,
         if_exists,
         domains,
-        cascade,
-        restrict,
+        restrict_or_cascade,
     })
 }
 
@@ -929,10 +938,8 @@ pub struct DropExtension<'a> {
     pub if_exists: Option<Span>,
     /// List of extensions to drop
     pub extensions: Vec<Identifier<'a>>,
-    /// Span of "CASCADE" if specified
-    pub cascade: Option<Span>,
-    /// Span of "RESTRICT" if specified
-    pub restrict: Option<Span>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropExtension<'a> {
@@ -941,8 +948,7 @@ impl<'a> Spanned for DropExtension<'a> {
             .join_span(&self.extension_span)
             .join_span(&self.if_exists)
             .join_span(&self.extensions)
-            .join_span(&self.cascade)
-            .join_span(&self.restrict)
+            .join_span(&self.restrict_or_cascade)
     }
 }
 
@@ -964,23 +970,14 @@ fn parse_drop_extension<'a>(
             break;
         }
     }
-    let cascade = parser.skip_keyword(Keyword::CASCADE);
-    let restrict = parser.skip_keyword(Keyword::RESTRICT);
-    if let Some(cascade_span) = &cascade
-        && let Some(restrict_span) = &restrict
-    {
-        parser
-            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
-            .frag("RESTRICT", restrict_span);
-    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
 
     Ok(DropExtension {
         drop_span,
         extension_span,
         if_exists,
         extensions,
-        cascade,
-        restrict,
+        restrict_or_cascade,
     })
 }
 
@@ -1024,18 +1021,15 @@ pub struct DropOperator<'a> {
     pub if_exists: Option<Span>,
     /// List of operators to drop
     pub operators: Vec<DropOperatorItem<'a>>,
-    /// Span of "CASCADE" if specified
-    pub cascade: Option<Span>,
-    /// Span of "RESTRICT" if specified
-    pub restrict: Option<Span>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropOperator<'a> {
     fn span(&self) -> Span {
         self.drop_operator_span
             .join_span(&self.if_exists)
-            .join_span(&self.cascade)
-            .join_span(&self.restrict)
+            .join_span(&self.restrict_or_cascade)
             .join_span(&self.operators)
     }
 }
@@ -1084,21 +1078,12 @@ fn parse_drop_operator<'a>(
             break;
         }
     }
-    let cascade = parser.skip_keyword(Keyword::CASCADE);
-    let restrict = parser.skip_keyword(Keyword::RESTRICT);
-    if let Some(cascade_span) = &cascade
-        && let Some(restrict_span) = &restrict
-    {
-        parser
-            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
-            .frag("RESTRICT", restrict_span);
-    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropOperator {
         drop_operator_span,
         if_exists,
         operators,
-        cascade,
-        restrict,
+        restrict_or_cascade,
     })
 }
 
@@ -1128,10 +1113,8 @@ pub struct DropOperatorFamily<'a> {
     pub family: QualifiedName<'a>,
     /// Span and name of the index method (USING ...)
     pub using: Option<(Span, Identifier<'a>)>,
-    /// Span of "CASCADE" if specified
-    pub cascade: Option<Span>,
-    /// Span of "RESTRICT" if specified
-    pub restrict: Option<Span>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropOperatorFamily<'a> {
@@ -1140,8 +1123,7 @@ impl<'a> Spanned for DropOperatorFamily<'a> {
             .join_span(&self.if_exists)
             .join_span(&self.family)
             .join_span(&self.using)
-            .join_span(&self.cascade)
-            .join_span(&self.restrict)
+            .join_span(&self.restrict_or_cascade)
     }
 }
 
@@ -1162,22 +1144,13 @@ fn parse_drop_operator_family<'a>(
     } else {
         None
     };
-    let cascade = parser.skip_keyword(Keyword::CASCADE);
-    let restrict = parser.skip_keyword(Keyword::RESTRICT);
-    if let Some(cascade_span) = &cascade
-        && let Some(restrict_span) = &restrict
-    {
-        parser
-            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
-            .frag("RESTRICT", restrict_span);
-    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropOperatorFamily {
         drop_operator_family_span,
         if_exists,
         family,
         using,
-        cascade,
-        restrict,
+        restrict_or_cascade,
     })
 }
 
@@ -1206,10 +1179,8 @@ pub struct DropOperatorClass<'a> {
     pub class: QualifiedName<'a>,
     /// Span and name of the index method (USING ...)
     pub using: Option<(Span, Identifier<'a>)>,
-    /// Span of "CASCADE" if specified
-    pub cascade: Option<Span>,
-    /// Span of "RESTRICT" if specified
-    pub restrict: Option<Span>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropOperatorClass<'a> {
@@ -1218,8 +1189,7 @@ impl<'a> Spanned for DropOperatorClass<'a> {
             .join_span(&self.if_exists)
             .join_span(&self.class)
             .join_span(&self.using)
-            .join_span(&self.cascade)
-            .join_span(&self.restrict)
+            .join_span(&self.restrict_or_cascade)
     }
 }
 
@@ -1240,22 +1210,13 @@ fn parse_drop_operator_class<'a>(
     } else {
         None
     };
-    let cascade = parser.skip_keyword(Keyword::CASCADE);
-    let restrict = parser.skip_keyword(Keyword::RESTRICT);
-    if let Some(cascade_span) = &cascade
-        && let Some(restrict_span) = &restrict
-    {
-        parser
-            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
-            .frag("RESTRICT", restrict_span);
-    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropOperatorClass {
         drop_operator_class_span,
         if_exists,
         class,
         using,
-        cascade,
-        restrict,
+        restrict_or_cascade,
     })
 }
 
