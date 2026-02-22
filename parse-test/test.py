@@ -149,7 +149,7 @@ def import_postgresql_tests(args) -> None:
     )
 
 
-def run_parser(sql: str, dialect: str) -> subprocess.CompletedProcess:
+def run_parser(sql: str, dialect: str, not_pretty: bool) -> subprocess.CompletedProcess:
     """
     Run the parse-test binary with the given SQL and dialect.
 
@@ -165,6 +165,8 @@ def run_parser(sql: str, dialect: str) -> subprocess.CompletedProcess:
             "../target/release/parse-test",
             "--dialect",
             dialect,
+            "--output-format",
+            "json" if not_pretty else "pretty-json",
         ],
         capture_output=True,
         input=sql.encode(),
@@ -191,7 +193,7 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
             continue
 
         # Run the parser on this test case
-        result = run_parser(test["input"], dialect)
+        result = run_parser(test["input"], dialect, args.interactive or args.update_output)
 
         if args.update_output:
             # Update output mode: automatically update output and issues without user input
