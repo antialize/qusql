@@ -1181,6 +1181,84 @@ fn parse_drop_operator_family<'a>(
     })
 }
 
+/// Represent a drop operator class statement (PostgreSQL)
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropOperatorClass, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP OPERATOR CLASS IF EXISTS myclass USING gist CASCADE;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+/// # assert!(issues.is_ok());
+/// let drop: DropOperatorClass = match stmts.pop() {
+///     Some(Statement::DropOperatorClass(d)) => d,
+///     _ => panic!("We should get a drop operator class statement")
+/// };
+/// assert!(drop.class.identifier.as_str() == "myclass");
+/// ```
+#[derive(Debug, Clone)]
+pub struct DropOperatorClass<'a> {
+    /// Span of "DROP OPERATOR CLASS"
+    pub drop_operator_class_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// Name of the operator class
+    pub class: QualifiedName<'a>,
+    /// Span and name of the index method (USING ...)
+    pub using: Option<(Span, Identifier<'a>)>,
+    /// Span of "CASCADE" if specified
+    pub cascade: Option<Span>,
+    /// Span of "RESTRICT" if specified
+    pub restrict: Option<Span>,
+}
+
+impl<'a> Spanned for DropOperatorClass<'a> {
+    fn span(&self) -> Span {
+        self.drop_operator_class_span
+            .join_span(&self.if_exists)
+            .join_span(&self.class)
+            .join_span(&self.using)
+            .join_span(&self.cascade)
+            .join_span(&self.restrict)
+    }
+}
+
+fn parse_drop_operator_class<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_operator_class_span: Span,
+) -> Result<DropOperatorClass<'a>, ParseError> {
+    parser.postgres_only(&drop_operator_class_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let class = parse_qualified_name(parser)?;
+    let using = if let Some(span) = parser.skip_keyword(Keyword::USING) {
+        let method = parser.consume_plain_identifier()?;
+        Some((span, method))
+    } else {
+        None
+    };
+    let cascade = parser.skip_keyword(Keyword::CASCADE);
+    let restrict = parser.skip_keyword(Keyword::RESTRICT);
+    if let Some(cascade_span) = &cascade
+        && let Some(restrict_span) = &restrict
+    {
+        parser
+            .err("Cannot specify both CASCADE and RESTRICT", cascade_span)
+            .frag("RESTRICT", restrict_span);
+    }
+    Ok(DropOperatorClass {
+        drop_operator_class_span,
+        if_exists,
+        class,
+        using,
+        cascade,
+        restrict,
+    })
+}
+
 pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let drop_span = parser.consume_keyword(Keyword::DROP)?;
     let temporary = parser.skip_keyword(Keyword::TEMPORARY);
@@ -1213,6 +1291,12 @@ pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a
                     let family_span = parser.consume_keyword(Keyword::FAMILY)?;
                     Ok(Statement::DropOperatorFamily(Box::new(parse_drop_operator_family(
                         parser, drop_span.join_span(&operator_span).join_span(&family_span)
+                    )?)))
+                }
+                Token::Ident(_, Keyword::CLASS) => {
+                    let class_span = parser.consume_keyword(Keyword::CLASS)?;
+                    Ok(Statement::DropOperatorClass(Box::new(parse_drop_operator_class(
+                        parser, drop_span.join_span(&operator_span).join_span(&class_span)
                     )?)))
                 }
                 _ => {
