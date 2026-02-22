@@ -1,81 +1,4 @@
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-macro_rules! keywords {
-    [$(
-        $ident:ident
-    )*] => {
-        #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
-        #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-        #[derive(Default)]
-        pub enum Keyword {
-            #[default]
-            NOT_A_KEYWORD,
-            QUOTED_IDENTIFIER,
-            $($ident),*
-        }
-
-        impl From<&str> for Keyword {
-            fn from(v: &str) -> Self {
-                match v {
-                    $(stringify!($ident) => Keyword::$ident),*,
-                    _ => Keyword::NOT_A_KEYWORD
-                }
-            }
-        }
-
-        impl Keyword {
-            pub fn name(&self) -> &'static str {
-                match self {
-                    $(Keyword::$ident => stringify!($ident)),*,
-                    Keyword::NOT_A_KEYWORD => "NOT_A_KEYWORD",
-                    Keyword::QUOTED_IDENTIFIER => "QUOTED_IDENTIFIER",
-                }
-            }
-        }
-    };
-}
-
-macro_rules! reserved {
-    [$(
-        $ident:ident
-    )*] => {
-        impl Keyword {
-            pub const fn reserved(&self) -> bool {
-                match self {
-                    $(Keyword::$ident => true),*,
-                    _ => false
-                }
-            }
-        }
-    };
-}
-
-macro_rules! expr_ident {
-    [$(
-        $ident:ident
-    )*] => {
-        impl Keyword {
-            pub const fn expr_ident(&self) -> bool {
-                match self {
-                    $(Keyword::$ident => true),*,
-                    _ => !self.reserved()
-                }
-            }
-        }
-    };
-}
-
-keywords![
+keywords = """
 _LIST_
 ABS
 ACCESSIBLE
@@ -1010,9 +933,9 @@ YEAR_MONTH
 YEARWEEK
 ZEROFILL
 ZONE
-];
+"""
 
-reserved![
+RESERVED_KEYWORDS = """
 ACCESSIBLE
 ADD
 ALL
@@ -1262,9 +1185,9 @@ WRITE
 XOR
 YEAR_MONTH
 ZEROFILL
-];
+"""
 
-expr_ident![
+EXPR_IDENT = """
 CURRENT_DATE
 CURRENT_TIME
 CURRENT_TIMESTAMP
@@ -1277,4 +1200,112 @@ UTC_DATE
 UTC_TIME
 UTC_TIMESTAMP
 VALUES
-];
+"""
+
+KEYWORDS=sorted([kw.strip() for kw in keywords.splitlines() if kw.strip()])
+
+print("""#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
+#[derive(Default)]
+pub enum Keyword {
+    #[default]
+    NOT_A_KEYWORD,
+    QUOTED_IDENTIFIER,""")
+for kw in KEYWORDS:
+    print(f"    {kw},")
+print("""}
+
+impl From<&str> for Keyword {
+    fn from(v: &str) -> Self {
+        let mut cs = v.chars();""")
+
+def c_pat(c: str) -> str:
+    if c.lower() == c:
+        return f"'{c}'"
+    else:
+        return f"'{c}' | '{c.lower()}'"
+
+def generate_kw_match(i: int, keywords: list[str]) -> str:
+    if len(keywords) == 1:
+        for (j, c) in enumerate(keywords[0][i:]):
+            if len(keywords[0][i:]) - 1 == 0:
+                print(f"{"    "*(i*2+2)}if matches!(cs.next(), Some({c_pat(c)})) {{")
+            elif j == 0:
+                print(f"{"    "*(i*2+2)}if matches!(cs.next(), Some({c_pat(c)}))")
+            elif j == len(keywords[0][i:]) - 1:
+                print(f"{"    "*(i*2+2)}  && matches!(cs.next(), Some({c_pat(c)})) {{")
+            else:
+                print(f"{"    "*(i*2+2)}  && matches!(cs.next(), Some({c_pat(c)}))")
+
+        print(f"{"    "*(i*2+3)}Keyword::{keywords[0]}")
+        print(f"{"    "*(i*2+2)}}} else {{")
+        print(f"{"    "*(i*2+3)}Keyword::NOT_A_KEYWORD")
+        print(f"{"    "*(i*2+2)}}}")
+    else:
+        print(f"{"    "*(i*2+2)}match cs.next() {{")
+        s = 0
+        for (e, kw) in enumerate(keywords + [None]):
+            try:
+                c = keywords[s][i]
+            except IndexError:
+                c = None
+            try:
+                if kw is not None and kw[i] == c:
+                    continue
+            except IndexError:
+                pass
+            if c is None:
+                print(f"{"    "*(i*2+3)}None => Keyword::{keywords[s]},")
+                s = e + 1
+            elif s + 1 == e and len(keywords[s]) == i+1:
+                print(f"{"    "*(i*2+3)}Some({c_pat(c)}) => Keyword::{keywords[s]},")
+                s = e
+            else:
+                print(f"{"    "*(i*2+3)}Some({c_pat(c)}) => {{")
+                generate_kw_match(i + 1, keywords[s:e])
+                print(f"{"    "*(i*2+3)}}}")
+                s = e
+        print(f"{"    "*(i*2+3)}_ => Keyword::NOT_A_KEYWORD,")
+        print(f"{"    "*(i*2+2)}}}")
+generate_kw_match(0, KEYWORDS)
+
+print("""    }
+}
+
+impl Keyword {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Keyword::NOT_A_KEYWORD => "NOT_A_KEYWORD",
+            Keyword::QUOTED_IDENTIFIER => "QUOTED_IDENTIFIER",
+""")
+
+for kw in KEYWORDS:
+    print(f"            Keyword::{kw} => \"{kw}\",")
+print("""        }
+    }
+    
+    pub const fn reserved(&self) -> bool {
+        match self {""")    
+
+
+for kw in RESERVED_KEYWORDS.splitlines():
+    kw = kw.strip()
+    if not kw:
+        continue
+    print(f"            Keyword::{kw} => true,")
+print("""            _ => false,
+        }
+    }
+
+    pub const fn expr_ident(&self) -> bool {
+        match self {""")
+
+for kw in EXPR_IDENT.splitlines():
+    kw = kw.strip()
+    if not kw:
+        continue
+    print(f"            Keyword::{kw} => true,")
+print("""            _ => !self.reserved(),
+        }
+    }
+}""")

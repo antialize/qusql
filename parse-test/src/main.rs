@@ -39,9 +39,13 @@ struct Args {
     #[arg(short, long, default_value = "maria")]
     dialect: DialectArg,
 
-    /// Whether to run a benchmark (1000 iterations) instead of normal parsing.
+    /// Whether to run a benchmark (10000 iterations) instead of normal parsing.
     #[arg(short, long, default_value_t = false)]
     benchmark: bool,
+
+    /// Number of iterations to run for the benchmark (default: 10000).
+    #[arg(long, default_value_t = 10000)]
+    benchmark_iterations: usize,
 
     /// Output format: json|pretty-json|pretty
     #[arg(short, long, default_value = "json")]
@@ -105,15 +109,18 @@ fn main() {
 
     if args.benchmark {
         let start = std::time::Instant::now();
-        for _ in 0..1000 {
+        let mut sum = 0;
+        for _ in 0..args.benchmark_iterations {
             if args.multiple {
-                qusql_parse::parse_statements(&src, &mut issues, &options);
+                let r = std::hint::black_box(qusql_parse::parse_statements(std::hint::black_box(&src), &mut issues, &options));
+                sum += r.len();
             } else {
-                qusql_parse::parse_statement(&src, &mut issues, &options);
+                let r = std::hint::black_box(qusql_parse::parse_statement(std::hint::black_box(&src), &mut issues, &options));
+                sum += if r.is_some() { 1 } else { 0 };
             }
         }
         let duration = start.elapsed();
-        println!("Benchmark: 1000 iterations took {:.2?}", duration);
+        println!("Benchmark: {} iterations took {:.2?} (sum = {})", args.benchmark_iterations, duration, sum);
     } else {
         let value = if args.multiple {
             let stms = qusql_parse::parse_statements(&src, &mut issues, &options);
