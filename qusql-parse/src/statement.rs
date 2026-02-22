@@ -13,8 +13,9 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    AlterRole, AlterTable, CreateIndex, CreateOperator, CreateRole, CreateTrigger, Identifier,
-    QualifiedName, RenameTable, Span, Spanned, WithQuery,
+    AlterOperatorFamily, AlterRole, AlterTable, CreateIndex, CreateOperator, CreateRole,
+    CreateTrigger, DropOperatorFamily, Identifier, QualifiedName, RenameTable, Span, Spanned,
+    WithQuery,
     alter_role::parse_alter_role,
     alter_table::parse_alter_table,
     create::{
@@ -576,6 +577,7 @@ pub enum Statement<'a> {
     DropView(Box<DropView<'a>>),
     DropExtension(Box<DropExtension<'a>>),
     DropOperator(Box<DropOperator<'a>>),
+    DropOperatorFamily(Box<DropOperatorFamily<'a>>),
     DropDomain(Box<DropDomain<'a>>),
     Set(Box<Set<'a>>),
     Signal(Box<Signal<'a>>),
@@ -594,7 +596,7 @@ pub enum Statement<'a> {
     ShowEngines(Box<ShowEngines>),
     AlterTable(Box<AlterTable<'a>>),
     AlterRole(Box<AlterRole<'a>>),
-    AlterOperatorFamily(Box<crate::operator::AlterOperatorFamily<'a>>),
+    AlterOperatorFamily(Box<AlterOperatorFamily<'a>>),
     Block(Box<Block<'a>>),
     Begin(Box<Begin>),
     End(Box<End>),
@@ -650,6 +652,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::DropView(v) => v.span(),
             Statement::Set(v) => v.span(),
             Statement::AlterOperatorFamily(v) => v.span(),
+            Statement::DropOperatorFamily(v) => v.span(),
             Statement::AlterRole(v) => v.span(),
             Statement::AlterTable(v) => v.span(),
             Statement::Block(v) => v.opt_span().expect("Span of block"),
