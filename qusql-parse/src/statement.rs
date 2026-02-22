@@ -14,8 +14,8 @@ use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     AlterOperatorFamily, AlterRole, AlterTable, CreateIndex, CreateOperator, CreateRole,
-    CreateTrigger, DropOperatorFamily, Identifier, QualifiedName, RenameTable, Span, Spanned,
-    WithQuery,
+    CreateTrigger, DropOperatorClass, DropOperatorFamily, Identifier, QualifiedName, RenameTable,
+    Span, Spanned, WithQuery,
     alter_role::parse_alter_role,
     alter_table::parse_alter_table,
     create::{
@@ -578,6 +578,7 @@ pub enum Statement<'a> {
     DropExtension(Box<DropExtension<'a>>),
     DropOperator(Box<DropOperator<'a>>),
     DropOperatorFamily(Box<DropOperatorFamily<'a>>),
+    DropOperatorClass(Box<DropOperatorClass<'a>>),
     DropDomain(Box<DropDomain<'a>>),
     Set(Box<Set<'a>>),
     Signal(Box<Signal<'a>>),
@@ -644,6 +645,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::DropFunction(v) => v.span(),
             Statement::DropIndex(v) => v.span(),
             Statement::DropOperator(v) => v.span(),
+            Statement::DropOperatorClass(v) => v.span(),
             Statement::DropProcedure(v) => v.span(),
             Statement::DropSequence(v) => v.span(),
             Statement::DropServer(v) => v.span(),

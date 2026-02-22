@@ -102,8 +102,8 @@ pub use data_type::{DataType, DataTypeProperty, Timestamp, Type};
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
     DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropFunctionArg,
-    DropFunctionArgMode, DropIndex, DropOperator, DropOperatorFamily, DropOperatorItem,
-    DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView,
+    DropFunctionArgMode, DropIndex, DropOperator, DropOperatorClass, DropOperatorFamily,
+    DropOperatorItem, DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView,
 };
 pub use expression::{
     ArgExpression, BinaryExpression, BinaryOperator, BoolExpression, CaseExpression,
