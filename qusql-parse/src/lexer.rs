@@ -148,9 +148,38 @@ impl<'a> Token<'a> {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+struct CharsIter<'a> {
+    idx : usize,
+    rem: &'a [u8],
+}
+
+impl<'a> CharsIter<'a> {
+    fn next(&mut self) -> Option<(usize, u8)> {
+        if let Some(v) = self.rem.split_off_first() {
+            let i = self.idx;
+            self.idx += 1;
+            Some((i, *v))
+        } else {
+            None
+        }
+    }
+
+    fn peek(&self) -> Option<(usize, u8)> {
+        if let Some(v) = self.rem.first() {
+            Some((self.idx, *v))
+        } else {
+            None
+        }
+    }
+}
+
+
+
 pub(crate) struct Lexer<'a> {
     src: &'a str,
-    chars: core::iter::Peekable<core::str::CharIndices<'a>>,
+    chars: CharsIter<'a>,
     dialect: SQLDialect,
 }
 
@@ -158,7 +187,7 @@ impl<'a> Lexer<'a> {
     pub fn new(src: &'a str, dialect: &SQLDialect) -> Self {
         Self {
             src,
-            chars: src.char_indices().peekable(),
+            chars: CharsIter { idx: 0, rem: src.as_bytes() },
             dialect: dialect.clone(),
         }
     }
@@ -170,18 +199,21 @@ impl<'a> Lexer<'a> {
     fn simple_literal(&mut self, start: usize) -> Token<'a> {
         let end = loop {
             match self.chars.peek() {
-                Some((_, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9')) => {
+                Some((_, b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9')) => {
                     self.chars.next();
                 }
                 // For MariaDB, allow $ and @ in identifiers
-                Some((_, '$' | '@')) if self.dialect.is_maria() => {
+                Some((_, b'$' | b'@')) if self.dialect.is_maria() => {
                     self.chars.next();
                 }
                 // MySQL allows Unicode characters (U+0080 and above) in identifiers
-                Some((_, c)) if self.dialect.is_maria() && (*c as u32) >= 0x80 => {
+                Some((_, c)) if self.dialect.is_maria() && (c & 0xc0) == 0xc0 => {
                     self.chars.next();
+                    while let Some((_, c)) = self.chars.peek() && (c & 0xc0) == 0x80 {
+                        self.chars.next();
+                    }
                 }
-                Some((i, _)) => break *i,
+                Some((i, _)) => break i,
                 None => break self.src.len(),
             }
         };
@@ -198,32 +230,32 @@ impl<'a> Lexer<'a> {
         while self
             .chars
             .peek()
-            .filter(|(_, c)| *c != '\n' && c.is_ascii_whitespace())
+            .filter(|(_, c)| *c != b'\n' && c.is_ascii_whitespace())
             .is_some()
         {
             self.chars.next().unwrap();
         }
         let start = match self.chars.peek() {
-            Some((i, '\n')) => i + 1,
-            Some((i, _)) => *i,
+            Some((i, b'\n')) => i + 1,
+            Some((i, _)) => i,
             None => {
                 let span = self.src.len()..self.src.len();
                 return (self.s(span.clone()), span);
             }
         };
         while let Some((i, c)) = self.chars.next() {
-            if c != '\n' {
+            if c != b'\n' {
                 continue;
             }
-            if !matches!(self.chars.peek(), Some((_, '\\'))) {
-                continue;
-            }
-            self.chars.next().unwrap();
-            if !matches!(self.chars.peek(), Some((_, '.'))) {
+            if !matches!(self.chars.peek(), Some((_, b'\\'))) {
                 continue;
             }
             self.chars.next().unwrap();
-            if matches!(self.chars.peek(), Some((_, '\n'))) {
+            if !matches!(self.chars.peek(), Some((_, b'.'))) {
+                continue;
+            }
+            self.chars.next().unwrap();
+            if matches!(self.chars.peek(), Some((_, b'\n'))) {
                 // Data ends with NL '\' '.' NL.
                 self.chars.next().unwrap();
             } else if self.chars.peek().is_some() {
@@ -245,7 +277,7 @@ impl<'a> Lexer<'a> {
     fn next_operator(
         &mut self,
         start: usize,
-        mut last: (usize, char),
+        mut last: (usize, u8),
         token: Token<'a>,
     ) -> Token<'a> {
         if self.dialect.is_postgresql() {
@@ -262,19 +294,19 @@ impl<'a> Lexer<'a> {
             match self.chars.peek() {
                 Some((
                     _,
-                    '!' | '@' | '#' | '$' | '%' | '^' | '&' | '(' | ')' | '+' | '=' | '~' | '<'
-                    | '>' | '|' | '/' | '?' | ':',
+                    b'!' | b'@' | b'#' | b'$' | b'%' | b'^' | b'&' | b'(' | b')' | b'+' | b'=' | b'~' | b'<'
+                    | b'>' | b'|' | b'/' | b'?' | b':',
                 )) => {
                     last = self.chars.next().unwrap();
                     token = None;
                 }
-                Some((_, '*')) => {
-                    if last.1 == '/' {
+                Some((_, b'*')) => {
+                    if last.1 == b'/' {
                         self.chars.next();
                         let ok = loop {
                             match self.chars.next() {
-                                Some((_, '*')) => {
-                                    if matches!(self.chars.peek(), Some((_, '/'))) {
+                                Some((_, b'*')) => {
+                                    if matches!(self.chars.peek(), Some((_, b'/'))) {
                                         self.chars.next();
                                         break true;
                                     }
@@ -292,9 +324,9 @@ impl<'a> Lexer<'a> {
                     last = self.chars.next().unwrap();
                     token = None;
                 }
-                Some((_, '-')) => {
-                    if last.1 == '-' {
-                        while !matches!(self.chars.next(), Some((_, '\r' | '\n')) | None) {}
+                Some((_, b'-')) => {
+                    if last.1 == b'-' {
+                        while !matches!(self.chars.next(), Some((_, b'\r' | b'\n')) | None) {}
                         return Token::PostgresOperator(self.s(start..last.0));
                     }
                     last = self.chars.next().unwrap();
@@ -304,7 +336,7 @@ impl<'a> Lexer<'a> {
                     if let Some(t) = token {
                         return t;
                     } else {
-                        let s = self.s(start..last.0 + last.1.len_utf8());
+                        let s = self.s(start..last.0 + 1);
                         return Token::PostgresOperator(s);
                     }
                 }
@@ -323,87 +355,83 @@ impl<'a> Lexer<'a> {
                 }
             };
             let t = match c {
-                ' ' | '\t' | '\n' | '\r' => continue,
-                '?' => self.next_operator(start, (start, c), Token::QuestionMark),
-                ';' => Token::SemiColon,
-                '\\' => Token::Backslash,
-                '[' => Token::LBracket,
-                ']' => Token::RBracket,
-                '&' => match self.chars.peek() {
-                    Some((_, '&')) => {
+                b' ' | b'\t' | b'\n' | b'\r' => continue,
+                b'?' => self.next_operator(start, (start, c), Token::QuestionMark),
+                b';' => Token::SemiColon,
+                b'\\' => Token::Backslash,
+                b'[' => Token::LBracket,
+                b']' => Token::RBracket,
+                b'&' => match self.chars.peek() {
+                    Some((_, b'&')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::DoubleAmpersand)
                     }
                     _ => self.next_operator(start, (start, c), Token::Ampersand),
                 },
-                '^' => self.next_operator(start, (start, c), Token::Caret),
-                '{' => Token::LBrace,
-                '}' => Token::RBrace,
-                '(' => Token::LParen,
-                ')' => Token::RParen,
-                ',' => Token::Comma,
-                '+' => self.next_operator(start, (start, c), Token::Plus),
-                '*' => self.next_operator(start, (start, c), Token::Mul),
-                '%' => match self.chars.peek() {
-                    Some((_, 's')) => {
+                b'^' => self.next_operator(start, (start, c), Token::Caret),
+                b'{' => Token::LBrace,
+                b'}' => Token::RBrace,
+                b'(' => Token::LParen,
+                b')' => Token::RParen,
+                b',' => Token::Comma,
+                b'+' => self.next_operator(start, (start, c), Token::Plus),
+                b'*' => self.next_operator(start, (start, c), Token::Mul),
+                b'%' => match self.chars.peek() {
+                    Some((_, b's')) => {
                         self.chars.next();
                         Token::PercentS
                     }
                     _ => self.next_operator(start, (start, c), Token::Mod),
                 },
-                '#' => self.next_operator(start, (start, c), Token::Sharp),
-                '@' => match self.chars.peek() {
-                    Some((_, '@')) => {
+                b'#' => self.next_operator(start, (start, c), Token::Sharp),
+                b'@' => match self.chars.peek() {
+                    Some((_, b'@')) => {
                         let next = self.chars.next().unwrap();
                         #[allow(clippy::never_loop)]
                         match self.chars.peek() {
-                            Some((_, 's' | 'S')) => loop {
+                            Some((_, b's' | b'S')) => loop {
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'e' | 'E'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'e' | b'E'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 's' | 'S'))) {
+                                if !matches!(self.chars.peek(), Some((_, b's' | b'S'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 's' | 'S'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'i' | b'I'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'i' | 'I'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'o' | b'O'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'o' | 'O'))) {
-                                    break Token::Invalid;
-                                }
-                                self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'n' | 'N'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'n' | b'N'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
                                 break Token::AtAtSession;
                             },
-                            Some((_, 'g' | 'G')) => loop {
+                            Some((_, b'g' | b'G')) => loop {
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'l' | 'L'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'l' | b'L'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'o' | 'O'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'o' | b'O'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'b' | 'B'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'b' | b'B'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'a' | 'A'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'a' | b'A'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'l' | 'L'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'l' | b'L'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
@@ -414,29 +442,29 @@ impl<'a> Lexer<'a> {
                     }
                     _ => self.next_operator(start, (start, c), Token::At),
                 },
-                '~' => self.next_operator(start, (start, c), Token::Tilde),
-                ':' => match self.chars.peek() {
-                    Some((_, ':')) => {
+                b'~' => self.next_operator(start, (start, c), Token::Tilde),
+                b':' => match self.chars.peek() {
+                    Some((_, b':')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::DoubleColon)
                     }
-                    Some((_, '=')) => {
+                    Some((_, b'=')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::ColonEq)
                     }
                     _ => self.next_operator(start, (start, c), Token::Colon),
                 },
-                '$' => match self.chars.peek() {
-                    Some((_, '$')) => {
+                b'$' => match self.chars.peek() {
+                    Some((_, b'$')) => {
                         self.chars.next();
                         Token::DoubleDollar
                     }
-                    Some((_, '1'..='9')) if self.dialect.is_postgresql() => {
-                        let mut v = self.chars.peek().unwrap().1.to_digit(10).unwrap() as usize;
+                    Some((_, b'1'..=b'9')) if self.dialect.is_postgresql() => {
+                        let mut v = (self.chars.peek().unwrap().1 - b'0') as usize;
                         self.chars.next();
-                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                        while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                             v = v * 10
-                                + self.chars.peek().unwrap().1.to_digit(10).unwrap() as usize;
+                                + (self.chars.peek().unwrap().1 - b'0') as usize;
                             self.chars.next();
                         }
                         Token::DollarArg(v)
@@ -447,72 +475,72 @@ impl<'a> Lexer<'a> {
                     }
                     _ => Token::Invalid,
                 },
-                '=' => match self.chars.peek() {
-                    Some((_, '>')) => {
+                b'=' => match self.chars.peek() {
+                    Some((_, b'>')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::RArrow)
                     }
                     _ => self.next_operator(start, (start, c), Token::Eq),
                 },
-                '!' => match self.chars.peek() {
-                    Some((_, '=')) => {
+                b'!' => match self.chars.peek() {
+                    Some((_, b'=')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::Neq)
                     }
-                    Some((_, '!')) => {
+                    Some((_, b'!')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::DoubleExclamationMark)
                     }
                     _ => self.next_operator(start, (start, c), Token::ExclamationMark),
                 },
-                '<' => match self.chars.peek() {
-                    Some((_, '=')) => {
+                b'<' => match self.chars.peek() {
+                    Some((_, b'=')) => {
                         let next = self.chars.next().unwrap();
                         match self.chars.peek() {
-                            Some((_, '>')) => {
+                            Some((_, b'>')) => {
                                 let next = self.chars.next().unwrap();
                                 self.next_operator(start, next, Token::Spaceship)
                             }
                             _ => self.next_operator(start, next, Token::LtEq),
                         }
                     }
-                    Some((_, '>')) => {
+                    Some((_, b'>')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::Neq)
                     }
-                    Some((_, '<')) => {
+                    Some((_, b'<')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::ShiftLeft)
                     }
                     _ => self.next_operator(start, (start, c), Token::Lt),
                 },
-                '>' => match self.chars.peek() {
-                    Some((_, '=')) => {
+                b'>' => match self.chars.peek() {
+                    Some((_, b'=')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::GtEq)
                     }
-                    Some((_, '>')) => {
+                    Some((_, b'>')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::ShiftRight)
                     }
                     _ => self.next_operator(start, (start, c), Token::Gt),
                 },
-                '|' => match self.chars.peek() {
-                    Some((_, '|')) => {
+                b'|' => match self.chars.peek() {
+                    Some((_, b'|')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::DoublePipe)
                     }
                     _ => self.next_operator(start, (start, c), Token::Pipe),
                 },
-                '-' => match self.chars.peek() {
-                    Some((_, '-')) => {
-                        while !matches!(self.chars.next(), Some((_, '\r' | '\n')) | None) {}
+                b'-' => match self.chars.peek() {
+                    Some((_, b'-')) => {
+                        while !matches!(self.chars.next(), Some((_, b'\r' | b'\n')) | None) {}
                         continue;
                     }
-                    Some((_, '>')) => {
+                    Some((_, b'>')) => {
                         let next = self.chars.next().unwrap();
                         match self.chars.peek() {
-                            Some((_, '>')) => {
+                            Some((_, b'>')) => {
                                 let next = self.chars.next().unwrap();
                                 self.next_operator(start, next, Token::RDoubleArrowJson)
                             }
@@ -521,13 +549,13 @@ impl<'a> Lexer<'a> {
                     }
                     _ => self.next_operator(start, (start, c), Token::Minus),
                 },
-                '/' => match self.chars.peek() {
-                    Some((_, '*')) => {
+                b'/' => match self.chars.peek() {
+                    Some((_, b'*')) => {
                         self.chars.next();
                         let ok = loop {
                             match self.chars.next() {
-                                Some((_, '*')) => {
-                                    if matches!(self.chars.peek(), Some((_, '/'))) {
+                                Some((_, b'*')) => {
+                                    if matches!(self.chars.peek(), Some((_, b'/'))) {
                                         self.chars.next();
                                         break true;
                                     }
@@ -542,19 +570,19 @@ impl<'a> Lexer<'a> {
                             Token::Invalid
                         }
                     }
-                    Some((_, '/')) => {
-                        while !matches!(self.chars.next(), Some((_, '\r' | '\n')) | None) {}
+                    Some((_, b'/')) => {
+                        while !matches!(self.chars.next(), Some((_, b'\r' | b'\n')) | None) {}
                         continue;
                     }
                     _ => self.next_operator(start, (start, c), Token::Div),
                 },
-                'x' | 'X' => match self.chars.peek() {
-                    Some((_, '\'')) => {
+                b'x' | b'X' => match self.chars.peek() {
+                    Some((_, b'\'')) => {
                         self.chars.next(); // consume the '
                         loop {
                             match self.chars.next() {
-                                Some((i, '\'')) => break Token::HexString(self.s(start + 2..i)),
-                                Some((_, '0'..='9' | 'a'..='f' | 'A'..='F')) => (),
+                                Some((i, b'\'')) => break Token::HexString(self.s(start + 2..i)),
+                                Some((_, b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F')) => (),
                                 Some((_, _)) => break Token::Invalid,
                                 None => break Token::Invalid,
                             }
@@ -562,13 +590,13 @@ impl<'a> Lexer<'a> {
                     }
                     _ => self.simple_literal(start),
                 },
-                'b' | 'B' => match self.chars.peek() {
-                    Some((_, '\'')) => {
+                b'b' | b'B' => match self.chars.peek() {
+                    Some((_, b'\'')) => {
                         self.chars.next(); // consume the '
                         loop {
                             match self.chars.next() {
-                                Some((i, '\'')) => break Token::BinaryString(self.s(start + 2..i)),
-                                Some((_, '0' | '1')) => (),
+                                Some((i, b'\'')) => break Token::BinaryString(self.s(start + 2..i)),
+                                Some((_, b'0' | b'1')) => (),
                                 Some((_, _)) => break Token::Invalid,
                                 None => break Token::Invalid,
                             }
@@ -576,15 +604,15 @@ impl<'a> Lexer<'a> {
                     }
                     _ => self.simple_literal(start),
                 },
-                '_' | 'a'..='z' | 'A'..='Z' => self.simple_literal(start),
-                '`' => {
+                b'_' | b'a'..=b'z' | b'A'..=b'Z' => self.simple_literal(start),
+                b'`' => {
                     // MySQL backtick-quoted identifiers can contain any character except backticks
                     // Backticks can be escaped by doubling them
                     loop {
                         match self.chars.next() {
-                            Some((i, '`')) => {
+                            Some((i, b'`')) => {
                                 // Check if it's a doubled backtick (escape sequence)
-                                if matches!(self.chars.peek(), Some((_, '`'))) {
+                                if matches!(self.chars.peek(), Some((_, b'`'))) {
                                     self.chars.next(); // consume the second backtick
                                     continue;
                                 } else {
@@ -600,13 +628,13 @@ impl<'a> Lexer<'a> {
                         }
                     }
                 }
-                '\'' => loop {
+                b'\'' => loop {
                     match self.chars.next() {
-                        Some((_, '\\')) => {
+                        Some((_, b'\\')) => {
                             self.chars.next();
                         }
-                        Some((i, '\'')) => match self.chars.peek() {
-                            Some((_, '\'')) => {
+                        Some((i, b'\'')) => match self.chars.peek() {
+                            Some((_, b'\'')) => {
                                 self.chars.next();
                             }
                             _ => break Token::SingleQuotedString(self.s(start + 1..i)),
@@ -615,13 +643,13 @@ impl<'a> Lexer<'a> {
                         None => break Token::Invalid,
                     }
                 },
-                '"' => loop {
+                b'"' => loop {
                     match self.chars.next() {
-                        Some((_, '\\')) => {
+                        Some((_, b'\\')) => {
                             self.chars.next();
                         }
-                        Some((i, '"')) => match self.chars.peek() {
-                            Some((_, '"')) => {
+                        Some((i, b'"')) => match self.chars.peek() {
+                            Some((_, b'"')) => {
                                 self.chars.next();
                             }
                             _ => break Token::DoubleQuotedString(self.s(start + 1..i)),
@@ -630,11 +658,11 @@ impl<'a> Lexer<'a> {
                         None => break Token::Invalid,
                     }
                 },
-                '0'..='9' => {
+                b'0'..=b'9' => {
                     // For MariaDB, identifiers can start with digits
                     if self.dialect.is_maria() {
                         // Consume initial digits
-                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                        while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                             self.chars.next();
                         }
 
@@ -643,56 +671,56 @@ impl<'a> Lexer<'a> {
                             // If followed by identifier char (not e/E or .), it's an identifier
                             Some((
                                 _,
-                                '_' | 'a'..='d' | 'f'..='z' | 'A'..='D' | 'F'..='Z' | '$' | '@',
+                                b'_' | b'a'..=b'd' | b'f'..=b'z' | b'A'..=b'D' | b'F'..=b'Z' | b'$' | b'@',
                             )) => {
                                 // It's an identifier - consume remaining identifier chars
                                 while matches!(
                                     self.chars.peek(),
-                                    Some((_, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '@'))
+                                    Some((_, b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'$' | b'@'))
                                 ) {
                                     self.chars.next();
                                 }
                                 let end = match self.chars.peek() {
-                                    Some((i, _)) => *i,
+                                    Some((i, _)) => i,
                                     None => self.src.len(),
                                 };
                                 let s = self.s(start..end);
                                 Token::Ident(s, Keyword::NOT_A_KEYWORD)
                             }
                             // Check for exponent notation
-                            Some((_, 'e' | 'E')) => {
+                            Some((_, b'e' | b'E')) => {
                                 // Peek ahead to see if this is a valid exponent or identifier char
                                 let mut temp = self.chars.clone();
                                 temp.next(); // skip 'e'/'E'
-                                if matches!(temp.peek(), Some((_, '+' | '-'))) {
+                                if matches!(temp.peek(), Some((_, b'+' | b'-'))) {
                                     temp.next();
                                 }
-                                if matches!(temp.peek(), Some((_, '0'..='9'))) {
+                                if matches!(temp.peek(), Some((_, b'0'..=b'9'))) {
                                     // Valid exponent - check if identifier chars follow after exponent
                                     self.chars.next(); // consume 'e'/'E'
-                                    if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                    if matches!(self.chars.peek(), Some((_, b'+' | b'-'))) {
                                         self.chars.next();
                                     }
-                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                    while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                                         self.chars.next();
                                     }
                                     // Now check if identifier chars follow the exponent
                                     if matches!(
                                         self.chars.peek(),
-                                        Some((_, '_' | 'a'..='z' | 'A'..='Z' | '$' | '@'))
+                                        Some((_, b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'@'))
                                     ) {
                                         // Identifier chars follow - it's an identifier
                                         while matches!(
                                             self.chars.peek(),
                                             Some((
                                                 _,
-                                                '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '@',
+                                                b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'$' | b'@',
                                             ))
                                         ) {
                                             self.chars.next();
                                         }
                                         let end = match self.chars.peek() {
-                                            Some((i, _)) => *i,
+                                            Some((i, _)) => i,
                                             None => self.src.len(),
                                         };
                                         let s = self.s(start..end);
@@ -700,7 +728,7 @@ impl<'a> Lexer<'a> {
                                     } else {
                                         // No identifier chars - it's a float
                                         let end = match self.chars.peek() {
-                                            Some((i, _)) => *i,
+                                            Some((i, _)) => i,
                                             None => self.src.len(),
                                         };
                                         Token::Float(self.s(start..end))
@@ -711,13 +739,13 @@ impl<'a> Lexer<'a> {
                                         self.chars.peek(),
                                         Some((
                                             _,
-                                            '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '@',
+                                            b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'$' | b'@',
                                         ))
                                     ) {
                                         self.chars.next();
                                     }
                                     let end = match self.chars.peek() {
-                                        Some((i, _)) => *i,
+                                        Some((i, _)) => i,
                                         None => self.src.len(),
                                     };
                                     let s = self.s(start..end);
@@ -725,42 +753,42 @@ impl<'a> Lexer<'a> {
                                 }
                             }
                             // Check for decimal point
-                            Some((_, '.')) => {
+                            Some((_, b'.')) => {
                                 let mut temp = self.chars.clone();
                                 temp.next();
-                                if matches!(temp.peek(), Some((_, '0'..='9'))) {
+                                if matches!(temp.peek(), Some((_, b'0'..=b'9'))) {
                                     // Valid float - consume decimal part
                                     self.chars.next(); // consume '.'
-                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                    while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                                         self.chars.next();
                                     }
                                     // Check for exponent
-                                    if matches!(self.chars.peek(), Some((_, 'e' | 'E'))) {
+                                    if matches!(self.chars.peek(), Some((_, b'e' | b'E'))) {
                                         let mut temp2 = self.chars.clone();
                                         temp2.next();
-                                        if matches!(temp2.peek(), Some((_, '+' | '-'))) {
+                                        if matches!(temp2.peek(), Some((_, b'+' | b'-'))) {
                                             temp2.next();
                                         }
-                                        if matches!(temp2.peek(), Some((_, '0'..='9'))) {
+                                        if matches!(temp2.peek(), Some((_, b'0'..=b'9'))) {
                                             self.chars.next(); // consume 'e'/'E'
-                                            if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                            if matches!(self.chars.peek(), Some((_, b'+' | b'-'))) {
                                                 self.chars.next();
                                             }
-                                            while matches!(self.chars.peek(), Some((_, '0'..='9')))
+                                            while matches!(self.chars.peek(), Some((_, b'0'..=b'9')))
                                             {
                                                 self.chars.next();
                                             }
                                         }
                                     }
                                     let end = match self.chars.peek() {
-                                        Some((i, _)) => *i,
+                                        Some((i, _)) => i,
                                         None => self.src.len(),
                                     };
                                     Token::Float(self.s(start..end))
                                 } else {
                                     // Period not followed by digit - just an integer
                                     let end = match self.chars.peek() {
-                                        Some((i, _)) => *i,
+                                        Some((i, _)) => i,
                                         None => self.src.len(),
                                     };
                                     Token::Integer(self.s(start..end))
@@ -769,7 +797,7 @@ impl<'a> Lexer<'a> {
                             // No special chars - just an integer
                             _ => {
                                 let end = match self.chars.peek() {
-                                    Some((i, _)) => *i,
+                                    Some((i, _)) => i,
                                     None => self.src.len(),
                                 };
                                 Token::Integer(self.s(start..end))
@@ -780,35 +808,35 @@ impl<'a> Lexer<'a> {
                         let mut is_float = false;
                         loop {
                             match self.chars.peek() {
-                                Some((_, '0'..='9')) => {
+                                Some((_, b'0'..=b'9')) => {
                                     self.chars.next();
                                 }
-                                Some((_, '.')) => {
+                                Some((_, b'.')) => {
                                     self.chars.next();
                                     is_float = true;
                                     // Consume fractional part
-                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                    while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                                         self.chars.next();
                                     }
                                     // Check for exponent
-                                    if matches!(self.chars.peek(), Some((_, 'e' | 'E'))) {
+                                    if matches!(self.chars.peek(), Some((_, b'e' | b'E'))) {
                                         self.chars.next();
-                                        if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                        if matches!(self.chars.peek(), Some((_, b'+' | b'-'))) {
                                             self.chars.next();
                                         }
-                                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                        while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                                             self.chars.next();
                                         }
                                     }
                                     break;
                                 }
-                                Some((_, 'e' | 'E')) => {
+                                Some((_, b'e' | b'E')) => {
                                     self.chars.next();
                                     is_float = true;
-                                    if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                    if matches!(self.chars.peek(), Some((_, b'+' | b'-'))) {
                                         self.chars.next();
                                     }
-                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                    while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                                         self.chars.next();
                                     }
                                     break;
@@ -817,7 +845,7 @@ impl<'a> Lexer<'a> {
                             }
                         }
                         let end = match self.chars.peek() {
-                            Some((i, _)) => *i,
+                            Some((i, _)) => i,
                             None => self.src.len(),
                         };
                         if is_float {
@@ -827,14 +855,14 @@ impl<'a> Lexer<'a> {
                         }
                     }
                 }
-                '.' => match self.chars.peek() {
-                    Some((_, '0'..='9')) => loop {
+                b'.' => match self.chars.peek() {
+                    Some((_, b'0'..=b'9')) => loop {
                         match self.chars.peek() {
-                            Some((_, '0'..='9')) => {
+                            Some((_, b'0'..=b'9')) => {
                                 self.chars.next();
                             }
                             Some((i, _)) => {
-                                let i = *i;
+                                let i = i;
                                 break Token::Float(self.s(start..i));
                             }
                             None => break Token::Float(self.s(start..self.src.len())),
@@ -848,55 +876,10 @@ impl<'a> Lexer<'a> {
             };
 
             let end = match self.chars.peek() {
-                Some((i, _)) => *i,
+                Some((i, _)) => i,
                 None => self.src.len(),
             };
             return (t, start..end);
-
-            // // string
-
-            // '\'' => {
-            //     let value = self.tokenize_single_quoted_string(chars)?;
-            //     Ok(Some(Token::SingleQuotedString { value, span }))
-            // }
-
-            // // numbers and period
-            // '0'..='9' | '.' => {
-            //     let mut value = peeking_take_while(chars, |ch| matches!(ch, '0'..='9'));
-
-            //     // match binary literal that starts with 0x
-            //     if value == "0" && chars.peek().map(|(_, c)| c) == Some(&'x') {
-            //         chars.next();
-            //         let value = peeking_take_while(
-            //             chars,
-            //             |ch| matches!(ch, '0'..='9' | 'A'..='F' | 'a'..='f'),
-            //         );
-            //         return Ok(Some(Token::HexStringLiteral { value, span }));
-            //     }
-
-            //     // match one period
-            //     if let Some((_, '.')) = chars.peek() {
-            //         value.push('.');
-            //         chars.next();
-            //     }
-            //     value += &peeking_take_while(chars, |ch| matches!(ch, '0'..='9'));
-
-            //     // No number -> Token::Period
-            //     if value == "." {
-            //         return Ok(Some(Token::Period { span }));
-            //     }
-
-            //     let long = if let Some((_, 'L')) = chars.peek() {
-            //         chars.next();
-            //         true
-            //     } else {
-            //         false
-            //     };
-            //     Ok(Some(Token::Number { value, long, span }))
-            // }
-            // // punctuation
-
-            // // operators
         }
     }
 }
