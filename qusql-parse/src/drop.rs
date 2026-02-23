@@ -709,6 +709,8 @@ pub struct DropTrigger<'a> {
     pub if_exists: Option<Span>,
     /// Trigger to drop
     pub identifier: QualifiedName<'a>,
+    /// ON table_name (PostgreSQL/PostGIS)
+    pub on: Option<(Span, QualifiedName<'a>)>,
     /// Restrict or cascade option (PostgreSQL)
     pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
@@ -719,6 +721,7 @@ impl<'a> Spanned for DropTrigger<'a> {
             .join_span(&self.trigger_span)
             .join_span(&self.if_exists)
             .join_span(&self.identifier)
+            .join_span(&self.on)
             .join_span(&self.restrict_or_cascade)
     }
 }
@@ -734,12 +737,23 @@ fn parse_drop_trigger<'a>(
         None
     };
     let identifier = parse_qualified_name(parser)?;
+    let on = if let Some(span) = parser.skip_keyword(Keyword::ON) {
+        let table_name = parse_qualified_name(parser)?;
+        parser.postgres_only(&span);
+        Some((span, table_name))
+    } else {
+        if parser.options.dialect.is_postgresql() {
+            parser.err("ON required for trigger drops in PostgreSQL", &trigger_span);
+        }
+        None
+    };
     let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropTrigger {
         drop_span,
         trigger_span,
         if_exists,
         identifier,
+        on,
         restrict_or_cascade,
     })
 }

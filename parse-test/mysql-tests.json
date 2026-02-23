@@ -965,7 +965,7 @@
   },
   {
     "input": "DROP TRIGGER emp_stamp",
-    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"emp_stamp\",\n                span: 13..22,\n            },\n        },\n    },\n)",
+    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"emp_stamp\",\n                span: 13..22,\n            },\n        },\n        on: None,\n        restrict_or_cascade: None,\n    },\n)",
     "issues": []
   },
   {
