@@ -1,5 +1,3 @@
-import subprocess
-
 keywords = """
 _LIST_
 ABS
@@ -1319,5 +1317,3 @@ with open("src/keywords.rs", "w") as f:
     f.write("        ) || !self.reserved()\n")
     f.write("    }\n")
     f.write("}\n")
-
-subprocess.check_call(["cargo", "fmt", "--", "src/keywords.rs"])

@@ -63,6 +63,7 @@ mod function_expression;
 mod identifier;
 mod insert_replace;
 mod issue;
+#[rustfmt::skip]
 mod keywords;
 mod kill;
 mod lexer;

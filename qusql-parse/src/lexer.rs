@@ -10,6 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Lexer for SQL statements. Converts a SQL string into a stream of tokens.
 use crate::{SQLDialect, Span, keywords::Keyword};
 
 /// SQL Token enumeration
@@ -75,6 +76,7 @@ pub(crate) enum Token<'a> {
 }
 
 impl<'a> Token<'a> {
+    /// Returns a human-readable name for the token, used in error messages.
     pub(crate) fn name(&self) -> &'static str {
         match self {
             Token::Ampersand => "'&'",
@@ -149,13 +151,17 @@ impl<'a> Token<'a> {
     }
 }
 
+/// A simple character iterator that keeps track of the current index in the source string.
 #[derive(Debug, Clone)]
 struct CharsIter<'a> {
+    /// The current character index in the source string.
     idx: usize,
+    /// The remaining characters as bytes.
     rem: &'a [u8],
 }
 
 impl<'a> CharsIter<'a> {
+    /// Returns the next character and its index, or `None` if we've reached the end of the input.
     fn next(&mut self) -> Option<(usize, u8)> {
         if let Some(v) = self.rem.split_off_first() {
             let i = self.idx;
@@ -166,22 +172,24 @@ impl<'a> CharsIter<'a> {
         }
     }
 
+    /// Peeks at the next character and its index without consuming it, or `None` if we've reached the end of the input.
     fn peek(&self) -> Option<(usize, u8)> {
-        if let Some(v) = self.rem.first() {
-            Some((self.idx, *v))
-        } else {
-            None
-        }
+        self.rem.first().map(|v| (self.idx, *v))
     }
 }
 
+/// The main lexer struct that holds the source string, the character iterator, and the SQL dialect.
 pub(crate) struct Lexer<'a> {
+    /// The original source string being lexed.
     src: &'a str,
+    /// An iterator over the characters of the source string, keeping track of the current index.
     chars: CharsIter<'a>,
+    /// The SQL dialect to use for lexing, which may affect how certain tokens are recognized.
     dialect: SQLDialect,
 }
 
 impl<'a> Lexer<'a> {
+    /// Creates a new `Lexer` instance for the given source string and SQL dialect.
     pub fn new(src: &'a str, dialect: &SQLDialect) -> Self {
         Self {
             src,
@@ -193,12 +201,14 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Returns the substring of the source corresponding to the given span.
     pub(crate) fn s(&self, span: Span) -> &'a str {
         // Safety: The span is expected to match the unicode boundaries
         unsafe { core::str::from_utf8_unchecked(&self.src.as_bytes()[span]) }
     }
 
-    fn simple_literal(&mut self, start: usize) -> Token<'a> {
+    /// Lexes an unquoted identifier starting at the given index. The first character has already been consumed and is at `start`.
+    fn unquoted_identifier(&mut self, start: usize) -> Token<'a> {
         let end = loop {
             match self.chars.peek() {
                 Some((_, b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9')) => {
@@ -278,6 +288,7 @@ impl<'a> Lexer<'a> {
         (self.s(span.clone()), span)
     }
 
+    /// In PostgreSQL, operators can be multiple characters long and can contain a wide range of special characters.
     fn next_operator(
         &mut self,
         start: usize,
@@ -348,8 +359,8 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    //+ - * / < > = ~ ! @ # % ^ & | ` ?
-
+    /// Returns the next token and its span in the source string.
+    /// If the end of the input is reached, returns `Token::Eof` with an empty span at the end of the source.
     pub fn next_token(&mut self) -> (Token<'a>, Span) {
         loop {
             let (start, c) = match self.chars.next() {
@@ -474,7 +485,7 @@ impl<'a> Lexer<'a> {
                     }
                     _ if self.dialect.is_maria() => {
                         // In MariaDB, $ can start an identifier
-                        self.simple_literal(start)
+                        self.unquoted_identifier(start)
                     }
                     _ => Token::Invalid,
                 },
@@ -591,7 +602,7 @@ impl<'a> Lexer<'a> {
                             }
                         }
                     }
-                    _ => self.simple_literal(start),
+                    _ => self.unquoted_identifier(start),
                 },
                 b'b' | b'B' => match self.chars.peek() {
                     Some((_, b'\'')) => {
@@ -607,9 +618,9 @@ impl<'a> Lexer<'a> {
                             }
                         }
                     }
-                    _ => self.simple_literal(start),
+                    _ => self.unquoted_identifier(start),
                 },
-                b'_' | b'a'..=b'z' | b'A'..=b'Z' => self.simple_literal(start),
+                b'_' | b'a'..=b'z' | b'A'..=b'Z' => self.unquoted_identifier(start),
                 b'`' => {
                     // MySQL backtick-quoted identifiers can contain any character except backticks
                     // Backticks can be escaped by doubling them
@@ -892,17 +903,16 @@ impl<'a> Lexer<'a> {
                             Some((_, b'0'..=b'9')) => {
                                 self.chars.next();
                             }
-                            Some((i, _)) => {
-                                let i = i;
-                                break Token::Float(self.s(start..i));
-                            }
+                            Some((i, _)) => break Token::Float(self.s(start..i)),
                             None => break Token::Float(self.s(start..self.src.len())),
                         }
                     },
                     _ => Token::Period,
                 },
                 // In MariaDB, Unicode characters (U+0080 and above) can start identifiers
-                c if self.dialect.is_maria() && (c as u32) >= 0x80 => self.simple_literal(start),
+                c if self.dialect.is_maria() && (c as u32) >= 0x80 => {
+                    self.unquoted_identifier(start)
+                }
                 _ => Token::Invalid,
             };
 
@@ -928,11 +938,13 @@ mod tests {
     use super::*;
     use alloc::vec::Vec;
 
+    /// Helper function to lex a single token from the input string. It returns the token without its span.
     fn lex_single<'a>(src: &'a str, dialect: &SQLDialect) -> Token<'a> {
         let mut lexer = Lexer::new(src, dialect);
         lexer.next_token().0
     }
 
+    /// Helper function to lex all tokens from the input string. It returns a vector of tokens without their spans.
     fn lex_all<'a>(src: &'a str, dialect: &SQLDialect) -> Vec<Token<'a>> {
         let mut lexer = Lexer::new(src, dialect);
         let mut tokens = Vec::new();
@@ -946,6 +958,8 @@ mod tests {
         tokens
     }
 
+    /// Tests that keywords are correctly recognized and case-insensitive.
+    /// It also checks that they are categorized as keywords rather than identifiers.
     #[test]
     fn test_keywords() {
         let dialect = SQLDialect::MariaDB;
@@ -1012,6 +1026,7 @@ mod tests {
         ));
     }
 
+    /// Tests that identifiers are correctly recognized in various forms, including unquoted, backtick-quoted, and with escaped characters.
     #[test]
     fn test_identifiers() {
         let dialect = SQLDialect::MariaDB;
@@ -1051,6 +1066,7 @@ mod tests {
         }
     }
 
+    /// Tests that numbers are correctly recognized in various formats, including integers, floats, and scientific notation.
     #[test]
     fn test_numbers() {
         let dialect = SQLDialect::MariaDB;
@@ -1101,6 +1117,7 @@ mod tests {
         }
     }
 
+    /// Tests that different types of strings are correctly recognized, including single-quoted, double-quoted, hex, and binary strings.
     #[test]
     fn test_strings() {
         let dialect = SQLDialect::MariaDB;
@@ -1152,6 +1169,7 @@ mod tests {
         }
     }
 
+    /// Tests that various operators are correctly recognized, including multi-character operators and those specific to certain dialects.
     #[test]
     fn test_operators() {
         let dialect = SQLDialect::MariaDB;
@@ -1181,6 +1199,7 @@ mod tests {
         assert_eq!(lex_single("!!", &dialect), Token::DoubleExclamationMark);
     }
 
+    /// Tests that various punctuation characters are correctly recognized, including those specific to certain dialects.
     #[test]
     fn test_punctuation() {
         let dialect = SQLDialect::MariaDB;
@@ -1235,6 +1254,7 @@ mod tests {
         assert_eq!(lex_single("%s", &mariadb), Token::PercentS);
     }
 
+    /// Tests that comments are correctly skipped and do not produce tokens. It covers single-line comments with both -- and //, as well as multi-line comments.
     #[test]
     fn test_comments() {
         let dialect = SQLDialect::MariaDB;
@@ -1264,6 +1284,7 @@ mod tests {
         assert!(matches!(tokens[1], Token::Ident(_, Keyword::FROM)));
     }
 
+    /// Tests that in MariaDB, identifiers can start with digits, but in PostgreSQL they cannot. It also checks that valid numbers are still recognized as numbers and not identifiers.
     #[test]
     fn test_mariadb_identifiers_starting_with_digits() {
         let dialect = SQLDialect::MariaDB;
@@ -1302,6 +1323,9 @@ mod tests {
         assert!(matches!(lex_single("1e5", &dialect), Token::Float(_)));
     }
 
+    /// Tests that the lexer correctly distinguishes between the PostgreSQL and MariaDB dialects
+    /// when it comes to identifiers starting with digits.
+    /// It verifies that in PostgreSQL, such tokens are treated as numbers, while in MariaDB they are treated as identifiers.
     #[test]
     fn test_postgresql_vs_mariadb() {
         // PostgreSQL doesn't allow identifiers starting with digits
@@ -1320,6 +1344,7 @@ mod tests {
         }
     }
 
+    /// Tests that whitespace characters are correctly skipped and do not produce tokens.
     #[test]
     fn test_whitespace_handling() {
         let dialect = SQLDialect::MariaDB;
@@ -1330,6 +1355,8 @@ mod tests {
         assert!(matches!(tokens[1], Token::Ident(_, Keyword::FROM)));
     }
 
+    /// Tests a complex SQL query to ensure that all components (keywords, identifiers, operators, literals)
+    /// are correctly tokenized in the right order.
     #[test]
     fn test_complex_query() {
         let dialect = SQLDialect::MariaDB;
@@ -1361,6 +1388,7 @@ mod tests {
         assert!(matches!(tokens[15], Token::Integer(_))); // 10
     }
 
+    /// Tests that escaped characters within strings are correctly recognized and included in the token value.
     #[test]
     fn test_escaped_strings() {
         let dialect = SQLDialect::MariaDB;
@@ -1380,6 +1408,7 @@ mod tests {
         }
     }
 
+    /// Tests that invalid tokens are correctly identified as Token::Invalid, and that valid tokens are not misclassified as invalid.
     #[test]
     fn test_invalid_tokens() {
         let dialect = SQLDialect::MariaDB;
@@ -1400,6 +1429,7 @@ mod tests {
         ));
     }
 
+    /// Tests that keywords are recognized regardless of their case, and that they are categorized as keywords rather than identifiers.
     #[test]
     fn test_case_insensitive_keywords() {
         let dialect = SQLDialect::MariaDB;
@@ -1427,6 +1457,8 @@ mod tests {
         ));
     }
 
+    /// Tests that in MariaDB, tokens that start with digits but have identifier characters after are treated as identifiers,
+    /// while valid numbers without identifier characters are treated as numbers.
     #[test]
     fn test_mariadb_number_identifier_edge_cases() {
         let dialect = SQLDialect::MariaDB;
@@ -1559,14 +1591,6 @@ mod tests {
         } else {
             panic!("Expected identifier");
         }
-    }
-
-    #[test]
-    fn test_mariadb_single_pass_correctness() {
-        let dialect = SQLDialect::MariaDB;
-
-        // Test that we get the same results with the single-pass optimization
-        // as we would with the old two-pass approach
 
         // Numbers should end at the right place
         let tokens = lex_all("123 456", &dialect);
@@ -1637,6 +1661,9 @@ mod tests {
         assert!(matches!(tokens[11], Token::Float("123.456")));
     }
 
+    /// Tests that PostgreSQL-specific operators are correctly recognized,
+    /// including those that are not standard SQL operators but are valid in PostgreSQL.
+    /// It covers comparison, string, numerical, geometric, and time interval operators.
     #[test]
     fn test_postgres_operators() {
         let dialect = SQLDialect::PostgreSQL;

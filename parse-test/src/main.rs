@@ -17,6 +17,7 @@ struct ResultOut {
     success: bool,
 }
 
+/// Supported output formats for the parser results.
 #[derive(Copy, Clone, Debug, ValueEnum)]
 enum OutputFormatArg {
     /// Output the parsed AST as pretty-printed JSON.
