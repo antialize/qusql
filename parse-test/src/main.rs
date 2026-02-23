@@ -113,15 +113,26 @@ fn main() {
         let mut sum = 0;
         for _ in 0..args.benchmark_iterations {
             if args.multiple {
-                let r = std::hint::black_box(qusql_parse::parse_statements(std::hint::black_box(&src), &mut issues, &options));
+                let r = std::hint::black_box(qusql_parse::parse_statements(
+                    std::hint::black_box(&src),
+                    &mut issues,
+                    &options,
+                ));
                 sum += r.len();
             } else {
-                let r = std::hint::black_box(qusql_parse::parse_statement(std::hint::black_box(&src), &mut issues, &options));
+                let r = std::hint::black_box(qusql_parse::parse_statement(
+                    std::hint::black_box(&src),
+                    &mut issues,
+                    &options,
+                ));
                 sum += if r.is_some() { 1 } else { 0 };
             }
         }
         let duration = start.elapsed();
-        println!("Benchmark: {} iterations took {:.2?} (sum = {})", args.benchmark_iterations, duration, sum);
+        println!(
+            "Benchmark: {} iterations took {:.2?} (sum = {})",
+            args.benchmark_iterations, duration, sum
+        );
     } else {
         let value = if args.multiple {
             let stms = qusql_parse::parse_statements(&src, &mut issues, &options);
@@ -137,10 +148,10 @@ fn main() {
         match args.output_format {
             OutputFormatArg::Json => {
                 let issues = issues
-                .issues
-                .iter()
-                .map(|issue| format!("{:#?}", issue))
-                .collect();
+                    .issues
+                    .iter()
+                    .map(|issue| format!("{:#?}", issue))
+                    .collect();
 
                 let result = ResultOut {
                     value,
@@ -197,6 +208,5 @@ fn main() {
                 println!("Success: {}", success);
             }
         }
-
     }
 }
