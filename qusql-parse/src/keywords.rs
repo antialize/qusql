@@ -12743,6 +12743,7 @@ impl Keyword {
             | Keyword::IS
             | Keyword::ITERATE
             | Keyword::JOIN
+            | Keyword::FULL
             | Keyword::KEY
             | Keyword::KEYS
             | Keyword::KILL

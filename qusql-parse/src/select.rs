@@ -78,6 +78,7 @@ pub enum JoinType {
     Straight(Span),
     Left(Span),
     Right(Span),
+    FullOuter(Span),
     Natural(Span),
     NaturalInner(Span),
     NaturalLeft(Span),
@@ -92,6 +93,7 @@ impl Spanned for JoinType {
             JoinType::Straight(v) => v.span(),
             JoinType::Left(v) => v.span(),
             JoinType::Right(v) => v.span(),
+            JoinType::FullOuter(v) => v.span(),
             JoinType::Natural(v) => v.span(),
             JoinType::NaturalInner(v) => v.span(),
             JoinType::NaturalLeft(v) => v.span(),
@@ -707,6 +709,18 @@ pub(crate) fn parse_table_reference<'a>(
     let mut ans = parse_table_reference_inner(parser)?;
     loop {
         let join = match parser.token {
+            Token::Ident(_, Keyword::FULL) => {
+                let full = parser.consume_keyword(Keyword::FULL)?;
+                parser.postgres_only(&full);
+                if let Some(outer) = parser.skip_keyword(Keyword::OUTER) {
+                    JoinType::FullOuter(
+                        full.join_span(&outer)
+                            .join_span(&parser.consume_keyword(Keyword::JOIN)?),
+                    )
+                } else {
+                    JoinType::FullOuter(full.join_span(&parser.consume_keyword(Keyword::JOIN)?))
+                }
+            }
             Token::Ident(_, Keyword::INNER) => JoinType::Inner(
                 parser
                     .consume_keyword(Keyword::INNER)?
