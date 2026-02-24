@@ -48,6 +48,7 @@ use crate::{
     span::OptSpanned,
     truncate::{TruncateTable, parse_truncate_table},
     update::{Update, parse_update},
+    values::parse_values,
     with_query::parse_with_query,
 };
 
@@ -617,6 +618,8 @@ pub enum Statement<'a> {
     WithQuery(Box<WithQuery<'a>>),
     Return(Box<Return<'a>>),
     Flush(Box<Flush<'a>>),
+    /// PostgreSQL VALUES statement
+    Values(Box<crate::values::Values<'a>>),
 }
 
 impl<'a> Spanned for Statement<'a> {
@@ -692,6 +695,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::ShowEngines(v) => v.span(),
             Statement::Flush(v) => v.span(),
             Statement::CreateOperatorFamily(v) => v.span(),
+            Statement::Values(v) => v.span(),
         }
     }
 }
@@ -712,6 +716,9 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::CREATE) => Some(parse_create(parser)?),
         Token::Ident(_, Keyword::DROP) => Some(parse_drop(parser)?),
         Token::Ident(_, Keyword::SELECT) | Token::LParen => Some(parse_compound_query(parser)?),
+        Token::Ident(_, Keyword::VALUES) => {
+            Some(Statement::Values(Box::new(parse_values(parser)?)))
+        }
         Token::Ident(_, Keyword::DELETE) => {
             Some(Statement::Delete(Box::new(parse_delete(parser)?)))
         }

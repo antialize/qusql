@@ -2219,6 +2219,7 @@
     "input": "CREATE TABLE orders_new PARTITION OF orders FOR VALUES FROM ('2024-01-01') TO (MAXVALUE)",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"orders_new\",\n                span: 13..23,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [],\n        options: [],\n        table_as: None,\n    },\n)",
     "issues": [
+      "Issue {\n    level: Error,\n    message: \"'orders_new' is a reserved identifier use `orders_new`\",\n    span: 13..23,\n    sql_segment: \"orders_new\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 24..33,\n    sql_segment: \"PARTITION\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 61..73,\n    sql_segment: \"'2024-01-01'\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'table option or delimiter' here\",\n    span: 75..77,\n    sql_segment: \"TO\",\n    fragments: [],\n}"
@@ -2229,6 +2230,7 @@
     "input": "CREATE TABLE orders_old PARTITION OF orders FOR VALUES FROM (MINVALUE) TO ('2020-01-01')",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"orders_old\",\n                span: 13..23,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [],\n        options: [],\n        table_as: None,\n    },\n)",
     "issues": [
+      "Issue {\n    level: Error,\n    message: \"'orders_old' is a reserved identifier use `orders_old`\",\n    span: 13..23,\n    sql_segment: \"orders_old\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 24..33,\n    sql_segment: \"PARTITION\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 69..70,\n    sql_segment: \")\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'table option or delimiter' here\",\n    span: 71..73,\n    sql_segment: \"TO\",\n    fragments: [],\n}"
@@ -2239,6 +2241,7 @@
     "input": "CREATE TABLE orders_p0 PARTITION OF orders FOR VALUES WITH (MODULUS 4, REMAINDER 0)",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"orders_p0\",\n                span: 13..22,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [],\n        options: [],\n        table_as: None,\n    },\n)",
     "issues": [
+      "Issue {\n    level: Error,\n    message: \"'orders_p0' is a reserved identifier use `orders_p0`\",\n    span: 13..22,\n    sql_segment: \"orders_p0\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 23..32,\n    sql_segment: \"PARTITION\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 68..69,\n    sql_segment: \"4\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 81..82,\n    sql_segment: \"0\",\n    fragments: [],\n}"
@@ -2249,6 +2252,7 @@
     "input": "CREATE TABLE orders_us PARTITION OF orders FOR VALUES IN ('US', 'CA', 'MX')",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"orders_us\",\n                span: 13..22,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [],\n        options: [],\n        table_as: None,\n    },\n)",
     "issues": [
+      "Issue {\n    level: Error,\n    message: \"'orders_us' is a reserved identifier use `orders_us`\",\n    span: 13..22,\n    sql_segment: \"orders_us\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 23..32,\n    sql_segment: \"PARTITION\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 58..62,\n    sql_segment: \"'US'\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 64..68,\n    sql_segment: \"'CA'\",\n    fragments: [],\n}",
@@ -4356,11 +4360,8 @@
   },
   {
     "input": "VALUES (1, 'a'), (2, 'b'), (3, 'c')",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..6,\n    sql_segment: \"VALUES\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Values(\n    Values {\n        values_span: 0..6,\n        rows: [\n            [\n                Integer(\n                    IntegerExpression {\n                        value: 1,\n                        span: 8..9,\n                    },\n                ),\n                String(\n                    SString {\n                        value: \"a\",\n                        span: 11..14,\n                    },\n                ),\n            ],\n            [\n                Integer(\n                    IntegerExpression {\n                        value: 2,\n                        span: 18..19,\n                    },\n                ),\n                String(\n                    SString {\n                        value: \"b\",\n                        span: 21..24,\n                    },\n                ),\n            ],\n            [\n                Integer(\n                    IntegerExpression {\n                        value: 3,\n                        span: 28..29,\n                    },\n                ),\n                String(\n                    SString {\n                        value: \"c\",\n                        span: 31..34,\n                    },\n                ),\n            ],\n        ],\n        order_by: None,\n        limit: None,\n        offset: None,\n        fetch: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "WITH \"result\" AS (UPDATE \"Hero\" SET \"name\" = 'Captain America', \"number_of_movies\" = \"number_of_movies\" + 1 WHERE \"secret_identity\" = 'Sam Wilson' RETURNING \"id\", \"name\", \"secret_identity\", \"number_of_movies\") SELECT * FROM \"result\"",
