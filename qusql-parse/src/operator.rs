@@ -12,6 +12,7 @@
 
 use alloc::vec::Vec;
 
+use crate::alter_table::parse_alter_owner;
 use crate::{
     CreateOption, DataType, QualifiedName, Span, Spanned, UsingIndexMethod,
     data_type::parse_data_type,
@@ -20,6 +21,115 @@ use crate::{
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
 };
+
+///// ALTER OPERATOR CLASS actions (RENAME TO, OWNER TO, SET SCHEMA)
+#[derive(Clone, Debug)]
+pub enum AlterOperatorClassAction<'a> {
+    /// RENAME TO new_name
+    RenameTo {
+        /// Span of RENAME TO keywords
+        rename_to_span: Span,
+        /// The new operator class name
+        new_name: QualifiedName<'a>,
+    },
+    OwnerTo {
+        /// Span of OWNER TO keywords
+        owner_to_span: Span,
+        /// The new owner name
+        new_owner: crate::alter_table::AlterTableOwner<'a>,
+    },
+    SetSchema {
+        /// Span of SET SCHEMA keywords
+        set_schema_span: Span,
+        /// The new schema name
+        new_schema: QualifiedName<'a>,
+    },
+}
+
+impl<'a> Spanned for AlterOperatorClassAction<'a> {
+    fn span(&self) -> Span {
+        match self {
+            AlterOperatorClassAction::RenameTo {
+                rename_to_span,
+                new_name,
+            } => rename_to_span.join_span(new_name),
+            AlterOperatorClassAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            } => owner_to_span.join_span(new_owner),
+            AlterOperatorClassAction::SetSchema {
+                set_schema_span,
+                new_schema,
+            } => set_schema_span.join_span(new_schema),
+        }
+    }
+}
+
+/// ALTER OPERATOR CLASS statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct AlterOperatorClass<'a> {
+    /// Span of "ALTER OPERATOR CLASS"
+    pub alter_operator_class_span: Span,
+    /// The operator class name
+    pub name: QualifiedName<'a>,
+    /// The index method (btree, hash, gist, gin)
+    pub index_method: UsingIndexMethod,
+    /// The action (RENAME TO, OWNER TO, SET SCHEMA)
+    pub action: AlterOperatorClassAction<'a>,
+}
+
+impl<'a> Spanned for AlterOperatorClass<'a> {
+    fn span(&self) -> Span {
+        self.alter_operator_class_span
+            .join_span(&self.name)
+            .join_span(&self.index_method)
+            .join_span(&self.action)
+    }
+}
+
+/// Parse ALTER OPERATOR CLASS statement
+pub(crate) fn parse_alter_operator_class<'a>(
+    parser: &mut Parser<'a, '_>,
+    alter_operator_class_span: Span,
+) -> Result<AlterOperatorClass<'a>, ParseError> {
+    parser.postgres_only(&alter_operator_class_span);
+    let name = parse_qualified_name(parser)?;
+    let using_span = parser.consume_keyword(Keyword::USING)?;
+    let index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
+    let action = match &parser.token {
+        Token::Ident(_, Keyword::RENAME) => {
+            let rename_to_span = parser.consume_keywords(&[Keyword::RENAME, Keyword::TO])?;
+            let new_name = parse_qualified_name(parser)?;
+            AlterOperatorClassAction::RenameTo {
+                rename_to_span,
+                new_name,
+            }
+        }
+        Token::Ident(_, Keyword::OWNER) => {
+            let owner_to_span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
+            let new_owner = parse_alter_owner(parser)?;
+            AlterOperatorClassAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            }
+        }
+        Token::Ident(_, Keyword::SET) => {
+            let set_schema_span = parser.consume_keywords(&[Keyword::SET, Keyword::SCHEMA])?;
+            let new_schema = parse_qualified_name(parser)?;
+            AlterOperatorClassAction::SetSchema {
+                set_schema_span,
+                new_schema,
+            }
+        }
+        _ => parser.expected_failure("'RENAME', 'OWNER', or 'SET SCHEMA'")?,
+    };
+    Ok(AlterOperatorClass {
+        alter_operator_class_span,
+        name,
+        index_method,
+        action,
+    })
+}
 
 /// CREATE OPERATOR statement (PostgreSQL)
 #[derive(Clone, Debug)]

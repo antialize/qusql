@@ -534,11 +534,28 @@ pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, Par
             parser, alter_span,
         )?))),
         Token::Ident(_, Keyword::OPERATOR) => {
-            let alter_operator_family_span = alter_span
-                .join_span(&parser.consume_keywords(&[Keyword::OPERATOR, Keyword::FAMILY])?);
-            Ok(Statement::AlterOperatorFamily(Box::new(
-                crate::operator::parse_alter_operator_family(parser, alter_operator_family_span)?,
-            )))
+            let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+            match &parser.token {
+                Token::Ident(_, Keyword::CLASS) => {
+                    let class_span = parser.consume_keyword(Keyword::CLASS)?;
+                    Ok(Statement::AlterOperatorClass(Box::new(
+                        crate::operator::parse_alter_operator_class(
+                            parser,
+                            alter_span.join_span(&operator_span).join_span(&class_span),
+                        )?,
+                    )))
+                }
+                Token::Ident(_, Keyword::FAMILY) => {
+                    let family_span = parser.consume_keyword(Keyword::FAMILY)?;
+                    Ok(Statement::AlterOperatorFamily(Box::new(
+                        crate::operator::parse_alter_operator_family(
+                            parser,
+                            alter_span.join_span(&operator_span).join_span(&family_span),
+                        )?,
+                    )))
+                }
+                _ => parser.expected_failure("'CLASS' or 'FAMILY' after ALTER OPERATOR"),
+            }
         }
         _ => parser.expected_failure("alterable"),
     }
@@ -561,6 +578,7 @@ pub enum Statement<'a> {
     CreateTypeEnum(Box<CreateTypeEnum<'a>>),
     CreateOperatorClass(Box<crate::operator::CreateOperatorClass<'a>>),
     CreateOperatorFamily(Box<crate::operator::CreateOperatorFamily<'a>>),
+    AlterOperatorClass(Box<crate::operator::AlterOperatorClass<'a>>),
     Select(Box<Select<'a>>),
     Delete(Box<Delete<'a>>),
     InsertReplace(Box<InsertReplace<'a>>),
@@ -649,6 +667,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::DropIndex(v) => v.span(),
             Statement::DropOperator(v) => v.span(),
             Statement::DropOperatorClass(v) => v.span(),
+            Statement::AlterOperatorClass(v) => v.span(),
             Statement::DropProcedure(v) => v.span(),
             Statement::DropSequence(v) => v.span(),
             Statement::DropServer(v) => v.span(),

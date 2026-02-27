@@ -21,6 +21,27 @@ use crate::{
     qualified_name::parse_qualified_name,
 };
 
+/// Parse OWNER TO ... for ALTER TABLE/ALTER OPERATOR CLASS (PostgreSQL)
+pub(crate) fn parse_alter_owner<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<AlterTableOwner<'a>, ParseError> {
+    // In PostgreSQL, CURRENT_ROLE, CURRENT_USER, and SESSION_USER are valid without quotes
+    match &parser.token {
+        Token::Ident(_, Keyword::CURRENT_ROLE) => {
+            Ok(AlterTableOwner::CurrentRole(parser.consume()))
+        }
+        Token::Ident(_, Keyword::CURRENT_USER) => {
+            Ok(AlterTableOwner::CurrentUser(parser.consume()))
+        }
+        Token::Ident(_, Keyword::SESSION_USER) => {
+            Ok(AlterTableOwner::SessionUser(parser.consume()))
+        }
+        _ => Ok(AlterTableOwner::Identifier(
+            parser.consume_plain_identifier()?,
+        )),
+    }
+}
+
 /// Option on an index
 #[derive(Clone, Debug)]
 pub enum IndexOption<'a> {
@@ -1193,19 +1214,7 @@ pub(crate) fn parse_alter_table<'a>(
                 Token::Ident(_, Keyword::OWNER) => {
                     let span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
                     parser.postgres_only(&span);
-                    // In PostgreSQL, CURRENT_ROLE, CURRENT_USER, and SESSION_USER are valid without quotes
-                    let owner = match &parser.token {
-                        Token::Ident(_, Keyword::CURRENT_ROLE) => {
-                            AlterTableOwner::CurrentRole(parser.consume())
-                        }
-                        Token::Ident(_, Keyword::CURRENT_USER) => {
-                            AlterTableOwner::CurrentUser(parser.consume())
-                        }
-                        Token::Ident(_, Keyword::SESSION_USER) => {
-                            AlterTableOwner::SessionUser(parser.consume())
-                        }
-                        _ => AlterTableOwner::Identifier(parser.consume_plain_identifier()?),
-                    };
+                    let owner = parse_alter_owner(parser)?;
                     AlterSpecification::OwnerTo { span, owner }
                 }
                 Token::Ident(_, Keyword::DROP) => parse_drop(parser)?,
