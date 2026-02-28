@@ -520,13 +520,80 @@ impl Spanned for Stdin<'_> {
     }
 }
 
+/// ALTER SCHEMA statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct AlterSchema<'a> {
+    /// Span of "ALTER SCHEMA"
+    pub alter_schema_span: Span,
+    /// The schema name
+    pub name: QualifiedName<'a>,
+    /// The action (RENAME TO, OWNER TO)
+    pub action: AlterSchemaAction<'a>,
+}
+
+#[derive(Clone, Debug)]
+pub enum AlterSchemaAction<'a> {
+    /// RENAME TO new_name
+    RenameTo {
+        rename_to_span: Span,
+        new_name: QualifiedName<'a>,
+    },
+    /// OWNER TO new_owner
+    OwnerTo {
+        owner_to_span: Span,
+        new_owner: crate::alter_table::AlterTableOwner<'a>,
+    },
+}
+
+impl<'a> Spanned for AlterSchemaAction<'a> {
+    fn span(&self) -> Span {
+        match self {
+            AlterSchemaAction::RenameTo { rename_to_span, new_name } => rename_to_span.join_span(new_name),
+            AlterSchemaAction::OwnerTo { owner_to_span, new_owner } => owner_to_span.join_span(new_owner),
+        }
+    }
+}
+
+impl<'a> Spanned for AlterSchema<'a> {
+    fn span(&self) -> Span {
+        self.alter_schema_span.join_span(&self.name).join_span(&self.action)
+    }
+}
+
+/// Parse ALTER SCHEMA statement (PostgreSQL)
+pub(crate) fn parse_alter_schema<'a>(parser: &mut Parser<'a, '_>, alter_schema_span: Span) -> Result<AlterSchema<'a>, ParseError> {
+    parser.postgres_only(&alter_schema_span);
+    let name = parse_qualified_name(parser)?;
+    let action = match &parser.token {
+        Token::Ident(_, Keyword::RENAME) => {
+            let rename_to_span = parser.consume_keywords(&[Keyword::RENAME, Keyword::TO])?;
+            let new_name = parse_qualified_name(parser)?;
+            AlterSchemaAction::RenameTo { rename_to_span, new_name }
+        }
+        Token::Ident(_, Keyword::OWNER) => {
+            let owner_to_span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
+            let new_owner = crate::alter_table::parse_alter_owner(parser)?;
+            AlterSchemaAction::OwnerTo { owner_to_span, new_owner }
+        }
+        _ => parser.expected_failure("'RENAME TO' or 'OWNER TO' after ALTER SCHEMA ...")?
+    };
+    Ok(AlterSchema { alter_schema_span, name, action })
+}
+
+
 pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let alter_span = parser.consume_keyword(Keyword::ALTER)?;
-
     let online = parser.skip_keyword(Keyword::ONLINE);
     let ignore = parser.skip_keyword(Keyword::IGNORE);
 
     match &parser.token {
+        Token::Ident(_, Keyword::SCHEMA) => {
+            let schema_span = parser.consume_keyword(Keyword::SCHEMA)?;
+            Ok(Statement::AlterSchema(Box::new(parse_alter_schema(
+                parser,
+                alter_span.join_span(&schema_span),
+            )?)))
+        }
         Token::Ident(_, Keyword::TABLE) => Ok(Statement::AlterTable(Box::new(parse_alter_table(
             parser, alter_span, online, ignore,
         )?))),
@@ -569,6 +636,7 @@ pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, Par
 /// SQL statement
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
+    AlterSchema(Box<AlterSchema<'a>>),
     CreateIndex(Box<CreateIndex<'a>>),
     CreateTable(Box<CreateTable<'a>>),
     CreateView(Box<CreateView<'a>>),
@@ -650,6 +718,7 @@ impl<'a> Spanned for Statement<'a> {
     fn span(&self) -> Span {
         match &self {
             Statement::AlterOperator(v) => v.span(),
+            Statement::AlterSchema(v) => v.span(),
             Statement::CreateIndex(v) => v.span(),
             Statement::CreateTable(v) => v.span(),
             Statement::CreateView(v) => v.span(),
