@@ -22,6 +22,219 @@ use crate::{
     qualified_name::parse_qualified_name,
 };
 
+/// ALTER OPERATOR actions (OWNER TO, SET SCHEMA, SET (...))
+#[derive(Clone, Debug)]
+pub enum AlterOperatorAction<'a> {
+    /// OWNER TO new_owner
+    OwnerTo {
+        /// Span of OWNER TO keywords
+        owner_to_span: Span,
+        /// The new owner name
+        new_owner: crate::alter_table::AlterTableOwner<'a>,
+    },
+    /// SET SCHEMA new_schema
+    SetSchema {
+        /// Span of SET SCHEMA keywords
+        set_schema_span: Span,
+        /// The new schema name
+        new_schema: QualifiedName<'a>,
+    },
+    /// SET (option = value, ...)
+    SetOptions {
+        /// Span of SET keyword
+        set_span: Span,
+        /// List of options
+        options: Vec<OperatorOption<'a>>,
+    },
+}
+
+impl<'a> Spanned for AlterOperatorAction<'a> {
+    fn span(&self) -> Span {
+        match self {
+            AlterOperatorAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            } => owner_to_span.join_span(new_owner),
+            AlterOperatorAction::SetSchema {
+                set_schema_span,
+                new_schema,
+            } => set_schema_span.join_span(new_schema),
+            AlterOperatorAction::SetOptions { set_span, options } => set_span.join_span(options),
+        }
+    }
+}
+
+/// Left operator type for ALTER OPERATOR (explicitly stores NONE span or DataType)
+#[derive(Clone, Debug)]
+pub enum LeftOperatorType<'a> {
+    /// NONE keyword
+    None(Span),
+    /// Data type
+    DataType(DataType<'a>),
+}
+
+impl<'a> Spanned for LeftOperatorType<'a> {
+    fn span(&self) -> Span {
+        match self {
+            LeftOperatorType::None(span) => span.clone(),
+            LeftOperatorType::DataType(dt) => dt.span(),
+        }
+    }
+}
+
+/// ALTER OPERATOR statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct AlterOperator<'a> {
+    /// Span of "ALTER OPERATOR"
+    pub alter_operator_span: Span,
+    /// The operator name (e.g., +, -, @@, myschema.@@)
+    pub name: QualifiedName<'a>,
+    /// Left parenthesis span
+    pub lparen_span: Span,
+    /// Left operator type (either NONE or a data type)
+    pub left_type: LeftOperatorType<'a>,
+    /// Comma span
+    pub comma_span: Span,
+    /// Right operator type
+    pub right_type: DataType<'a>,
+    /// Right parenthesis span
+    pub rparen_span: Span,
+    /// ALTER OPERATOR action
+    pub action: AlterOperatorAction<'a>,
+}
+
+impl<'a> Spanned for AlterOperator<'a> {
+    fn span(&self) -> Span {
+        self.alter_operator_span
+            .join_span(&self.name)
+            .join_span(&self.lparen_span)
+            .join_span(&self.left_type)
+            .join_span(&self.comma_span)
+            .join_span(&self.right_type)
+            .join_span(&self.rparen_span)
+            .join_span(&self.action)
+    }
+}
+
+/// Parse ALTER OPERATOR statement
+pub(crate) fn parse_alter_operator<'a>(
+    parser: &mut Parser<'a, '_>,
+    alter_operator_span: Span,
+) -> Result<AlterOperator<'a>, ParseError> {
+    parser.postgres_only(&alter_operator_span);
+    let name = parse_operator_name(parser)?;
+    let lparen_span = parser.consume_token(Token::LParen)?;
+    let left_type = if let Some(none_span) = parser.skip_keyword(Keyword::NONE) {
+        LeftOperatorType::None(none_span)
+    } else {
+        LeftOperatorType::DataType(parse_data_type(parser, false)?)
+    };
+    let comma_span = parser.consume_token(Token::Comma)?;
+    let right_type = parse_data_type(parser, false)?;
+    let rparen_span = parser.consume_token(Token::RParen)?;
+    let action = match &parser.token {
+        Token::Ident(_, Keyword::OWNER) => {
+            let owner_to_span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
+            let new_owner = parse_alter_owner(parser)?;
+            AlterOperatorAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            }
+        }
+        Token::Ident(_, Keyword::SET) => {
+            let set_span = parser.consume_keyword(Keyword::SET)?;
+            match &parser.token {
+                Token::Ident(_, Keyword::SCHEMA) => {
+                    let set_schema_span =
+                        set_span.join_span(&parser.consume_keyword(Keyword::SCHEMA)?);
+                    let new_schema = parse_qualified_name(parser)?;
+                    AlterOperatorAction::SetSchema {
+                        set_schema_span,
+                        new_schema,
+                    }
+                }
+                Token::LParen => {
+                    let lparen2_span = parser.consume_token(Token::LParen)?;
+                    let (options, rparen2_span) = parser.recovered(
+                        "'RESTRICT' | 'JOIN' | 'COMMUTATOR' | 'NEGATOR' | 'HASHES' | 'MERGES'",
+                        &|tok| matches!(tok, Token::RParen),
+                        |parser| {
+                            let mut options = Vec::new();
+                            loop {
+                                // Accept RESTRICT, JOIN, COMMUTATOR, NEGATOR, HASHES, MERGES
+                                let option = match &parser.token {
+                                    Token::Ident(_, Keyword::RESTRICT) => {
+                                        let keyword_span = parser.consume_keyword(Keyword::RESTRICT)?;
+                                        let eq_span = parser.consume_token(Token::Eq)?;
+                                        if parser.skip_keyword(Keyword::NONE).is_some() {
+                                            // NONE disables the estimator
+                                            OperatorOption::Restrict { restrict_span: keyword_span.clone(), eq_span: eq_span.clone(), function_name: QualifiedName { prefix: Vec::new(), identifier: crate::Identifier::new("NONE", eq_span) } }
+                                        } else {
+                                            let function_name = parse_qualified_name(parser)?;
+                                            OperatorOption::Restrict { restrict_span: keyword_span, eq_span, function_name }
+                                        }
+                                    }
+                                    Token::Ident(_, Keyword::JOIN) => {
+                                        let keyword_span = parser.consume_keyword(Keyword::JOIN)?;
+                                        let eq_span = parser.consume_token(Token::Eq)?;
+                                        if parser.skip_keyword(Keyword::NONE).is_some() {
+                                            OperatorOption::Join { join_span: keyword_span.clone(), eq_span: eq_span.clone(), function_name: QualifiedName { prefix: Vec::new(), identifier: crate::Identifier::new("NONE", eq_span) } }
+                                        } else {
+                                            let function_name = parse_qualified_name(parser)?;
+                                            OperatorOption::Join { join_span: keyword_span, eq_span, function_name }
+                                        }
+                                    }
+                                    Token::Ident(_, Keyword::COMMUTATOR) => {
+                                        let keyword_span = parser.consume_keyword(Keyword::COMMUTATOR)?;
+                                        let eq_span = parser.consume_token(Token::Eq)?;
+                                        let operator = parse_operator_ref(parser)?;
+                                        OperatorOption::Commutator { commutator_span: keyword_span, eq_span, operator }
+                                    }
+                                    Token::Ident(_, Keyword::NEGATOR) => {
+                                        let keyword_span = parser.consume_keyword(Keyword::NEGATOR)?;
+                                        let eq_span = parser.consume_token(Token::Eq)?;
+                                        let operator = parse_operator_ref(parser)?;
+                                        OperatorOption::Negator { negator_span: keyword_span, eq_span, operator }
+                                    }
+                                    Token::Ident(_, Keyword::HASHES) => {
+                                        OperatorOption::Hashes(parser.consume_keyword(Keyword::HASHES)?)
+                                    }
+                                    Token::Ident(_, Keyword::MERGES) => {
+                                        OperatorOption::Merges(parser.consume_keyword(Keyword::MERGES)?)
+                                    }
+                                    _ => parser.expected_failure("'RESTRICT' | 'JOIN' | 'COMMUTATOR' | 'NEGATOR' | 'HASHES' | 'MERGES'")?
+                                };
+                                options.push(option);
+                                if parser.skip_token(Token::Comma).is_none() {
+                                    break;
+                                }
+                            }
+                            let rparen2_span = parser.consume_token(Token::RParen)?;
+                            Ok((options, rparen2_span))
+                        },
+                    )?;
+                    AlterOperatorAction::SetOptions {
+                        set_span: set_span.join_span(&lparen2_span).join_span(&rparen2_span),
+                        options,
+                    }
+                }
+                _ => parser.expected_failure("'SCHEMA' or '(' after SET")?,
+            }
+        }
+        _ => parser.expected_failure("'OWNER TO' or 'SET' after ALTER OPERATOR ...")?,
+    };
+    Ok(AlterOperator {
+        alter_operator_span,
+        name,
+        lparen_span,
+        left_type,
+        comma_span,
+        right_type,
+        rparen_span,
+        action,
+    })
+}
+
 ///// ALTER OPERATOR CLASS actions (RENAME TO, OWNER TO, SET SCHEMA)
 #[derive(Clone, Debug)]
 pub enum AlterOperatorClassAction<'a> {
@@ -161,51 +374,93 @@ impl<'a> Spanned for CreateOperator<'a> {
 pub enum OperatorOption<'a> {
     /// FUNCTION = function_name
     Function {
-        keyword_span: Span,
+        /// Span of FUNCTION keyword
+        function_span: Span,
+        /// Span of equal sign
         eq_span: Span,
+        /// The function name that implements the operator
         function_name: QualifiedName<'a>,
     },
     /// PROCEDURE = procedure_name (synonym for FUNCTION)
     Procedure {
-        keyword_span: Span,
+        /// Span of PROCEDURE keyword
+        procedure_span: Span,
+        /// Span of equal sign
         eq_span: Span,
+        /// The procedure name that implements the operator
         procedure_name: QualifiedName<'a>,
     },
     /// LEFTARG = type
     LeftArg {
-        keyword_span: Span,
+        /// Span of LEFTARG keyword
+        leftarg_span: Span,
+        /// Span of equal sign
         eq_span: Span,
+        /// The data type of the left argument (or NONE)
         arg_type: DataType<'a>,
     },
     /// RIGHTARG = type
     RightArg {
-        keyword_span: Span,
+        /// Span of RIGHTARG keyword
+        rightarg_span: Span,
+        /// Span of equal sign
         eq_span: Span,
+        /// The data type of the right argument (or NONE)
         arg_type: DataType<'a>,
     },
     /// COMMUTATOR = operator or COMMUTATOR = OPERATOR(operator)
     Commutator {
-        keyword_span: Span,
+        /// Span of COMMUTATOR keyword
+        commutator_span: Span,
+        /// Span of equal sign
         eq_span: Span,
+        /// The commutator operator (the operator that gives the same result when left and right arguments are swapped)
         operator: OperatorRef<'a>,
     },
     /// NEGATOR = operator or NEGATOR = OPERATOR(operator)
     Negator {
-        keyword_span: Span,
+        /// Span of NEGATOR keyword
+        negator_span: Span,
+        /// Span of equal sign
         eq_span: Span,
+        /// The negator operator (the operator that gives the negated result of the original operator)
         operator: OperatorRef<'a>,
     },
     /// RESTRICT = function
     Restrict {
-        keyword_span: Span,
+        /// Span of RESTRICT keyword
+        restrict_span: Span,
+        /// Span of equal sign
         eq_span: Span,
+        /// The function name that implements the selectivity estimator for the operator
         function_name: QualifiedName<'a>,
+    },
+    /// RESTRICT = NONE
+    RestrictNone {
+        /// Span of RESTRICT keyword
+        restrict_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// Span of NONE keyword
+        none_span: Span,
     },
     /// JOIN = function
     Join {
-        keyword_span: Span,
+        /// Span of JOIN keyword
+        join_span: Span,
+        /// Span of equal sign
         eq_span: Span,
+        /// The function name that implements the join selectivity estimator for the operator
         function_name: QualifiedName<'a>,
+    },
+    /// JOIN = NONE
+    JoinNone {
+        /// Span of JOIN keyword
+        join_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// Span of NONE keyword
+        none_span: Span,
     },
     /// HASHES
     Hashes(Span),
@@ -217,45 +472,55 @@ impl<'a> Spanned for OperatorOption<'a> {
     fn span(&self) -> Span {
         match self {
             OperatorOption::Function {
-                keyword_span,
+                function_span,
+                eq_span,
                 function_name,
-                ..
-            } => keyword_span.join_span(function_name),
+            } => function_span.join_span(eq_span).join_span(function_name),
             OperatorOption::Procedure {
-                keyword_span,
+                procedure_span,
+                eq_span,
                 procedure_name,
-                ..
-            } => keyword_span.join_span(procedure_name),
+            } => procedure_span.join_span(eq_span).join_span(procedure_name),
             OperatorOption::LeftArg {
-                keyword_span,
+                leftarg_span,
+                eq_span,
                 arg_type,
-                ..
-            } => keyword_span.join_span(arg_type),
+            } => leftarg_span.join_span(eq_span).join_span(arg_type),
             OperatorOption::RightArg {
-                keyword_span,
+                rightarg_span,
+                eq_span,
                 arg_type,
-                ..
-            } => keyword_span.join_span(arg_type),
+            } => rightarg_span.join_span(eq_span).join_span(arg_type),
             OperatorOption::Commutator {
-                keyword_span,
+                commutator_span,
+                eq_span,
                 operator,
-                ..
-            } => keyword_span.join_span(operator),
+            } => commutator_span.join_span(eq_span).join_span(operator),
             OperatorOption::Negator {
-                keyword_span,
+                negator_span,
+                eq_span,
                 operator,
-                ..
-            } => keyword_span.join_span(operator),
+            } => negator_span.join_span(eq_span).join_span(operator),
             OperatorOption::Restrict {
-                keyword_span,
+                restrict_span,
+                eq_span,
                 function_name,
-                ..
-            } => keyword_span.join_span(function_name),
+            } => restrict_span.join_span(eq_span).join_span(function_name),
+            OperatorOption::RestrictNone {
+                restrict_span,
+                eq_span,
+                none_span,
+            } => restrict_span.join_span(eq_span).join_span(none_span),
             OperatorOption::Join {
-                keyword_span,
+                join_span,
+                eq_span,
                 function_name,
-                ..
-            } => keyword_span.join_span(function_name),
+            } => join_span.join_span(eq_span).join_span(function_name),
+            OperatorOption::JoinNone {
+                join_span,
+                eq_span,
+                none_span,
+            } => join_span.join_span(eq_span).join_span(none_span),
             OperatorOption::Hashes(span) => span.clone(),
             OperatorOption::Merges(span) => span.clone(),
         }
@@ -329,7 +594,7 @@ pub(crate) fn parse_create_operator<'a>(
                 let eq_span = parser.consume_token(Token::Eq)?;
                 let function_name = parse_qualified_name(parser)?;
                 OperatorOption::Function {
-                    keyword_span,
+                    function_span: keyword_span,
                     eq_span,
                     function_name,
                 }
@@ -339,7 +604,7 @@ pub(crate) fn parse_create_operator<'a>(
                 let eq_span = parser.consume_token(Token::Eq)?;
                 let procedure_name = parse_qualified_name(parser)?;
                 OperatorOption::Procedure {
-                    keyword_span,
+                    procedure_span: keyword_span,
                     eq_span,
                     procedure_name,
                 }
@@ -349,7 +614,7 @@ pub(crate) fn parse_create_operator<'a>(
                 let eq_span = parser.consume_token(Token::Eq)?;
                 let arg_type = parse_data_type(parser, false)?;
                 OperatorOption::LeftArg {
-                    keyword_span,
+                    leftarg_span: keyword_span,
                     eq_span,
                     arg_type,
                 }
@@ -359,7 +624,7 @@ pub(crate) fn parse_create_operator<'a>(
                 let eq_span = parser.consume_token(Token::Eq)?;
                 let arg_type = parse_data_type(parser, false)?;
                 OperatorOption::RightArg {
-                    keyword_span,
+                    rightarg_span: keyword_span,
                     eq_span,
                     arg_type,
                 }
@@ -369,7 +634,7 @@ pub(crate) fn parse_create_operator<'a>(
                 let eq_span = parser.consume_token(Token::Eq)?;
                 let operator = parse_operator_ref(parser)?;
                 OperatorOption::Commutator {
-                    keyword_span,
+                    commutator_span: keyword_span,
                     eq_span,
                     operator,
                 }
@@ -379,7 +644,7 @@ pub(crate) fn parse_create_operator<'a>(
                 let eq_span = parser.consume_token(Token::Eq)?;
                 let operator = parse_operator_ref(parser)?;
                 OperatorOption::Negator {
-                    keyword_span,
+                    negator_span: keyword_span,
                     eq_span,
                     operator,
                 }
@@ -387,21 +652,29 @@ pub(crate) fn parse_create_operator<'a>(
             Token::Ident(_, Keyword::RESTRICT) => {
                 let keyword_span = parser.consume_keyword(Keyword::RESTRICT)?;
                 let eq_span = parser.consume_token(Token::Eq)?;
-                let function_name = parse_qualified_name(parser)?;
-                OperatorOption::Restrict {
-                    keyword_span,
-                    eq_span,
-                    function_name,
+                if let Some(none_span) = parser.skip_keyword(Keyword::NONE) {
+                    OperatorOption::RestrictNone { restrict_span: keyword_span, eq_span, none_span }
+                } else {
+                    let function_name = parse_qualified_name(parser)?;
+                    OperatorOption::Restrict {
+                        restrict_span: keyword_span,
+                        eq_span,
+                        function_name,
+                    }
                 }
             }
             Token::Ident(_, Keyword::JOIN) => {
                 let keyword_span = parser.consume_keyword(Keyword::JOIN)?;
                 let eq_span = parser.consume_token(Token::Eq)?;
-                let function_name = parse_qualified_name(parser)?;
-                OperatorOption::Join {
-                    keyword_span,
-                    eq_span,
-                    function_name,
+                if let Some(none_span) = parser.skip_keyword(Keyword::NONE) {
+                    OperatorOption::JoinNone { join_span: keyword_span, eq_span, none_span }
+                } else {
+                    let function_name = parse_qualified_name(parser)?;
+                    OperatorOption::Join {
+                        join_span: keyword_span,
+                        eq_span,
+                        function_name,
+                    }
                 }
             }
             Token::Ident(_, Keyword::HASHES) => {

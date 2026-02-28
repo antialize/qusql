@@ -554,7 +554,12 @@ pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, Par
                         )?,
                     )))
                 }
-                _ => parser.expected_failure("'CLASS' or 'FAMILY' after ALTER OPERATOR"),
+                _ => Ok(Statement::AlterOperator(Box::new(
+                    crate::operator::parse_alter_operator(
+                        parser,
+                        alter_span.join_span(&operator_span),
+                    )?,
+                ))),
             }
         }
         _ => parser.expected_failure("alterable"),
@@ -578,6 +583,7 @@ pub enum Statement<'a> {
     CreateTypeEnum(Box<CreateTypeEnum<'a>>),
     CreateOperatorClass(Box<crate::operator::CreateOperatorClass<'a>>),
     CreateOperatorFamily(Box<crate::operator::CreateOperatorFamily<'a>>),
+    AlterOperator(Box<crate::operator::AlterOperator<'a>>),
     AlterOperatorClass(Box<crate::operator::AlterOperatorClass<'a>>),
     Select(Box<Select<'a>>),
     Delete(Box<Delete<'a>>),
@@ -643,6 +649,7 @@ pub enum Statement<'a> {
 impl<'a> Spanned for Statement<'a> {
     fn span(&self) -> Span {
         match &self {
+            Statement::AlterOperator(v) => v.span(),
             Statement::CreateIndex(v) => v.span(),
             Statement::CreateTable(v) => v.span(),
             Statement::CreateView(v) => v.span(),
