@@ -548,38 +548,58 @@ pub enum AlterSchemaAction<'a> {
 impl<'a> Spanned for AlterSchemaAction<'a> {
     fn span(&self) -> Span {
         match self {
-            AlterSchemaAction::RenameTo { rename_to_span, new_name } => rename_to_span.join_span(new_name),
-            AlterSchemaAction::OwnerTo { owner_to_span, new_owner } => owner_to_span.join_span(new_owner),
+            AlterSchemaAction::RenameTo {
+                rename_to_span,
+                new_name,
+            } => rename_to_span.join_span(new_name),
+            AlterSchemaAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            } => owner_to_span.join_span(new_owner),
         }
     }
 }
 
 impl<'a> Spanned for AlterSchema<'a> {
     fn span(&self) -> Span {
-        self.alter_schema_span.join_span(&self.name).join_span(&self.action)
+        self.alter_schema_span
+            .join_span(&self.name)
+            .join_span(&self.action)
     }
 }
 
 /// Parse ALTER SCHEMA statement (PostgreSQL)
-pub(crate) fn parse_alter_schema<'a>(parser: &mut Parser<'a, '_>, alter_schema_span: Span) -> Result<AlterSchema<'a>, ParseError> {
+pub(crate) fn parse_alter_schema<'a>(
+    parser: &mut Parser<'a, '_>,
+    alter_schema_span: Span,
+) -> Result<AlterSchema<'a>, ParseError> {
     parser.postgres_only(&alter_schema_span);
     let name = parse_qualified_name(parser)?;
     let action = match &parser.token {
         Token::Ident(_, Keyword::RENAME) => {
             let rename_to_span = parser.consume_keywords(&[Keyword::RENAME, Keyword::TO])?;
             let new_name = parse_qualified_name(parser)?;
-            AlterSchemaAction::RenameTo { rename_to_span, new_name }
+            AlterSchemaAction::RenameTo {
+                rename_to_span,
+                new_name,
+            }
         }
         Token::Ident(_, Keyword::OWNER) => {
             let owner_to_span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
             let new_owner = crate::alter_table::parse_alter_owner(parser)?;
-            AlterSchemaAction::OwnerTo { owner_to_span, new_owner }
+            AlterSchemaAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            }
         }
-        _ => parser.expected_failure("'RENAME TO' or 'OWNER TO' after ALTER SCHEMA ...")?
+        _ => parser.expected_failure("'RENAME TO' or 'OWNER TO' after ALTER SCHEMA ...")?,
     };
-    Ok(AlterSchema { alter_schema_span, name, action })
+    Ok(AlterSchema {
+        alter_schema_span,
+        name,
+        action,
+    })
 }
-
 
 pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let alter_span = parser.consume_keyword(Keyword::ALTER)?;
