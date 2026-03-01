@@ -17,6 +17,8 @@ use crate::{
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
+    create_role::parse_role_option,
+    RoleOption,
 };
 
 /// Parameters value for ALTER ROLE SET/RESET
@@ -73,7 +75,7 @@ pub enum AlterRoleAction<'a> {
     /// WITH options
     With {
         with_span: Span,
-        options: Vec<(Identifier<'a>, Option<Expression<'a>>)>,
+        options: Vec<RoleOption<'a>>,
     },
 }
 
@@ -239,38 +241,13 @@ pub(crate) fn parse_alter_role<'a>(
         Token::Ident(_, Keyword::WITH) => {
             let with_span = parser.consume_keyword(Keyword::WITH)?;
             let mut options = Vec::new();
-
             loop {
-                // Check if the next token is an identifier (option name)
-                if !matches!(parser.token, Token::Ident(_, _)) {
-                    break;
+                if let Some(opt) = parse_role_option(parser)? {
+                    options.push(opt);
+                    continue;
                 }
-
-                let option_name = parser.consume_plain_identifier()?;
-
-                // Check for options with values
-                let option_value = match option_name.as_str().to_uppercase().as_str() {
-                    "CONNECTION" => {
-                        parser.consume_keyword(Keyword::LIMIT)?;
-                        Some(parse_expression(parser, false)?)
-                    }
-                    "PASSWORD" => {
-                        if parser.skip_keyword(Keyword::NULL).is_some() {
-                            None
-                        } else {
-                            Some(parse_expression(parser, false)?)
-                        }
-                    }
-                    "VALID" => {
-                        parser.consume_keyword(Keyword::UNTIL)?;
-                        Some(parse_expression(parser, false)?)
-                    }
-                    _ => None,
-                };
-
-                options.push((option_name, option_value));
+                break;
             }
-
             AlterRoleAction::With { with_span, options }
         }
         _ => parser.expected_failure("ALTER ROLE action (RENAME, IN, RESET, SET, or WITH)")?,

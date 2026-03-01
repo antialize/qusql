@@ -71,6 +71,98 @@ impl<'a> Spanned for RoleOption<'a> {
     }
 }
 
+/// Parse a single role option for CREATE/ALTER ROLE
+pub (crate) fn parse_role_option<'a>(parser: &mut Parser<'a, '_>) -> Result<Option<RoleOption<'a>>, ParseError> {
+    Ok(match &parser.token {
+        Token::Ident(_, Keyword::SUPERUSER) => {
+            let span = parser.consume_keyword(Keyword::SUPERUSER)?;
+            Some(RoleOption::SuperUser(span))
+        }
+        Token::Ident(_, Keyword::NOSUPERUSER) => {
+            let span = parser.consume_keyword(Keyword::NOSUPERUSER)?;
+            Some(RoleOption::NoSuperUser(span))
+        }
+        Token::Ident(_, Keyword::CREATEDB) => {
+            let span = parser.consume_keyword(Keyword::CREATEDB)?;
+            Some(RoleOption::CreateDb(span))
+        }
+        Token::Ident(_, Keyword::NOCREATEDB) => {
+            let span = parser.consume_keyword(Keyword::NOCREATEDB)?;
+            Some(RoleOption::NoCreateDb(span))
+        }
+        Token::Ident(_, Keyword::CREATEROLE) => {
+            let span = parser.consume_keyword(Keyword::CREATEROLE)?;
+            Some(RoleOption::CreateRole(span))
+        }
+        Token::Ident(_, Keyword::NOCREATEROLE) => {
+            let span = parser.consume_keyword(Keyword::NOCREATEROLE)?;
+            Some(RoleOption::NoCreateRole(span))
+        }
+        Token::Ident(_, Keyword::INHERIT) => {
+            let span = parser.consume_keyword(Keyword::INHERIT)?;
+            Some(RoleOption::Inherit(span))
+        }
+        Token::Ident(_, Keyword::NOINHERIT) => {
+            let span = parser.consume_keyword(Keyword::NOINHERIT)?;
+            Some(RoleOption::NoInherit(span))
+        }
+        Token::Ident(_, Keyword::LOGIN) => {
+            let span = parser.consume_keyword(Keyword::LOGIN)?;
+            Some(RoleOption::Login(span))
+        }
+        Token::Ident(_, Keyword::NOLOGIN) => {
+            let span = parser.consume_keyword(Keyword::NOLOGIN)?;
+            Some(RoleOption::NoLogin(span))
+        }
+        Token::Ident(_, Keyword::REPLICATION) => {
+            let span = parser.consume_keyword(Keyword::REPLICATION)?;
+            Some(RoleOption::Replication(span))
+        }
+        Token::Ident(_, Keyword::NOREPLICATION) => {
+            let span = parser.consume_keyword(Keyword::NOREPLICATION)?;
+            Some(RoleOption::NoReplication(span))
+        }
+        Token::Ident(_, Keyword::BYPASSRLS) => {
+            let span = parser.consume_keyword(Keyword::BYPASSRLS)?;
+            Some(RoleOption::BypassRls(span))
+        }
+        Token::Ident(_, Keyword::NOBYPASSRLS) => {
+            let span = parser.consume_keyword(Keyword::NOBYPASSRLS)?;
+            Some(RoleOption::NoBypassRls(span))
+        }
+        Token::Ident(_, Keyword::CONNECTION) => {
+            let span = parser.consume_keywords(&[Keyword::CONNECTION, Keyword::LIMIT])?;
+            let expr = parse_expression(parser, false)?;
+            Some(RoleOption::ConnectionLimit(span, expr))
+        }
+        Token::Ident(_, Keyword::ENCRYPTED) => {
+            let span = parser.consume_keywords(&[Keyword::ENCRYPTED, Keyword::PASSWORD])?;
+            let expr = parse_expression(parser, false)?;
+            Some(RoleOption::EncryptedPassword(span, expr))
+        }
+        Token::Ident(_, Keyword::PASSWORD) => {
+            let password_span = parser.consume_keyword(Keyword::PASSWORD)?;
+            if parser.skip_keyword(Keyword::NULL).is_some() {
+                Some(RoleOption::PasswordNull(password_span))
+            } else {
+                let expr = parse_expression(parser, false)?;
+                Some(RoleOption::Password(password_span, expr))
+            }
+        }
+        Token::Ident(_, Keyword::VALID) => {
+            let span = parser.consume_keywords(&[Keyword::VALID, Keyword::UNTIL])?;
+            let expr = parse_expression(parser, false)?;
+            Some(RoleOption::ValidUntil(span, expr))
+        }
+        Token::Ident(_, Keyword::SYSID) => {
+            let sysid_span = parser.consume_keyword(Keyword::SYSID)?;
+            let expr = parse_expression(parser, false)?;
+            Some(RoleOption::Sysid(sysid_span, expr))
+        }
+        _ => None,
+    })
+}
+
 /// Role membership type for CREATE ROLE
 #[derive(Clone, Debug)]
 pub enum RoleMembershipType {
@@ -175,7 +267,6 @@ pub(crate) fn parse_create_role<'a>(
 
     loop {
         match &parser.token {
-            // Membership clauses
             Token::Ident(_, Keyword::USER) => {
                 let user_span = parser.consume_keyword(Keyword::USER)?;
                 let mut roles = Vec::new();
@@ -232,93 +323,16 @@ pub(crate) fn parse_create_role<'a>(
                     roles,
                 });
             }
-            // Role options
-            Token::Ident(_, Keyword::SUPERUSER) => {
-                let span = parser.consume_keyword(Keyword::SUPERUSER)?;
-                options.push(RoleOption::SuperUser(span));
-            }
-            Token::Ident(_, Keyword::NOSUPERUSER) => {
-                let span = parser.consume_keyword(Keyword::NOSUPERUSER)?;
-                options.push(RoleOption::NoSuperUser(span));
-            }
-            Token::Ident(_, Keyword::CREATEDB) => {
-                let span = parser.consume_keyword(Keyword::CREATEDB)?;
-                options.push(RoleOption::CreateDb(span));
-            }
-            Token::Ident(_, Keyword::NOCREATEDB) => {
-                let span = parser.consume_keyword(Keyword::NOCREATEDB)?;
-                options.push(RoleOption::NoCreateDb(span));
-            }
-            Token::Ident(_, Keyword::CREATEROLE) => {
-                let span = parser.consume_keyword(Keyword::CREATEROLE)?;
-                options.push(RoleOption::CreateRole(span));
-            }
-            Token::Ident(_, Keyword::NOCREATEROLE) => {
-                let span = parser.consume_keyword(Keyword::NOCREATEROLE)?;
-                options.push(RoleOption::NoCreateRole(span));
-            }
-            Token::Ident(_, Keyword::INHERIT) => {
-                let span = parser.consume_keyword(Keyword::INHERIT)?;
-                options.push(RoleOption::Inherit(span));
-            }
-            Token::Ident(_, Keyword::NOINHERIT) => {
-                let span = parser.consume_keyword(Keyword::NOINHERIT)?;
-                options.push(RoleOption::NoInherit(span));
-            }
-            Token::Ident(_, Keyword::LOGIN) => {
-                let span = parser.consume_keyword(Keyword::LOGIN)?;
-                options.push(RoleOption::Login(span));
-            }
-            Token::Ident(_, Keyword::NOLOGIN) => {
-                let span = parser.consume_keyword(Keyword::NOLOGIN)?;
-                options.push(RoleOption::NoLogin(span));
-            }
-            Token::Ident(_, Keyword::REPLICATION) => {
-                let span = parser.consume_keyword(Keyword::REPLICATION)?;
-                options.push(RoleOption::Replication(span));
-            }
-            Token::Ident(_, Keyword::NOREPLICATION) => {
-                let span = parser.consume_keyword(Keyword::NOREPLICATION)?;
-                options.push(RoleOption::NoReplication(span));
-            }
-            Token::Ident(_, Keyword::BYPASSRLS) => {
-                let span = parser.consume_keyword(Keyword::BYPASSRLS)?;
-                options.push(RoleOption::BypassRls(span));
-            }
-            Token::Ident(_, Keyword::NOBYPASSRLS) => {
-                let span = parser.consume_keyword(Keyword::NOBYPASSRLS)?;
-                options.push(RoleOption::NoBypassRls(span));
-            }
-            Token::Ident(_, Keyword::CONNECTION) => {
-                let span = parser.consume_keywords(&[Keyword::CONNECTION, Keyword::LIMIT])?;
-                let expr = parse_expression(parser, false)?;
-                options.push(RoleOption::ConnectionLimit(span, expr));
-            }
-            Token::Ident(_, Keyword::ENCRYPTED) => {
-                let span = parser.consume_keywords(&[Keyword::ENCRYPTED, Keyword::PASSWORD])?;
-                let expr = parse_expression(parser, false)?;
-                options.push(RoleOption::EncryptedPassword(span, expr));
-            }
-            Token::Ident(_, Keyword::PASSWORD) => {
-                let password_span = parser.consume_keyword(Keyword::PASSWORD)?;
-                if parser.skip_keyword(Keyword::NULL).is_some() {
-                    options.push(RoleOption::PasswordNull(password_span));
+            _ => {
+                // Not a membership clause, try parsing as an option
+                if let Some(opt) = parse_role_option(parser)? {
+                    options.push(opt);
+                    continue;
                 } else {
-                    let expr = parse_expression(parser, false)?;
-                    options.push(RoleOption::Password(password_span, expr));
+                    // Neither membership nor option, break the loop
+                    break;
                 }
             }
-            Token::Ident(_, Keyword::VALID) => {
-                let span = parser.consume_keywords(&[Keyword::VALID, Keyword::UNTIL])?;
-                let expr = parse_expression(parser, false)?;
-                options.push(RoleOption::ValidUntil(span, expr));
-            }
-            Token::Ident(_, Keyword::SYSID) => {
-                let sysid_span = parser.consume_keyword(Keyword::SYSID)?;
-                let expr = parse_expression(parser, false)?;
-                options.push(RoleOption::Sysid(sysid_span, expr));
-            }
-            _ => break,
         }
     }
 
