@@ -1,6 +1,6 @@
 use crate::{
     Span, Spanned,
-    expression::{Expression, parse_expression},
+    expression::{Expression, parse_expression_unrestricted},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -57,7 +57,7 @@ pub(crate) fn parse_kill<'a>(parser: &mut Parser<'a, '_>) -> Result<Kill<'a>, Pa
         Token::Ident(_, Keyword::QUERY) => Some(KillType::Query(parser.consume())),
         _ => None,
     };
-    let id = parse_expression(parser, false)?;
+    let id = parse_expression_unrestricted(parser, false)?;
     Ok(Kill {
         kill_span,
         kill_type,

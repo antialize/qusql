@@ -14,11 +14,12 @@ use alloc::vec::Vec;
 
 use crate::{
     QualifiedName, SelectExpr, Span, Spanned, TableReference,
-    expression::{Expression, parse_expression},
+    expression::{Expression, parse_expression_unrestricted},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
-    qualified_name::parse_qualified_name,
+    qualified_name::{parse_qualified_name_unrestricted},
+    restrict::Restrict,
     select::{OrderFlag, parse_select_expr, parse_table_reference},
 };
 
@@ -123,7 +124,7 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
     let mut using = Vec::new();
     let from_span = if let Some(from_span) = parser.skip_keyword(Keyword::FROM) {
         loop {
-            tables.push(parse_qualified_name(parser)?);
+            tables.push(parse_qualified_name_unrestricted(parser)?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -131,7 +132,7 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
         from_span
     } else {
         loop {
-            tables.push(parse_qualified_name(parser)?);
+            tables.push(parse_qualified_name_unrestricted(parser)?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -165,7 +166,7 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
     }
 
     let where_ = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
-        Some((parse_expression(parser, false)?, span))
+        Some((parse_expression_unrestricted(parser, false)?, span))
     } else {
         None
     };
@@ -174,7 +175,7 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
         let span = parser.consume_keyword(Keyword::BY)?.join_span(&span);
         let mut order = Vec::new();
         loop {
-            let e = parse_expression(parser, false)?;
+            let e = parse_expression_unrestricted(parser, false)?;
             let f = match &parser.token {
                 Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
                 Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
@@ -191,15 +192,15 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
     };
 
     let limit = if let Some(span) = parser.skip_keyword(Keyword::LIMIT) {
-        let n = parse_expression(parser, true)?;
+        let n = parse_expression_unrestricted(parser, true)?;
         match parser.token {
             Token::Comma => {
                 parser.consume();
-                Some((span, Some(n), parse_expression(parser, true)?))
+                Some((span, Some(n), parse_expression_unrestricted(parser, true)?))
             }
             Token::Ident(_, Keyword::OFFSET) => {
                 parser.consume();
-                Some((span, Some(parse_expression(parser, true)?), n))
+                Some((span, Some(parse_expression_unrestricted(parser, true)?), n))
             }
             _ => Some((span, None, n)),
         }

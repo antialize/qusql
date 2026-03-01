@@ -100,7 +100,7 @@ pub struct Column<'a> {
     /// True if the column is auto_increment
     pub auto_increment: bool,
     pub default: bool,
-    pub as_: Option<alloc::boxed::Box<Expression<'a>>>,
+    pub as_: Option<Expression<'a>>,
     pub generated: bool,
 }
 
@@ -258,10 +258,12 @@ pub(crate) fn parse_column<'a>(
         qusql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
         qusql_parse::Type::Json => BaseType::String.into(),
         qusql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
+        qusql_parse::Type::VarBit(_) => BaseType::Bytes.into(),
         qusql_parse::Type::Bytea => BaseType::Bytes.into(),
         qusql_parse::Type::Named(_) => BaseType::String.into(), // TODO lookup name??
         qusql_parse::Type::Inet4 => BaseType::String.into(),
         qusql_parse::Type::Inet6 => BaseType::String.into(),
+        qusql_parse::Type::Array(_, _) => todo!("Array type not yet implemented"),
     };
 
     Column {
@@ -326,7 +328,13 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateOption::OrReplace(_) => {
                             replace = true;
                         }
-                        qusql_parse::CreateOption::Temporary(s) => {
+                        qusql_parse::CreateOption::Temporary { temporary_span, .. } => {
+                            issues.err("Not supported", &temporary_span);
+                        }
+                        qusql_parse::CreateOption::Materialized(s) => {
+                            issues.err("Not supported", &s);
+                        }
+                        qusql_parse::CreateOption::Concurrently(s) => {
                             issues.err("Not supported", &s);
                         }
                         qusql_parse::CreateOption::Unique(s) => {
@@ -388,7 +396,13 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateOption::OrReplace(_) => {
                             replace = true;
                         }
-                        qusql_parse::CreateOption::Temporary(s) => {
+                        qusql_parse::CreateOption::Temporary { temporary_span, .. } => {
+                            issues.err("Not supported", &temporary_span);
+                        }
+                        qusql_parse::CreateOption::Materialized(s) => {
+                            issues.err("Not supported", &s);
+                        }
+                        qusql_parse::CreateOption::Concurrently(s) => {
                             issues.err("Not supported", &s);
                         }
                         qusql_parse::CreateOption::Unique(s) => {
@@ -480,19 +494,21 @@ pub fn parse_schemas<'a>(
                 }
             }
             qusql_parse::Statement::DropFunction(f) => {
-                match schemas
-                    .functions
-                    .entry(unqualified_name(issues, &f.function).clone())
-                {
-                    alloc::collections::btree_map::Entry::Occupied(e) => {
-                        e.remove();
-                    }
-                    alloc::collections::btree_map::Entry::Vacant(_) => {
-                        if f.if_exists.is_none() {
-                            issues.err(
-                                "A function with this name does not exist to drop",
-                                &f.function,
-                            );
+                for (func_name, _args) in &f.functions {
+                    match schemas
+                        .functions
+                        .entry(unqualified_name(issues, func_name).clone())
+                    {
+                        alloc::collections::btree_map::Entry::Occupied(e) => {
+                            e.remove();
+                        }
+                        alloc::collections::btree_map::Entry::Vacant(_) => {
+                            if f.if_exists.is_none() {
+                                issues.err(
+                                    "A function with this name does not exist to drop",
+                                    func_name,
+                                );
+                            }
                         }
                     }
                 }
@@ -715,6 +731,12 @@ pub fn parse_schemas<'a>(
                                 &s,
                             );
                         }
+                        s @ qusql_parse::AlterSpecification::RenameConstraint { .. } => {
+                            issues.err(
+                                alloc::format!("Unsupported statement {s:?} in schema definition"),
+                                &s,
+                            );
+                        }
                         s @ qusql_parse::AlterSpecification::RenameTo { .. } => {
                             issues.err(
                                 alloc::format!("Unsupported statement {s:?} in schema definition"),
@@ -770,15 +792,21 @@ pub fn parse_schemas<'a>(
                     issues.err("No such table", &ci.table_name);
                 }
 
+                // Skip unnamed indexes (PostgreSQL allows CREATE INDEX without a name)
+                let index_name = match &ci.index_name {
+                    Some(name) => name.clone(),
+                    None => continue,
+                };
+
                 let ident = if options.parse_options.get_dialect().is_postgresql() {
                     IndexKey {
                         table: None,
-                        index: ci.index_name.clone(),
+                        index: index_name.clone(),
                     }
                 } else {
                     IndexKey {
                         table: Some(t.clone()),
-                        index: ci.index_name.clone(),
+                        index: index_name.clone(),
                     }
                 };
 

@@ -1,7 +1,7 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    Identifier, Span, Spanned, Statement,
+    Begin, Identifier, Span, Spanned, Statement,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -75,7 +75,7 @@ pub(crate) fn parse_with_query<'a>(
     let with_span = parser.consume_keyword(Keyword::WITH)?;
     let mut with_blocks = Vec::new();
     loop {
-        let identifier = parser.consume_plain_identifier()?;
+        let identifier = parser.consume_plain_identifier_unrestricted()?;
         let as_span = parser.consume_keyword(Keyword::AS)?;
         let lparen_span = parser.consume_token(Token::LParen)?;
         let statement =
@@ -107,7 +107,9 @@ pub(crate) fn parse_with_query<'a>(
                 }
                 v
             }
-            None => Statement::Begin(lparen_span.clone()),
+            None => Statement::Begin(Box::new(Begin {
+                span: lparen_span.clone(),
+            })),
         };
         with_blocks.push(WithBlock {
             identifier,
@@ -144,8 +146,6 @@ pub(crate) fn parse_with_query<'a>(
         with_blocks,
         statement,
     };
-    if !parser.options.dialect.is_postgresql() {
-        parser.err("WITH statements only supported by postgresql", &res.span());
-    }
+    parser.postgres_only(&res);
     Ok(res)
 }

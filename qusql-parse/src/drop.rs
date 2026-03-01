@@ -10,15 +10,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     Identifier, QualifiedName, Span, Spanned, Statement,
+    data_type::DataType,
     keywords::Keyword,
     lexer::Token,
+    operator::parse_operator_name,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
 };
+
+/// Drop cascade or restrict option (PostgreSQL)
+#[derive(Debug, Clone)]
+pub enum CascadeOrRestrict {
+    /// CASCADE option
+    Cascade(Span),
+    /// RESTRICT option
+    Restrict(Span),
+}
+
+impl Spanned for CascadeOrRestrict {
+    fn span(&self) -> Span {
+        match self {
+            CascadeOrRestrict::Cascade(s) => s.clone(),
+            CascadeOrRestrict::Restrict(s) => s.clone(),
+        }
+    }
+}
+
+fn parse_cascade_or_restrict<'a>(parser: &mut Parser<'a, '_>) -> Option<CascadeOrRestrict> {
+    let cascade_span = parser.skip_keyword(Keyword::CASCADE);
+    parser.postgres_only(&cascade_span);
+    let restrict_span = parser.skip_keyword(Keyword::RESTRICT);
+    parser.postgres_only(&restrict_span);
+    match (cascade_span, restrict_span) {
+        (Some(cascade), None) => Some(CascadeOrRestrict::Cascade(cascade)),
+        (None, Some(restrict)) => Some(CascadeOrRestrict::Restrict(restrict)),
+        (Some(cascade), Some(restrict)) => {
+            parser
+                .err("Cannot specify both CASCADE and RESTRICT", &cascade)
+                .frag("RESTRICT specified here", &restrict);
+            None
+        }
+        (None, None) => None,
+    }
+}
 
 /// Represent a drop table statement
 /// ```
@@ -48,10 +86,10 @@ pub struct DropTable<'a> {
     pub table_span: Span,
     /// Span of "IF EXISTS" if specified
     pub if_exists: Option<Span>,
-    /// List of tables to drops
+    /// List of tables to drop
     pub tables: Vec<QualifiedName<'a>>,
-    /// Span of "CASCADE" if specified
-    pub cascade: Option<Span>,
+    /// Span of "CASCADE" or "RESTRICT" if specified (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropTable<'a> {
@@ -62,6 +100,35 @@ impl<'a> Spanned for DropTable<'a> {
             .join_span(&self.if_exists)
             .join_span(&self.tables)
     }
+}
+
+fn parse_drop_table<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+    temporary: Option<Span>,
+) -> Result<DropTable<'a>, ParseError> {
+    let table_span = parser.consume_keyword(Keyword::TABLE)?;
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let mut tables = Vec::new();
+    loop {
+        tables.push(parse_qualified_name(parser)?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+    Ok(DropTable {
+        drop_span,
+        temporary,
+        table_span,
+        if_exists,
+        tables,
+        restrict_or_cascade,
+    })
 }
 
 /// Represent a drop view statement
@@ -93,6 +160,8 @@ pub struct DropView<'a> {
     pub if_exists: Option<Span>,
     /// List of views to drop
     pub views: Vec<QualifiedName<'a>>,
+    /// Span of "CASCADE" or "RESTRICT" if specified (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropView<'a> {
@@ -102,7 +171,37 @@ impl<'a> Spanned for DropView<'a> {
             .join_span(&self.view_span)
             .join_span(&self.if_exists)
             .join_span(&self.views)
+            .join_span(&self.restrict_or_cascade)
     }
+}
+
+fn parse_drop_view<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+    temporary: Option<Span>,
+) -> Result<DropView<'a>, ParseError> {
+    let view_span = parser.consume_keyword(Keyword::VIEW)?;
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let mut views = Vec::new();
+    loop {
+        views.push(parse_qualified_name(parser)?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+    Ok(DropView {
+        drop_span,
+        temporary,
+        view_span,
+        if_exists,
+        views,
+        restrict_or_cascade,
+    })
 }
 
 /// Represent a drop database statement
@@ -144,6 +243,27 @@ impl<'a> Spanned for DropDatabase<'a> {
     }
 }
 
+fn parse_drop_database<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+    kw: Keyword,
+) -> Result<DropDatabase<'a>, ParseError> {
+    // TODO complain about temporary
+    let database_span = parser.consume_keyword(kw)?;
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let database = parser.consume_plain_identifier_unrestricted()?;
+    Ok(DropDatabase {
+        drop_span,
+        database_span,
+        if_exists,
+        database,
+    })
+}
+
 /// Represent a drop event statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropEvent, Statement, Issues};
@@ -182,6 +302,61 @@ impl<'a> Spanned for DropEvent<'a> {
     }
 }
 
+fn parse_drop_event<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropEvent<'a>, ParseError> {
+    // TODO complain about temporary
+    let event_span = parser.consume_keyword(Keyword::EVENT)?;
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let event = parse_qualified_name(parser)?;
+    Ok(DropEvent {
+        drop_span,
+        event_span,
+        if_exists,
+        event,
+    })
+}
+
+#[derive(Debug, Clone)]
+pub enum DropFunctionArgMode {
+    In(Span),
+    Out(Span),
+    InOut(Span),
+}
+
+impl Spanned for DropFunctionArgMode {
+    fn span(&self) -> Span {
+        match self {
+            DropFunctionArgMode::In(s) => s.clone(),
+            DropFunctionArgMode::Out(s) => s.clone(),
+            DropFunctionArgMode::InOut(s) => s.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DropFunctionArg<'a> {
+    pub mode: Option<DropFunctionArgMode>,
+    pub name: Option<Identifier<'a>>,
+    pub data_type: DataType<'a>,
+    pub default: Option<Span>, // = value (span only, for now)
+}
+
+impl<'a> Spanned for DropFunctionArg<'a> {
+    fn span(&self) -> Span {
+        self.data_type
+            .span()
+            .join_span(&self.mode)
+            .join_span(&self.name)
+            .join_span(&self.default)
+    }
+}
+
 /// Represent a drop function statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropFunction, Statement, Issues};
@@ -207,17 +382,116 @@ pub struct DropFunction<'a> {
     pub function_span: Span,
     /// Span of "IF EXISTS" if specified
     pub if_exists: Option<Span>,
-    /// Function to drop
-    pub function: QualifiedName<'a>,
+    /// List of functions to drop (PostgreSQL: can be multiple)
+    pub functions: Vec<(QualifiedName<'a>, Option<Vec<DropFunctionArg<'a>>>)>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropFunction<'a> {
     fn span(&self) -> Span {
-        self.drop_span
+        let mut span = self
+            .drop_span
             .join_span(&self.function_span)
             .join_span(&self.if_exists)
-            .join_span(&self.function)
+            .join_span(&self.restrict_or_cascade);
+        for (name, args) in &self.functions {
+            span = span.join_span(name);
+            if let Some(args) = args {
+                for arg in args {
+                    span = span.join_span(arg);
+                }
+            }
+        }
+        span
     }
+}
+
+fn parse_drop_function<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropFunction<'a>, ParseError> {
+    let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let mut functions = Vec::new();
+    loop {
+        let name = parse_qualified_name(parser)?;
+        let args = if parser.token == Token::LParen {
+            let lparen = parser.consume_token(Token::LParen)?;
+            let mut arg_list = Vec::new();
+            parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+                loop {
+                    // Parse mode (IN, OUT, INOUT)
+                    let mode = match &parser.token {
+                        Token::Ident(_, Keyword::IN) => Some(DropFunctionArgMode::In(
+                            parser.consume_keyword(Keyword::IN)?,
+                        )),
+                        Token::Ident(_, Keyword::OUT) => Some(DropFunctionArgMode::Out(
+                            parser.consume_keyword(Keyword::OUT)?,
+                        )),
+                        Token::Ident(_, Keyword::INOUT) => Some(DropFunctionArgMode::InOut(
+                            parser.consume_keyword(Keyword::INOUT)?,
+                        )),
+                        _ => None,
+                    };
+                    // Parse parameter name (optional)
+                    let name = match &parser.token {
+                        Token::Ident(_, kw) if !kw.reserved() => {
+                            Some(parser.consume_plain_identifier_unrestricted()?)
+                        }
+                        _ => None,
+                    };
+                    // Parse data type
+                    let data_type = crate::data_type::parse_data_type(parser, false)?;
+                    // Parse default value (optional)
+                    let default = if parser.skip_token(Token::Eq).is_some() {
+                        // Just record the span for now
+                        Some(parser.consume().clone())
+                    } else {
+                        None
+                    };
+                    arg_list.push(DropFunctionArg {
+                        mode,
+                        name,
+                        data_type,
+                        default,
+                    });
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                Ok(())
+            })?;
+            parser.consume_token(Token::RParen)?;
+            parser.postgres_only(&lparen.join_span(&arg_list));
+            Some(arg_list)
+        } else {
+            None
+        };
+        functions.push((name, args));
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    if let [(first, _), (second, _), ..] = functions.as_slice()
+        && !parser.options.dialect.is_postgresql()
+    {
+        parser
+            .err("Multiple function only supported by ", second)
+            .frag("First function supplied here", first);
+    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+    Ok(DropFunction {
+        drop_span,
+        function_span,
+        if_exists,
+        functions,
+        restrict_or_cascade,
+    })
 }
 
 /// Represent a drop procedure statement
@@ -258,10 +532,100 @@ impl<'a> Spanned for DropProcedure<'a> {
     }
 }
 
+fn parse_drop_procedure<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropProcedure<'a>, ParseError> {
+    // TODO complain about temporary
+    let procedure_span = parser.consume_keyword(Keyword::PROCEDURE)?;
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let procedure = parse_qualified_name(parser)?;
+    Ok(DropProcedure {
+        drop_span,
+        procedure_span,
+        if_exists,
+        procedure,
+    })
+}
+
+/// Represent a drop sequence statement (PostgreSQL)
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropSequence, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP SEQUENCE myseq CASCADE;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+///
+/// # assert!(issues.is_ok());
+/// let s: DropSequence = match stmts.pop() {
+///     Some(Statement::DropSequence(s)) => s,
+///     _ => panic!("We should get a drop sequence statement")
+/// };
+///
+/// assert!(s.sequences.get(0).unwrap().identifier.as_str() == "myseq");
+/// ```
+#[derive(Debug, Clone)]
+pub struct DropSequence<'a> {
+    /// Span of "DROP"
+    pub drop_span: Span,
+    /// Span of "SEQUENCE"
+    pub sequence_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// List of sequences to drop
+    pub sequences: Vec<QualifiedName<'a>>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
+}
+
+impl<'a> Spanned for DropSequence<'a> {
+    fn span(&self) -> Span {
+        self.drop_span
+            .join_span(&self.sequence_span)
+            .join_span(&self.if_exists)
+            .join_span(&self.sequences)
+            .join_span(&self.restrict_or_cascade)
+    }
+}
+
+fn parse_drop_sequence<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropSequence<'a>, ParseError> {
+    // DROP SEQUENCE [IF EXISTS] sequence_name [, sequence_name] ... [CASCADE | RESTRICT]
+    let sequence_span = parser.consume_keyword(Keyword::SEQUENCE)?;
+    parser.postgres_only(&sequence_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let mut sequences = Vec::new();
+    loop {
+        sequences.push(parse_qualified_name(parser)?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+    Ok(DropSequence {
+        drop_span,
+        sequence_span,
+        if_exists,
+        sequences,
+        restrict_or_cascade,
+    })
+}
+
 /// Represent a drop server statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropServer, Statement, Issues};
-/// # let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
 /// #
 /// let sql = "DROP SERVER myserver;";
 /// let mut issues = Issues::new(sql);
@@ -297,6 +661,27 @@ impl<'a> Spanned for DropServer<'a> {
     }
 }
 
+fn parse_drop_server<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropServer<'a>, ParseError> {
+    // TODO complain about temporary
+    let server_span = parser.consume_keyword(Keyword::SERVER)?;
+    parser.postgres_only(&server_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let server = parser.consume_plain_identifier_unrestricted()?;
+    Ok(DropServer {
+        drop_span,
+        server_span,
+        if_exists,
+        server,
+    })
+}
+
 /// Represent a drop trigger statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropTrigger, Statement, Issues};
@@ -324,6 +709,10 @@ pub struct DropTrigger<'a> {
     pub if_exists: Option<Span>,
     /// Trigger to drop
     pub identifier: QualifiedName<'a>,
+    /// ON table_name (PostgreSQL/PostGIS)
+    pub on: Option<(Span, QualifiedName<'a>)>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropTrigger<'a> {
@@ -332,202 +721,41 @@ impl<'a> Spanned for DropTrigger<'a> {
             .join_span(&self.trigger_span)
             .join_span(&self.if_exists)
             .join_span(&self.identifier)
+            .join_span(&self.on)
+            .join_span(&self.restrict_or_cascade)
     }
 }
 
-pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
-    let drop_span = parser.consume_keyword(Keyword::DROP)?;
-    let temporary = parser.skip_keyword(Keyword::TEMPORARY);
-    match &parser.token {
-        Token::Ident(_, Keyword::TABLE) => {
-            let table_span = parser.consume_keyword(Keyword::TABLE)?;
-            let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-            } else {
-                None
-            };
-            let mut tables = Vec::new();
-            loop {
-                tables.push(parse_qualified_name(parser)?);
-                if parser.skip_token(Token::Comma).is_none() {
-                    break;
-                }
-            }
-            let cascade = if parser.options.dialect.is_postgresql() {
-                parser.skip_keyword(Keyword::CASCADE)
-            } else {
-                None
-            };
-            Ok(Statement::DropTable(DropTable {
-                drop_span,
-                temporary,
-                table_span,
-                if_exists,
-                tables,
-                cascade,
-            }))
+fn parse_drop_trigger<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropTrigger<'a>, ParseError> {
+    let trigger_span = parser.consume_keyword(Keyword::TRIGGER)?;
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let identifier = parse_qualified_name(parser)?;
+    let on = if let Some(span) = parser.skip_keyword(Keyword::ON) {
+        let table_name = parse_qualified_name(parser)?;
+        parser.postgres_only(&span);
+        Some((span, table_name))
+    } else {
+        if parser.options.dialect.is_postgresql() {
+            parser.err("ON required for trigger drops in PostgreSQL", &trigger_span);
         }
-        Token::Ident(_, kw @ Keyword::DATABASE | kw @ Keyword::SCHEMA) => {
-            // TODO complain about temporary
-            let kw = *kw;
-            let database_span = parser.consume_keyword(kw)?;
-            let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-            } else {
-                None
-            };
-            let database = parser.consume_plain_identifier()?;
-            Ok(Statement::DropDatabase(DropDatabase {
-                drop_span,
-                database_span,
-                if_exists,
-                database,
-            }))
-        }
-        Token::Ident(_, Keyword::EVENT) => {
-            // TODO complain about temporary
-            let event_span = parser.consume_keyword(Keyword::EVENT)?;
-            let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-            } else {
-                None
-            };
-            let event = parse_qualified_name(parser)?;
-            Ok(Statement::DropEvent(DropEvent {
-                drop_span,
-                event_span,
-                if_exists,
-                event,
-            }))
-        }
-        Token::Ident(_, Keyword::FUNCTION) => {
-            // TODO complain about temporary
-            let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
-            let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-            } else {
-                None
-            };
-            let function = parse_qualified_name(parser)?;
-            Ok(Statement::DropFunction(DropFunction {
-                drop_span,
-                function_span,
-                if_exists,
-                function,
-            }))
-        }
-        Token::Ident(_, Keyword::INDEX) => {
-            // DROP INDEX [IF EXISTS] index_name ON tbl_name
-            let index_span = parser.consume_keyword(Keyword::INDEX)?;
-            let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-            } else {
-                None
-            };
-            let index_name = parser.consume_plain_identifier()?;
-            let on = if let Some(span) = parser.skip_keyword(Keyword::ON) {
-                let table_name = parse_qualified_name(parser)?;
-                Some((span, table_name))
-            } else {
-                None
-            };
-
-            let v = DropIndex {
-                drop_span,
-                index_span,
-                if_exists,
-                index_name,
-                on,
-            };
-
-            if v.on.is_none() && parser.options.dialect.is_maria() {
-                parser.err("On required for index drops in MariaDb", &v);
-            }
-            if v.on.is_some() && parser.options.dialect.is_postgresql() {
-                parser.err("On not supported for index drops in PostgreSQL", &v);
-            }
-            Ok(Statement::DropIndex(v))
-        }
-        Token::Ident(_, Keyword::PROCEDURE) => {
-            // TODO complain about temporary
-            let procedure_span = parser.consume_keyword(Keyword::PROCEDURE)?;
-            let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-            } else {
-                None
-            };
-            let procedure = parse_qualified_name(parser)?;
-            Ok(Statement::DropProcedure(DropProcedure {
-                drop_span,
-                procedure_span,
-                if_exists,
-                procedure,
-            }))
-        }
-        Token::Ident(_, Keyword::SEQUENCE) => {
-            // DROP [TEMPORARY] SEQUENCE [IF EXISTS] [/*COMMENT TO SAVE*/] sequence_name [, sequence_name] ...
-            parser.todo(file!(), line!())
-        }
-        Token::Ident(_, Keyword::SERVER) => {
-            // TODO complain about temporary
-            let server_span = parser.consume_keyword(Keyword::SERVER)?;
-            let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-            } else {
-                None
-            };
-            let server = parser.consume_plain_identifier()?;
-            Ok(Statement::DropServer(DropServer {
-                drop_span,
-                server_span,
-                if_exists,
-                server,
-            }))
-        }
-        Token::Ident(_, Keyword::TRIGGER) => {
-            let trigger_span = parser.consume_keyword(Keyword::TRIGGER)?;
-            let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-            } else {
-                None
-            };
-            let identifier = parse_qualified_name(parser)?;
-            Ok(Statement::DropTrigger(DropTrigger {
-                drop_span,
-                trigger_span,
-                if_exists,
-                identifier,
-            }))
-        }
-        Token::Ident(_, Keyword::VIEW) => {
-            let view_span = parser.consume_keyword(Keyword::VIEW)?;
-            let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-            } else {
-                None
-            };
-            let mut views = Vec::new();
-            loop {
-                views.push(parse_qualified_name(parser)?);
-                if parser.skip_token(Token::Comma).is_none() {
-                    break;
-                }
-            }
-            // TODO  [RESTRICT | CASCADE]
-            Ok(Statement::DropView(DropView {
-                drop_span,
-                temporary,
-                view_span,
-                if_exists,
-                views,
-            }))
-        }
-        Token::Ident(_, Keyword::USER) => {
-            // DROP USER [IF EXISTS] user_name [, user_name] ..
-            parser.todo(file!(), line!())
-        }
-        _ => parser.expected_failure("droppable"),
-    }
+        None
+    };
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+    Ok(DropTrigger {
+        drop_span,
+        trigger_span,
+        if_exists,
+        identifier,
+        on,
+        restrict_or_cascade,
+    })
 }
 
 /// Represent a drop index statement.
@@ -576,8 +804,12 @@ pub struct DropIndex<'a> {
     pub index_span: Span,
     /// Span of "IF EXISTS" if specified
     pub if_exists: Option<Span>,
+    /// Name of index to drop
     pub index_name: Identifier<'a>,
+    // on tbl_name is required in MariaDB but not in PostgreSQL
     pub on: Option<(Span, QualifiedName<'a>)>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
 }
 
 impl<'a> Spanned for DropIndex<'a> {
@@ -587,5 +819,491 @@ impl<'a> Spanned for DropIndex<'a> {
             .join_span(&self.if_exists)
             .join_span(&self.index_name)
             .join_span(&self.on)
+            .join_span(&self.restrict_or_cascade)
+    }
+}
+
+fn parse_drop_index<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropIndex<'a>, ParseError> {
+    // DROP INDEX [IF EXISTS] index_name ON tbl_name
+    let index_span = parser.consume_keyword(Keyword::INDEX)?;
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let index_name = parser.consume_plain_identifier_unrestricted()?;
+    let on = if let Some(span) = parser.skip_keyword(Keyword::ON) {
+        let table_name = parse_qualified_name(parser)?;
+        Some((span, table_name))
+    } else {
+        None
+    };
+
+    if on.is_none() && parser.options.dialect.is_maria() {
+        parser.err("On required for index drops in MariaDb", &drop_span);
+    }
+    parser.maria_only(&on);
+
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+
+    Ok(DropIndex {
+        drop_span,
+        index_span,
+        if_exists,
+        index_name,
+        on,
+        restrict_or_cascade,
+    })
+}
+
+/// Represent a drop domain statement
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropDomain, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP DOMAIN IF EXISTS mydomain, otherdomain;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+///
+/// # assert!(issues.is_ok());
+/// let drop: DropDomain = match stmts.pop() {
+///     Some(Statement::DropDomain(d)) => d,
+///     _ => panic!("We should get a drop domain statement")
+/// };
+/// assert!(drop.domains.get(0).unwrap().identifier.as_str() == "mydomain");
+/// ```
+#[derive(Debug, Clone)]
+pub struct DropDomain<'a> {
+    /// Span of "DROP"
+    pub drop_span: Span,
+    /// Span of "DOMAIN"
+    pub domain_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// List of domains to drop
+    pub domains: Vec<QualifiedName<'a>>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
+}
+
+impl<'a> Spanned for DropDomain<'a> {
+    fn span(&self) -> Span {
+        self.drop_span
+            .join_span(&self.domain_span)
+            .join_span(&self.if_exists)
+            .join_span(&self.domains)
+            .join_span(&self.restrict_or_cascade)
+    }
+}
+
+fn parse_drop_domain<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropDomain<'a>, ParseError> {
+    let domain_span = parser.consume_keyword(Keyword::DOMAIN)?;
+    parser.postgres_only(&domain_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let mut domains = Vec::new();
+    loop {
+        domains.push(parse_qualified_name(parser)?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+    Ok(DropDomain {
+        drop_span,
+        domain_span,
+        if_exists,
+        domains,
+        restrict_or_cascade,
+    })
+}
+
+/// Represent a drop extension statement (PostgreSQL)
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropExtension, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP EXTENSION IF EXISTS myext, otherext CASCADE;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+/// # assert!(issues.is_ok());
+/// let drop: DropExtension = match stmts.pop() {
+///     Some(Statement::DropExtension(d)) => d,
+///     _ => panic!("We should get a drop extension statement")
+/// };
+/// assert!(drop.extensions.get(0).unwrap().as_str() == "myext");
+/// ```
+#[derive(Debug, Clone)]
+pub struct DropExtension<'a> {
+    /// Span of "DROP"
+    pub drop_span: Span,
+    /// Span of "EXTENSION"
+    pub extension_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// List of extensions to drop
+    pub extensions: Vec<Identifier<'a>>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
+}
+
+impl<'a> Spanned for DropExtension<'a> {
+    fn span(&self) -> Span {
+        self.drop_span
+            .join_span(&self.extension_span)
+            .join_span(&self.if_exists)
+            .join_span(&self.extensions)
+            .join_span(&self.restrict_or_cascade)
+    }
+}
+
+fn parse_drop_extension<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropExtension<'a>, ParseError> {
+    let extension_span = parser.consume_keyword(Keyword::EXTENSION)?;
+    parser.postgres_only(&extension_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let mut extensions = Vec::new();
+    loop {
+        extensions.push(parser.consume_plain_identifier_unrestricted()?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+
+    Ok(DropExtension {
+        drop_span,
+        extension_span,
+        if_exists,
+        extensions,
+        restrict_or_cascade,
+    })
+}
+
+/// Represent a drop operator statement (PostgreSQL)
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropOperator, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP OPERATOR IF EXISTS +(integer, integer) CASCADE;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+/// # assert!(issues.is_ok());
+/// let drop: DropOperator = match stmts.pop() {
+///     Some(Statement::DropOperator(d)) => d,
+///     _ => panic!("We should get a drop operator statement")
+/// };
+/// assert!(drop.name.as_str() == "+");
+/// ```
+
+#[derive(Debug, Clone)]
+pub struct DropOperatorItem<'a> {
+    pub name: QualifiedName<'a>,
+    pub left_type: Option<DataType<'a>>,
+    pub right_type: Option<DataType<'a>>,
+}
+
+impl<'a> Spanned for DropOperatorItem<'a> {
+    fn span(&self) -> Span {
+        self.name
+            .span()
+            .join_span(&self.left_type)
+            .join_span(&self.right_type)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DropOperator<'a> {
+    /// Span of "DROP OPERATOR"
+    pub drop_operator_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// List of operators to drop
+    pub operators: Vec<DropOperatorItem<'a>>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
+}
+
+impl<'a> Spanned for DropOperator<'a> {
+    fn span(&self) -> Span {
+        self.drop_operator_span
+            .join_span(&self.if_exists)
+            .join_span(&self.restrict_or_cascade)
+            .join_span(&self.operators)
+    }
+}
+
+fn parse_drop_operator<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_operator_span: Span,
+) -> Result<DropOperator<'a>, ParseError> {
+    parser.postgres_only(&drop_operator_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    // Parse comma-separated list of operators
+    let mut operators = Vec::new();
+    loop {
+        if parser.token == Token::LParen {
+            return Err(parser.expected_failure("operator name")?);
+        }
+        let name = parse_operator_name(parser)?;
+        let (left_type, right_type) = if parser.token == Token::LParen {
+            parser.consume_token(Token::LParen)?;
+            let mut left = None;
+            let mut right = None;
+            parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+                if parser.token != Token::Comma && parser.token != Token::RParen {
+                    left = Some(crate::data_type::parse_data_type(parser, false)?);
+                }
+                if parser.skip_token(Token::Comma).is_some() && parser.token != Token::RParen {
+                    right = Some(crate::data_type::parse_data_type(parser, false)?);
+                }
+                Ok(())
+            })?;
+            parser.consume_token(Token::RParen)?;
+            (left, right)
+        } else {
+            (None, None)
+        };
+        operators.push(DropOperatorItem {
+            name,
+            left_type,
+            right_type,
+        });
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+    Ok(DropOperator {
+        drop_operator_span,
+        if_exists,
+        operators,
+        restrict_or_cascade,
+    })
+}
+
+/// Represent a drop operator family statement (PostgreSQL)
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropOperatorFamily, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP OPERATOR FAMILY IF EXISTS myfamily USING gist CASCADE;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+/// # assert!(issues.is_ok());
+/// let drop: DropOperatorFamily = match stmts.pop() {
+///     Some(Statement::DropOperatorFamily(d)) => d,
+///     _ => panic!("We should get a drop operator family statement")
+/// };
+/// assert!(drop.family.identifier.as_str() == "myfamily");
+/// ```
+#[derive(Debug, Clone)]
+pub struct DropOperatorFamily<'a> {
+    /// Span of "DROP OPERATOR FAMILY"
+    pub drop_operator_family_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// Name of the operator family
+    pub family: QualifiedName<'a>,
+    /// Span and name of the index method (USING ...)
+    pub using: Option<(Span, Identifier<'a>)>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
+}
+
+impl<'a> Spanned for DropOperatorFamily<'a> {
+    fn span(&self) -> Span {
+        self.drop_operator_family_span
+            .join_span(&self.if_exists)
+            .join_span(&self.family)
+            .join_span(&self.using)
+            .join_span(&self.restrict_or_cascade)
+    }
+}
+
+fn parse_drop_operator_family<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_operator_family_span: Span,
+) -> Result<DropOperatorFamily<'a>, ParseError> {
+    parser.postgres_only(&drop_operator_family_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let family = parse_qualified_name(parser)?;
+    let using = if let Some(span) = parser.skip_keyword(Keyword::USING) {
+        let method = parser.consume_plain_identifier_unrestricted()?;
+        Some((span, method))
+    } else {
+        None
+    };
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+    Ok(DropOperatorFamily {
+        drop_operator_family_span,
+        if_exists,
+        family,
+        using,
+        restrict_or_cascade,
+    })
+}
+
+/// Represent a drop operator class statement (PostgreSQL)
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropOperatorClass, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP OPERATOR CLASS IF EXISTS myclass USING gist CASCADE;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+/// # assert!(issues.is_ok());
+/// let drop: DropOperatorClass = match stmts.pop() {
+///     Some(Statement::DropOperatorClass(d)) => d,
+///     _ => panic!("We should get a drop operator class statement")
+/// };
+/// assert!(drop.class.identifier.as_str() == "myclass");
+/// ```
+#[derive(Debug, Clone)]
+pub struct DropOperatorClass<'a> {
+    /// Span of "DROP OPERATOR CLASS"
+    pub drop_operator_class_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// Name of the operator class
+    pub class: QualifiedName<'a>,
+    /// Span and name of the index method (USING ...)
+    pub using: Option<(Span, Identifier<'a>)>,
+    /// Restrict or cascade option (PostgreSQL)
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
+}
+
+impl<'a> Spanned for DropOperatorClass<'a> {
+    fn span(&self) -> Span {
+        self.drop_operator_class_span
+            .join_span(&self.if_exists)
+            .join_span(&self.class)
+            .join_span(&self.using)
+            .join_span(&self.restrict_or_cascade)
+    }
+}
+
+fn parse_drop_operator_class<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_operator_class_span: Span,
+) -> Result<DropOperatorClass<'a>, ParseError> {
+    parser.postgres_only(&drop_operator_class_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let class = parse_qualified_name(parser)?;
+    let using = if let Some(span) = parser.skip_keyword(Keyword::USING) {
+        let method = parser.consume_plain_identifier_unrestricted()?;
+        Some((span, method))
+    } else {
+        None
+    };
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+    Ok(DropOperatorClass {
+        drop_operator_class_span,
+        if_exists,
+        class,
+        using,
+        restrict_or_cascade,
+    })
+}
+
+pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
+    let drop_span = parser.consume_keyword(Keyword::DROP)?;
+    let temporary = parser.skip_keyword(Keyword::TEMPORARY);
+    match &parser.token {
+        Token::Ident(_, Keyword::TABLE) => Ok(Statement::DropTable(Box::new(parse_drop_table(
+            parser, drop_span, temporary,
+        )?))),
+        Token::Ident(_, Keyword::VIEW) => Ok(Statement::DropView(Box::new(parse_drop_view(
+            parser, drop_span, temporary,
+        )?))),
+        Token::Ident(_, kw @ Keyword::DATABASE | kw @ Keyword::SCHEMA) => Ok(
+            Statement::DropDatabase(Box::new(parse_drop_database(parser, drop_span, *kw)?)),
+        ),
+        Token::Ident(_, Keyword::DOMAIN) => Ok(Statement::DropDomain(Box::new(parse_drop_domain(
+            parser, drop_span,
+        )?))),
+        Token::Ident(_, Keyword::EXTENSION) => Ok(Statement::DropExtension(Box::new(
+            parse_drop_extension(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::EVENT) => Ok(Statement::DropEvent(Box::new(parse_drop_event(
+            parser, drop_span,
+        )?))),
+        Token::Ident(_, Keyword::FUNCTION) => Ok(Statement::DropFunction(Box::new(
+            parse_drop_function(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::OPERATOR) => {
+            let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+            match &parser.token {
+                Token::Ident(_, Keyword::FAMILY) => {
+                    let family_span = parser.consume_keyword(Keyword::FAMILY)?;
+                    Ok(Statement::DropOperatorFamily(Box::new(
+                        parse_drop_operator_family(
+                            parser,
+                            drop_span.join_span(&operator_span).join_span(&family_span),
+                        )?,
+                    )))
+                }
+                Token::Ident(_, Keyword::CLASS) => {
+                    let class_span = parser.consume_keyword(Keyword::CLASS)?;
+                    Ok(Statement::DropOperatorClass(Box::new(
+                        parse_drop_operator_class(
+                            parser,
+                            drop_span.join_span(&operator_span).join_span(&class_span),
+                        )?,
+                    )))
+                }
+                _ => Ok(Statement::DropOperator(Box::new(parse_drop_operator(
+                    parser,
+                    drop_span.join_span(&operator_span),
+                )?))),
+            }
+        }
+        Token::Ident(_, Keyword::INDEX) => Ok(Statement::DropIndex(Box::new(parse_drop_index(
+            parser, drop_span,
+        )?))),
+        Token::Ident(_, Keyword::PROCEDURE) => Ok(Statement::DropProcedure(Box::new(
+            parse_drop_procedure(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::SEQUENCE) => Ok(Statement::DropSequence(Box::new(
+            parse_drop_sequence(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::SERVER) => Ok(Statement::DropServer(Box::new(parse_drop_server(
+            parser, drop_span,
+        )?))),
+        Token::Ident(_, Keyword::TRIGGER) => Ok(Statement::DropTrigger(Box::new(
+            parse_drop_trigger(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::USER) => {
+            // DROP USER [IF EXISTS] user_name [, user_name] ..
+            parser.todo(file!(), line!())
+        }
+        _ => parser.expected_failure("droppable"),
     }
 }

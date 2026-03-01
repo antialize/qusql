@@ -10,6 +10,7 @@ missing_docs = "deny"
 missing_docs_in_private_items = "deny"
 
 [dependencies]
+ariadne = "0.6"
 clap = {version = "4", features = ["derive"]}
 qusql-parse = { path = "../qusql-parse" }
 serde = {version = "1", features = ["derive"]}

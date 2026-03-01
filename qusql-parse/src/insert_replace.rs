@@ -13,7 +13,7 @@ use alloc::vec::Vec;
 
 use crate::{
     Identifier, OptSpanned, QualifiedName, Span, Spanned,
-    expression::{Expression, parse_expression},
+    expression::{Expression, parse_expression_unrestricted},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -87,7 +87,7 @@ pub enum OnConflictAction<'a> {
     DoUpdateSet {
         do_update_set_span: Span,
         sets: Vec<(Identifier<'a>, Expression<'a>)>,
-        where_: Option<(Span, alloc::boxed::Box<Expression<'a>>)>,
+        where_: Option<(Span, Expression<'a>)>,
     },
 }
 
@@ -317,7 +317,7 @@ pub(crate) fn parse_insert_replace<'a>(
         if !matches!(parser.token, Token::RParen) {
             parser.recovered(")", &|t| t == &Token::RParen, |parser| {
                 loop {
-                    columns.push(parser.consume_plain_identifier()?);
+                    columns.push(parser.consume_plain_identifier_unrestricted()?);
                     if parser.skip_token(Token::Comma).is_none() {
                         break;
                     }
@@ -345,7 +345,7 @@ pub(crate) fn parse_insert_replace<'a>(
                 if !matches!(parser.token, Token::RParen) {
                     parser.recovered(")", &|t| t == &Token::RParen, |parser| {
                         loop {
-                            vals.push(parse_expression(parser, false)?);
+                            vals.push(parse_expression_unrestricted(parser, false)?);
                             if parser.skip_token(Token::Comma).is_none() {
                                 break;
                             }
@@ -365,9 +365,9 @@ pub(crate) fn parse_insert_replace<'a>(
             let set_span = parser.consume_keyword(Keyword::SET)?;
             let mut pairs = Vec::new();
             loop {
-                let column = parser.consume_plain_identifier()?;
+                let column = parser.consume_plain_identifier_unrestricted()?;
                 let equal_span = parser.consume_token(Token::Eq)?;
-                let value: Expression<'_> = parse_expression(parser, false)?;
+                let value: Expression<'_> = parse_expression_unrestricted(parser, false)?;
                 pairs.push(InsertReplaceSetPair {
                     column,
                     equal_span,
@@ -402,9 +402,9 @@ pub(crate) fn parse_insert_replace<'a>(
                         ])?);
                     let mut pairs = Vec::new();
                     loop {
-                        let column = parser.consume_plain_identifier()?;
+                        let column = parser.consume_plain_identifier_unrestricted()?;
                         let equal_span = parser.consume_token(Token::Eq)?;
-                        let value = parse_expression(parser, false)?;
+                        let value = parse_expression_unrestricted(parser, false)?;
                         pairs.push(InsertReplaceSetPair {
                             column,
                             equal_span,
@@ -414,12 +414,7 @@ pub(crate) fn parse_insert_replace<'a>(
                             break;
                         }
                     }
-                    if !parser.options.dialect.is_maria() {
-                        parser.err(
-                            "Only support by mariadb",
-                            &on_duplicate_key_update_span.join_span(&pairs),
-                        );
-                    }
+                    parser.maria_only(&on_duplicate_key_update_span.join_span(&pairs));
                     (
                         Some(InsertReplaceOnDuplicateKeyUpdate {
                             on_duplicate_key_update_span,
@@ -436,9 +431,9 @@ pub(crate) fn parse_insert_replace<'a>(
                         Token::LParen => {
                             parser.consume_token(Token::LParen)?;
                             let mut names = Vec::new();
-                            names.push(parser.consume_plain_identifier()?);
+                            names.push(parser.consume_plain_identifier_unrestricted()?);
                             while parser.skip_token(Token::Comma).is_some() {
-                                names.push(parser.consume_plain_identifier()?);
+                                names.push(parser.consume_plain_identifier_unrestricted()?);
                             }
                             parser.consume_token(Token::RParen)?;
                             OnConflictTarget::Columns { names }
@@ -446,7 +441,7 @@ pub(crate) fn parse_insert_replace<'a>(
                         Token::Ident(_, Keyword::ON) => {
                             let on_constraint =
                                 parser.consume_keywords(&[Keyword::ON, Keyword::CONSTRAINT])?;
-                            let name = parser.consume_plain_identifier()?;
+                            let name = parser.consume_plain_identifier_unrestricted()?;
                             OnConflictTarget::OnConstraint {
                                 on_constraint_span: on_constraint,
                                 name,
@@ -466,9 +461,9 @@ pub(crate) fn parse_insert_replace<'a>(
                             );
                             let mut sets = Vec::new();
                             loop {
-                                let name = parser.consume_plain_identifier()?;
+                                let name = parser.consume_plain_identifier_unrestricted()?;
                                 parser.consume_token(Token::Eq)?;
-                                let expr = parse_expression(parser, false)?;
+                                let expr = parse_expression_unrestricted(parser, false)?;
                                 sets.push((name, expr));
                                 if parser.skip_token(Token::Comma).is_none() {
                                     break;
@@ -477,8 +472,7 @@ pub(crate) fn parse_insert_replace<'a>(
                             let where_ = if matches!(parser.token, Token::Ident(_, Keyword::WHERE))
                             {
                                 let where_span = parser.consume_keyword(Keyword::WHERE)?;
-                                let where_expr =
-                                    alloc::boxed::Box::new(parse_expression(parser, false)?);
+                                let where_expr = parse_expression_unrestricted(parser, false)?;
                                 Some((where_span, where_expr))
                             } else {
                                 None
@@ -498,9 +492,7 @@ pub(crate) fn parse_insert_replace<'a>(
                         action,
                     };
 
-                    if !parser.options.dialect.is_postgresql() {
-                        parser.err("Only support by postgesql", &on_conflict);
-                    }
+                    parser.postgres_only(&on_conflict);
 
                     (None, Some(on_conflict))
                 }
@@ -512,13 +504,13 @@ pub(crate) fn parse_insert_replace<'a>(
 
     // Parse AS alias (MySQL/MariaDB): AS alias [(col1, col2, ...)]
     let as_alias = if let Some(as_span) = parser.skip_keyword(Keyword::AS) {
-        let alias = parser.consume_plain_identifier()?;
+        let alias = parser.consume_plain_identifier_unrestricted()?;
         let columns = if parser.skip_token(Token::LParen).is_some() {
             let mut cols = Vec::new();
             // Check for empty column list ()
             if !matches!(parser.token, Token::RParen) {
                 loop {
-                    cols.push(parser.consume_plain_identifier()?);
+                    cols.push(parser.consume_plain_identifier_unrestricted()?);
                     if parser.skip_token(Token::Comma).is_none() {
                         break;
                     }

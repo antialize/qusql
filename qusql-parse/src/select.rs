@@ -16,7 +16,7 @@ use crate::qualified_name::parse_qualified_name;
 use crate::{
     DataType, Identifier, SString, Span, Spanned, Statement,
     data_type::parse_data_type,
-    expression::{Expression, parse_expression},
+    expression::{Expression, parse_expression_unrestricted},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -42,9 +42,9 @@ impl<'a> Spanned for SelectExpr<'a> {
 pub(crate) fn parse_select_expr<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<SelectExpr<'a>, ParseError> {
-    let expr = parse_expression(parser, false)?;
+    let expr = parse_expression_unrestricted(parser, false)?;
     let as_ = if parser.skip_keyword(Keyword::AS).is_some() {
-        Some(parser.consume_plain_identifier()?)
+        Some(parser.consume_plain_identifier_unrestricted()?)
     } else {
         None
     };
@@ -78,6 +78,7 @@ pub enum JoinType {
     Straight(Span),
     Left(Span),
     Right(Span),
+    FullOuter(Span),
     Natural(Span),
     NaturalInner(Span),
     NaturalLeft(Span),
@@ -92,6 +93,7 @@ impl Spanned for JoinType {
             JoinType::Straight(v) => v.span(),
             JoinType::Left(v) => v.span(),
             JoinType::Right(v) => v.span(),
+            JoinType::FullOuter(v) => v.span(),
             JoinType::Natural(v) => v.span(),
             JoinType::NaturalInner(v) => v.span(),
             JoinType::NaturalLeft(v) => v.span(),
@@ -172,7 +174,7 @@ impl<'a> Spanned for IndexHint<'a> {
 #[derive(Debug, Clone)]
 pub enum JsonTableOnErrorEmpty<'a> {
     /// DEFAULT value
-    Default(Box<Expression<'a>>),
+    Default(Expression<'a>),
     /// ERROR
     Error(Span),
     /// NULL
@@ -197,7 +199,7 @@ pub enum JsonTableColumn<'a> {
         name: Identifier<'a>,
         data_type: DataType<'a>,
         path_span: Span,
-        path: Box<Expression<'a>>,
+        path: Expression<'a>,
         /// ON EMPTY clause
         on_empty: Option<(JsonTableOnErrorEmpty<'a>, Span)>,
         /// ON ERROR clause
@@ -212,7 +214,7 @@ pub enum JsonTableColumn<'a> {
     Nested {
         nested_span: Span,
         path_span: Span,
-        path: Box<Expression<'a>>,
+        path: Expression<'a>,
         columns_span: Span,
         columns: Vec<JsonTableColumn<'a>>,
     },
@@ -283,9 +285,9 @@ pub enum TableReference<'a> {
         /// Span of "JSON_TABLE"
         json_table_span: Span,
         /// JSON data expression
-        json_expr: Box<Expression<'a>>,
+        json_expr: Expression<'a>,
         /// JSON path expression
-        path: Box<Expression<'a>>,
+        path: Expression<'a>,
         /// COLUMNS keyword span
         columns_keyword_span: Span,
         /// Column definitions
@@ -371,7 +373,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
             let as_ = if as_span.is_some()
                 || (matches!(&parser.token, Token::Ident(_, k) if !k.reserved()))
             {
-                Some(parser.consume_plain_identifier()?)
+                Some(parser.consume_plain_identifier_unrestricted()?)
             } else {
                 None
             };
@@ -394,7 +396,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
                     parser.consume_token(Token::LParen)?;
 
                     // Parse JSON data expression (first argument)
-                    let json_expr = parse_expression(parser, true)?;
+                    let json_expr = parse_expression_unrestricted(parser, true)?;
 
                     // Expect comma
                     parser.consume_token(Token::Comma)?;
@@ -404,16 +406,16 @@ pub(crate) fn parse_table_reference_inner<'a>(
                         Token::SingleQuotedString(s) => {
                             let val = *s;
                             let span = parser.consume();
-                            Expression::String(SString::new(Cow::Borrowed(val), span))
+                            Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                         }
                         Token::DoubleQuotedString(s) => {
                             let val = *s;
                             let span = parser.consume();
-                            Expression::String(SString::new(Cow::Borrowed(val), span))
+                            Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                         }
                         _ => {
                             // Fall back to expression parsing
-                            parse_expression(parser, true)?
+                            parse_expression_unrestricted(parser, true)?
                         }
                     };
 
@@ -436,15 +438,15 @@ pub(crate) fn parse_table_reference_inner<'a>(
                     let as_ = if as_span.is_some()
                         || (matches!(&parser.token, Token::Ident(_, k) if !k.reserved()))
                     {
-                        Some(parser.consume_plain_identifier()?)
+                        Some(parser.consume_plain_identifier_unrestricted()?)
                     } else {
                         None
                     };
 
                     return Ok(TableReference::JsonTable {
                         json_table_span,
-                        json_expr: Box::new(json_expr),
-                        path: Box::new(path),
+                        json_expr,
+                        path,
                         columns_keyword_span,
                         columns,
                         as_span,
@@ -476,7 +478,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
             let as_ = if as_span.is_some()
                 || (matches!(&parser.token, Token::Ident(_, k) if !k.reserved()))
             {
-                Some(parser.consume_plain_identifier()?)
+                Some(parser.consume_plain_identifier_unrestricted()?)
             } else {
                 None
             };
@@ -516,7 +518,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
                         "')' or ','",
                         &|t| matches!(t, Token::RParen | Token::Comma),
                         |parser| {
-                            index_list.push(parser.consume_plain_identifier()?);
+                            index_list.push(parser.consume_plain_identifier_unrestricted()?);
                             Ok(())
                         },
                     )?;
@@ -567,14 +569,14 @@ fn parse_json_table_columns<'a>(
                 Token::SingleQuotedString(s) => {
                     let val = *s;
                     let span = parser.consume();
-                    Expression::String(SString::new(Cow::Borrowed(val), span))
+                    Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                 }
                 Token::DoubleQuotedString(s) => {
                     let val = *s;
                     let span = parser.consume();
-                    Expression::String(SString::new(Cow::Borrowed(val), span))
+                    Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                 }
-                _ => parse_expression(parser, true)?,
+                _ => parse_expression_unrestricted(parser, true)?,
             };
             let columns_span = parser.consume_keyword(Keyword::COLUMNS)?;
             parser.consume_token(Token::LParen)?;
@@ -586,13 +588,13 @@ fn parse_json_table_columns<'a>(
             columns.push(JsonTableColumn::Nested {
                 nested_span,
                 path_span,
-                path: Box::new(path),
+                path,
                 columns_span,
                 columns: nested_columns,
             });
         } else {
             // Parse column name
-            let name = parser.consume_plain_identifier()?;
+            let name = parser.consume_plain_identifier_unrestricted()?;
 
             // Check if this is FOR ORDINALITY
             if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
@@ -616,14 +618,14 @@ fn parse_json_table_columns<'a>(
                     Token::SingleQuotedString(s) => {
                         let val = *s;
                         let span = parser.consume();
-                        Expression::String(SString::new(Cow::Borrowed(val), span))
+                        Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                     }
                     Token::DoubleQuotedString(s) => {
                         let val = *s;
                         let span = parser.consume();
-                        Expression::String(SString::new(Cow::Borrowed(val), span))
+                        Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                     }
-                    _ => parse_expression(parser, true)?,
+                    _ => parse_expression_unrestricted(parser, true)?,
                 };
 
                 // Parse ON EMPTY and ON ERROR clauses
@@ -637,8 +639,8 @@ fn parse_json_table_columns<'a>(
                         Token::Ident(_, Keyword::DEFAULT) => {
                             parser.consume();
                             // Parse the default value
-                            let default_val = parse_expression(parser, true)?;
-                            Some(JsonTableOnErrorEmpty::Default(Box::new(default_val)))
+                            let default_val = parse_expression_unrestricted(parser, true)?;
+                            Some(JsonTableOnErrorEmpty::Default(default_val))
                         }
                         Token::Ident(_, Keyword::ERROR) => {
                             let error_span = parser.consume();
@@ -680,7 +682,7 @@ fn parse_json_table_columns<'a>(
                     name,
                     data_type,
                     path_span,
-                    path: Box::new(path),
+                    path,
                     on_empty,
                     on_error,
                 });
@@ -707,6 +709,18 @@ pub(crate) fn parse_table_reference<'a>(
     let mut ans = parse_table_reference_inner(parser)?;
     loop {
         let join = match parser.token {
+            Token::Ident(_, Keyword::FULL) => {
+                let full = parser.consume_keyword(Keyword::FULL)?;
+                parser.postgres_only(&full);
+                if let Some(outer) = parser.skip_keyword(Keyword::OUTER) {
+                    JoinType::FullOuter(
+                        full.join_span(&outer)
+                            .join_span(&parser.consume_keyword(Keyword::JOIN)?),
+                    )
+                } else {
+                    JoinType::FullOuter(full.join_span(&parser.consume_keyword(Keyword::JOIN)?))
+                }
+            }
             Token::Ident(_, Keyword::INNER) => JoinType::Inner(
                 parser
                     .consume_keyword(Keyword::INNER)?
@@ -794,14 +808,14 @@ pub(crate) fn parse_table_reference<'a>(
         let specification = match &parser.token {
             Token::Ident(_, Keyword::ON) => {
                 let on = parser.consume_keyword(Keyword::ON)?;
-                let expr = parse_expression(parser, false)?;
+                let expr = parse_expression_unrestricted(parser, false)?;
                 Some(JoinSpecification::On(expr, on))
             }
             Token::Ident(_, Keyword::USING) => {
                 let using = parser.consume_keyword(Keyword::USING)?;
                 let mut join_column_list = Vec::new();
                 loop {
-                    join_column_list.push(parser.consume_plain_identifier()?);
+                    join_column_list.push(parser.consume_plain_identifier_unrestricted()?);
                     if parser.skip_token(Token::Comma).is_none() {
                         break;
                     }
@@ -1074,7 +1088,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
 
     // TODO PARTITION partition_list;
     let where_ = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
-        Some((parse_expression(parser, false)?, span))
+        Some((parse_expression_unrestricted(parser, false)?, span))
     } else {
         None
     };
@@ -1083,7 +1097,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         let span = parser.consume_keyword(Keyword::BY)?.join_span(&group_span);
         let mut groups = Vec::new();
         loop {
-            groups.push(parse_expression(parser, false)?);
+            groups.push(parse_expression_unrestricted(parser, false)?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -1095,7 +1109,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
     };
 
     let having = if let Some(span) = parser.skip_keyword(Keyword::HAVING) {
-        Some((parse_expression(parser, false)?, span))
+        Some((parse_expression_unrestricted(parser, false)?, span))
     } else {
         None
     };
@@ -1109,7 +1123,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         let span = parser.consume_keyword(Keyword::BY)?.join_span(&span);
         let mut order = Vec::new();
         loop {
-            let e = parse_expression(parser, false)?;
+            let e = parse_expression_unrestricted(parser, false)?;
             let f = match &parser.token {
                 Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
                 Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
@@ -1126,15 +1140,15 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
     };
 
     let limit = if let Some(span) = parser.skip_keyword(Keyword::LIMIT) {
-        let n = parse_expression(parser, true)?;
+        let n = parse_expression_unrestricted(parser, true)?;
         match parser.token {
             Token::Comma => {
                 parser.consume();
-                Some((span, Some(n), parse_expression(parser, true)?))
+                Some((span, Some(n), parse_expression_unrestricted(parser, true)?))
             }
             Token::Ident(_, Keyword::OFFSET) => {
                 parser.consume();
-                Some((span, Some(parse_expression(parser, true)?), n))
+                Some((span, Some(parse_expression_unrestricted(parser, true)?), n))
             }
             _ => Some((span, None, n)),
         }
@@ -1172,7 +1186,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         let of = if let Some(of_span) = parser.skip_keyword(Keyword::OF) {
             let mut table_references = Vec::new();
             loop {
-                table_references.push(parser.consume_plain_identifier()?);
+                table_references.push(parser.consume_plain_identifier_unrestricted()?);
                 if parser.skip_token(Token::Comma).is_none() {
                     break;
                 }

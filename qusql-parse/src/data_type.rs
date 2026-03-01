@@ -13,8 +13,8 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    Identifier, SString, Span, Spanned,
-    expression::{Expression, parse_expression},
+    Identifier, InvalidExpression, SString, Span, Spanned,
+    expression::{Expression, parse_expression_unrestricted},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -29,7 +29,7 @@ pub enum DataTypeProperty<'a> {
     Zerofill(Span),
     Null(Span),
     NotNull(Span),
-    Default(Box<Expression<'a>>),
+    Default(Expression<'a>),
     Comment(SString<'a>),
     Charset(Identifier<'a>),
     Collate(Identifier<'a>),
@@ -41,9 +41,9 @@ pub enum DataTypeProperty<'a> {
     GeneratedAlways(Span),
     AutoIncrement(Span),
     PrimaryKey(Span),
-    As((Span, Box<Expression<'a>>)),
-    Check((Span, Box<Expression<'a>>)),
-    OnUpdate((Span, Box<Expression<'a>>)),
+    As((Span, Expression<'a>)),
+    Check((Span, Expression<'a>)),
+    OnUpdate((Span, Expression<'a>)),
 }
 
 impl<'a> Spanned for DataTypeProperty<'a> {
@@ -122,9 +122,11 @@ pub enum Type<'a> {
     Named(Span),
     Json,
     Bit(usize, Span),
+    VarBit(Option<(usize, Span)>),
     Bytea,
     Inet4,
     Inet6,
+    Array(Box<Type<'a>>, Span),
 }
 
 impl<'a> OptSpanned for Type<'a> {
@@ -164,9 +166,11 @@ impl<'a> OptSpanned for Type<'a> {
             Type::Named(v) => v.opt_span(),
             Type::Json => None,
             Type::Bit(_, b) => b.opt_span(),
+            Type::VarBit(v) => v.opt_span(),
             Type::Bytea => None,
             Type::Inet4 => None,
             Type::Inet6 => None,
+            Type::Array(inner, span) => Some(span.join_span(inner.as_ref())),
         }
     }
 }
@@ -411,12 +415,32 @@ pub(crate) fn parse_data_type<'a>(
             let (w, ws) = parse_width_req(parser)?;
             (t, Type::Bit(w, ws))
         }
+        Token::Ident(_, Keyword::VARBIT) => {
+            let t = parser.consume_keyword(Keyword::VARBIT)?;
+            parser.postgres_only(&t);
+            (t, Type::VarBit(parse_width(parser)?))
+        }
         Token::Ident(_, _) if parser.options.dialect.is_postgresql() => {
             let name = parser.consume();
             (name.clone(), Type::Named(name))
         }
         _ => parser.expected_failure("type")?,
     };
+
+    // Check for PostgreSQL array type syntax: TYPE[]
+    let (identifier, type_) =
+        if parser.options.dialect.is_postgresql() && matches!(parser.token, Token::LBracket) {
+            let lbracket = parser.consume_token(Token::LBracket)?;
+            let rbracket = parser.consume_token(Token::RBracket)?;
+            let array_span = lbracket.join_span(&rbracket);
+            (
+                identifier.join_span(&array_span),
+                Type::Array(Box::new(type_), array_span),
+            )
+        } else {
+            (identifier, type_)
+        };
+
     let mut properties = Vec::new();
     loop {
         match parser.token {
@@ -444,13 +468,13 @@ pub(crate) fn parse_data_type<'a>(
             Token::Ident(_, Keyword::CHARACTER) => {
                 parser.consume_keywords(&[Keyword::CHARACTER, Keyword::SET])?;
                 properties.push(DataTypeProperty::Charset(
-                    parser.consume_plain_identifier()?,
+                    parser.consume_plain_identifier_unrestricted()?,
                 ));
             }
             Token::Ident(_, Keyword::COLLATE) => {
                 parser.consume_keyword(Keyword::COLLATE)?;
                 properties.push(DataTypeProperty::Charset(
-                    parser.consume_plain_identifier()?,
+                    parser.consume_plain_identifier_unrestricted()?,
                 ));
             }
             Token::Ident(_, Keyword::COMMENT) => {
@@ -459,9 +483,7 @@ pub(crate) fn parse_data_type<'a>(
             }
             Token::Ident(_, Keyword::DEFAULT) => {
                 parser.consume_keyword(Keyword::DEFAULT)?;
-                properties.push(DataTypeProperty::Default(Box::new(parse_expression(
-                    parser, true,
-                )?)));
+                properties.push(DataTypeProperty::Default(parse_expression_unrestricted(parser, true)?));
             }
             Token::Ident(_, Keyword::VIRTUAL) => properties.push(DataTypeProperty::Virtual(
                 parser.consume_keyword(Keyword::VIRTUAL)?,
@@ -500,11 +522,15 @@ pub(crate) fn parse_data_type<'a>(
                 let span = parser.consume_keyword(Keyword::AS)?;
                 let s1 = parser.consume_token(Token::LParen)?;
                 let e = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
-                    Ok(Some(parse_expression(parser, false)?))
+                    Ok(Some(parse_expression_unrestricted(parser, false)?))
                 })?;
                 let s2 = parser.consume_token(Token::RParen)?;
-                let e = e.unwrap_or_else(|| Expression::Invalid(s1.join_span(&s2)));
-                properties.push(DataTypeProperty::As((span, Box::new(e))));
+                let e = e.unwrap_or_else(|| {
+                    Expression::Invalid(Box::new(InvalidExpression {
+                        span: s1.join_span(&s2),
+                    }))
+                });
+                properties.push(DataTypeProperty::As((span, e)));
             }
             Token::Ident(_, Keyword::PRIMARY) => properties.push(DataTypeProperty::PrimaryKey(
                 parser.consume_keywords(&[Keyword::PRIMARY, Keyword::KEY])?,
@@ -513,16 +539,20 @@ pub(crate) fn parse_data_type<'a>(
                 let span = parser.consume_keyword(Keyword::CHECK)?;
                 let s1 = parser.consume_token(Token::LParen)?;
                 let e = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
-                    Ok(Some(parse_expression(parser, false)?))
+                    Ok(Some(parse_expression_unrestricted(parser, false)?))
                 })?;
                 let s2 = parser.consume_token(Token::RParen)?;
-                let e = e.unwrap_or_else(|| Expression::Invalid(s1.join_span(&s2)));
-                properties.push(DataTypeProperty::Check((span, Box::new(e))));
+                let e = e.unwrap_or_else(|| {
+                    Expression::Invalid(Box::new(InvalidExpression {
+                        span: s1.join_span(&s2),
+                    }))
+                });
+                properties.push(DataTypeProperty::Check((span, e)));
             }
             Token::Ident(_, Keyword::ON) => {
                 let span = parser.consume_keywords(&[Keyword::ON, Keyword::UPDATE])?;
-                let expr = parse_expression(parser, true)?;
-                properties.push(DataTypeProperty::OnUpdate((span, Box::new(expr))));
+                let expr = parse_expression_unrestricted(parser, true)?;
+                properties.push(DataTypeProperty::OnUpdate((span, expr)));
             }
             _ => break,
         }

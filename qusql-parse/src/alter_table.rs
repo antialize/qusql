@@ -12,14 +12,35 @@ use alloc::vec::Vec;
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-    DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
+    DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned,
     data_type::parse_data_type,
-    expression::parse_expression,
+    expression::parse_expression_unrestricted,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name,
 };
+
+/// Parse OWNER TO ... for ALTER TABLE/ALTER OPERATOR CLASS (PostgreSQL)
+pub(crate) fn parse_alter_owner<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<AlterTableOwner<'a>, ParseError> {
+    // In PostgreSQL, CURRENT_ROLE, CURRENT_USER, and SESSION_USER are valid without quotes
+    match &parser.token {
+        Token::Ident(_, Keyword::CURRENT_ROLE) => {
+            Ok(AlterTableOwner::CurrentRole(parser.consume()))
+        }
+        Token::Ident(_, Keyword::CURRENT_USER) => {
+            Ok(AlterTableOwner::CurrentUser(parser.consume()))
+        }
+        Token::Ident(_, Keyword::SESSION_USER) => {
+            Ok(AlterTableOwner::SessionUser(parser.consume()))
+        }
+        _ => Ok(AlterTableOwner::Identifier(
+            parser.consume_plain_identifier_unrestricted()?,
+        )),
+    }
+}
 
 /// Option on an index
 #[derive(Clone, Debug)]
@@ -143,6 +164,8 @@ pub struct IndexCol<'a> {
     pub expr: IndexColExpr<'a>,
     /// Optional width of index together with its span
     pub size: Option<(u32, Span)>,
+    /// Optional operator class (PostgreSQL)
+    pub opclass: Option<QualifiedName<'a>>,
     /// Optional ASC ordering
     pub asc: Option<Span>,
     /// Optional DESC ordering
@@ -153,6 +176,7 @@ impl<'a> Spanned for IndexCol<'a> {
     fn span(&self) -> Span {
         self.expr
             .join_span(&self.size)
+            .join_span(&self.opclass)
             .join_span(&self.asc)
             .join_span(&self.desc)
     }
@@ -229,6 +253,30 @@ impl Spanned for AlterAlgorithm {
             AlterAlgorithm::Instant(v) => v.span(),
             AlterAlgorithm::Inplace(v) => v.span(),
             AlterAlgorithm::Copy(v) => v.span(),
+        }
+    }
+}
+
+/// Owner value for ALTER TABLE OWNER TO
+#[derive(Clone, Debug)]
+pub enum AlterTableOwner<'a> {
+    /// Regular identifier (role name)
+    Identifier(Identifier<'a>),
+    /// CURRENT_ROLE keyword
+    CurrentRole(Span),
+    /// CURRENT_USER keyword
+    CurrentUser(Span),
+    /// SESSION_USER keyword
+    SessionUser(Span),
+}
+
+impl<'a> Spanned for AlterTableOwner<'a> {
+    fn span(&self) -> Span {
+        match self {
+            AlterTableOwner::Identifier(i) => i.span(),
+            AlterTableOwner::CurrentRole(s) => s.span(),
+            AlterTableOwner::CurrentUser(s) => s.span(),
+            AlterTableOwner::SessionUser(s) => s.span(),
         }
     }
 }
@@ -337,7 +385,7 @@ pub enum AlterSpecification<'a> {
         // Span of "OWNER TO"
         span: Span,
         /// Name of owner
-        owner: Identifier<'a>,
+        owner: AlterTableOwner<'a>,
     },
     Lock {
         /// Span of "LOCK"
@@ -349,6 +397,8 @@ pub enum AlterSpecification<'a> {
         rename_column_span: Span,
         /// Old name of column
         old_col_name: Identifier<'a>,
+        /// Span of "TO"
+        to_span: Span,
         /// New name of column
         new_col_name: Identifier<'a>,
     },
@@ -357,12 +407,26 @@ pub enum AlterSpecification<'a> {
         rename_index_span: Span,
         /// Old name of index
         old_index_name: Identifier<'a>,
+        /// Span of "TO"
+        to_span: Span,
         /// New name of index
         new_index_name: Identifier<'a>,
     },
+    RenameConstraint {
+        /// Span of "RENAME CONSTRAINT"
+        rename_constraint_span: Span,
+        /// Old name of constraint
+        old_constraint_name: Identifier<'a>,
+        /// Span of "TO"
+        to_span: Span,
+        /// New name of constraint
+        new_constraint_name: Identifier<'a>,
+    },
     RenameTo {
-        /// Span of "RENAME TO"
-        rename_to_span: Span,
+        /// Span of "RENAME"
+        rename_span: Span,
+        /// Span of "TO" or "AS"
+        to_span: Span,
         /// New name of table
         new_table_name: Identifier<'a>,
     },
@@ -489,21 +553,35 @@ impl<'a> Spanned for AlterSpecification<'a> {
             AlterSpecification::RenameColumn {
                 rename_column_span,
                 old_col_name,
+                to_span,
                 new_col_name,
             } => rename_column_span
                 .join_span(old_col_name)
+                .join_span(to_span)
                 .join_span(new_col_name),
             AlterSpecification::RenameIndex {
                 rename_index_span,
                 old_index_name,
+                to_span,
                 new_index_name,
             } => rename_index_span
                 .join_span(old_index_name)
+                .join_span(to_span)
                 .join_span(new_index_name),
+            AlterSpecification::RenameConstraint {
+                rename_constraint_span,
+                old_constraint_name,
+                to_span,
+                new_constraint_name,
+            } => rename_constraint_span
+                .join_span(old_constraint_name)
+                .join_span(to_span)
+                .join_span(new_constraint_name),
             AlterSpecification::RenameTo {
-                rename_to_span,
+                rename_span,
+                to_span,
                 new_table_name,
-            } => rename_to_span.join_span(new_table_name),
+            } => rename_span.join_span(to_span).join_span(new_table_name),
             AlterSpecification::Algorithm {
                 algorithm_span,
                 algorithm,
@@ -569,6 +647,53 @@ pub(crate) fn parse_index_options<'a>(
     Ok(())
 }
 
+/// Parse optional operator class (PostgreSQL)
+/// This can be a qualified name like public.vector_cosine_ops or a known pattern_ops keyword
+pub(crate) fn parse_operator_class<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Option<QualifiedName<'a>>, ParseError> {
+    if matches!(
+        parser.token,
+        Token::Ident(
+            _,
+            Keyword::TEXT_PATTERN_OPS
+                | Keyword::VARCHAR_PATTERN_OPS
+                | Keyword::BPCHAR_PATTERN_OPS
+                | Keyword::INT8_OPS
+                | Keyword::INT4_OPS
+                | Keyword::INT2_OPS
+        )
+    ) {
+        // Known pattern_ops keywords
+        match parser.token {
+            Token::Ident(v, _) => {
+                let value = v;
+                let span = parser.consume();
+                parser.postgres_only(&span);
+                Ok(Some(QualifiedName {
+                    prefix: Vec::new(),
+                    identifier: Identifier { value, span },
+                }))
+            }
+            _ => Ok(None),
+        }
+    } else if matches!(parser.token, Token::Ident(_, _))
+        && !matches!(
+            parser.token,
+            Token::Ident(_, Keyword::ASC | Keyword::DESC | Keyword::NULLS)
+        )
+        && *parser.peek() != Token::Comma
+        && *parser.peek() != Token::RParen
+    {
+        // Try to parse as qualified name (for things like public.vector_cosine_ops)
+        let qname = parse_qualified_name(parser)?;
+        parser.postgres_only(&qname);
+        Ok(Some(qname))
+    } else {
+        Ok(None)
+    }
+}
+
 pub(crate) fn parse_index_cols<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<Vec<IndexCol<'a>>, ParseError> {
@@ -580,12 +705,12 @@ pub(crate) fn parse_index_cols<'a>(
             let expr = if parser.token == Token::LParen {
                 // Functional index: parse expression
                 parser.consume_token(Token::LParen)?;
-                let expression = parse_expression(parser, false)?;
+                let expression = parse_expression_unrestricted(parser, false)?;
                 parser.consume_token(Token::RParen)?;
                 IndexColExpr::Expression(expression)
             } else {
                 // Regular column name
-                let name = parser.consume_plain_identifier()?;
+                let name = parser.consume_plain_identifier_unrestricted()?;
                 IndexColExpr::Column(name)
             };
 
@@ -599,6 +724,9 @@ pub(crate) fn parse_index_cols<'a>(
                 None
             };
 
+            // Parse optional operator class (PostgreSQL)
+            let opclass = parse_operator_class(parser)?;
+
             // Parse optional ASC | DESC
             let asc = parser.skip_keyword(Keyword::ASC);
             let desc = if asc.is_none() {
@@ -610,6 +738,7 @@ pub(crate) fn parse_index_cols<'a>(
             ans.push(IndexCol {
                 expr,
                 size,
+                opclass,
                 asc,
                 desc,
             });
@@ -628,7 +757,7 @@ fn parse_cols<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<Identifier<'a>>, Pa
     let mut ans = Vec::new();
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
         loop {
-            ans.push(parser.consume_plain_identifier()?);
+            ans.push(parser.consume_plain_identifier_unrestricted()?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -645,7 +774,7 @@ fn parse_add_alter_specification<'a>(
     let add_span = parser.consume_keyword(Keyword::ADD)?;
     let constraint = if let Some(span) = parser.skip_keyword(Keyword::CONSTRAINT) {
         let v = match &parser.token {
-            Token::Ident(_, kw) if !kw.reserved() => Some(parser.consume_plain_identifier()?),
+            Token::Ident(_, kw) if !kw.reserved() => Some(parser.consume_plain_identifier_unrestricted()?),
             _ => None,
         };
         Some((span, v))
@@ -665,13 +794,13 @@ fn parse_add_alter_specification<'a>(
                 None
             };
             let name = match &parser.token {
-                Token::Ident(_, kw) if !kw.reserved() => Some(parser.consume_plain_identifier()?),
+                Token::Ident(_, kw) if !kw.reserved() => Some(parser.consume_plain_identifier_unrestricted()?),
                 _ => None,
             };
 
             let cols = parse_index_cols(parser)?;
             let references_span = parser.consume_keyword(Keyword::REFERENCES)?;
-            let references_table = parser.consume_plain_identifier()?;
+            let references_table = parser.consume_plain_identifier_unrestricted()?;
             let references_cols = parse_cols(parser)?;
             let mut ons = Vec::new();
             while let Some(on) = parser.skip_keyword(Keyword::ON) {
@@ -784,7 +913,7 @@ fn parse_add_alter_specification<'a>(
             };
 
             let name = match &parser.token {
-                Token::Ident(_, kw) if !kw.reserved() => Some(parser.consume_plain_identifier()?),
+                Token::Ident(_, kw) if !kw.reserved() => Some(parser.consume_plain_identifier_unrestricted()?),
                 _ => None,
             };
 
@@ -819,7 +948,7 @@ fn parse_add_alter_specification<'a>(
                 parser.err("IF NOT EXIST is not supported", s);
             }
 
-            let identifier = parser.consume_plain_identifier()?;
+            let identifier = parser.consume_plain_identifier_unrestricted()?;
             let data_type = parse_data_type(parser, false)?;
 
             let mut first = None;
@@ -830,7 +959,7 @@ fn parse_add_alter_specification<'a>(
                 }
                 Token::Ident(_, Keyword::AFTER) => {
                     let after_span = parser.consume_keyword(Keyword::AFTER)?;
-                    let after_col = parser.consume_plain_identifier()?;
+                    let after_col = parser.consume_plain_identifier_unrestricted()?;
                     after = Some((after_span, after_col));
                 }
                 _ => {}
@@ -856,41 +985,52 @@ fn parse_rename_alter_specification<'a>(
 
     match parser.token {
         Token::Ident(_, Keyword::COLUMN) => {
-            parser.consume_keyword(Keyword::COLUMN)?;
-            let old_col_name = parser.consume_plain_identifier()?;
-            parser.consume_keyword(Keyword::TO)?;
-            let new_col_name = parser.consume_plain_identifier()?;
+            let column_span = parser.consume_keyword(Keyword::COLUMN)?;
+            let old_col_name = parser.consume_plain_identifier_unrestricted()?;
+            let to_span = parser.consume_keyword(Keyword::TO)?;
+            let new_col_name = parser.consume_plain_identifier_unrestricted()?;
             Ok(AlterSpecification::RenameColumn {
-                rename_column_span: rename_span
-                    .join_span(&old_col_name)
-                    .join_span(&new_col_name),
+                rename_column_span: rename_span.join_span(&column_span),
                 old_col_name,
+                to_span,
                 new_col_name,
             })
         }
         Token::Ident(_, Keyword::INDEX | Keyword::KEY) => {
             let index_span = parser.consume();
-            let old_index_name = parser.consume_plain_identifier()?;
-            parser.consume_keyword(Keyword::TO)?;
-            let new_index_name = parser.consume_plain_identifier()?;
+            let old_index_name = parser.consume_plain_identifier_unrestricted()?;
+            let to_span = parser.consume_keyword(Keyword::TO)?;
+            let new_index_name = parser.consume_plain_identifier_unrestricted()?;
             Ok(AlterSpecification::RenameIndex {
-                rename_index_span: rename_span
-                    .join_span(&index_span)
-                    .join_span(&old_index_name)
-                    .join_span(&new_index_name),
+                rename_index_span: rename_span.join_span(&index_span),
                 old_index_name,
+                to_span,
                 new_index_name,
+            })
+        }
+        Token::Ident(_, Keyword::CONSTRAINT) => {
+            let constraint_span = parser.consume_keyword(Keyword::CONSTRAINT)?;
+            parser.postgres_only(&constraint_span);
+            let old_constraint_name = parser.consume_plain_identifier_unrestricted()?;
+            let to_span = parser.consume_keyword(Keyword::TO)?;
+            let new_constraint_name = parser.consume_plain_identifier_unrestricted()?;
+            Ok(AlterSpecification::RenameConstraint {
+                rename_constraint_span: rename_span.join_span(&constraint_span),
+                old_constraint_name,
+                to_span,
+                new_constraint_name,
             })
         }
         Token::Ident(_, Keyword::TO) | Token::Ident(_, Keyword::AS) => {
             let to_span = parser.consume();
-            let new_table_name = parser.consume_plain_identifier()?;
+            let new_table_name = parser.consume_plain_identifier_unrestricted()?;
             Ok(AlterSpecification::RenameTo {
-                rename_to_span: rename_span.join_span(&to_span),
+                rename_span,
+                to_span,
                 new_table_name,
             })
         }
-        _ => parser.expected_failure("'COLUMN', 'INDEX' or 'TO'")?,
+        _ => parser.expected_failure("'COLUMN', 'INDEX', 'CONSTRAINT' or 'TO'")?,
     }
 }
 
@@ -899,7 +1039,7 @@ fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<AlterSpecification<'a>,
     match parser.token {
         Token::Ident(_, Keyword::INDEX | Keyword::KEY) => {
             let index_span = parser.consume();
-            let name = parser.consume_plain_identifier()?;
+            let name = parser.consume_plain_identifier_unrestricted()?;
             Ok(AlterSpecification::DropIndex {
                 drop_index_span: drop_span.join_span(&index_span).join_span(&name),
                 name,
@@ -907,7 +1047,7 @@ fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<AlterSpecification<'a>,
         }
         Token::Ident(_, Keyword::FOREIGN) => {
             let foreign_span = parser.consume_keywords(&[Keyword::FOREIGN, Keyword::KEY])?;
-            let name = parser.consume_plain_identifier()?;
+            let name = parser.consume_plain_identifier_unrestricted()?;
             Ok(AlterSpecification::DropForeignKey {
                 drop_foreign_key_span: drop_span.join_span(&foreign_span).join_span(&name),
                 name,
@@ -921,8 +1061,11 @@ fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<AlterSpecification<'a>,
         }
         Token::Ident(_, Keyword::COLUMN) => {
             let drop_column_span = drop_span.join_span(&parser.consume_keyword(Keyword::COLUMN)?);
-            let column = parser.consume_plain_identifier()?;
+            let column = parser.consume_plain_identifier_unrestricted()?;
             let cascade = parser.skip_keyword(Keyword::CASCADE);
+            if let Some(span) = &cascade {
+                parser.postgres_only(span);
+            }
             Ok(AlterSpecification::DropColumn {
                 drop_column_span,
                 column,
@@ -1001,12 +1144,20 @@ impl<'a> Spanned for AlterTable<'a> {
     }
 }
 
-fn parse_alter_table<'a>(
+pub(crate) fn parse_alter_table<'a>(
     parser: &mut Parser<'a, '_>,
     alter_span: Span,
     online: Option<Span>,
     ignore: Option<Span>,
 ) -> Result<AlterTable<'a>, ParseError> {
+    // ONLINE and IGNORE are MariaDB/MySQL-specific
+    if let Some(span) = &online {
+        parser.maria_only(span);
+    }
+    if let Some(span) = &ignore {
+        parser.maria_only(span);
+    }
+
     let table_span = parser.consume_keyword(Keyword::TABLE)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
@@ -1014,205 +1165,227 @@ fn parse_alter_table<'a>(
         None
     };
     let table = parse_qualified_name(parser)?;
-    let d = parser.delimiter.clone();
+    let delimeter_name = parser.lexer.delimiter_name();
     let mut alter_specifications = Vec::new();
-    parser.recovered(d.name(), &|t| t == &d || t == &Token::Eof, |parser| {
-        loop {
-            alter_specifications.push(match parser.token {
-                Token::Ident(_, Keyword::ADD) => parse_add_alter_specification(parser)?,
-                Token::Ident(_, Keyword::MODIFY) => {
-                    let mut modify_span = parser.consume_keyword(Keyword::MODIFY)?;
-                    if let Some(v) = parser.skip_keyword(Keyword::COLUMN) {
-                        modify_span = modify_span.join_span(&v);
-                    }
-                    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-                    } else {
-                        None
-                    };
-                    let col = parser.consume_plain_identifier()?;
-                    let definition = parse_data_type(parser, false)?;
-
-                    let mut first = None;
-                    let mut after = None;
-                    match parser.token {
-                        Token::Ident(_, Keyword::FIRST) => {
-                            first = Some(parser.consume_keyword(Keyword::FIRST)?);
+    parser.recovered(
+        delimeter_name,
+        &|t| matches!(t, Token::Delimiter | Token::Eof),
+        |parser| {
+            loop {
+                alter_specifications.push(match parser.token {
+                    Token::Ident(_, Keyword::ADD) => parse_add_alter_specification(parser)?,
+                    Token::Ident(_, Keyword::MODIFY) => {
+                        let mut modify_span = parser.consume_keyword(Keyword::MODIFY)?;
+                        parser.maria_only(&modify_span);
+                        if let Some(v) = parser.skip_keyword(Keyword::COLUMN) {
+                            modify_span = modify_span.join_span(&v);
                         }
-                        Token::Ident(_, Keyword::AFTER) => {
-                            let after_span = parser.consume_keyword(Keyword::AFTER)?;
-                            let col = parser.consume_plain_identifier()?;
-                            after = Some((after_span, col));
+                        let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+                            Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+                        } else {
+                            None
+                        };
+                        let col = parser.consume_plain_identifier_unrestricted()?;
+                        let definition = parse_data_type(parser, false)?;
+
+                        let mut first = None;
+                        let mut after = None;
+                        match parser.token {
+                            Token::Ident(_, Keyword::FIRST) => {
+                                let first_span = parser.consume_keyword(Keyword::FIRST)?;
+                                parser.maria_only(&first_span);
+                                first = Some(first_span);
+                            }
+                            Token::Ident(_, Keyword::AFTER) => {
+                                let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                                parser.maria_only(&after_span);
+                                let col = parser.consume_plain_identifier_unrestricted()?;
+                                after = Some((after_span, col));
+                            }
+                            _ => {}
                         }
-                        _ => {}
-                    }
 
-                    AlterSpecification::Modify {
-                        modify_span,
-                        if_exists,
-                        col,
-                        definition,
-                        first,
-                        after,
+                        AlterSpecification::Modify {
+                            modify_span,
+                            if_exists,
+                            col,
+                            definition,
+                            first,
+                            after,
+                        }
                     }
-                }
-                Token::Ident(_, Keyword::OWNER) => {
-                    let span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
-                    let owner = parser.consume_plain_identifier()?;
-                    AlterSpecification::OwnerTo { span, owner }
-                }
-                Token::Ident(_, Keyword::DROP) => parse_drop(parser)?,
-                Token::Ident(_, Keyword::ALTER) => {
-                    let span = parser.consume_keywords(&[Keyword::ALTER, Keyword::COLUMN])?;
-                    let column = parser.consume_plain_identifier()?;
+                    Token::Ident(_, Keyword::OWNER) => {
+                        let span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
+                        parser.postgres_only(&span);
+                        let owner = parse_alter_owner(parser)?;
+                        AlterSpecification::OwnerTo { span, owner }
+                    }
+                    Token::Ident(_, Keyword::DROP) => parse_drop(parser)?,
+                    Token::Ident(_, Keyword::ALTER) => {
+                        let span = parser.consume_keywords(&[Keyword::ALTER, Keyword::COLUMN])?;
+                        parser.postgres_only(&span);
+                        let column = parser.consume_plain_identifier_unrestricted()?;
 
-                    let alter_column_action = match parser.token {
-                        Token::Ident(_, Keyword::SET) => {
-                            let set_span = parser.consume();
-                            match parser.token {
-                                Token::Ident(_, Keyword::DEFAULT) => {
-                                    let set_default_span = parser.consume().join_span(&set_span);
-                                    let value = parse_expression(parser, false)?;
-                                    AlterColumnAction::SetDefault {
-                                        set_default_span,
-                                        value,
+                        let alter_column_action = match parser.token {
+                            Token::Ident(_, Keyword::SET) => {
+                                let set_span = parser.consume();
+                                match parser.token {
+                                    Token::Ident(_, Keyword::DEFAULT) => {
+                                        let set_default_span =
+                                            parser.consume().join_span(&set_span);
+                                        let value = parse_expression_unrestricted(parser, false)?;
+                                        AlterColumnAction::SetDefault {
+                                            set_default_span,
+                                            value,
+                                        }
                                     }
+                                    Token::Ident(_, Keyword::NOT) => {
+                                        let set_not_null_span =
+                                            set_span.join_span(&parser.consume_keywords(&[
+                                                Keyword::NOT,
+                                                Keyword::NULL,
+                                            ])?);
+                                        AlterColumnAction::SetNotNull { set_not_null_span }
+                                    }
+                                    _ => parser.expected_failure("'DEFAULT' or 'NOT NULL'")?,
                                 }
-                                Token::Ident(_, Keyword::NOT) => {
-                                    let set_not_null_span = set_span.join_span(
-                                        &parser.consume_keywords(&[Keyword::NOT, Keyword::NULL])?,
-                                    );
-                                    AlterColumnAction::SetNotNull { set_not_null_span }
-                                }
-                                _ => parser.expected_failure("'DEFAULT' or 'NOT NULL'")?,
                             }
-                        }
-                        Token::Ident(_, Keyword::DROP) => {
-                            let set_span = parser.consume();
-                            match parser.token {
-                                Token::Ident(_, Keyword::DEFAULT) => {
-                                    let drop_default_span = parser.consume().join_span(&set_span);
-                                    AlterColumnAction::DropDefault { drop_default_span }
+                            Token::Ident(_, Keyword::DROP) => {
+                                let set_span = parser.consume();
+                                match parser.token {
+                                    Token::Ident(_, Keyword::DEFAULT) => {
+                                        let drop_default_span =
+                                            parser.consume().join_span(&set_span);
+                                        AlterColumnAction::DropDefault { drop_default_span }
+                                    }
+                                    Token::Ident(_, Keyword::NOT) => {
+                                        let drop_not_null_span =
+                                            set_span.join_span(&parser.consume_keywords(&[
+                                                Keyword::NOT,
+                                                Keyword::NULL,
+                                            ])?);
+                                        AlterColumnAction::DropNotNull { drop_not_null_span }
+                                    }
+                                    _ => parser.expected_failure("'DEFAULT' or 'NOT NULL'")?,
                                 }
-                                Token::Ident(_, Keyword::NOT) => {
-                                    let drop_not_null_span = set_span.join_span(
-                                        &parser.consume_keywords(&[Keyword::NOT, Keyword::NULL])?,
-                                    );
-                                    AlterColumnAction::DropNotNull { drop_not_null_span }
-                                }
-                                _ => parser.expected_failure("'DEFAULT' or 'NOT NULL'")?,
                             }
+                            Token::Ident(_, Keyword::TYPE) => {
+                                let type_span = parser.consume();
+                                let type_ = parse_data_type(parser, false)?;
+                                AlterColumnAction::Type { type_span, type_ }
+                            }
+                            _ => parser.expected_failure("alter column action")?,
+                        };
+                        AlterSpecification::AlterColumn {
+                            alter_column_span: span,
+                            column,
+                            alter_column_action,
                         }
-                        Token::Ident(_, Keyword::TYPE) => {
-                            let type_span = parser.consume();
-                            let type_ = parse_data_type(parser, false)?;
-                            AlterColumnAction::Type { type_span, type_ }
-                        }
-                        _ => parser.expected_failure("alter column action")?,
-                    };
-                    AlterSpecification::AlterColumn {
-                        alter_column_span: span,
-                        column,
-                        alter_column_action,
                     }
-                }
-                Token::Ident(_, Keyword::LOCK) => {
-                    let lock_span = parser.consume_keyword(Keyword::LOCK)?;
-                    parser.skip_token(Token::Eq);
-                    let lock = match &parser.token {
-                        Token::Ident(_, Keyword::DEFAULT) => {
-                            AlterLock::Default(parser.consume_keyword(Keyword::DEFAULT)?)
-                        }
-                        Token::Ident(_, Keyword::NONE) => {
-                            AlterLock::None(parser.consume_keyword(Keyword::NONE)?)
-                        }
-                        Token::Ident(_, Keyword::SHARED) => {
-                            AlterLock::Shared(parser.consume_keyword(Keyword::SHARED)?)
-                        }
-                        Token::Ident(_, Keyword::EXCLUSIVE) => {
-                            AlterLock::Exclusive(parser.consume_keyword(Keyword::EXCLUSIVE)?)
-                        }
-                        _ => {
-                            parser.expected_failure("'DEFAULT', 'NONE', 'SHARED' or 'EXCLUSIVE'")?
-                        }
-                    };
-                    AlterSpecification::Lock { lock_span, lock }
-                }
-                Token::Ident(_, Keyword::ALGORITHM) => {
-                    let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
-                    parser.skip_token(Token::Eq);
-                    let algorithm = match &parser.token {
-                        Token::Ident(_, Keyword::DEFAULT) => {
-                            AlterAlgorithm::Default(parser.consume_keyword(Keyword::DEFAULT)?)
-                        }
-                        Token::Ident(_, Keyword::INSTANT) => {
-                            AlterAlgorithm::Instant(parser.consume_keyword(Keyword::INSTANT)?)
-                        }
-                        Token::Ident(_, Keyword::INPLACE) => {
-                            AlterAlgorithm::Inplace(parser.consume_keyword(Keyword::INPLACE)?)
-                        }
-                        Token::Ident(_, Keyword::COPY) => {
-                            AlterAlgorithm::Copy(parser.consume_keyword(Keyword::COPY)?)
-                        }
-                        _ => {
-                            parser.expected_failure("'DEFAULT', 'INSTANT', 'INPLACE' or 'COPY'")?
-                        }
-                    };
-                    AlterSpecification::Algorithm {
-                        algorithm_span,
-                        algorithm,
+                    Token::Ident(_, Keyword::LOCK) => {
+                        let lock_span = parser.consume_keyword(Keyword::LOCK)?;
+                        parser.maria_only(&lock_span);
+                        parser.skip_token(Token::Eq);
+                        let lock = match &parser.token {
+                            Token::Ident(_, Keyword::DEFAULT) => {
+                                AlterLock::Default(parser.consume_keyword(Keyword::DEFAULT)?)
+                            }
+                            Token::Ident(_, Keyword::NONE) => {
+                                AlterLock::None(parser.consume_keyword(Keyword::NONE)?)
+                            }
+                            Token::Ident(_, Keyword::SHARED) => {
+                                AlterLock::Shared(parser.consume_keyword(Keyword::SHARED)?)
+                            }
+                            Token::Ident(_, Keyword::EXCLUSIVE) => {
+                                AlterLock::Exclusive(parser.consume_keyword(Keyword::EXCLUSIVE)?)
+                            }
+                            _ => parser
+                                .expected_failure("'DEFAULT', 'NONE', 'SHARED' or 'EXCLUSIVE'")?,
+                        };
+                        AlterSpecification::Lock { lock_span, lock }
                     }
-                }
-                Token::Ident(_, Keyword::AUTO_INCREMENT) => {
-                    let auto_increment_span = parser.consume_keyword(Keyword::AUTO_INCREMENT)?;
-                    parser.skip_token(Token::Eq);
-                    let (value, value_span) = parser.consume_int()?;
-                    AlterSpecification::AutoIncrement {
-                        auto_increment_span,
-                        value_span,
-                        value,
+                    Token::Ident(_, Keyword::ALGORITHM) => {
+                        let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
+                        parser.maria_only(&algorithm_span);
+                        parser.skip_token(Token::Eq);
+                        let algorithm = match &parser.token {
+                            Token::Ident(_, Keyword::DEFAULT) => {
+                                AlterAlgorithm::Default(parser.consume_keyword(Keyword::DEFAULT)?)
+                            }
+                            Token::Ident(_, Keyword::INSTANT) => {
+                                AlterAlgorithm::Instant(parser.consume_keyword(Keyword::INSTANT)?)
+                            }
+                            Token::Ident(_, Keyword::INPLACE) => {
+                                AlterAlgorithm::Inplace(parser.consume_keyword(Keyword::INPLACE)?)
+                            }
+                            Token::Ident(_, Keyword::COPY) => {
+                                AlterAlgorithm::Copy(parser.consume_keyword(Keyword::COPY)?)
+                            }
+                            _ => parser
+                                .expected_failure("'DEFAULT', 'INSTANT', 'INPLACE' or 'COPY'")?,
+                        };
+                        AlterSpecification::Algorithm {
+                            algorithm_span,
+                            algorithm,
+                        }
                     }
-                }
-                Token::Ident(_, Keyword::RENAME) => parse_rename_alter_specification(parser)?,
-                Token::Ident(_, Keyword::CHANGE) => {
-                    let change_span = parser.consume_keyword(Keyword::CHANGE)?;
-                    let column_span = parser.skip_keyword(Keyword::COLUMN);
+                    Token::Ident(_, Keyword::AUTO_INCREMENT) => {
+                        let auto_increment_span =
+                            parser.consume_keyword(Keyword::AUTO_INCREMENT)?;
+                        parser.maria_only(&auto_increment_span);
+                        parser.skip_token(Token::Eq);
+                        let (value, value_span) = parser.consume_int()?;
+                        AlterSpecification::AutoIncrement {
+                            auto_increment_span,
+                            value_span,
+                            value,
+                        }
+                    }
+                    Token::Ident(_, Keyword::RENAME) => parse_rename_alter_specification(parser)?,
+                    Token::Ident(_, Keyword::CHANGE) => {
+                        let change_span = parser.consume_keyword(Keyword::CHANGE)?;
+                        parser.maria_only(&change_span);
+                        let column_span = parser.skip_keyword(Keyword::COLUMN);
 
-                    let column = parser.consume_plain_identifier()?;
-                    let new_column = parser.consume_plain_identifier()?;
-                    let definition = parse_data_type(parser, false)?;
+                        let column = parser.consume_plain_identifier_unrestricted()?;
+                        let new_column = parser.consume_plain_identifier_unrestricted()?;
+                        let definition = parse_data_type(parser, false)?;
 
-                    let mut first = None;
-                    let mut after = None;
-                    match &parser.token {
-                        Token::Ident(_, Keyword::FIRST) => {
-                            first = Some(parser.consume_keyword(Keyword::FIRST)?);
+                        let mut first = None;
+                        let mut after = None;
+                        match &parser.token {
+                            Token::Ident(_, Keyword::FIRST) => {
+                                let first_span = parser.consume_keyword(Keyword::FIRST)?;
+                                parser.maria_only(&first_span);
+                                first = Some(first_span);
+                            }
+                            Token::Ident(_, Keyword::AFTER) => {
+                                let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                                parser.maria_only(&after_span);
+                                let after_col = parser.consume_plain_identifier_unrestricted()?;
+                                after = Some((after_span, after_col));
+                            }
+                            _ => (),
                         }
-                        Token::Ident(_, Keyword::AFTER) => {
-                            let after_span = parser.consume_keyword(Keyword::AFTER)?;
-                            let after_col = parser.consume_plain_identifier()?;
-                            after = Some((after_span, after_col));
+                        AlterSpecification::Change {
+                            change_span,
+                            column_span,
+                            column,
+                            new_column,
+                            definition,
+                            first,
+                            after,
                         }
-                        _ => (),
                     }
-                    AlterSpecification::Change {
-                        change_span,
-                        column_span,
-                        column,
-                        new_column,
-                        definition,
-                        first,
-                        after,
-                    }
+                    _ => parser.expected_failure("alter specification")?,
+                });
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
                 }
-                _ => parser.expected_failure("alter specification")?,
-            });
-            if parser.skip_token(Token::Comma).is_none() {
-                break;
             }
-        }
-        Ok(())
-    })?;
+            Ok(())
+        },
+    )?;
     Ok(AlterTable {
         alter_span,
         online,
@@ -1222,18 +1395,4 @@ fn parse_alter_table<'a>(
         table,
         alter_specifications,
     })
-}
-
-pub(crate) fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
-    let alter_span = parser.consume_keyword(Keyword::ALTER)?;
-
-    let online = parser.skip_keyword(Keyword::ONLINE);
-    let ignore = parser.skip_keyword(Keyword::IGNORE);
-
-    match &parser.token {
-        Token::Ident(_, Keyword::TABLE) => Ok(Statement::AlterTable(parse_alter_table(
-            parser, alter_span, online, ignore,
-        )?)),
-        _ => parser.expected_failure("alterable"),
-    }
 }

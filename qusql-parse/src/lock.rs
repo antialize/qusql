@@ -86,13 +86,13 @@ pub(crate) fn parse_lock<'a>(parser: &mut Parser<'a, '_>) -> Result<Lock<'a>, Pa
         let table_name = parse_qualified_name(parser)?;
 
         let alias = if parser.skip_keyword(Keyword::AS).is_some() {
-            Some(parser.consume_plain_identifier()?)
+            Some(parser.consume_plain_identifier_unrestricted()?)
         } else if matches!(
             parser.token,
             Token::Ident(_, kw) if !matches!(kw, Keyword::READ | Keyword::WRITE | Keyword::LOW_PRIORITY)
         ) {
             // Optional AS: consume identifier if it's not a lock type keyword
-            Some(parser.consume_plain_identifier()?)
+            Some(parser.consume_plain_identifier_unrestricted()?)
         } else {
             None
         };

@@ -13,18 +13,23 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
-    alter::{AlterTable, parse_alter},
+    AlterOperatorFamily, AlterRole, AlterTable, CreateIndex, CreateOperator, CreateRole,
+    CreateTrigger, DropOperatorClass, DropOperatorFamily, Identifier, QualifiedName, RenameTable,
+    Span, Spanned, WithQuery,
+    alter_role::parse_alter_role,
+    alter_table::parse_alter_table,
     create::{
-        CreateDatabase, CreateFunction, CreateIndex, CreateTable, CreateTrigger, CreateTypeEnum,
-        CreateView, parse_create,
+        CreateDatabase, CreateSchema, CreateSequence, CreateServer, CreateTypeEnum, parse_create,
     },
+    create_function::CreateFunction,
+    create_table::CreateTable,
+    create_view::CreateView,
     delete::{Delete, parse_delete},
     drop::{
-        DropDatabase, DropEvent, DropFunction, DropIndex, DropProcedure, DropServer, DropTable,
-        DropTrigger, DropView, parse_drop,
+        DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
+        DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView, parse_drop,
     },
-    expression::{Expression, parse_expression},
+    expression::{Expression, parse_expression_unrestricted},
     flush::{Flush, parse_flush},
     insert_replace::{InsertReplace, parse_insert_replace},
     keywords::Keyword,
@@ -43,6 +48,7 @@ use crate::{
     span::OptSpanned,
     truncate::{TruncateTable, parse_truncate_table},
     update::{Update, parse_update},
+    values::parse_values,
     with_query::parse_with_query,
 };
 
@@ -64,7 +70,7 @@ fn parse_set<'a>(parser: &mut Parser<'a, '_>) -> Result<Set<'a>, ParseError> {
     loop {
         let name = parse_qualified_name(parser)?;
         parser.consume_token(Token::Eq)?;
-        let val = parse_expression(parser, false)?;
+        let val = parse_expression_unrestricted(parser, false)?;
         values.push((name, val));
         if parser.skip_token(Token::Comma).is_none() {
             break;
@@ -78,7 +84,7 @@ fn parse_statement_list_inner<'a>(
     out: &mut Vec<Statement<'a>>,
 ) -> Result<(), ParseError> {
     loop {
-        while parser.skip_token(Token::SemiColon).is_some() {}
+        while parser.skip_token(Token::Delimiter).is_some() {}
         let stdin = match parse_statement(parser)? {
             Some(v) => {
                 let stdin = v.reads_from_stdin();
@@ -87,14 +93,14 @@ fn parse_statement_list_inner<'a>(
             }
             None => break,
         };
-        if !matches!(parser.token, Token::SemiColon) {
+        if !matches!(parser.token, Token::Delimiter) {
             break;
         }
         if stdin {
             let (s, span) = parser.read_from_stdin_and_next();
-            out.push(Statement::Stdin(s, span));
+            out.push(Statement::Stdin(Box::new(Stdin { input: s, span })));
         } else {
-            parser.consume_token(Token::SemiColon)?;
+            parser.consume_token(Token::Delimiter)?;
         }
     }
     Ok(())
@@ -104,34 +110,41 @@ fn parse_statement_list<'a>(
     parser: &mut Parser<'a, '_>,
     out: &mut Vec<Statement<'a>>,
 ) -> Result<(), ParseError> {
-    let old_delimiter = core::mem::replace(&mut parser.delimiter, Token::SemiColon);
+    let old_delimiter = parser.lexer.replace_delimitor(None);
     let r = parse_statement_list_inner(parser, out);
-    parser.delimiter = old_delimiter;
+    parser.lexer.replace_delimitor(old_delimiter);
     r
 }
 
-fn parse_begin(parser: &mut Parser<'_, '_>) -> Result<Span, ParseError> {
-    parser.consume_keyword(Keyword::BEGIN)
+fn parse_begin(parser: &mut Parser<'_, '_>) -> Result<Begin, ParseError> {
+    Ok(Begin {
+        span: parser.consume_keyword(Keyword::BEGIN)?,
+    })
 }
 
-fn parse_end(parser: &mut Parser<'_, '_>) -> Result<Span, ParseError> {
-    parser.consume_keyword(Keyword::END)
+fn parse_end(parser: &mut Parser<'_, '_>) -> Result<End, ParseError> {
+    Ok(End {
+        span: parser.consume_keyword(Keyword::END)?,
+    })
 }
 
-fn parse_start<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
-    Ok(Statement::StartTransaction(parser.consume_keywords(&[
-        Keyword::START,
-        Keyword::TRANSACTION,
-    ])?))
+fn parse_start_transaction<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<StartTransaction, ParseError> {
+    Ok(StartTransaction {
+        span: parser.consume_keywords(&[Keyword::START, Keyword::TRANSACTION])?,
+    })
 }
 
-fn parse_commit(parser: &mut Parser<'_, '_>) -> Result<Span, ParseError> {
-    parser.consume_keyword(Keyword::COMMIT)
+fn parse_commit(parser: &mut Parser<'_, '_>) -> Result<Commit, ParseError> {
+    Ok(Commit {
+        span: parser.consume_keyword(Keyword::COMMIT)?,
+    })
 }
 
-fn parse_block<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<Statement<'a>>, ParseError> {
-    parser.consume_keyword(Keyword::BEGIN)?;
-    let mut ans = Vec::new();
+fn parse_block<'a>(parser: &mut Parser<'a, '_>) -> Result<Block<'a>, ParseError> {
+    let begin_span = parser.consume_keyword(Keyword::BEGIN)?;
+    let mut statements = Vec::new();
     parser.recovered(
         "'END' | 'EXCEPTION'",
         &|e| {
@@ -140,18 +153,22 @@ fn parse_block<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<Statement<'a>>, Pa
                 Token::Ident(_, Keyword::END) | Token::Ident(_, Keyword::EXCEPTION)
             )
         },
-        |parser| parse_statement_list(parser, &mut ans),
+        |parser| parse_statement_list(parser, &mut statements),
     )?;
     if let Some(_exception_span) = parser.skip_keyword(Keyword::EXCEPTION) {
         while let Some(_when_span) = parser.skip_keyword(Keyword::WHEN) {
-            parser.consume_plain_identifier()?;
+            parser.consume_plain_identifier_unrestricted()?;
             parser.consume_keyword(Keyword::THEN)?;
-            parse_expression(parser, true)?;
+            parse_expression_unrestricted(parser, true)?;
             parser.consume_token(Token::SemiColon)?;
         }
     }
-    parser.consume_keyword(Keyword::END)?;
-    Ok(ans)
+    let end_span = parser.consume_keyword(Keyword::END)?;
+    Ok(Block {
+        begin_span,
+        statements,
+        end_span,
+    })
 }
 
 /// Condition in if statement
@@ -207,7 +224,7 @@ fn parse_if<'a>(parser: &mut Parser<'a, '_>) -> Result<If<'a>, ParseError> {
         "'END'",
         &|e| matches!(e, Token::Ident(_, Keyword::END)),
         |parser| {
-            let search_condition = parse_expression(parser, false)?;
+            let search_condition = parse_expression_unrestricted(parser, false)?;
             let then_span = parser.consume_keyword(Keyword::THEN)?;
             let mut then = Vec::new();
             parse_statement_list(parser, &mut then)?;
@@ -218,7 +235,7 @@ fn parse_if<'a>(parser: &mut Parser<'a, '_>) -> Result<If<'a>, ParseError> {
                 then,
             });
             while let Some(elseif_span) = parser.skip_keyword(Keyword::ELSEIF) {
-                let search_condition = parse_expression(parser, false)?;
+                let search_condition = parse_expression_unrestricted(parser, false)?;
                 let then_span = parser.consume_keyword(Keyword::THEN)?;
                 let mut then = Vec::new();
                 parse_statement_list(parser, &mut then)?;
@@ -262,7 +279,7 @@ impl<'a> Spanned for Return<'a> {
 
 fn parse_return<'a>(parser: &mut Parser<'a, '_>) -> Result<Return<'a>, ParseError> {
     let return_span = parser.consume_keyword(Keyword::RETURN)?;
-    let expr = parse_expression(parser, false)?;
+    let expr = parse_expression_unrestricted(parser, false)?;
     Ok(Return { return_span, expr })
 }
 
@@ -327,7 +344,7 @@ fn parse_signal<'a>(parser: &mut Parser<'a, '_>) -> Result<Signal<'a>, ParseErro
     let signal_span = parser.consume_keyword(Keyword::SIGNAL)?;
     let sqlstate_span = parser.consume_keyword(Keyword::SQLSTATE)?;
     let value_span = parser.skip_keyword(Keyword::VALUE);
-    let sql_state = parse_expression(parser, false)?;
+    let sql_state = parse_expression_unrestricted(parser, false)?;
     let mut sets = Vec::new();
     let set_span = parser.skip_keyword(Keyword::SET);
     if set_span.is_some() {
@@ -372,7 +389,7 @@ fn parse_signal<'a>(parser: &mut Parser<'a, '_>) -> Result<Signal<'a>, ParseErro
                 _ => parser.expected_failure("Condition information item name")?,
             };
             let eq_span = parser.consume_token(Token::Eq)?;
-            let value = parse_expression(parser, false)?;
+            let value = parse_expression_unrestricted(parser, false)?;
             sets.push((v, eq_span, value));
             if parser.skip_token(Token::Comma).is_none() {
                 break;
@@ -389,92 +406,374 @@ fn parse_signal<'a>(parser: &mut Parser<'a, '_>) -> Result<Signal<'a>, ParseErro
     })
 }
 
+/// Block statement, for example in stored procedures
+#[derive(Clone, Debug)]
+pub struct Block<'a> {
+    /// Span of "BEGIN"
+    pub begin_span: Span,
+    /// Statements in block
+    pub statements: Vec<Statement<'a>>,
+    /// Span of "END"
+    pub end_span: Span,
+}
+
+impl Spanned for Block<'_> {
+    fn span(&self) -> Span {
+        self.begin_span
+            .join_span(&self.statements)
+            .join_span(&self.end_span)
+    }
+}
+
+/// Begin statement
+#[derive(Clone, Debug)]
+pub struct Begin {
+    /// Span of "BEGIN"
+    pub span: Span,
+}
+
+impl Spanned for Begin {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+}
+
+/// End statement
+#[derive(Clone, Debug)]
+pub struct End {
+    /// Span of "END"
+    pub span: Span,
+}
+
+impl Spanned for End {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+}
+
+/// Commit statement
+#[derive(Clone, Debug)]
+pub struct Commit {
+    /// Span of "COMMIT"
+    pub span: Span,
+}
+
+impl Spanned for Commit {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+}
+
+/// Start transaction statement
+#[derive(Clone, Debug)]
+pub struct StartTransaction {
+    /// Span of "START TRANSACTION"
+    pub span: Span,
+}
+
+impl Spanned for StartTransaction {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+}
+
+/// Do statement
+#[derive(Clone, Debug)]
+pub struct Do<'a> {
+    /// Span of "DO"
+    pub do_span: Span,
+    /// Statements in "DO"
+    pub statements: Vec<Statement<'a>>,
+}
+
+impl<'a> Spanned for Do<'a> {
+    fn span(&self) -> Span {
+        self.do_span.join_span(&self.statements)
+    }
+}
+
+/// Invalid statement produced after recovering from parse error
+#[derive(Clone, Debug)]
+pub struct Invalid {
+    /// Span of invalid statement
+    pub span: Span,
+}
+
+impl Spanned for Invalid {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+}
+
+/// Stdin statement, used to represent input from stdin after a COPY statement
+#[derive(Clone, Debug)]
+pub struct Stdin<'a> {
+    /// The input from stdin
+    pub input: &'a str,
+    /// Span of the input
+    pub span: Span,
+}
+
+impl Spanned for Stdin<'_> {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+}
+
+/// ALTER SCHEMA statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct AlterSchema<'a> {
+    /// Span of "ALTER SCHEMA"
+    pub alter_schema_span: Span,
+    /// The schema name
+    pub name: QualifiedName<'a>,
+    /// The action (RENAME TO, OWNER TO)
+    pub action: AlterSchemaAction<'a>,
+}
+
+#[derive(Clone, Debug)]
+pub enum AlterSchemaAction<'a> {
+    /// RENAME TO new_name
+    RenameTo {
+        rename_to_span: Span,
+        new_name: QualifiedName<'a>,
+    },
+    /// OWNER TO new_owner
+    OwnerTo {
+        owner_to_span: Span,
+        new_owner: crate::alter_table::AlterTableOwner<'a>,
+    },
+}
+
+impl<'a> Spanned for AlterSchemaAction<'a> {
+    fn span(&self) -> Span {
+        match self {
+            AlterSchemaAction::RenameTo {
+                rename_to_span,
+                new_name,
+            } => rename_to_span.join_span(new_name),
+            AlterSchemaAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            } => owner_to_span.join_span(new_owner),
+        }
+    }
+}
+
+impl<'a> Spanned for AlterSchema<'a> {
+    fn span(&self) -> Span {
+        self.alter_schema_span
+            .join_span(&self.name)
+            .join_span(&self.action)
+    }
+}
+
+/// Parse ALTER SCHEMA statement (PostgreSQL)
+pub(crate) fn parse_alter_schema<'a>(
+    parser: &mut Parser<'a, '_>,
+    alter_schema_span: Span,
+) -> Result<AlterSchema<'a>, ParseError> {
+    parser.postgres_only(&alter_schema_span);
+    let name = parse_qualified_name(parser)?;
+    let action = match &parser.token {
+        Token::Ident(_, Keyword::RENAME) => {
+            let rename_to_span = parser.consume_keywords(&[Keyword::RENAME, Keyword::TO])?;
+            let new_name = parse_qualified_name(parser)?;
+            AlterSchemaAction::RenameTo {
+                rename_to_span,
+                new_name,
+            }
+        }
+        Token::Ident(_, Keyword::OWNER) => {
+            let owner_to_span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
+            let new_owner = crate::alter_table::parse_alter_owner(parser)?;
+            AlterSchemaAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            }
+        }
+        _ => parser.expected_failure("'RENAME TO' or 'OWNER TO' after ALTER SCHEMA ...")?,
+    };
+    Ok(AlterSchema {
+        alter_schema_span,
+        name,
+        action,
+    })
+}
+
+pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
+    let alter_span = parser.consume_keyword(Keyword::ALTER)?;
+    let online = parser.skip_keyword(Keyword::ONLINE);
+    let ignore = parser.skip_keyword(Keyword::IGNORE);
+
+    match &parser.token {
+        Token::Ident(_, Keyword::SCHEMA) => {
+            let schema_span = parser.consume_keyword(Keyword::SCHEMA)?;
+            Ok(Statement::AlterSchema(Box::new(parse_alter_schema(
+                parser,
+                alter_span.join_span(&schema_span),
+            )?)))
+        }
+        Token::Ident(_, Keyword::TABLE) => Ok(Statement::AlterTable(Box::new(parse_alter_table(
+            parser, alter_span, online, ignore,
+        )?))),
+        Token::Ident(_, Keyword::ROLE) => Ok(Statement::AlterRole(Box::new(parse_alter_role(
+            parser, alter_span,
+        )?))),
+        Token::Ident(_, Keyword::OPERATOR) => {
+            let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+            match &parser.token {
+                Token::Ident(_, Keyword::CLASS) => {
+                    let class_span = parser.consume_keyword(Keyword::CLASS)?;
+                    Ok(Statement::AlterOperatorClass(Box::new(
+                        crate::operator::parse_alter_operator_class(
+                            parser,
+                            alter_span.join_span(&operator_span).join_span(&class_span),
+                        )?,
+                    )))
+                }
+                Token::Ident(_, Keyword::FAMILY) => {
+                    let family_span = parser.consume_keyword(Keyword::FAMILY)?;
+                    Ok(Statement::AlterOperatorFamily(Box::new(
+                        crate::operator::parse_alter_operator_family(
+                            parser,
+                            alter_span.join_span(&operator_span).join_span(&family_span),
+                        )?,
+                    )))
+                }
+                _ => Ok(Statement::AlterOperator(Box::new(
+                    crate::operator::parse_alter_operator(
+                        parser,
+                        alter_span.join_span(&operator_span),
+                    )?,
+                ))),
+            }
+        }
+        _ => parser.expected_failure("alterable"),
+    }
+}
+
 /// SQL statement
-#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
-    CreateIndex(CreateIndex<'a>),
-    CreateTable(CreateTable<'a>),
-    CreateView(CreateView<'a>),
-    CreateTrigger(CreateTrigger<'a>),
-    CreateFunction(CreateFunction<'a>),
-    CreateDatabase(CreateDatabase<'a>),
-    Select(Select<'a>),
-    Delete(Delete<'a>),
-    InsertReplace(InsertReplace<'a>),
-    Update(Update<'a>),
-    Unlock(Unlock),
-    DropIndex(DropIndex<'a>),
-    DropTable(DropTable<'a>),
-    DropFunction(DropFunction<'a>),
-    DropProcedure(DropProcedure<'a>),
-    DropEvent(DropEvent<'a>),
-    DropDatabase(DropDatabase<'a>),
-    DropServer(DropServer<'a>),
-    DropTrigger(DropTrigger<'a>),
-    DropView(DropView<'a>),
-    Set(Set<'a>),
-    Signal(Signal<'a>),
-    Kill(Kill<'a>),
-    ShowTables(ShowTables<'a>),
-    ShowDatabases(ShowDatabases),
-    ShowProcessList(ShowProcessList),
-    ShowVariables(ShowVariables<'a>),
-    ShowStatus(ShowStatus<'a>),
-    ShowColumns(ShowColumns<'a>),
-    ShowCreateTable(ShowCreateTable<'a>),
-    ShowCreateDatabase(ShowCreateDatabase<'a>),
-    ShowCreateView(ShowCreateView<'a>),
-    ShowCharacterSet(ShowCharacterSet<'a>),
-    ShowCollation(ShowCollation<'a>),
-    ShowEngines(ShowEngines),
-    AlterTable(AlterTable<'a>),
-    Block(Vec<Statement<'a>>), //TODO we should include begin and end
-    Begin(Span),
-    End(Span),
-    Commit(Span),
-    StartTransaction(Span),
-    If(If<'a>),
+    AlterSchema(Box<AlterSchema<'a>>),
+    CreateIndex(Box<CreateIndex<'a>>),
+    CreateTable(Box<CreateTable<'a>>),
+    CreateView(Box<CreateView<'a>>),
+    CreateTrigger(Box<CreateTrigger<'a>>),
+    CreateFunction(Box<CreateFunction<'a>>),
+    CreateDatabase(Box<CreateDatabase<'a>>),
+    CreateSchema(Box<CreateSchema<'a>>),
+    CreateSequence(Box<CreateSequence<'a>>),
+    CreateServer(Box<CreateServer<'a>>),
+    CreateRole(Box<CreateRole<'a>>),
+    CreateOperator(Box<CreateOperator<'a>>),
+    CreateTypeEnum(Box<CreateTypeEnum<'a>>),
+    CreateOperatorClass(Box<crate::operator::CreateOperatorClass<'a>>),
+    CreateOperatorFamily(Box<crate::operator::CreateOperatorFamily<'a>>),
+    AlterOperator(Box<crate::operator::AlterOperator<'a>>),
+    AlterOperatorClass(Box<crate::operator::AlterOperatorClass<'a>>),
+    Select(Box<Select<'a>>),
+    Delete(Box<Delete<'a>>),
+    InsertReplace(Box<InsertReplace<'a>>),
+    Update(Box<Update<'a>>),
+    Unlock(Box<Unlock>),
+    DropIndex(Box<DropIndex<'a>>),
+    DropTable(Box<DropTable<'a>>),
+    DropFunction(Box<DropFunction<'a>>),
+    DropProcedure(Box<DropProcedure<'a>>),
+    DropSequence(Box<DropSequence<'a>>),
+    DropEvent(Box<DropEvent<'a>>),
+    DropDatabase(Box<DropDatabase<'a>>),
+    DropServer(Box<DropServer<'a>>),
+    DropTrigger(Box<DropTrigger<'a>>),
+    DropView(Box<DropView<'a>>),
+    DropExtension(Box<DropExtension<'a>>),
+    DropOperator(Box<DropOperator<'a>>),
+    DropOperatorFamily(Box<DropOperatorFamily<'a>>),
+    DropOperatorClass(Box<DropOperatorClass<'a>>),
+    DropDomain(Box<DropDomain<'a>>),
+    Set(Box<Set<'a>>),
+    Signal(Box<Signal<'a>>),
+    Kill(Box<Kill<'a>>),
+    ShowTables(Box<ShowTables<'a>>),
+    ShowDatabases(Box<ShowDatabases>),
+    ShowProcessList(Box<ShowProcessList>),
+    ShowVariables(Box<ShowVariables<'a>>),
+    ShowStatus(Box<ShowStatus<'a>>),
+    ShowColumns(Box<ShowColumns<'a>>),
+    ShowCreateTable(Box<ShowCreateTable<'a>>),
+    ShowCreateDatabase(Box<ShowCreateDatabase<'a>>),
+    ShowCreateView(Box<ShowCreateView<'a>>),
+    ShowCharacterSet(Box<ShowCharacterSet<'a>>),
+    ShowCollation(Box<ShowCollation<'a>>),
+    ShowEngines(Box<ShowEngines>),
+    AlterTable(Box<AlterTable<'a>>),
+    AlterRole(Box<AlterRole<'a>>),
+    AlterOperatorFamily(Box<AlterOperatorFamily<'a>>),
+    Block(Box<Block<'a>>),
+    Begin(Box<Begin>),
+    End(Box<End>),
+    Commit(Box<Commit>),
+    StartTransaction(Box<StartTransaction>),
+    If(Box<If<'a>>),
     /// Invalid statement produced after recovering from parse error
-    Invalid(Span),
-    Lock(Lock<'a>),
-    Union(Union<'a>),
-    Case(CaseStatement<'a>),
-    Copy(Copy<'a>),
-    Stdin(&'a str, Span),
-    CreateTypeEnum(CreateTypeEnum<'a>),
-    Do(Vec<Statement<'a>>),
-    TruncateTable(TruncateTable<'a>),
-    RenameTable(RenameTable<'a>),
-    WithQuery(WithQuery<'a>),
-    Return(Return<'a>),
-    Flush(Flush<'a>),
+    Invalid(Box<Invalid>),
+    Lock(Box<Lock<'a>>),
+    Union(Box<Union<'a>>),
+    Case(Box<CaseStatement<'a>>),
+    Copy(Box<Copy<'a>>),
+    Stdin(Box<Stdin<'a>>),
+    Do(Box<Do<'a>>),
+    TruncateTable(Box<TruncateTable<'a>>),
+    RenameTable(Box<RenameTable<'a>>),
+    WithQuery(Box<WithQuery<'a>>),
+    Return(Box<Return<'a>>),
+    Flush(Box<Flush<'a>>),
+    /// PostgreSQL VALUES statement
+    Values(Box<crate::values::Values<'a>>),
 }
 
 impl<'a> Spanned for Statement<'a> {
     fn span(&self) -> Span {
         match &self {
+            Statement::AlterOperator(v) => v.span(),
+            Statement::AlterSchema(v) => v.span(),
             Statement::CreateIndex(v) => v.span(),
             Statement::CreateTable(v) => v.span(),
             Statement::CreateView(v) => v.span(),
             Statement::CreateTrigger(v) => v.span(),
             Statement::CreateFunction(v) => v.span(),
             Statement::CreateDatabase(v) => v.span(),
+            Statement::CreateSchema(v) => v.span(),
+            Statement::CreateSequence(v) => v.span(),
+            Statement::CreateServer(v) => v.span(),
+            Statement::CreateRole(v) => v.span(),
+            Statement::CreateOperator(v) => v.span(),
             Statement::Select(v) => v.span(),
             Statement::Delete(v) => v.span(),
             Statement::InsertReplace(v) => v.span(),
             Statement::Update(v) => v.span(),
             Statement::Unlock(v) => v.span(),
-            Statement::DropIndex(v) => v.span(),
-            Statement::DropTable(v) => v.span(),
-            Statement::DropFunction(v) => v.span(),
-            Statement::DropProcedure(v) => v.span(),
-            Statement::DropEvent(v) => v.span(),
             Statement::DropDatabase(v) => v.span(),
+            Statement::DropDomain(v) => v.span(),
+            Statement::DropEvent(v) => v.span(),
+            Statement::DropExtension(v) => v.span(),
+            Statement::DropFunction(v) => v.span(),
+            Statement::DropIndex(v) => v.span(),
+            Statement::DropOperator(v) => v.span(),
+            Statement::DropOperatorClass(v) => v.span(),
+            Statement::AlterOperatorClass(v) => v.span(),
+            Statement::DropProcedure(v) => v.span(),
+            Statement::DropSequence(v) => v.span(),
             Statement::DropServer(v) => v.span(),
+            Statement::DropTable(v) => v.span(),
             Statement::DropTrigger(v) => v.span(),
             Statement::DropView(v) => v.span(),
             Statement::Set(v) => v.span(),
+            Statement::AlterOperatorFamily(v) => v.span(),
+            Statement::DropOperatorFamily(v) => v.span(),
+            Statement::AlterRole(v) => v.span(),
             Statement::AlterTable(v) => v.span(),
             Statement::Block(v) => v.opt_span().expect("Span of block"),
             Statement::If(v) => v.span(),
@@ -483,12 +782,13 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Union(v) => v.span(),
             Statement::Case(v) => v.span(),
             Statement::Copy(v) => v.span(),
-            Statement::Stdin(_, s) => s.clone(),
-            Statement::Begin(s) => s.clone(),
-            Statement::End(s) => s.clone(),
-            Statement::Commit(s) => s.clone(),
-            Statement::StartTransaction(s) => s.clone(),
+            Statement::Stdin(v) => v.span(),
+            Statement::Begin(v) => v.span(),
+            Statement::End(v) => v.span(),
+            Statement::Commit(v) => v.span(),
+            Statement::StartTransaction(v) => v.span(),
             Statement::CreateTypeEnum(v) => v.span(),
+            Statement::CreateOperatorClass(v) => v.span(),
             Statement::Do(v) => v.opt_span().expect("Span of block"),
             Statement::TruncateTable(v) => v.span(),
             Statement::RenameTable(v) => v.span(),
@@ -509,6 +809,8 @@ impl<'a> Spanned for Statement<'a> {
             Statement::ShowCollation(v) => v.span(),
             Statement::ShowEngines(v) => v.span(),
             Statement::Flush(v) => v.span(),
+            Statement::CreateOperatorFamily(v) => v.span(),
+            Statement::Values(v) => v.span(),
         }
     }
 }
@@ -529,51 +831,77 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::CREATE) => Some(parse_create(parser)?),
         Token::Ident(_, Keyword::DROP) => Some(parse_drop(parser)?),
         Token::Ident(_, Keyword::SELECT) | Token::LParen => Some(parse_compound_query(parser)?),
-        Token::Ident(_, Keyword::DELETE) => Some(Statement::Delete(parse_delete(parser)?)),
-        Token::Ident(_, Keyword::INSERT | Keyword::REPLACE) => {
-            Some(Statement::InsertReplace(parse_insert_replace(parser)?))
+        Token::Ident(_, Keyword::VALUES) => {
+            Some(Statement::Values(Box::new(parse_values(parser)?)))
         }
-        Token::Ident(_, Keyword::UPDATE) => Some(Statement::Update(parse_update(parser)?)),
-        Token::Ident(_, Keyword::SET) => Some(Statement::Set(parse_set(parser)?)),
-        Token::Ident(_, Keyword::SIGNAL) => Some(Statement::Signal(parse_signal(parser)?)),
-        Token::Ident(_, Keyword::KILL) => Some(Statement::Kill(parse_kill(parser)?)),
+        Token::Ident(_, Keyword::DELETE) => {
+            Some(Statement::Delete(Box::new(parse_delete(parser)?)))
+        }
+        Token::Ident(_, Keyword::INSERT | Keyword::REPLACE) => Some(Statement::InsertReplace(
+            Box::new(parse_insert_replace(parser)?),
+        )),
+        Token::Ident(_, Keyword::UPDATE) => {
+            Some(Statement::Update(Box::new(parse_update(parser)?)))
+        }
+        Token::Ident(_, Keyword::SET) => Some(Statement::Set(Box::new(parse_set(parser)?))),
+        Token::Ident(_, Keyword::SIGNAL) => {
+            Some(Statement::Signal(Box::new(parse_signal(parser)?)))
+        }
+        Token::Ident(_, Keyword::KILL) => Some(Statement::Kill(Box::new(parse_kill(parser)?))),
         Token::Ident(_, Keyword::SHOW) => Some(parse_show(parser)?),
         Token::Ident(_, Keyword::BEGIN) => Some(if parser.permit_compound_statements {
-            Statement::Block(parse_block(parser)?)
+            Statement::Block(Box::new(parse_block(parser)?))
         } else {
-            Statement::Begin(parse_begin(parser)?)
+            Statement::Begin(Box::new(parse_begin(parser)?))
         }),
         Token::Ident(_, Keyword::END) if !parser.permit_compound_statements => {
-            Some(Statement::End(parse_end(parser)?))
+            Some(Statement::End(Box::new(parse_end(parser)?)))
         }
-        Token::Ident(_, Keyword::START) => Some(parse_start(parser)?),
-        Token::Ident(_, Keyword::COMMIT) => Some(Statement::Commit(parse_commit(parser)?)),
-        Token::Ident(_, Keyword::IF) => Some(Statement::If(parse_if(parser)?)),
-        Token::Ident(_, Keyword::RETURN) => Some(Statement::Return(parse_return(parser)?)),
+        Token::Ident(_, Keyword::START) => Some(Statement::StartTransaction(Box::new(
+            parse_start_transaction(parser)?,
+        ))),
+        Token::Ident(_, Keyword::COMMIT) => {
+            Some(Statement::Commit(Box::new(parse_commit(parser)?)))
+        }
+        Token::Ident(_, Keyword::IF) => Some(Statement::If(Box::new(parse_if(parser)?))),
+        Token::Ident(_, Keyword::RETURN) => {
+            Some(Statement::Return(Box::new(parse_return(parser)?)))
+        }
         Token::Ident(_, Keyword::ALTER) => Some(parse_alter(parser)?),
-        Token::Ident(_, Keyword::CASE) => Some(Statement::Case(parse_case_statement(parser)?)),
-        Token::Ident(_, Keyword::COPY) => Some(Statement::Copy(parse_copy_statement(parser)?)),
+        Token::Ident(_, Keyword::CASE) => {
+            Some(Statement::Case(Box::new(parse_case_statement(parser)?)))
+        }
+        Token::Ident(_, Keyword::COPY) => {
+            Some(Statement::Copy(Box::new(parse_copy_statement(parser)?)))
+        }
         Token::Ident(_, Keyword::DO) => Some(parse_do(parser)?),
-        Token::Ident(_, Keyword::LOCK) => Some(Statement::Lock(parse_lock(parser)?)),
-        Token::Ident(_, Keyword::UNLOCK) => Some(Statement::Unlock(parse_unlock(parser)?)),
-        Token::Ident(_, Keyword::TRUNCATE) => {
-            Some(Statement::TruncateTable(parse_truncate_table(parser)?))
+        Token::Ident(_, Keyword::LOCK) => Some(Statement::Lock(Box::new(parse_lock(parser)?))),
+        Token::Ident(_, Keyword::UNLOCK) => {
+            Some(Statement::Unlock(Box::new(parse_unlock(parser)?)))
         }
-        Token::Ident(_, Keyword::RENAME) => {
-            Some(Statement::RenameTable(parse_rename_table(parser)?))
+        Token::Ident(_, Keyword::TRUNCATE) => Some(Statement::TruncateTable(Box::new(
+            parse_truncate_table(parser)?,
+        ))),
+        Token::Ident(_, Keyword::RENAME) => Some(Statement::RenameTable(Box::new(
+            parse_rename_table(parser)?,
+        ))),
+        Token::Ident(_, Keyword::WITH) => {
+            Some(Statement::WithQuery(Box::new(parse_with_query(parser)?)))
         }
-        Token::Ident(_, Keyword::WITH) => Some(Statement::WithQuery(parse_with_query(parser)?)),
-        Token::Ident(_, Keyword::FLUSH) => Some(Statement::Flush(parse_flush(parser)?)),
+        Token::Ident(_, Keyword::FLUSH) => Some(Statement::Flush(Box::new(parse_flush(parser)?))),
         _ => None,
     })
 }
 
 pub(crate) fn parse_do<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
-    parser.consume_keyword(Keyword::DO)?;
+    let do_span = parser.consume_keyword(Keyword::DO)?;
     parser.consume_token(Token::DoubleDollar)?;
     let block = parse_block(parser)?;
     parser.consume_token(Token::DoubleDollar)?;
-    Ok(Statement::Do(block))
+    Ok(Statement::Do(Box::new(Do {
+        do_span,
+        statements: block.statements,
+    })))
 }
 
 /// When part of case statement
@@ -604,7 +932,7 @@ pub struct CaseStatement<'a> {
     /// Span of "CASE"
     pub case_span: Span,
     /// Value to match against
-    pub value: Option<Box<Expression<'a>>>,
+    pub value: Option<Expression<'a>>,
     /// List of whens
     pub whens: Vec<WhenStatement<'a>>,
     /// Span of "ELSE" and statement to execute if specified
@@ -628,7 +956,7 @@ pub(crate) fn parse_case_statement<'a>(
 ) -> Result<CaseStatement<'a>, ParseError> {
     let case_span = parser.consume_keyword(Keyword::CASE)?;
     let value = if !matches!(parser.token, Token::Ident(_, Keyword::WHEN)) {
-        Some(Box::new(parse_expression(parser, false)?))
+        Some(parse_expression_unrestricted(parser, false)?)
     } else {
         None
     };
@@ -641,7 +969,7 @@ pub(crate) fn parse_case_statement<'a>(
         |parser| {
             loop {
                 let when_span = parser.consume_keyword(Keyword::WHEN)?;
-                let when = parse_expression(parser, false)?;
+                let when = parse_expression_unrestricted(parser, false)?;
                 let then_span = parser.consume_keyword(Keyword::THEN)?;
                 let mut then = Vec::new();
                 parse_statement_list(parser, &mut then)?;
@@ -677,7 +1005,7 @@ pub(crate) fn parse_copy_statement<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<Copy<'a>, ParseError> {
     let copy_span = parser.consume_keyword(Keyword::COPY)?;
-    let table = parser.consume_plain_identifier()?;
+    let table = parser.consume_plain_identifier_unrestricted()?;
     parser.consume_token(Token::LParen)?;
     let mut columns = Vec::new();
     if !matches!(parser.token, Token::RParen) {
@@ -686,7 +1014,7 @@ pub(crate) fn parse_copy_statement<'a>(
                 "')' or ','",
                 &|t| matches!(t, Token::RParen | Token::Comma),
                 |parser| {
-                    columns.push(parser.consume_plain_identifier()?);
+                    columns.push(parser.consume_plain_identifier_unrestricted()?);
                     Ok(())
                 },
             )?;
@@ -719,9 +1047,9 @@ pub(crate) fn parse_compound_query_bottom<'a>(
                 Ok(Some(parse_compound_query(parser)?))
             })?;
             parser.consume_token(Token::RParen)?;
-            Ok(s.unwrap_or(Statement::Invalid(lp)))
+            Ok(s.unwrap_or(Statement::Invalid(Box::new(Invalid { span: lp }))))
         }
-        Token::Ident(_, Keyword::SELECT) => Ok(Statement::Select(parse_select(parser)?)),
+        Token::Ident(_, Keyword::SELECT) => Ok(Statement::Select(Box::new(parse_select(parser)?))),
         _ => parser.expected_failure("'SELECET' or '('")?,
     }
 }
@@ -844,7 +1172,7 @@ pub(crate) fn parse_compound_query<'a>(
         let span = parser.consume_keyword(Keyword::BY)?.join_span(&span);
         let mut order = Vec::new();
         loop {
-            let e = parse_expression(parser, false)?;
+            let e = parse_expression_unrestricted(parser, false)?;
             let f = match &parser.token {
                 Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
                 Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
@@ -861,15 +1189,15 @@ pub(crate) fn parse_compound_query<'a>(
     };
 
     let limit = if let Some(span) = parser.skip_keyword(Keyword::LIMIT) {
-        let n = parse_expression(parser, true)?;
+        let n = parse_expression_unrestricted(parser, true)?;
         match parser.token {
             Token::Comma => {
                 parser.consume();
-                Some((span, Some(n), parse_expression(parser, true)?))
+                Some((span, Some(n), parse_expression_unrestricted(parser, true)?))
             }
             Token::Ident(_, Keyword::OFFSET) => {
                 parser.consume();
-                Some((span, Some(parse_expression(parser, true)?), n))
+                Some((span, Some(parse_expression_unrestricted(parser, true)?), n))
             }
             _ => Some((span, None, n)),
         }
@@ -877,35 +1205,31 @@ pub(crate) fn parse_compound_query<'a>(
         None
     };
 
-    Ok(Statement::Union(Union {
+    Ok(Statement::Union(Box::new(Union {
         left: Box::new(q),
         with,
         order_by,
         limit,
-    }))
+    })))
 }
 
 pub(crate) fn parse_statements<'a>(parser: &mut Parser<'a, '_>) -> Vec<Statement<'a>> {
     let mut ans = Vec::new();
     loop {
-        loop {
-            match &parser.token {
-                t if t == &parser.delimiter => {
-                    parser.consume();
-                }
-                Token::Eof => return ans,
-                _ => break,
+        match &parser.token {
+            Token::Delimiter => {
+                parser.consume();
+                continue;
             }
+            Token::Eof => return ans,
+            _ => (),
         }
 
-        if parser.skip_keyword(Keyword::DELIMITER).is_some() {
-            let t = parser.token.clone();
-
-            if !matches!(t, Token::DoubleDollar | Token::SemiColon) {
-                parser.warn("Unknown delimiter", &parser.span.span());
+        if matches!(parser.token, Token::Ident(_, Keyword::DELIMITER)) {
+            if let Err(e) = parser.lexer.update_mysql_delimitor() {
+                parser.err("Invalid delimiter", &e);
             }
-            parser.delimiter = t;
-            parser.next();
+            parser.consume();
             continue;
         }
 
@@ -921,15 +1245,15 @@ pub(crate) fn parse_statements<'a>(parser: &mut Parser<'a, '_>) -> Vec<Statement
             ans.push(stmt);
         }
 
-        if parser.token != parser.delimiter {
+        if !matches!(parser.token, Token::Delimiter) {
             if !err {
-                parser.expected_error(parser.delimiter.name());
+                parser.expected_error(parser.lexer.delimiter_name());
             }
             // We use a custom recovery here as ; is not allowed in sub expressions, it always terminates outer most statements
             loop {
                 parser.next();
                 match &parser.token {
-                    t if t == &parser.delimiter => break,
+                    Token::Delimiter => break,
                     Token::Eof => return ans,
                     _ => (),
                 }
@@ -937,11 +1261,11 @@ pub(crate) fn parse_statements<'a>(parser: &mut Parser<'a, '_>) -> Vec<Statement
         }
         if from_stdin {
             let (s, span) = parser.read_from_stdin_and_next();
-            ans.push(Statement::Stdin(s, span));
+            ans.push(Statement::Stdin(Box::new(Stdin { span, input: s })));
         } else {
             parser
-                .consume_token(parser.delimiter.clone())
-                .expect("Delimiter");
+                .consume_token(Token::Delimiter)
+                .expect(parser.lexer.delimiter_name());
         }
     }
 }

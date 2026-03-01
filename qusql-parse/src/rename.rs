@@ -63,14 +63,15 @@ impl<'a> Spanned for RenameTable<'a> {
 
 pub(crate) fn parse_rename_table<'a>(
     parser: &mut Parser<'a, '_>,
+    restricted: &[Keyword],
 ) -> Result<RenameTable<'a>, ParseError> {
     let rename_span = parser.consume_keyword(Keyword::RENAME)?;
     let table_span = parser.skip_keyword(Keyword::TABLE);
     let mut table_to_tables = Vec::new();
     loop {
-        let table = parse_qualified_name(parser)?;
+        let table = parse_qualified_name(parser, &[Keyword::TO])?;
         let to_span = parser.consume_keyword(Keyword::TO)?;
-        let new_table = parse_qualified_name(parser)?;
+        let new_table = parse_qualified_name(parser, restricted)?;
         table_to_tables.push(TableToTable {
             table,
             to_span,

@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 
 use crate::{
     Identifier, SelectExpr, Span, Spanned,
-    expression::{Expression, parse_expression},
+    expression::{Expression, parse_expression_unrestricted},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -119,12 +119,12 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
     let set_span = parser.consume_keyword(Keyword::SET)?;
     let mut set = Vec::new();
     loop {
-        let mut col = vec![parser.consume_plain_identifier()?];
+        let mut col = vec![parser.consume_plain_identifier_unrestricted()?];
         while parser.skip_token(Token::Period).is_some() {
-            col.push(parser.consume_plain_identifier()?);
+            col.push(parser.consume_plain_identifier_unrestricted()?);
         }
         parser.consume_token(Token::Eq)?;
-        let val = parse_expression(parser, false)?;
+        let val = parse_expression_unrestricted(parser, false)?;
         set.push((col, val));
         if parser.skip_token(Token::Comma).is_none() {
             break;
@@ -132,7 +132,7 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
     }
 
     let where_ = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
-        Some((parse_expression(parser, false)?, span))
+        Some((parse_expression_unrestricted(parser, false)?, span))
     } else {
         None
     };
@@ -145,9 +145,7 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
                 break;
             }
         }
-        if !parser.options.dialect.is_postgresql() {
-            parser.err("Only support by postgesql", &returning_span);
-        }
+        parser.postgres_only(&returning_span);
         Some((returning_span, returning_exprs))
     } else {
         None

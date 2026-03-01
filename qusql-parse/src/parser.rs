@@ -13,10 +13,7 @@
 use alloc::{borrow::Cow, format, string::String, vec::Vec};
 
 use crate::{
-    Identifier, ParseOptions, SString, Span, Spanned,
-    issue::{IssueHandle, Issues},
-    keywords::Keyword,
-    lexer::{Lexer, Token},
+    Identifier, ParseOptions, SString, Span, Spanned, issue::{IssueHandle, Issues}, keywords::Keyword, lexer::{Lexer, Token}, restrict::Restrict, span::OptSpanned
 };
 
 #[derive(Debug)]
@@ -31,7 +28,6 @@ pub(crate) struct Parser<'a, 'b> {
     pub(crate) lexer: Lexer<'a>,
     pub(crate) issues: &'b mut Issues<'a>,
     pub(crate) arg: usize,
-    pub(crate) delimiter: Token<'a>,
     pub(crate) options: &'b ParseOptions,
     pub(crate) permit_compound_statements: bool,
 }
@@ -128,7 +124,6 @@ impl<'a, 'b> Parser<'a, 'b> {
             lexer,
             issues,
             arg: 0,
-            delimiter: Token::SemiColon,
             options,
             permit_compound_statements: false,
         }
@@ -144,7 +139,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             match &self.token {
                 t if brackets.is_empty() && success(t) => return Ok(()),
                 Token::Eof => return Err(ParseError::Unrecovered),
-                t if t == &self.delimiter => return Err(ParseError::Unrecovered),
+                Token::Delimiter => return Err(ParseError::Unrecovered),
                 t if brackets.is_empty() && fail(t) => return Err(ParseError::Unrecovered),
                 Token::LParen => {
                     brackets.push(Token::LParen);
@@ -283,10 +278,17 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
     }
 
-    pub(crate) fn consume_plain_identifier(&mut self) -> Result<Identifier<'a>, ParseError> {
+    pub(crate) fn consume_plain_identifier_unrestricted(&mut self) -> Result<Identifier<'a>, ParseError> {
+        self.consume_plain_identifier(&Restrict::empty())
+    }
+
+    pub(crate) fn consume_plain_identifier(&mut self, restricted: &Restrict) -> Result<Identifier<'a>, ParseError> {
         match &self.token {
             Token::Ident(v, kw) => {
                 let v = *v;
+                if restricted.contains(*kw) {
+                    return self.expected_failure("identifier (restricted keyword)");
+                }
                 if kw.reserved() {
                     self.err(
                         format!("'{}' is a reserved identifier use `{}`", v, v),
@@ -472,5 +474,25 @@ impl<'a, 'b> Parser<'a, 'b> {
 
     pub(crate) fn todo<T>(&mut self, file: &'static str, line: u32) -> Result<T, ParseError> {
         self.err_here(format!("Not yet implemented at {}:{}", file, line))
+    }
+
+    /// Verify that the current dialect is PostgreSQL, emitting an error if not.
+    /// Only emits an error if the span is present (Some).
+    pub(crate) fn postgres_only(&mut self, span: &impl OptSpanned) {
+        if !self.options.dialect.is_postgresql()
+            && let Some(s) = span.opt_span()
+        {
+            self.err("Only supported by PostgreSQL", &s);
+        }
+    }
+
+    /// Verify that the current dialect is MariaDB/MySQL, emitting an error if not.
+    /// Only emits an error if the span is present (Some).
+    pub(crate) fn maria_only(&mut self, span: &impl OptSpanned) {
+        if !self.options.dialect.is_maria()
+            && let Some(s) = span.opt_span()
+        {
+            self.err("Only supported by MariaDB", &s);
+        }
     }
 }

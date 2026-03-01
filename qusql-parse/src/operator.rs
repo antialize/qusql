@@ -1,0 +1,1476 @@
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use alloc::vec::Vec;
+
+use crate::alter_table::parse_alter_owner;
+use crate::{
+    CreateOption, DataType, QualifiedName, Span, Spanned, UsingIndexMethod,
+    data_type::parse_data_type,
+    keywords::Keyword,
+    lexer::Token,
+    parser::{ParseError, Parser},
+    qualified_name::parse_qualified_name,
+};
+
+/// ALTER OPERATOR actions (OWNER TO, SET SCHEMA, SET (...))
+#[derive(Clone, Debug)]
+pub enum AlterOperatorAction<'a> {
+    /// OWNER TO new_owner
+    OwnerTo {
+        /// Span of OWNER TO keywords
+        owner_to_span: Span,
+        /// The new owner name
+        new_owner: crate::alter_table::AlterTableOwner<'a>,
+    },
+    /// SET SCHEMA new_schema
+    SetSchema {
+        /// Span of SET SCHEMA keywords
+        set_schema_span: Span,
+        /// The new schema name
+        new_schema: QualifiedName<'a>,
+    },
+    /// SET (option = value, ...)
+    SetOptions {
+        /// Span of SET keyword
+        set_span: Span,
+        /// List of options
+        options: Vec<OperatorOption<'a>>,
+    },
+}
+
+impl<'a> Spanned for AlterOperatorAction<'a> {
+    fn span(&self) -> Span {
+        match self {
+            AlterOperatorAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            } => owner_to_span.join_span(new_owner),
+            AlterOperatorAction::SetSchema {
+                set_schema_span,
+                new_schema,
+            } => set_schema_span.join_span(new_schema),
+            AlterOperatorAction::SetOptions { set_span, options } => set_span.join_span(options),
+        }
+    }
+}
+
+/// Left operator type for ALTER OPERATOR (explicitly stores NONE span or DataType)
+#[derive(Clone, Debug)]
+pub enum LeftOperatorType<'a> {
+    /// NONE keyword
+    None(Span),
+    /// Data type
+    DataType(DataType<'a>),
+}
+
+impl<'a> Spanned for LeftOperatorType<'a> {
+    fn span(&self) -> Span {
+        match self {
+            LeftOperatorType::None(span) => span.clone(),
+            LeftOperatorType::DataType(dt) => dt.span(),
+        }
+    }
+}
+
+/// ALTER OPERATOR statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct AlterOperator<'a> {
+    /// Span of "ALTER OPERATOR"
+    pub alter_operator_span: Span,
+    /// The operator name (e.g., +, -, @@, myschema.@@)
+    pub name: QualifiedName<'a>,
+    /// Left parenthesis span
+    pub lparen_span: Span,
+    /// Left operator type (either NONE or a data type)
+    pub left_type: LeftOperatorType<'a>,
+    /// Comma span
+    pub comma_span: Span,
+    /// Right operator type
+    pub right_type: DataType<'a>,
+    /// Right parenthesis span
+    pub rparen_span: Span,
+    /// ALTER OPERATOR action
+    pub action: AlterOperatorAction<'a>,
+}
+
+impl<'a> Spanned for AlterOperator<'a> {
+    fn span(&self) -> Span {
+        self.alter_operator_span
+            .join_span(&self.name)
+            .join_span(&self.lparen_span)
+            .join_span(&self.left_type)
+            .join_span(&self.comma_span)
+            .join_span(&self.right_type)
+            .join_span(&self.rparen_span)
+            .join_span(&self.action)
+    }
+}
+
+/// Parse ALTER OPERATOR statement
+pub(crate) fn parse_alter_operator<'a>(
+    parser: &mut Parser<'a, '_>,
+    alter_operator_span: Span,
+) -> Result<AlterOperator<'a>, ParseError> {
+    parser.postgres_only(&alter_operator_span);
+    let name = parse_operator_name(parser)?;
+    let lparen_span = parser.consume_token(Token::LParen)?;
+    let left_type = if let Some(none_span) = parser.skip_keyword(Keyword::NONE) {
+        LeftOperatorType::None(none_span)
+    } else {
+        LeftOperatorType::DataType(parse_data_type(parser, false)?)
+    };
+    let comma_span = parser.consume_token(Token::Comma)?;
+    let right_type = parse_data_type(parser, false)?;
+    let rparen_span = parser.consume_token(Token::RParen)?;
+    let action = match &parser.token {
+        Token::Ident(_, Keyword::OWNER) => {
+            let owner_to_span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
+            let new_owner = parse_alter_owner(parser)?;
+            AlterOperatorAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            }
+        }
+        Token::Ident(_, Keyword::SET) => {
+            let set_span = parser.consume_keyword(Keyword::SET)?;
+            match &parser.token {
+                Token::Ident(_, Keyword::SCHEMA) => {
+                    let set_schema_span =
+                        set_span.join_span(&parser.consume_keyword(Keyword::SCHEMA)?);
+                    let new_schema = parse_qualified_name(parser)?;
+                    AlterOperatorAction::SetSchema {
+                        set_schema_span,
+                        new_schema,
+                    }
+                }
+                Token::LParen => {
+                    let lparen2_span = parser.consume_token(Token::LParen)?;
+                    let options = parser.recovered(
+                        "'RESTRICT' | 'JOIN' | 'COMMUTATOR' | 'NEGATOR' | 'HASHES' | 'MERGES'",
+                        &|tok| matches!(tok, Token::RParen),
+                        |parser| {
+                            let mut options = Vec::new();
+                            loop {
+                                // Accept RESTRICT, JOIN, COMMUTATOR, NEGATOR, HASHES, MERGES
+                                let option = match &parser.token {
+                                    Token::Ident(_, Keyword::RESTRICT) => {
+                                        let keyword_span = parser.consume_keyword(Keyword::RESTRICT)?;
+                                        let eq_span = parser.consume_token(Token::Eq)?;
+                                        if parser.skip_keyword(Keyword::NONE).is_some() {
+                                            // NONE disables the estimator
+                                            OperatorOption::Restrict { restrict_span: keyword_span.clone(), eq_span: eq_span.clone(), function_name: QualifiedName { prefix: Vec::new(), identifier: crate::Identifier::new("NONE", eq_span) } }
+                                        } else {
+                                            let function_name = parse_qualified_name(parser)?;
+                                            OperatorOption::Restrict { restrict_span: keyword_span, eq_span, function_name }
+                                        }
+                                    }
+                                    Token::Ident(_, Keyword::JOIN) => {
+                                        let keyword_span = parser.consume_keyword(Keyword::JOIN)?;
+                                        let eq_span = parser.consume_token(Token::Eq)?;
+                                        if parser.skip_keyword(Keyword::NONE).is_some() {
+                                            OperatorOption::Join { join_span: keyword_span.clone(), eq_span: eq_span.clone(), function_name: QualifiedName { prefix: Vec::new(), identifier: crate::Identifier::new("NONE", eq_span) } }
+                                        } else {
+                                            let function_name = parse_qualified_name(parser)?;
+                                            OperatorOption::Join { join_span: keyword_span, eq_span, function_name }
+                                        }
+                                    }
+                                    Token::Ident(_, Keyword::COMMUTATOR) => {
+                                        let keyword_span = parser.consume_keyword(Keyword::COMMUTATOR)?;
+                                        let eq_span = parser.consume_token(Token::Eq)?;
+                                        let operator = parse_operator_ref(parser)?;
+                                        OperatorOption::Commutator { commutator_span: keyword_span, eq_span, operator }
+                                    }
+                                    Token::Ident(_, Keyword::NEGATOR) => {
+                                        let keyword_span = parser.consume_keyword(Keyword::NEGATOR)?;
+                                        let eq_span = parser.consume_token(Token::Eq)?;
+                                        let operator = parse_operator_ref(parser)?;
+                                        OperatorOption::Negator { negator_span: keyword_span, eq_span, operator }
+                                    }
+                                    Token::Ident(_, Keyword::HASHES) => {
+                                        OperatorOption::Hashes(parser.consume_keyword(Keyword::HASHES)?)
+                                    }
+                                    Token::Ident(_, Keyword::MERGES) => {
+                                        OperatorOption::Merges(parser.consume_keyword(Keyword::MERGES)?)
+                                    }
+                                    _ => parser.expected_failure("'RESTRICT' | 'JOIN' | 'COMMUTATOR' | 'NEGATOR' | 'HASHES' | 'MERGES'")?
+                                };
+                                options.push(option);
+                                if parser.skip_token(Token::Comma).is_none() {
+                                    break;
+                                }
+                            }
+                            Ok(options)
+                        },
+                    )?;
+                    let rparen2_span = parser.consume_token(Token::RParen)?;
+
+                    AlterOperatorAction::SetOptions {
+                        set_span: set_span.join_span(&lparen2_span).join_span(&rparen2_span),
+                        options,
+                    }
+                }
+                _ => parser.expected_failure("'SCHEMA' or '(' after SET")?,
+            }
+        }
+        _ => parser.expected_failure("'OWNER TO' or 'SET' after ALTER OPERATOR ...")?,
+    };
+    Ok(AlterOperator {
+        alter_operator_span,
+        name,
+        lparen_span,
+        left_type,
+        comma_span,
+        right_type,
+        rparen_span,
+        action,
+    })
+}
+
+///// ALTER OPERATOR CLASS actions (RENAME TO, OWNER TO, SET SCHEMA)
+#[derive(Clone, Debug)]
+pub enum AlterOperatorClassAction<'a> {
+    /// RENAME TO new_name
+    RenameTo {
+        /// Span of RENAME TO keywords
+        rename_to_span: Span,
+        /// The new operator class name
+        new_name: QualifiedName<'a>,
+    },
+    OwnerTo {
+        /// Span of OWNER TO keywords
+        owner_to_span: Span,
+        /// The new owner name
+        new_owner: crate::alter_table::AlterTableOwner<'a>,
+    },
+    SetSchema {
+        /// Span of SET SCHEMA keywords
+        set_schema_span: Span,
+        /// The new schema name
+        new_schema: QualifiedName<'a>,
+    },
+}
+
+impl<'a> Spanned for AlterOperatorClassAction<'a> {
+    fn span(&self) -> Span {
+        match self {
+            AlterOperatorClassAction::RenameTo {
+                rename_to_span,
+                new_name,
+            } => rename_to_span.join_span(new_name),
+            AlterOperatorClassAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            } => owner_to_span.join_span(new_owner),
+            AlterOperatorClassAction::SetSchema {
+                set_schema_span,
+                new_schema,
+            } => set_schema_span.join_span(new_schema),
+        }
+    }
+}
+
+/// ALTER OPERATOR CLASS statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct AlterOperatorClass<'a> {
+    /// Span of "ALTER OPERATOR CLASS"
+    pub alter_operator_class_span: Span,
+    /// The operator class name
+    pub name: QualifiedName<'a>,
+    /// The index method (btree, hash, gist, gin)
+    pub index_method: UsingIndexMethod,
+    /// The action (RENAME TO, OWNER TO, SET SCHEMA)
+    pub action: AlterOperatorClassAction<'a>,
+}
+
+impl<'a> Spanned for AlterOperatorClass<'a> {
+    fn span(&self) -> Span {
+        self.alter_operator_class_span
+            .join_span(&self.name)
+            .join_span(&self.index_method)
+            .join_span(&self.action)
+    }
+}
+
+/// Parse ALTER OPERATOR CLASS statement
+pub(crate) fn parse_alter_operator_class<'a>(
+    parser: &mut Parser<'a, '_>,
+    alter_operator_class_span: Span,
+) -> Result<AlterOperatorClass<'a>, ParseError> {
+    parser.postgres_only(&alter_operator_class_span);
+    let name = parse_qualified_name(parser)?;
+    let using_span = parser.consume_keyword(Keyword::USING)?;
+    let index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
+    let action = match &parser.token {
+        Token::Ident(_, Keyword::RENAME) => {
+            let rename_to_span = parser.consume_keywords(&[Keyword::RENAME, Keyword::TO])?;
+            let new_name = parse_qualified_name(parser)?;
+            AlterOperatorClassAction::RenameTo {
+                rename_to_span,
+                new_name,
+            }
+        }
+        Token::Ident(_, Keyword::OWNER) => {
+            let owner_to_span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
+            let new_owner = parse_alter_owner(parser)?;
+            AlterOperatorClassAction::OwnerTo {
+                owner_to_span,
+                new_owner,
+            }
+        }
+        Token::Ident(_, Keyword::SET) => {
+            let set_schema_span = parser.consume_keywords(&[Keyword::SET, Keyword::SCHEMA])?;
+            let new_schema = parse_qualified_name(parser)?;
+            AlterOperatorClassAction::SetSchema {
+                set_schema_span,
+                new_schema,
+            }
+        }
+        _ => parser.expected_failure("'RENAME', 'OWNER', or 'SET SCHEMA'")?,
+    };
+    Ok(AlterOperatorClass {
+        alter_operator_class_span,
+        name,
+        index_method,
+        action,
+    })
+}
+
+/// CREATE OPERATOR statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct CreateOperator<'a> {
+    /// Span of "CREATE OPERATOR"
+    pub create_operator_span: Span,
+    /// The operator name (e.g., +, -, @@, myschema.@@)
+    pub name: QualifiedName<'a>,
+    /// Left parenthesis span
+    pub lparen_span: Span,
+    /// Operator options
+    pub options: Vec<OperatorOption<'a>>,
+    /// Right parenthesis span
+    pub rparen_span: Span,
+}
+
+impl<'a> Spanned for CreateOperator<'a> {
+    fn span(&self) -> Span {
+        self.create_operator_span
+            .join_span(&self.name)
+            .join_span(&self.lparen_span)
+            .join_span(&self.options)
+            .join_span(&self.rparen_span)
+    }
+}
+
+/// Options for CREATE OPERATOR
+#[derive(Clone, Debug)]
+pub enum OperatorOption<'a> {
+    /// FUNCTION = function_name
+    Function {
+        /// Span of FUNCTION keyword
+        function_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// The function name that implements the operator
+        function_name: QualifiedName<'a>,
+    },
+    /// PROCEDURE = procedure_name (synonym for FUNCTION)
+    Procedure {
+        /// Span of PROCEDURE keyword
+        procedure_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// The procedure name that implements the operator
+        procedure_name: QualifiedName<'a>,
+    },
+    /// LEFTARG = type
+    LeftArg {
+        /// Span of LEFTARG keyword
+        leftarg_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// The data type of the left argument (or NONE)
+        arg_type: DataType<'a>,
+    },
+    /// RIGHTARG = type
+    RightArg {
+        /// Span of RIGHTARG keyword
+        rightarg_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// The data type of the right argument (or NONE)
+        arg_type: DataType<'a>,
+    },
+    /// COMMUTATOR = operator or COMMUTATOR = OPERATOR(operator)
+    Commutator {
+        /// Span of COMMUTATOR keyword
+        commutator_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// The commutator operator (the operator that gives the same result when left and right arguments are swapped)
+        operator: OperatorRef<'a>,
+    },
+    /// NEGATOR = operator or NEGATOR = OPERATOR(operator)
+    Negator {
+        /// Span of NEGATOR keyword
+        negator_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// The negator operator (the operator that gives the negated result of the original operator)
+        operator: OperatorRef<'a>,
+    },
+    /// RESTRICT = function
+    Restrict {
+        /// Span of RESTRICT keyword
+        restrict_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// The function name that implements the selectivity estimator for the operator
+        function_name: QualifiedName<'a>,
+    },
+    /// RESTRICT = NONE
+    RestrictNone {
+        /// Span of RESTRICT keyword
+        restrict_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// Span of NONE keyword
+        none_span: Span,
+    },
+    /// JOIN = function
+    Join {
+        /// Span of JOIN keyword
+        join_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// The function name that implements the join selectivity estimator for the operator
+        function_name: QualifiedName<'a>,
+    },
+    /// JOIN = NONE
+    JoinNone {
+        /// Span of JOIN keyword
+        join_span: Span,
+        /// Span of equal sign
+        eq_span: Span,
+        /// Span of NONE keyword
+        none_span: Span,
+    },
+    /// HASHES
+    Hashes(Span),
+    /// MERGES
+    Merges(Span),
+}
+
+impl<'a> Spanned for OperatorOption<'a> {
+    fn span(&self) -> Span {
+        match self {
+            OperatorOption::Function {
+                function_span,
+                eq_span,
+                function_name,
+            } => function_span.join_span(eq_span).join_span(function_name),
+            OperatorOption::Procedure {
+                procedure_span,
+                eq_span,
+                procedure_name,
+            } => procedure_span.join_span(eq_span).join_span(procedure_name),
+            OperatorOption::LeftArg {
+                leftarg_span,
+                eq_span,
+                arg_type,
+            } => leftarg_span.join_span(eq_span).join_span(arg_type),
+            OperatorOption::RightArg {
+                rightarg_span,
+                eq_span,
+                arg_type,
+            } => rightarg_span.join_span(eq_span).join_span(arg_type),
+            OperatorOption::Commutator {
+                commutator_span,
+                eq_span,
+                operator,
+            } => commutator_span.join_span(eq_span).join_span(operator),
+            OperatorOption::Negator {
+                negator_span,
+                eq_span,
+                operator,
+            } => negator_span.join_span(eq_span).join_span(operator),
+            OperatorOption::Restrict {
+                restrict_span,
+                eq_span,
+                function_name,
+            } => restrict_span.join_span(eq_span).join_span(function_name),
+            OperatorOption::RestrictNone {
+                restrict_span,
+                eq_span,
+                none_span,
+            } => restrict_span.join_span(eq_span).join_span(none_span),
+            OperatorOption::Join {
+                join_span,
+                eq_span,
+                function_name,
+            } => join_span.join_span(eq_span).join_span(function_name),
+            OperatorOption::JoinNone {
+                join_span,
+                eq_span,
+                none_span,
+            } => join_span.join_span(eq_span).join_span(none_span),
+            OperatorOption::Hashes(span) => span.clone(),
+            OperatorOption::Merges(span) => span.clone(),
+        }
+    }
+}
+
+/// Reference to an operator
+#[derive(Clone, Debug)]
+pub enum OperatorRef<'a> {
+    /// Simple operator reference (e.g., >)
+    Simple(QualifiedName<'a>),
+    /// OPERATOR(operator_name) syntax
+    Wrapped {
+        operator_span: Span,
+        lparen_span: Span,
+        operator_name: QualifiedName<'a>,
+        rparen_span: Span,
+    },
+}
+
+impl<'a> Spanned for OperatorRef<'a> {
+    fn span(&self) -> Span {
+        match self {
+            OperatorRef::Simple(name) => name.span(),
+            OperatorRef::Wrapped {
+                operator_span,
+                rparen_span,
+                ..
+            } => operator_span.join_span(rparen_span),
+        }
+    }
+}
+
+pub(crate) fn parse_create_operator<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_operator_span: Span,
+    create_options: Vec<crate::create_option::CreateOption<'a>>,
+) -> Result<CreateOperator<'a>, ParseError> {
+    parser.postgres_only(&create_operator_span);
+
+    // Report errors for unsupported create options
+    for option in create_options {
+        parser.err("Not supported for CREATE OPERATOR", &option.span());
+    }
+
+    // Parse operator name (can be a qualified name with schema or an operator symbol)
+    // Operators can be symbols like +, -, @@, !=, or schema-qualified like myschema.@@
+    let name = parse_operator_name(parser)?;
+
+    // Parse options in parentheses
+    let lparen_span = parser.consume_token(Token::LParen)?;
+
+    let mut options = Vec::new();
+
+    // Handle empty operator definition (should fail but we parse it)
+    if let Some(rparen_span) = parser.skip_token(Token::RParen) {
+        return Ok(CreateOperator {
+            create_operator_span,
+            name,
+            lparen_span,
+            options,
+            rparen_span,
+        });
+    }
+
+    // Parse operator options
+    loop {
+        let option = match &parser.token {
+            Token::Ident(_, Keyword::FUNCTION) => {
+                let keyword_span = parser.consume_keyword(Keyword::FUNCTION)?;
+                let eq_span = parser.consume_token(Token::Eq)?;
+                let function_name = parse_qualified_name(parser)?;
+                OperatorOption::Function {
+                    function_span: keyword_span,
+                    eq_span,
+                    function_name,
+                }
+            }
+            Token::Ident(_, Keyword::PROCEDURE) => {
+                let keyword_span = parser.consume_keyword(Keyword::PROCEDURE)?;
+                let eq_span = parser.consume_token(Token::Eq)?;
+                let procedure_name = parse_qualified_name(parser)?;
+                OperatorOption::Procedure {
+                    procedure_span: keyword_span,
+                    eq_span,
+                    procedure_name,
+                }
+            }
+            Token::Ident(_, Keyword::LEFTARG) => {
+                let keyword_span = parser.consume_keyword(Keyword::LEFTARG)?;
+                let eq_span = parser.consume_token(Token::Eq)?;
+                let arg_type = parse_data_type(parser, false)?;
+                OperatorOption::LeftArg {
+                    leftarg_span: keyword_span,
+                    eq_span,
+                    arg_type,
+                }
+            }
+            Token::Ident(_, Keyword::RIGHTARG) => {
+                let keyword_span = parser.consume_keyword(Keyword::RIGHTARG)?;
+                let eq_span = parser.consume_token(Token::Eq)?;
+                let arg_type = parse_data_type(parser, false)?;
+                OperatorOption::RightArg {
+                    rightarg_span: keyword_span,
+                    eq_span,
+                    arg_type,
+                }
+            }
+            Token::Ident(_, Keyword::COMMUTATOR) => {
+                let keyword_span = parser.consume_keyword(Keyword::COMMUTATOR)?;
+                let eq_span = parser.consume_token(Token::Eq)?;
+                let operator = parse_operator_ref(parser)?;
+                OperatorOption::Commutator {
+                    commutator_span: keyword_span,
+                    eq_span,
+                    operator,
+                }
+            }
+            Token::Ident(_, Keyword::NEGATOR) => {
+                let keyword_span = parser.consume_keyword(Keyword::NEGATOR)?;
+                let eq_span = parser.consume_token(Token::Eq)?;
+                let operator = parse_operator_ref(parser)?;
+                OperatorOption::Negator {
+                    negator_span: keyword_span,
+                    eq_span,
+                    operator,
+                }
+            }
+            Token::Ident(_, Keyword::RESTRICT) => {
+                let keyword_span = parser.consume_keyword(Keyword::RESTRICT)?;
+                let eq_span = parser.consume_token(Token::Eq)?;
+                if let Some(none_span) = parser.skip_keyword(Keyword::NONE) {
+                    OperatorOption::RestrictNone { restrict_span: keyword_span, eq_span, none_span }
+                } else {
+                    let function_name = parse_qualified_name(parser)?;
+                    OperatorOption::Restrict {
+                        restrict_span: keyword_span,
+                        eq_span,
+                        function_name,
+                    }
+                }
+            }
+            Token::Ident(_, Keyword::JOIN) => {
+                let keyword_span = parser.consume_keyword(Keyword::JOIN)?;
+                let eq_span = parser.consume_token(Token::Eq)?;
+                if let Some(none_span) = parser.skip_keyword(Keyword::NONE) {
+                    OperatorOption::JoinNone { join_span: keyword_span, eq_span, none_span }
+                } else {
+                    let function_name = parse_qualified_name(parser)?;
+                    OperatorOption::Join {
+                        join_span: keyword_span,
+                        eq_span,
+                        function_name,
+                    }
+                }
+            }
+            Token::Ident(_, Keyword::HASHES) => {
+                OperatorOption::Hashes(parser.consume_keyword(Keyword::HASHES)?)
+            }
+            Token::Ident(_, Keyword::MERGES) => {
+                OperatorOption::Merges(parser.consume_keyword(Keyword::MERGES)?)
+            }
+            _ => {
+                parser.expected_failure(
+                    "'FUNCTION' | 'PROCEDURE' | 'LEFTARG' | 'RIGHTARG' | 'COMMUTATOR' | 'NEGATOR' | 'RESTRICT' | 'JOIN' | 'HASHES' | 'MERGES'"
+                )?
+            }
+        };
+
+        options.push(option);
+
+        // Check for comma or end of options
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+
+    let rparen_span = parser.consume_token(Token::RParen)?;
+
+    Ok(CreateOperator {
+        create_operator_span,
+        name,
+        lparen_span,
+        options,
+        rparen_span,
+    })
+}
+
+/// Parse an operator reference (either simple or OPERATOR(...) syntax)
+fn parse_operator_ref<'a>(parser: &mut Parser<'a, '_>) -> Result<OperatorRef<'a>, ParseError> {
+    if let Token::Ident(_, Keyword::OPERATOR) = &parser.token {
+        let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+        let lparen_span = parser.consume_token(Token::LParen)?;
+        let operator_name = parse_operator_name(parser)?;
+        let rparen_span = parser.consume_token(Token::RParen)?;
+        Ok(OperatorRef::Wrapped {
+            operator_span,
+            lparen_span,
+            operator_name,
+            rparen_span,
+        })
+    } else {
+        let name = parse_operator_name(parser)?;
+        Ok(OperatorRef::Simple(name))
+    }
+}
+
+/// Consume an operator symbol or identifier token
+fn consume_operator_or_identifier<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<crate::Identifier<'a>, ParseError> {
+    use crate::Identifier;
+
+    match &parser.token {
+        // Handle operator symbols as identifiers
+        Token::Plus => Ok(Identifier::new("+", parser.consume())),
+        Token::Minus => Ok(Identifier::new("-", parser.consume())),
+        Token::Mul => Ok(Identifier::new("*", parser.consume())),
+        Token::Div => Ok(Identifier::new("/", parser.consume())),
+        Token::Mod => Ok(Identifier::new("%", parser.consume())),
+        Token::Eq => Ok(Identifier::new("=", parser.consume())),
+        Token::Neq => Ok(Identifier::new("!=", parser.consume())),
+        Token::Lt => Ok(Identifier::new("<", parser.consume())),
+        Token::LtEq => Ok(Identifier::new("<=", parser.consume())),
+        Token::Gt => Ok(Identifier::new(">", parser.consume())),
+        Token::GtEq => Ok(Identifier::new(">=", parser.consume())),
+        Token::Ampersand => Ok(Identifier::new("&", parser.consume())),
+        Token::Pipe => Ok(Identifier::new("|", parser.consume())),
+        Token::Caret => Ok(Identifier::new("^", parser.consume())),
+        Token::Tilde => Ok(Identifier::new("~", parser.consume())),
+        Token::ExclamationMark => Ok(Identifier::new("!", parser.consume())),
+        Token::At => Ok(Identifier::new("@", parser.consume())),
+        Token::AtAt => Ok(Identifier::new("@@", parser.consume())),
+        Token::Sharp => Ok(Identifier::new("#", parser.consume())),
+        Token::ShiftLeft => Ok(Identifier::new("<<", parser.consume())),
+        Token::ShiftRight => Ok(Identifier::new(">>", parser.consume())),
+        Token::DoublePipe => Ok(Identifier::new("||", parser.consume())),
+        Token::DoubleAmpersand => Ok(Identifier::new("&&", parser.consume())),
+        Token::Spaceship => Ok(Identifier::new("<=>", parser.consume())),
+        Token::RArrow => Ok(Identifier::new("->", parser.consume())),
+        Token::RArrowJson => Ok(Identifier::new("->>", parser.consume())),
+        Token::RDoubleArrowJson => Ok(Identifier::new("#>>", parser.consume())),
+        Token::DoubleExclamationMark => Ok(Identifier::new("!!", parser.consume())),
+        Token::PostgresOperator(op) => Ok(Identifier::new(op, parser.consume())),
+        // Regular identifiers
+        _ => parser.consume_plain_identifier_unrestricted(),
+    }
+}
+
+/// Parse an operator name (can be an identifier, operator symbol, or schema-qualified)
+pub(crate) fn parse_operator_name<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<QualifiedName<'a>, ParseError> {
+    let mut identifier = consume_operator_or_identifier(parser)?;
+    let mut prefix = Vec::new();
+
+    // Handle schema qualification (e.g., myschema.@@)
+    while let Some(dot) = parser.skip_token(Token::Period) {
+        prefix.push((identifier, dot));
+        identifier = consume_operator_or_identifier(parser)?;
+    }
+
+    Ok(QualifiedName { prefix, identifier })
+}
+
+/// CREATE OPERATOR CLASS statement (PostgreSQL)
+
+#[derive(Clone, Debug)]
+pub struct CreateOperatorClass<'a> {
+    /// Span of "CREATE OPERATOR CLASS"
+    pub create_operator_class_span: Span,
+    /// Name of the operator class
+    pub name: QualifiedName<'a>,
+    /// DEFAULT keyword span (optional)
+    pub default_span: Option<Span>,
+    /// FOR TYPE span
+    pub for_type_span: Span,
+    /// Data type for the operator class
+    pub data_type: DataType<'a>,
+    /// Index method (btree, gist, etc)
+    pub index_method: UsingIndexMethod,
+    /// FAMILY clause (optional)
+    pub family: Option<(Span, QualifiedName<'a>)>,
+    /// AS span
+    pub as_span: Span,
+    /// Items (operators, functions, storage)
+    pub items: Vec<OperatorClassItem<'a>>,
+}
+
+impl<'a> Spanned for CreateOperatorClass<'a> {
+    fn span(&self) -> Span {
+        self.create_operator_class_span
+            .join_span(&self.name)
+            .join_span(&self.default_span)
+            .join_span(&self.for_type_span)
+            .join_span(&self.data_type)
+            .join_span(&self.index_method)
+            .join_span(&self.family)
+            .join_span(&self.as_span)
+            .join_span(&self.items)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum OperatorClassItem<'a> {
+    Operator {
+        operator_span: Span,
+        number: (usize, Span),
+        operator: QualifiedName<'a>,
+        rest: Vec<OperatorClassOperatorOption<'a>>,
+    },
+    Function {
+        function_span: Span,
+        number: (usize, Span),
+        function: QualifiedName<'a>,
+        arg_types: Vec<DataType<'a>>,
+    },
+    Storage {
+        storage_span: Span,
+        data_type: DataType<'a>,
+    },
+}
+
+impl<'a> Spanned for OperatorClassItem<'a> {
+    fn span(&self) -> Span {
+        match self {
+            OperatorClassItem::Operator {
+                operator_span,
+                number: (_, nspan),
+                operator,
+                rest,
+            } => operator_span
+                .join_span(nspan)
+                .join_span(operator)
+                .join_span(rest),
+            OperatorClassItem::Function {
+                function_span,
+                number: (_, nspan),
+                function,
+                arg_types,
+            } => function_span
+                .join_span(nspan)
+                .join_span(function)
+                .join_span(arg_types),
+            OperatorClassItem::Storage {
+                storage_span,
+                data_type,
+            } => storage_span.join_span(data_type),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum OperatorClassOperatorOption<'a> {
+    ForSearch(Span),
+    ForOrderBy(Span, QualifiedName<'a>),
+}
+
+impl<'a> Spanned for OperatorClassOperatorOption<'a> {
+    fn span(&self) -> Span {
+        match self {
+            OperatorClassOperatorOption::ForSearch(span) => span.clone(),
+            OperatorClassOperatorOption::ForOrderBy(span, qn) => span.join_span(qn),
+        }
+    }
+}
+
+pub(crate) fn parse_create_operator_class<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_operator_class_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<CreateOperatorClass<'a>, ParseError> {
+    parser.postgres_only(&create_operator_class_span);
+
+    for create_option in create_options {
+        parser.err(
+            "CREATE OPERATOR CLASS does not support any options",
+            &create_option.span(),
+        );
+    }
+
+    // Parse name
+    let name = parse_qualified_name(parser)?;
+
+    // Optional DEFAULT
+    let default_span = parser.skip_keyword(Keyword::DEFAULT);
+
+    // FOR TYPE
+    let for_type_span = parser.consume_keywords(&[Keyword::FOR, Keyword::TYPE])?;
+    let data_type = parse_data_type(parser, false)?;
+
+    // USING index_method
+    let using_span = parser.consume_keyword(Keyword::USING)?;
+    let index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
+
+    // Optional FAMILY clause
+    let family = if let Some(family_span) = parser.skip_keyword(Keyword::FAMILY) {
+        let family_name = parse_qualified_name(parser)?;
+        Some((family_span, family_name))
+    } else {
+        None
+    };
+
+    // AS
+    let as_span = parser.consume_keyword(Keyword::AS)?;
+
+    // Parse items (operators, functions, storage)
+    let mut items = Vec::new();
+    loop {
+        match &parser.token {
+            Token::Ident(_, Keyword::OPERATOR) => {
+                let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+                let (num, num_span) = parser.consume_int()?;
+                let operator = parse_operator_name(parser)?;
+                let mut rest = Vec::new();
+                // Optional FOR SEARCH / FOR ORDER BY
+                if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
+                    if let Some(search_span) = parser.skip_keyword(Keyword::SEARCH) {
+                        rest.push(OperatorClassOperatorOption::ForSearch(
+                            for_span.join_span(&search_span),
+                        ));
+                    } else if let Some(order_span) = parser.skip_keyword(Keyword::ORDER) {
+                        parser.consume_keyword(Keyword::BY)?;
+                        let opclass = parse_operator_name(parser)?;
+                        rest.push(OperatorClassOperatorOption::ForOrderBy(
+                            for_span.join_span(&order_span),
+                            opclass,
+                        ));
+                    }
+                }
+                items.push(OperatorClassItem::Operator {
+                    operator_span,
+                    number: (num, num_span),
+                    operator,
+                    rest,
+                });
+            }
+            Token::Ident(_, Keyword::FUNCTION) => {
+                let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
+                let (num, num_span) = parser.consume_int()?;
+                // Optional arg types in parens
+                let mut arg_types = Vec::new();
+                if parser.skip_token(Token::LParen).is_some() {
+                    loop {
+                        arg_types.push(parse_data_type(parser, false)?);
+                        if parser.skip_token(Token::Comma).is_none() {
+                            break;
+                        }
+                    }
+                    parser.consume_token(Token::RParen)?;
+                }
+                let function = parse_qualified_name(parser)?;
+                items.push(OperatorClassItem::Function {
+                    function_span,
+                    number: (num, num_span),
+                    function,
+                    arg_types,
+                });
+            }
+            Token::Ident(_, Keyword::STORAGE) => {
+                let storage_span = parser.consume_keyword(Keyword::STORAGE)?;
+                let data_type = parse_data_type(parser, false)?;
+                items.push(OperatorClassItem::Storage {
+                    storage_span,
+                    data_type,
+                });
+            }
+            _ => break,
+        }
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+
+    Ok(CreateOperatorClass {
+        create_operator_class_span,
+        name,
+        default_span,
+        for_type_span,
+        data_type,
+        index_method,
+        family,
+        as_span,
+        items,
+    })
+}
+
+/// CREATE OPERATOR FAMILY statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct CreateOperatorFamily<'a> {
+    /// Span of "CREATE OPERATOR FAMILY"
+    pub create_operator_family_span: Span,
+    /// The operator family name
+    pub name: QualifiedName<'a>,
+    /// The index method (btree, hash, gist, gin)
+    pub index_method: UsingIndexMethod,
+    /// Left parenthesis span
+    pub lparen_span: Span,
+    /// Right parenthesis span
+    pub rparen_span: Span,
+}
+
+impl<'a> Spanned for CreateOperatorFamily<'a> {
+    fn span(&self) -> Span {
+        self.create_operator_family_span.clone()
+    }
+}
+
+/// Parse CREATE OPERATOR FAMILY statement
+pub(crate) fn parse_create_operator_family<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_operator_family_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<CreateOperatorFamily<'a>, ParseError> {
+    parser.postgres_only(&create_operator_family_span);
+    for create_option in create_options {
+        parser.err(
+            "CREATE OPERATOR FAMILY does not support any options",
+            &create_option.span(),
+        );
+    }
+    let name = parse_qualified_name(parser)?;
+    let using_span = parser.consume_keyword(Keyword::USING)?;
+    let using_index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
+    let lparen_span = parser.consume_token(Token::LParen)?;
+    let rparen_span = parser.consume_token(Token::RParen)?;
+    Ok(CreateOperatorFamily {
+        create_operator_family_span,
+        name,
+        index_method: using_index_method,
+        lparen_span,
+        rparen_span,
+    })
+}
+
+/// ALTER OPERATOR FAMILY statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct AlterOperatorFamily<'a> {
+    /// Span of "ALTER OPERATOR FAMILY"
+    pub alter_operator_family_span: Span,
+    /// The operator family name
+    pub name: QualifiedName<'a>,
+    /// The index method (btree, hash, gist, gin)
+    pub index_method: UsingIndexMethod,
+    /// The action (ADD, DROP, RENAME TO, OWNER TO, SET SCHEMA)
+    pub action: AlterOperatorFamilyAction<'a>,
+}
+
+impl<'a> Spanned for AlterOperatorFamily<'a> {
+    fn span(&self) -> Span {
+        self.alter_operator_family_span
+            .join_span(&self.name)
+            .join_span(&self.index_method)
+            .join_span(&self.action)
+    }
+}
+
+/// Actions for ALTER OPERATOR FAMILY (ADD, DROP, RENAME TO, OWNER TO, SET SCHEMA)
+#[derive(Clone, Debug)]
+pub enum AlterOperatorFamilyAction<'a> {
+    /// ADD OPERATOR/FUNCTION(s) to the family
+    Add {
+        /// Span of ADD keyword
+        add_span: Span,
+        /// Items to add (operators/functions)
+        items: Vec<OperatorFamilyItem<'a>>,
+    },
+    /// DROP OPERATOR/FUNCTION(s) from the family
+    Drop {
+        /// Span of DROP keyword
+        drop_span: Span,
+        /// Items to drop (operators/functions)
+        items: Vec<OperatorFamilyDropItem<'a>>,
+    },
+    /// RENAME TO new_name
+    RenameTo {
+        /// Span of RENAME keyword
+        rename_span: Span,
+        /// Span of TO keyword
+        to_span: Span,
+        /// The new operator family name
+        new_name: QualifiedName<'a>,
+    },
+    /// OWNER TO new_owner
+    OwnerTo {
+        /// Span of OWNER keyword
+        owner_span: Span,
+        /// Span of TO keyword
+        to_span: Span,
+        /// The new owner name
+        new_owner: crate::alter_table::AlterTableOwner<'a>,
+    },
+    /// SET SCHEMA new_schema
+    SetSchema {
+        /// Span of SET keyword
+        set_span: Span,
+        /// Span of SCHEMA keyword
+        schema_span: Span,
+        /// The new schema name
+        new_schema: QualifiedName<'a>,
+    },
+}
+
+impl<'a> Spanned for AlterOperatorFamilyAction<'a> {
+    fn span(&self) -> Span {
+        match self {
+            AlterOperatorFamilyAction::Add { add_span, items } => {
+                add_span
+                    .join_span(items)
+            }
+            AlterOperatorFamilyAction::Drop { drop_span, items } => {
+                drop_span
+                    .join_span(items)
+            }
+            AlterOperatorFamilyAction::RenameTo { rename_span, to_span, new_name } => {
+                rename_span.join_span(to_span).join_span(new_name)
+            }
+            AlterOperatorFamilyAction::OwnerTo { owner_span, to_span, new_owner } => {
+                owner_span.join_span(to_span).join_span(new_owner)
+            }
+            AlterOperatorFamilyAction::SetSchema { set_span, schema_span, new_schema } => {
+                set_span.join_span(schema_span).join_span(new_schema)
+            }
+        }
+    }
+}
+
+/// Item to add to an operator family (OPERATOR or FUNCTION)
+#[derive(Clone, Debug)]
+pub enum OperatorFamilyItem<'a> {
+    /// OPERATOR entry
+    Operator {
+        /// Span of OPERATOR keyword
+        operator_span: Span,
+        /// Strategy number and its span
+        number: (usize, Span),
+        /// Operator name
+        operator: QualifiedName<'a>,
+        /// Span of left parenthesis
+        lparen_span: Span,
+        /// Left operand type
+        left_type: DataType<'a>,
+        /// Span of comma
+        comma_span: Span,
+        /// Right operand type
+        right_type: DataType<'a>,
+        /// Span of right parenthesis
+        rparen_span: Span,
+        /// Optional FOR SEARCH span
+        for_search: Option<Span>,
+        /// Optional FOR ORDER BY (span, sort family)
+        for_order_by: Option<(Span, QualifiedName<'a>)>,
+    },
+    /// FUNCTION entry
+    Function {
+        /// Span of FUNCTION keyword
+        function_span: Span,
+        /// Support number and its span
+        number: (usize, Span),
+        /// Span of left parenthesis, if present
+        lparen_span: Option<Span>,
+        /// Left operand type, if present
+        left_type: Option<DataType<'a>>,
+        /// Span of comma, if present
+        comma_span: Option<Span>,
+        /// Right operand type, if present
+        right_type: Option<DataType<'a>>,
+        /// Span of right parenthesis, if present
+        rparen_span: Option<Span>,
+        /// Function name
+        function: QualifiedName<'a>,
+        /// Span of argument type list left parenthesis, if present
+        arg_lparen_span: Option<Span>,
+        /// Argument types for function
+        arg_types: Vec<DataType<'a>>,
+        /// Span of argument type list right parenthesis, if present
+        arg_rparen_span: Option<Span>,
+    },
+}
+
+impl<'a> Spanned for OperatorFamilyItem<'a> {
+    fn span(&self) -> Span {
+        match self {
+            OperatorFamilyItem::Operator { operator_span, rparen_span, .. } => {
+                operator_span.join_span(rparen_span)
+            }
+            OperatorFamilyItem::Function { function_span, arg_rparen_span, .. } => {
+                function_span.join_span(arg_rparen_span)
+            }
+        }
+    }
+}
+
+/// Item to drop from an operator family (OPERATOR or FUNCTION)
+#[derive(Clone, Debug)]
+pub enum OperatorFamilyDropItem<'a> {
+    /// OPERATOR entry to drop
+    Operator {
+        /// Span of OPERATOR keyword
+        operator_span: Span,
+        /// Strategy number and its span
+        number: (usize, Span),
+        /// Span of left parenthesis
+        lparen_span: Span,
+        /// Left operand type
+        left_type: DataType<'a>,
+        /// Span of comma, if present
+        comma_span: Option<Span>,
+        /// Right operand type, if present
+        right_type: Option<DataType<'a>>,
+        /// Span of right parenthesis
+        rparen_span: Span,
+    },
+    /// FUNCTION entry to drop
+    Function {
+        /// Span of FUNCTION keyword
+        function_span: Span,
+        /// Support number and its span
+        number: (usize, Span),
+        /// Span of left parenthesis
+        lparen_span: Span,
+        /// Left operand type, if present
+        left_type: Option<DataType<'a>>,
+        /// Span of comma, if present
+        comma_span: Option<Span>,
+        /// Right operand type, if present
+        right_type: Option<DataType<'a>>,
+        /// Span of right parenthesis
+        rparen_span: Span,
+    },
+}
+
+impl<'a> Spanned for OperatorFamilyDropItem<'a> {
+    fn span(&self) -> Span {
+        match self {
+            OperatorFamilyDropItem::Operator { operator_span, rparen_span, .. } => {
+                operator_span.join_span(rparen_span)
+            }
+            OperatorFamilyDropItem::Function { function_span, rparen_span, .. } => {
+                function_span.join_span(rparen_span)
+            }
+        }
+    }
+}
+
+/// Parse ALTER OPERATOR FAMILY statement
+pub(crate) fn parse_alter_operator_family<'a>(
+    parser: &mut Parser<'a, '_>,
+    alter_operator_family_span: Span,
+) -> Result<AlterOperatorFamily<'a>, ParseError> {
+    parser.postgres_only(&alter_operator_family_span);
+    let name = parse_qualified_name(parser)?;
+    let using_span = parser.consume_keyword(Keyword::USING)?;
+    let index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
+
+    let action = match &parser.token {
+        Token::Ident(_, Keyword::ADD) => {
+            let add_span = parser.consume_keyword(Keyword::ADD)?;
+            let mut items = Vec::new();
+            loop {
+                items.push(parse_operator_family_item(parser)?);
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+            AlterOperatorFamilyAction::Add { add_span, items }
+        }
+        Token::Ident(_, Keyword::DROP) => {
+            let drop_span = parser.consume_keyword(Keyword::DROP)?;
+            let mut items = Vec::new();
+            loop {
+                items.push(parse_operator_family_drop_item(parser)?);
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+            AlterOperatorFamilyAction::Drop { drop_span, items }
+        }
+        Token::Ident(_, Keyword::RENAME) => {
+            let rename_span = parser.consume_keyword(Keyword::RENAME)?;
+            let to_span = parser.consume_keyword(Keyword::TO)?;
+            let new_name = parse_qualified_name(parser)?;
+            AlterOperatorFamilyAction::RenameTo { rename_span, to_span, new_name }
+        }
+        Token::Ident(_, Keyword::OWNER) => {
+            let owner_span = parser.consume_keyword(Keyword::OWNER)?;
+            let to_span = parser.consume_keyword(Keyword::TO)?;
+            let new_owner = crate::alter_table::parse_alter_owner(parser)?;
+            AlterOperatorFamilyAction::OwnerTo { owner_span, to_span, new_owner }
+        }
+        Token::Ident(_, Keyword::SET) => {
+            let set_span = parser.consume_keyword(Keyword::SET)?;
+            let schema_span = parser.consume_keyword(Keyword::SCHEMA)?;
+            let new_schema = parse_qualified_name(parser)?;
+            AlterOperatorFamilyAction::SetSchema { set_span, schema_span, new_schema }
+        }
+        _ => parser.expected_failure("'ADD', 'DROP', 'RENAME', 'OWNER', or 'SET SCHEMA'")?,
+    };
+
+    Ok(AlterOperatorFamily {
+        alter_operator_family_span,
+        name,
+        index_method,
+        action,
+    })
+}
+
+fn parse_operator_family_item<'a>(parser: &mut Parser<'a, '_>) -> Result<OperatorFamilyItem<'a>, ParseError> {
+    match &parser.token {
+        Token::Ident(_, Keyword::OPERATOR) => {
+            let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+            let (num, num_span) = parser.consume_int()?;
+            let operator = parse_operator_name(parser)?;
+            let lparen_span = parser.consume_token(Token::LParen)?;
+            let left_type = parse_data_type(parser, false)?;
+            let comma_span = parser.consume_token(Token::Comma)?;
+            let right_type = parse_data_type(parser, false)?;
+            let rparen_span = parser.consume_token(Token::RParen)?;
+            let mut for_search = None;
+            let mut for_order_by = None;
+            if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
+                if let Some(search_span) = parser.skip_keyword(Keyword::SEARCH) {
+                    for_search = Some(for_span.join_span(&search_span));
+                } else if let Some(order_span) = parser.skip_keyword(Keyword::ORDER) {
+                    parser.consume_keyword(Keyword::BY)?;
+                    let sort_family = parse_operator_name(parser)?;
+                    for_order_by = Some((for_span.join_span(&order_span), sort_family));
+                }
+            }
+            Ok(OperatorFamilyItem::Operator {
+                operator_span,
+                number: (num, num_span),
+                operator,
+                lparen_span,
+                left_type,
+                comma_span,
+                right_type,
+                rparen_span,
+                for_search,
+                for_order_by,
+            })
+        }
+        Token::Ident(_, Keyword::FUNCTION) => {
+            let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
+            let (num, num_span) = parser.consume_int()?;
+            let (lparen_span, left_type, comma_span, right_type, rparen_span) = if let Ok(lparen_span) = parser.consume_token(Token::LParen) {
+                let left_type = Some(parse_data_type(parser, false)?);
+                let comma_span = if let Ok(comma_span) = parser.consume_token(Token::Comma) {
+                    Some(comma_span)
+                } else {
+                    None
+                };
+                let right_type = if comma_span.is_some() {
+                    Some(parse_data_type(parser, false)?)
+                } else {
+                    None
+                };
+                let rparen_span = parser.consume_token(Token::RParen)?;
+                (Some(lparen_span), left_type, comma_span, right_type, Some(rparen_span))
+            } else {
+                (None, None, None, None, None)
+            };
+            let function = parse_qualified_name(parser)?;
+            // Optional argument type list for function
+            let (arg_lparen_span, arg_types, arg_rparen_span) = if let Ok(arg_lparen_span) = parser.consume_token(Token::LParen) {
+                let mut arg_types = Vec::new();
+                loop {
+                    arg_types.push(parse_data_type(parser, false)?);
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                let arg_rparen_span = parser.consume_token(Token::RParen)?;
+                (Some(arg_lparen_span), arg_types, Some(arg_rparen_span))
+            } else {
+                (None, Vec::new(), None)
+            };
+            Ok(OperatorFamilyItem::Function {
+                function_span,
+                number: (num, num_span),
+                lparen_span,
+                left_type,
+                comma_span,
+                right_type,
+                rparen_span,
+                function,
+                arg_lparen_span,
+                arg_types,
+                arg_rparen_span,
+            })
+        }
+        _ => parser.expected_failure("'OPERATOR' or 'FUNCTION'")?,
+    }
+}
+
+fn parse_operator_family_drop_item<'a>(parser: &mut Parser<'a, '_>) -> Result<OperatorFamilyDropItem<'a>, ParseError> {
+    match &parser.token {
+        Token::Ident(_, Keyword::OPERATOR) => {
+            let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+            let (num, num_span) = parser.consume_int()?;
+            let lparen_span = parser.consume_token(Token::LParen)?;
+            let left_type = parse_data_type(parser, false)?;
+            let comma_span = if let Ok(comma_span) = parser.consume_token(Token::Comma) {
+                Some(comma_span)
+            } else {
+                None
+            };
+            let right_type = if comma_span.is_some() {
+                Some(parse_data_type(parser, false)?)
+            } else {
+                None
+            };
+            let rparen_span = parser.consume_token(Token::RParen)?;
+            Ok(OperatorFamilyDropItem::Operator {
+                operator_span,
+                number: (num, num_span),
+                lparen_span,
+                left_type,
+                comma_span,
+                right_type,
+                rparen_span,
+            })
+        }
+        Token::Ident(_, Keyword::FUNCTION) => {
+            let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
+            let (num, num_span) = parser.consume_int()?;
+            let lparen_span = parser.consume_token(Token::LParen)?;
+            let left_type = Some(parse_data_type(parser, false)?);
+            let comma_span = if let Ok(comma_span) = parser.consume_token(Token::Comma) {
+                Some(comma_span)
+            } else {
+                None
+            };
+            let right_type = if comma_span.is_some() {
+                Some(parse_data_type(parser, false)?)
+            } else {
+                None
+            };
+            let rparen_span = parser.consume_token(Token::RParen)?;
+            Ok(OperatorFamilyDropItem::Function {
+                function_span,
+                number: (num, num_span),
+                lparen_span,
+                left_type,
+                comma_span,
+                right_type,
+                rparen_span,
+            })
+        }
+        _ => parser.expected_failure("'OPERATOR' or 'FUNCTION'")?,
+    }
+}
