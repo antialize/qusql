@@ -1233,16 +1233,15 @@ with open("src/keywords.rs", "w") as f:
 
     def generate_kw_match(i: int, keywords: list[str]) -> str:
         if len(keywords) == 1:
-            for (j, c) in enumerate(keywords[0][i:]):
-                if len(keywords[0][i:]) - 1 == 0:
-                    f.write(f"{"    "*(i*2+2)}if matches!(cs.next(), Some({c_pat(c)})) {{\n")
-                elif j == 0:
-                    f.write(f"{"    "*(i*2+2)}if matches!(cs.next(), Some({c_pat(c)}))\n")
-                elif j == len(keywords[0][i:]) - 1:
-                    f.write(f"{"    "*(i*2+2)}  && matches!(cs.next(), Some({c_pat(c)})) {{\n")
-                else:
-                    f.write(f"{"    "*(i*2+2)}  && matches!(cs.next(), Some({c_pat(c)}))\n")
-
+            if not keywords[0][i:]:
+                f.write(f"{"    "*(i*2+2)}if matches!(cs.next(), None) {{\n")
+            else:
+                for (j, c) in enumerate(keywords[0][i:]):
+                    if j == 0:
+                        f.write(f"{"    "*(i*2+2)}if matches!(cs.next(), Some({c_pat(c)}))\n")
+                    else:
+                        f.write(f"{"    "*(i*2+2)}  && matches!(cs.next(), Some({c_pat(c)}))\n")
+                f.write(f"{"    "*(i*2+2)}  && matches!(cs.next(), None) {{\n")
             f.write(f"{"    "*(i*2+3)}Keyword::{keywords[0]}\n")
             f.write(f"{"    "*(i*2+2)}}} else {{\n")
             f.write(f"{"    "*(i*2+3)}Keyword::NOT_A_KEYWORD\n")
@@ -1263,9 +1262,6 @@ with open("src/keywords.rs", "w") as f:
                 if c is None:
                     f.write(f"{"    "*(i*2+3)}None => Keyword::{keywords[s]},\n")
                     s = e + 1
-                elif s + 1 == e and len(keywords[s]) == i+1:
-                    f.write(f"{"    "*(i*2+3)}Some({c_pat(c)}) => Keyword::{keywords[s]},\n")
-                    s = e
                 else:
                     f.write(f"{"    "*(i*2+3)}Some({c_pat(c)}) => {{\n")
                     generate_kw_match(i + 1, keywords[s:e])
