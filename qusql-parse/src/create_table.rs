@@ -743,10 +743,10 @@ pub(crate) fn parse_create_table<'a>(
 
     let mut options = Vec::new();
     let mut table_as: Option<CreateTableAs<'_>> = None;
-    let delimiter = parser.delimiter.clone();
+    let delimiter_name = parser.lexer.delimiter_name();
     parser.recovered(
-        delimiter.name(),
-        &|t| t == &Token::Eof || t == &delimiter,
+        delimiter_name,
+        &|t| t == &Token::Eof || t == &Token::Delimiter,
         |parser| {
             loop {
                 match &parser.token {
@@ -1081,7 +1081,7 @@ pub(crate) fn parse_create_table<'a>(
                     Token::Comma => {
                         parser.consume_token(Token::Comma)?;
                     }
-                    t if t == &parser.delimiter => break,
+                    Token::Delimiter => break,
                     Token::Eof => break,
                     _ => {
                         parser.expected_failure("table option or delimiter")?;

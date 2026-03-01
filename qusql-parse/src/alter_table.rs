@@ -1165,218 +1165,227 @@ pub(crate) fn parse_alter_table<'a>(
         None
     };
     let table = parse_qualified_name(parser)?;
-    let d = parser.delimiter.clone();
+    let delimeter_name = parser.lexer.delimiter_name();
     let mut alter_specifications = Vec::new();
-    parser.recovered(d.name(), &|t| t == &d || t == &Token::Eof, |parser| {
-        loop {
-            alter_specifications.push(match parser.token {
-                Token::Ident(_, Keyword::ADD) => parse_add_alter_specification(parser)?,
-                Token::Ident(_, Keyword::MODIFY) => {
-                    let mut modify_span = parser.consume_keyword(Keyword::MODIFY)?;
-                    parser.maria_only(&modify_span);
-                    if let Some(v) = parser.skip_keyword(Keyword::COLUMN) {
-                        modify_span = modify_span.join_span(&v);
-                    }
-                    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
-                        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
-                    } else {
-                        None
-                    };
-                    let col = parser.consume_plain_identifier()?;
-                    let definition = parse_data_type(parser, false)?;
-
-                    let mut first = None;
-                    let mut after = None;
-                    match parser.token {
-                        Token::Ident(_, Keyword::FIRST) => {
-                            let first_span = parser.consume_keyword(Keyword::FIRST)?;
-                            parser.maria_only(&first_span);
-                            first = Some(first_span);
+    parser.recovered(
+        delimeter_name,
+        &|t| matches!(t, Token::Delimiter | Token::Eof),
+        |parser| {
+            loop {
+                alter_specifications.push(match parser.token {
+                    Token::Ident(_, Keyword::ADD) => parse_add_alter_specification(parser)?,
+                    Token::Ident(_, Keyword::MODIFY) => {
+                        let mut modify_span = parser.consume_keyword(Keyword::MODIFY)?;
+                        parser.maria_only(&modify_span);
+                        if let Some(v) = parser.skip_keyword(Keyword::COLUMN) {
+                            modify_span = modify_span.join_span(&v);
                         }
-                        Token::Ident(_, Keyword::AFTER) => {
-                            let after_span = parser.consume_keyword(Keyword::AFTER)?;
-                            parser.maria_only(&after_span);
-                            let col = parser.consume_plain_identifier()?;
-                            after = Some((after_span, col));
+                        let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+                            Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+                        } else {
+                            None
+                        };
+                        let col = parser.consume_plain_identifier()?;
+                        let definition = parse_data_type(parser, false)?;
+
+                        let mut first = None;
+                        let mut after = None;
+                        match parser.token {
+                            Token::Ident(_, Keyword::FIRST) => {
+                                let first_span = parser.consume_keyword(Keyword::FIRST)?;
+                                parser.maria_only(&first_span);
+                                first = Some(first_span);
+                            }
+                            Token::Ident(_, Keyword::AFTER) => {
+                                let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                                parser.maria_only(&after_span);
+                                let col = parser.consume_plain_identifier()?;
+                                after = Some((after_span, col));
+                            }
+                            _ => {}
                         }
-                        _ => {}
-                    }
 
-                    AlterSpecification::Modify {
-                        modify_span,
-                        if_exists,
-                        col,
-                        definition,
-                        first,
-                        after,
+                        AlterSpecification::Modify {
+                            modify_span,
+                            if_exists,
+                            col,
+                            definition,
+                            first,
+                            after,
+                        }
                     }
-                }
-                Token::Ident(_, Keyword::OWNER) => {
-                    let span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
-                    parser.postgres_only(&span);
-                    let owner = parse_alter_owner(parser)?;
-                    AlterSpecification::OwnerTo { span, owner }
-                }
-                Token::Ident(_, Keyword::DROP) => parse_drop(parser)?,
-                Token::Ident(_, Keyword::ALTER) => {
-                    let span = parser.consume_keywords(&[Keyword::ALTER, Keyword::COLUMN])?;
-                    parser.postgres_only(&span);
-                    let column = parser.consume_plain_identifier()?;
+                    Token::Ident(_, Keyword::OWNER) => {
+                        let span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
+                        parser.postgres_only(&span);
+                        let owner = parse_alter_owner(parser)?;
+                        AlterSpecification::OwnerTo { span, owner }
+                    }
+                    Token::Ident(_, Keyword::DROP) => parse_drop(parser)?,
+                    Token::Ident(_, Keyword::ALTER) => {
+                        let span = parser.consume_keywords(&[Keyword::ALTER, Keyword::COLUMN])?;
+                        parser.postgres_only(&span);
+                        let column = parser.consume_plain_identifier()?;
 
-                    let alter_column_action = match parser.token {
-                        Token::Ident(_, Keyword::SET) => {
-                            let set_span = parser.consume();
-                            match parser.token {
-                                Token::Ident(_, Keyword::DEFAULT) => {
-                                    let set_default_span = parser.consume().join_span(&set_span);
-                                    let value = parse_expression(parser, false)?;
-                                    AlterColumnAction::SetDefault {
-                                        set_default_span,
-                                        value,
+                        let alter_column_action = match parser.token {
+                            Token::Ident(_, Keyword::SET) => {
+                                let set_span = parser.consume();
+                                match parser.token {
+                                    Token::Ident(_, Keyword::DEFAULT) => {
+                                        let set_default_span =
+                                            parser.consume().join_span(&set_span);
+                                        let value = parse_expression(parser, false)?;
+                                        AlterColumnAction::SetDefault {
+                                            set_default_span,
+                                            value,
+                                        }
                                     }
+                                    Token::Ident(_, Keyword::NOT) => {
+                                        let set_not_null_span =
+                                            set_span.join_span(&parser.consume_keywords(&[
+                                                Keyword::NOT,
+                                                Keyword::NULL,
+                                            ])?);
+                                        AlterColumnAction::SetNotNull { set_not_null_span }
+                                    }
+                                    _ => parser.expected_failure("'DEFAULT' or 'NOT NULL'")?,
                                 }
-                                Token::Ident(_, Keyword::NOT) => {
-                                    let set_not_null_span = set_span.join_span(
-                                        &parser.consume_keywords(&[Keyword::NOT, Keyword::NULL])?,
-                                    );
-                                    AlterColumnAction::SetNotNull { set_not_null_span }
-                                }
-                                _ => parser.expected_failure("'DEFAULT' or 'NOT NULL'")?,
                             }
-                        }
-                        Token::Ident(_, Keyword::DROP) => {
-                            let set_span = parser.consume();
-                            match parser.token {
-                                Token::Ident(_, Keyword::DEFAULT) => {
-                                    let drop_default_span = parser.consume().join_span(&set_span);
-                                    AlterColumnAction::DropDefault { drop_default_span }
+                            Token::Ident(_, Keyword::DROP) => {
+                                let set_span = parser.consume();
+                                match parser.token {
+                                    Token::Ident(_, Keyword::DEFAULT) => {
+                                        let drop_default_span =
+                                            parser.consume().join_span(&set_span);
+                                        AlterColumnAction::DropDefault { drop_default_span }
+                                    }
+                                    Token::Ident(_, Keyword::NOT) => {
+                                        let drop_not_null_span =
+                                            set_span.join_span(&parser.consume_keywords(&[
+                                                Keyword::NOT,
+                                                Keyword::NULL,
+                                            ])?);
+                                        AlterColumnAction::DropNotNull { drop_not_null_span }
+                                    }
+                                    _ => parser.expected_failure("'DEFAULT' or 'NOT NULL'")?,
                                 }
-                                Token::Ident(_, Keyword::NOT) => {
-                                    let drop_not_null_span = set_span.join_span(
-                                        &parser.consume_keywords(&[Keyword::NOT, Keyword::NULL])?,
-                                    );
-                                    AlterColumnAction::DropNotNull { drop_not_null_span }
-                                }
-                                _ => parser.expected_failure("'DEFAULT' or 'NOT NULL'")?,
                             }
+                            Token::Ident(_, Keyword::TYPE) => {
+                                let type_span = parser.consume();
+                                let type_ = parse_data_type(parser, false)?;
+                                AlterColumnAction::Type { type_span, type_ }
+                            }
+                            _ => parser.expected_failure("alter column action")?,
+                        };
+                        AlterSpecification::AlterColumn {
+                            alter_column_span: span,
+                            column,
+                            alter_column_action,
                         }
-                        Token::Ident(_, Keyword::TYPE) => {
-                            let type_span = parser.consume();
-                            let type_ = parse_data_type(parser, false)?;
-                            AlterColumnAction::Type { type_span, type_ }
-                        }
-                        _ => parser.expected_failure("alter column action")?,
-                    };
-                    AlterSpecification::AlterColumn {
-                        alter_column_span: span,
-                        column,
-                        alter_column_action,
                     }
-                }
-                Token::Ident(_, Keyword::LOCK) => {
-                    let lock_span = parser.consume_keyword(Keyword::LOCK)?;
-                    parser.maria_only(&lock_span);
-                    parser.skip_token(Token::Eq);
-                    let lock = match &parser.token {
-                        Token::Ident(_, Keyword::DEFAULT) => {
-                            AlterLock::Default(parser.consume_keyword(Keyword::DEFAULT)?)
-                        }
-                        Token::Ident(_, Keyword::NONE) => {
-                            AlterLock::None(parser.consume_keyword(Keyword::NONE)?)
-                        }
-                        Token::Ident(_, Keyword::SHARED) => {
-                            AlterLock::Shared(parser.consume_keyword(Keyword::SHARED)?)
-                        }
-                        Token::Ident(_, Keyword::EXCLUSIVE) => {
-                            AlterLock::Exclusive(parser.consume_keyword(Keyword::EXCLUSIVE)?)
-                        }
-                        _ => {
-                            parser.expected_failure("'DEFAULT', 'NONE', 'SHARED' or 'EXCLUSIVE'")?
-                        }
-                    };
-                    AlterSpecification::Lock { lock_span, lock }
-                }
-                Token::Ident(_, Keyword::ALGORITHM) => {
-                    let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
-                    parser.maria_only(&algorithm_span);
-                    parser.skip_token(Token::Eq);
-                    let algorithm = match &parser.token {
-                        Token::Ident(_, Keyword::DEFAULT) => {
-                            AlterAlgorithm::Default(parser.consume_keyword(Keyword::DEFAULT)?)
-                        }
-                        Token::Ident(_, Keyword::INSTANT) => {
-                            AlterAlgorithm::Instant(parser.consume_keyword(Keyword::INSTANT)?)
-                        }
-                        Token::Ident(_, Keyword::INPLACE) => {
-                            AlterAlgorithm::Inplace(parser.consume_keyword(Keyword::INPLACE)?)
-                        }
-                        Token::Ident(_, Keyword::COPY) => {
-                            AlterAlgorithm::Copy(parser.consume_keyword(Keyword::COPY)?)
-                        }
-                        _ => {
-                            parser.expected_failure("'DEFAULT', 'INSTANT', 'INPLACE' or 'COPY'")?
-                        }
-                    };
-                    AlterSpecification::Algorithm {
-                        algorithm_span,
-                        algorithm,
+                    Token::Ident(_, Keyword::LOCK) => {
+                        let lock_span = parser.consume_keyword(Keyword::LOCK)?;
+                        parser.maria_only(&lock_span);
+                        parser.skip_token(Token::Eq);
+                        let lock = match &parser.token {
+                            Token::Ident(_, Keyword::DEFAULT) => {
+                                AlterLock::Default(parser.consume_keyword(Keyword::DEFAULT)?)
+                            }
+                            Token::Ident(_, Keyword::NONE) => {
+                                AlterLock::None(parser.consume_keyword(Keyword::NONE)?)
+                            }
+                            Token::Ident(_, Keyword::SHARED) => {
+                                AlterLock::Shared(parser.consume_keyword(Keyword::SHARED)?)
+                            }
+                            Token::Ident(_, Keyword::EXCLUSIVE) => {
+                                AlterLock::Exclusive(parser.consume_keyword(Keyword::EXCLUSIVE)?)
+                            }
+                            _ => parser
+                                .expected_failure("'DEFAULT', 'NONE', 'SHARED' or 'EXCLUSIVE'")?,
+                        };
+                        AlterSpecification::Lock { lock_span, lock }
                     }
-                }
-                Token::Ident(_, Keyword::AUTO_INCREMENT) => {
-                    let auto_increment_span = parser.consume_keyword(Keyword::AUTO_INCREMENT)?;
-                    parser.maria_only(&auto_increment_span);
-                    parser.skip_token(Token::Eq);
-                    let (value, value_span) = parser.consume_int()?;
-                    AlterSpecification::AutoIncrement {
-                        auto_increment_span,
-                        value_span,
-                        value,
+                    Token::Ident(_, Keyword::ALGORITHM) => {
+                        let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
+                        parser.maria_only(&algorithm_span);
+                        parser.skip_token(Token::Eq);
+                        let algorithm = match &parser.token {
+                            Token::Ident(_, Keyword::DEFAULT) => {
+                                AlterAlgorithm::Default(parser.consume_keyword(Keyword::DEFAULT)?)
+                            }
+                            Token::Ident(_, Keyword::INSTANT) => {
+                                AlterAlgorithm::Instant(parser.consume_keyword(Keyword::INSTANT)?)
+                            }
+                            Token::Ident(_, Keyword::INPLACE) => {
+                                AlterAlgorithm::Inplace(parser.consume_keyword(Keyword::INPLACE)?)
+                            }
+                            Token::Ident(_, Keyword::COPY) => {
+                                AlterAlgorithm::Copy(parser.consume_keyword(Keyword::COPY)?)
+                            }
+                            _ => parser
+                                .expected_failure("'DEFAULT', 'INSTANT', 'INPLACE' or 'COPY'")?,
+                        };
+                        AlterSpecification::Algorithm {
+                            algorithm_span,
+                            algorithm,
+                        }
                     }
-                }
-                Token::Ident(_, Keyword::RENAME) => parse_rename_alter_specification(parser)?,
-                Token::Ident(_, Keyword::CHANGE) => {
-                    let change_span = parser.consume_keyword(Keyword::CHANGE)?;
-                    parser.maria_only(&change_span);
-                    let column_span = parser.skip_keyword(Keyword::COLUMN);
+                    Token::Ident(_, Keyword::AUTO_INCREMENT) => {
+                        let auto_increment_span =
+                            parser.consume_keyword(Keyword::AUTO_INCREMENT)?;
+                        parser.maria_only(&auto_increment_span);
+                        parser.skip_token(Token::Eq);
+                        let (value, value_span) = parser.consume_int()?;
+                        AlterSpecification::AutoIncrement {
+                            auto_increment_span,
+                            value_span,
+                            value,
+                        }
+                    }
+                    Token::Ident(_, Keyword::RENAME) => parse_rename_alter_specification(parser)?,
+                    Token::Ident(_, Keyword::CHANGE) => {
+                        let change_span = parser.consume_keyword(Keyword::CHANGE)?;
+                        parser.maria_only(&change_span);
+                        let column_span = parser.skip_keyword(Keyword::COLUMN);
 
-                    let column = parser.consume_plain_identifier()?;
-                    let new_column = parser.consume_plain_identifier()?;
-                    let definition = parse_data_type(parser, false)?;
+                        let column = parser.consume_plain_identifier()?;
+                        let new_column = parser.consume_plain_identifier()?;
+                        let definition = parse_data_type(parser, false)?;
 
-                    let mut first = None;
-                    let mut after = None;
-                    match &parser.token {
-                        Token::Ident(_, Keyword::FIRST) => {
-                            let first_span = parser.consume_keyword(Keyword::FIRST)?;
-                            parser.maria_only(&first_span);
-                            first = Some(first_span);
+                        let mut first = None;
+                        let mut after = None;
+                        match &parser.token {
+                            Token::Ident(_, Keyword::FIRST) => {
+                                let first_span = parser.consume_keyword(Keyword::FIRST)?;
+                                parser.maria_only(&first_span);
+                                first = Some(first_span);
+                            }
+                            Token::Ident(_, Keyword::AFTER) => {
+                                let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                                parser.maria_only(&after_span);
+                                let after_col = parser.consume_plain_identifier()?;
+                                after = Some((after_span, after_col));
+                            }
+                            _ => (),
                         }
-                        Token::Ident(_, Keyword::AFTER) => {
-                            let after_span = parser.consume_keyword(Keyword::AFTER)?;
-                            parser.maria_only(&after_span);
-                            let after_col = parser.consume_plain_identifier()?;
-                            after = Some((after_span, after_col));
+                        AlterSpecification::Change {
+                            change_span,
+                            column_span,
+                            column,
+                            new_column,
+                            definition,
+                            first,
+                            after,
                         }
-                        _ => (),
                     }
-                    AlterSpecification::Change {
-                        change_span,
-                        column_span,
-                        column,
-                        new_column,
-                        definition,
-                        first,
-                        after,
-                    }
+                    _ => parser.expected_failure("alter specification")?,
+                });
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
                 }
-                _ => parser.expected_failure("alter specification")?,
-            });
-            if parser.skip_token(Token::Comma).is_none() {
-                break;
             }
-        }
-        Ok(())
-    })?;
+            Ok(())
+        },
+    )?;
     Ok(AlterTable {
         alter_span,
         online,

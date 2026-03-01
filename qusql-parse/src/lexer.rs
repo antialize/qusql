@@ -46,6 +46,7 @@ pub(crate) enum Token<'a> {
     Minus,
     Mod,
     Mul,
+    Delimiter,
     Neq,
     Period,
     Pipe,
@@ -147,6 +148,7 @@ impl<'a> Token<'a> {
             Token::AtAtSession => "@@SESSION",
             Token::PostgresOperator(_) => "pg operator",
             Token::Eof => "EndOfFile",
+            Token::Delimiter => "Delimiter",
         }
     }
 }
@@ -156,14 +158,14 @@ impl<'a> Token<'a> {
 struct CharsIter<'a> {
     /// The current character index in the source string.
     idx: usize,
-    /// The remaining characters as bytes.
-    rem: &'a [u8],
+    /// The source
+    src: &'a [u8],
 }
 
 impl<'a> CharsIter<'a> {
     /// Returns the next character and its index, or `None` if we've reached the end of the input.
     fn next(&mut self) -> Option<(usize, u8)> {
-        if let Some(v) = self.rem.split_off_first() {
+        if let Some(v) = self.src.get(self.idx) {
             let i = self.idx;
             self.idx += 1;
             Some((i, *v))
@@ -172,9 +174,19 @@ impl<'a> CharsIter<'a> {
         }
     }
 
+    /// Skips the next `n` characters.
+    fn skip(&mut self, n: usize) {
+        self.idx += n;
+    }
+
+    /// Rewinds the iterator by `n` characters, moving the index back and prepending the skipped characters to the remaining slice.
+    fn rewind(&mut self, n: usize) {
+        self.idx -= n;
+    }
+
     /// Peeks at the next character and its index without consuming it, or `None` if we've reached the end of the input.
     fn peek(&self) -> Option<(usize, u8)> {
-        self.rem.first().map(|v| (self.idx, *v))
+        self.src.get(self.idx).map(|v| (self.idx, *v))
     }
 }
 
@@ -186,6 +198,8 @@ pub(crate) struct Lexer<'a> {
     chars: CharsIter<'a>,
     /// The SQL dialect to use for lexing, which may affect how certain tokens are recognized.
     dialect: SQLDialect,
+    /// The current MySQL statement delimiter, which can be changed by a `DELIMITER` statement. If `None`, the default delimiter `;` is used.
+    delimiter: Option<&'a str>,
 }
 
 impl<'a> Lexer<'a> {
@@ -195,9 +209,10 @@ impl<'a> Lexer<'a> {
             src,
             chars: CharsIter {
                 idx: 0,
-                rem: src.as_bytes(),
+                src: src.as_bytes(),
             },
             dialect: dialect.clone(),
+            delimiter: None,
         }
     }
 
@@ -205,6 +220,15 @@ impl<'a> Lexer<'a> {
     pub(crate) fn s(&self, span: Span) -> &'a str {
         // Safety: The span is expected to match the unicode boundaries
         unsafe { core::str::from_utf8_unchecked(&self.src.as_bytes()[span]) }
+    }
+
+    pub(crate) fn line_number(&self) -> usize {
+        // Count the number of newlines in the source up to the current index
+        self.src[..self.chars.idx]
+            .bytes()
+            .filter(|&b| b == b'\n')
+            .count()
+            + 1
     }
 
     /// Lexes an unquoted identifier starting at the given index. The first character has already been consumed and is at `start`.
@@ -232,7 +256,73 @@ impl<'a> Lexer<'a> {
             }
         };
         let s = self.s(start..end);
-        Token::Ident(s, s.into())
+        if let Some(delimiter) = self.delimiter
+            && let Some(idx) = s.find(delimiter)
+        {
+            self.chars.rewind(s.len() - idx);
+            let s = self.s(start..start + idx);
+            Token::Ident(s, s.into())
+        } else {
+            Token::Ident(s, s.into())
+        }
+    }
+
+    /// Updates the MySQL statement delimiter by lexing the next token after a `DELIMITER` statement.
+    pub fn update_mysql_delimitor(&mut self) -> Result<Span, Span> {
+        // Skip whitespace
+        while self
+            .chars
+            .peek()
+            .filter(|(_, c)| *c != b'\n' && c.is_ascii_whitespace())
+            .is_some()
+        {
+            self.chars.next().unwrap();
+        }
+        let start = match self.chars.peek() {
+            Some((i, _)) => i,
+            None => {
+                let span = self.src.len()..self.src.len();
+                return Err(span);
+            }
+        };
+        // Skip none whitespace
+        while self
+            .chars
+            .peek()
+            .filter(|(_, c)| !c.is_ascii_whitespace())
+            .is_some()
+        {
+            self.chars.next().unwrap();
+        }
+        let end = match self.chars.peek() {
+            Some((i, _)) => i,
+            None => self.src.len(),
+        };
+        if start == end {
+            return Err(start..end);
+        }
+        let s = self.s(start..end);
+        self.delimiter = if s == ";" { None } else { Some(s) };
+        Ok(start..end)
+    }
+
+    /// Replaces the current statement delimiter with a new one, returning the old delimiter. If `new_delimiter` is `None`, resets to the default delimiter `;`.
+    pub fn replace_delimitor(&mut self, new_delimiter: Option<&'a str>) -> Option<&'a str> {
+        let old = self.delimiter;
+        self.delimiter = new_delimiter;
+        old
+    }
+
+    /// Returns the name of the current delimiter, used in error messages.
+    pub fn delimiter_name(&self) -> &'static str {
+        match self.delimiter {
+            Some("//") => "//",
+            Some("$$") => "$$",
+            Some(";;") => ";;",
+            Some("###") => "###",
+            Some(_) => "delimiter",
+            None => ";",
+        }
     }
 
     /// Simulate reading from standard input after a statement like `COPY ... FROM STDIN;`.
@@ -363,6 +453,14 @@ impl<'a> Lexer<'a> {
     /// If the end of the input is reached, returns `Token::Eof` with an empty span at the end of the source.
     pub fn next_token(&mut self) -> (Token<'a>, Span) {
         loop {
+            if let Some(delimiter) = self.delimiter
+                && self.src[self.chars.idx..].starts_with(delimiter)
+            {
+                let start = self.chars.idx;
+                self.chars.skip(delimiter.len());
+                return (Token::Delimiter, start..start + delimiter.len());
+            }
+
             let (start, c) = match self.chars.next() {
                 Some(v) => v,
                 None => {
@@ -372,6 +470,7 @@ impl<'a> Lexer<'a> {
             let t = match c {
                 b' ' | b'\t' | b'\n' | b'\r' => continue,
                 b'?' => self.next_operator(start, (start, c), Token::QuestionMark),
+                b';' if self.delimiter.is_none() => Token::Delimiter,
                 b';' => Token::SemiColon,
                 b'\\' => Token::Backslash,
                 b'[' => Token::LBracket,

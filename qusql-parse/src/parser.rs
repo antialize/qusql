@@ -32,7 +32,6 @@ pub(crate) struct Parser<'a, 'b> {
     pub(crate) lexer: Lexer<'a>,
     pub(crate) issues: &'b mut Issues<'a>,
     pub(crate) arg: usize,
-    pub(crate) delimiter: Token<'a>,
     pub(crate) options: &'b ParseOptions,
     pub(crate) permit_compound_statements: bool,
 }
@@ -129,7 +128,6 @@ impl<'a, 'b> Parser<'a, 'b> {
             lexer,
             issues,
             arg: 0,
-            delimiter: Token::SemiColon,
             options,
             permit_compound_statements: false,
         }
@@ -145,7 +143,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             match &self.token {
                 t if brackets.is_empty() && success(t) => return Ok(()),
                 Token::Eof => return Err(ParseError::Unrecovered),
-                t if t == &self.delimiter => return Err(ParseError::Unrecovered),
+                Token::Delimiter => return Err(ParseError::Unrecovered),
                 t if brackets.is_empty() && fail(t) => return Err(ParseError::Unrecovered),
                 Token::LParen => {
                     brackets.push(Token::LParen);
