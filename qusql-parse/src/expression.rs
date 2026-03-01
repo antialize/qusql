@@ -101,6 +101,8 @@ pub enum Is {
     NotFalse,
     Unknown,
     NotUnknown,
+    DistinctFrom,
+    NotDistinctFrom,
 }
 
 /// Unary operator to apply
@@ -402,7 +404,7 @@ impl Spanned for ConvertExpression<'_> {
 pub struct CountExpression<'a> {
     /// Span of "COUNT"
     pub count_span: Span,
-    /// Span of "DISTINCT" if specified
+    /// Span of "DTINCT" if specified
     pub distinct_span: Option<Span>,
     /// Expression to count
     pub expr: Expression<'a>,
@@ -1060,16 +1062,34 @@ pub(crate) fn parse_expression<'a>(
                             Token::Ident(_, Keyword::UNKNOWN) => {
                                 (Is::NotUnknown, parser.consume().join_span(&op))
                             }
-                            _ => parser.expected_failure("'TRUE', 'FALSE', 'UNKNOWN' or 'NULL'")?,
+                            Token::Ident(_, Keyword::DISTINCT) => (
+                                Is::NotDistinctFrom,
+                                parser
+                                    .consume()
+                                    .join_span(&op)
+                                    .join_span(&parser.consume_keyword(Keyword::FROM)?),
+                            ),
+                            _ => parser.expected_failure(
+                                "'TRUE', 'FALSE', 'UNKNOWN', 'NULL' or 'DISTINCT'",
+                            )?,
                         }
                     }
                     Token::Ident(_, Keyword::TRUE) => (Is::True, parser.consume().join_span(&op)),
                     Token::Ident(_, Keyword::FALSE) => (Is::False, parser.consume().join_span(&op)),
                     Token::Ident(_, Keyword::NULL) => (Is::Null, parser.consume().join_span(&op)),
+                    Token::Ident(_, Keyword::DISTINCT) => (
+                        Is::DistinctFrom,
+                        parser
+                            .consume()
+                            .join_span(&op)
+                            .join_span(&parser.consume_keyword(Keyword::FROM)?),
+                    ),
                     Token::Ident(_, Keyword::UNKNOWN) => {
                         (Is::Unknown, parser.consume().join_span(&op))
                     }
-                    _ => parser.expected_failure("'NOT', 'TRUE', 'FALSE', 'UNKNOWN' or 'NULL'")?,
+                    _ => parser.expected_failure(
+                        "'NOT', 'TRUE', 'FALSE', 'UNKNOWN', 'NULL' or 'DISTINCT'",
+                    )?,
                 };
                 r.shift_expr(Expression::Is(Box::new(IsExpression {
                     lhs,
