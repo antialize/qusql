@@ -22,7 +22,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..14,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "ALTER OPERATOR CLASS int_ops RENAME TO integer_ops",
@@ -30,7 +31,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..14,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "ALTER OPERATOR CLASS int_ops USING 123invalid RENAME TO integer_ops",
@@ -47,7 +49,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..14,\n    sql_segment: \"OPERATOR\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "ALTER OPERATOR CLASS int_ops USING btree DROP OPERATOR 1 (INT4, INT2)",
@@ -195,7 +198,8 @@
       "Issue {\n    level: Error,\n    message: \"'USING' is a reserved identifier use `USING`\",\n    span: 22..27,\n    sql_segment: \"USING\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'USING' here\",\n    span: 28..33,\n    sql_segment: \"btree\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY integer_ops USING btree ADD FUNCTION 1 btint42cmp(INT4, INT2)",
@@ -203,7 +207,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 46..49,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY integer_ops USING btree ADD OPERATOR 1 < (INT4, INT2)",
@@ -237,7 +242,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected 'USING' here\",\n    span: 29..32,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD",
