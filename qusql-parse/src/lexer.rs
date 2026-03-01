@@ -222,15 +222,6 @@ impl<'a> Lexer<'a> {
         unsafe { core::str::from_utf8_unchecked(&self.src.as_bytes()[span]) }
     }
 
-    pub(crate) fn line_number(&self) -> usize {
-        // Count the number of newlines in the source up to the current index
-        self.src[..self.chars.idx]
-            .bytes()
-            .filter(|&b| b == b'\n')
-            .count()
-            + 1
-    }
-
     /// Lexes an unquoted identifier starting at the given index. The first character has already been consumed and is at `start`.
     fn unquoted_identifier(&mut self, start: usize) -> Token<'a> {
         let end = loop {
