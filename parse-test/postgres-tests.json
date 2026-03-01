@@ -224,8 +224,7 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 46..50,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
     ],
-    "failure": true,
-    "should_fail": true
+    "failure": true
   },
   {
     "input": "ALTER OPERATOR FAMILY integer_ops USING btree DROP OPERATOR 1 (INT4, INT2)",
@@ -233,8 +232,7 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 46..50,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
     ],
-    "failure": true,
-    "should_fail": true
+    "failure": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops ADD OPERATOR 1 < (INT4, INT2)",
@@ -404,8 +402,7 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
     ],
-    "failure": true,
-    "should_fail": true
+    "failure": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2) FOR INVALID",
@@ -476,8 +473,7 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
     ],
-    "failure": true,
-    "should_fail": true
+    "failure": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1.5 < (INT4, INT2)",
