@@ -1086,23 +1086,15 @@ pub enum AlterOperatorFamilyAction<'a> {
     Add {
         /// Span of ADD keyword
         add_span: Span,
-        /// Span of left parenthesis, if present
-        lparen_span: Option<Span>,
         /// Items to add (operators/functions)
         items: Vec<OperatorFamilyItem<'a>>,
-        /// Span of right parenthesis, if present
-        rparen_span: Option<Span>,
     },
     /// DROP OPERATOR/FUNCTION(s) from the family
     Drop {
         /// Span of DROP keyword
         drop_span: Span,
-        /// Span of left parenthesis, if present
-        lparen_span: Option<Span>,
         /// Items to drop (operators/functions)
         items: Vec<OperatorFamilyDropItem<'a>>,
-        /// Span of right parenthesis, if present
-        rparen_span: Option<Span>,
     },
     /// RENAME TO new_name
     RenameTo {
@@ -1136,17 +1128,13 @@ pub enum AlterOperatorFamilyAction<'a> {
 impl<'a> Spanned for AlterOperatorFamilyAction<'a> {
     fn span(&self) -> Span {
         match self {
-            AlterOperatorFamilyAction::Add { add_span, lparen_span, items, rparen_span } => {
+            AlterOperatorFamilyAction::Add { add_span, items } => {
                 add_span
-                    .join_span(lparen_span)
                     .join_span(items)
-                    .join_span(rparen_span)
             }
-            AlterOperatorFamilyAction::Drop { drop_span, lparen_span, items, rparen_span } => {
+            AlterOperatorFamilyAction::Drop { drop_span, items } => {
                 drop_span
-                    .join_span(lparen_span)
                     .join_span(items)
-                    .join_span(rparen_span)
             }
             AlterOperatorFamilyAction::RenameTo { rename_span, to_span, new_name } => {
                 rename_span.join_span(to_span).join_span(new_name)
@@ -1292,51 +1280,25 @@ pub(crate) fn parse_alter_operator_family<'a>(
     let action = match &parser.token {
         Token::Ident(_, Keyword::ADD) => {
             let add_span = parser.consume_keyword(Keyword::ADD)?;
-            let (lparen_span, items, rparen_span) = if let Ok(lparen_span) = parser.consume_token(Token::LParen) {
-                let mut items = Vec::new();
-                loop {
-                    items.push(parse_operator_family_item(parser)?);
-                    if parser.skip_token(Token::Comma).is_none() {
-                        break;
-                    }
+            let mut items = Vec::new();
+            loop {
+                items.push(parse_operator_family_item(parser)?);
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
                 }
-                let rparen_span = parser.consume_token(Token::RParen)?;
-                (Some(lparen_span), items, Some(rparen_span))
-            } else {
-                let mut items = Vec::new();
-                loop {
-                    items.push(parse_operator_family_item(parser)?);
-                    if parser.skip_token(Token::Comma).is_none() {
-                        break;
-                    }
-                }
-                (None, items, None)
-            };
-            AlterOperatorFamilyAction::Add { add_span, lparen_span, items, rparen_span }
+            }
+            AlterOperatorFamilyAction::Add { add_span, items }
         }
         Token::Ident(_, Keyword::DROP) => {
             let drop_span = parser.consume_keyword(Keyword::DROP)?;
-            let (lparen_span, items, rparen_span) = if let Ok(lparen_span) = parser.consume_token(Token::LParen) {
-                let mut items = Vec::new();
-                loop {
-                    items.push(parse_operator_family_drop_item(parser)?);
-                    if parser.skip_token(Token::Comma).is_none() {
-                        break;
-                    }
+            let mut items = Vec::new();
+            loop {
+                items.push(parse_operator_family_drop_item(parser)?);
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
                 }
-                let rparen_span = parser.consume_token(Token::RParen)?;
-                (Some(lparen_span), items, Some(rparen_span))
-            } else {
-                let mut items = Vec::new();
-                loop {
-                    items.push(parse_operator_family_drop_item(parser)?);
-                    if parser.skip_token(Token::Comma).is_none() {
-                        break;
-                    }
-                }
-                (None, items, None)
-            };
-            AlterOperatorFamilyAction::Drop { drop_span, lparen_span, items, rparen_span }
+            }
+            AlterOperatorFamilyAction::Drop { drop_span, items }
         }
         Token::Ident(_, Keyword::RENAME) => {
             let rename_span = parser.consume_keyword(Keyword::RENAME)?;
