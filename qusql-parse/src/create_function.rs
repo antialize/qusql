@@ -155,7 +155,7 @@ pub(crate) fn parse_create_function<'a>(
         None
     };
 
-    let name = parser.consume_plain_identifier()?;
+    let name = parser.consume_plain_identifier_unrestricted()?;
     let mut params = Vec::new();
     parser.consume_token(Token::LParen)?;
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
@@ -178,7 +178,7 @@ pub(crate) fn parse_create_function<'a>(
                 _ => None,
             };
 
-            let name = parser.consume_plain_identifier()?;
+            let name = parser.consume_plain_identifier_unrestricted()?;
             let type_ = parse_data_type(parser, false)?;
             params.push((direction, name, type_));
             if parser.skip_token(Token::Comma).is_none() {

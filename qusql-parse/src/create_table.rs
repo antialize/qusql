@@ -17,7 +17,7 @@ use crate::{
     },
     create_option::CreateOption,
     data_type::parse_data_type,
-    expression::parse_expression,
+    expression::parse_expression_unrestricted,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -433,7 +433,7 @@ fn parse_foreign_key_definition<'a>(
     // Parse optional index name
     let index_name = if let Token::Ident(_, _) = parser.token {
         if !matches!(parser.token, Token::LParen) {
-            Some(parser.consume_plain_identifier()?)
+            Some(parser.consume_plain_identifier_unrestricted()?)
         } else {
             None
         }
@@ -446,13 +446,13 @@ fn parse_foreign_key_definition<'a>(
 
     // Parse REFERENCES
     let references_span = parser.consume_keyword(Keyword::REFERENCES)?;
-    let references_table = parser.consume_plain_identifier()?;
+    let references_table = parser.consume_plain_identifier_unrestricted()?;
 
     // Parse referenced columns
     parser.consume_token(Token::LParen)?;
     let mut references_cols = Vec::new();
     loop {
-        references_cols.push(parser.consume_plain_identifier()?);
+        references_cols.push(parser.consume_plain_identifier_unrestricted()?);
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
@@ -528,7 +528,7 @@ fn parse_check_constraint_definition<'a>(
 
     // Parse the check expression
     parser.consume_token(Token::LParen)?;
-    let expression = parse_expression(parser, false)?;
+    let expression = parse_expression_unrestricted(parser, false)?;
     parser.consume_token(Token::RParen)?;
 
     // Parse optional ENFORCED / NOT ENFORCED
@@ -563,7 +563,7 @@ pub(crate) fn parse_create_definition<'a>(
                 | Keyword::KEY
                 | Keyword::FOREIGN
                 | Keyword::CHECK => None,
-                _ => Some(parser.consume_plain_identifier()?),
+                _ => Some(parser.consume_plain_identifier_unrestricted()?),
             }
         } else {
             None
@@ -628,7 +628,7 @@ pub(crate) fn parse_create_definition<'a>(
                 )?
             }
             return Ok(CreateDefinition::ColumnDefinition {
-                identifier: parser.consume_plain_identifier()?,
+                identifier: parser.consume_plain_identifier_unrestricted()?,
                 data_type: parse_data_type(parser, false)?,
             });
         }
@@ -641,7 +641,7 @@ pub(crate) fn parse_create_definition<'a>(
             // PRIMARY KEY may optionally have a name before the column list
             match &parser.token {
                 Token::Ident(_, _) if !matches!(parser.token, Token::LParen) => {
-                    Some(parser.consume_plain_identifier()?)
+                    Some(parser.consume_plain_identifier_unrestricted()?)
                 }
                 Token::SingleQuotedString(s) | Token::DoubleQuotedString(s) => {
                     let val = *s;
@@ -660,7 +660,7 @@ pub(crate) fn parse_create_definition<'a>(
                         Token::LParen | Token::Ident(_, Keyword::USING)
                     ) =>
                 {
-                    Some(parser.consume_plain_identifier()?)
+                    Some(parser.consume_plain_identifier_unrestricted()?)
                 }
                 Token::SingleQuotedString(s) | Token::DoubleQuotedString(s) => {
                     let val = *s;
@@ -755,7 +755,7 @@ pub(crate) fn parse_create_table<'a>(
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::Engine {
                             identifier,
-                            value: parser.consume_plain_identifier()?,
+                            value: parser.consume_plain_identifier_unrestricted()?,
                         });
                     }
                     Token::Ident(_, Keyword::DEFAULT) => {
@@ -767,7 +767,7 @@ pub(crate) fn parse_create_table<'a>(
                                 parser.skip_token(Token::Eq);
                                 options.push(TableOption::DefaultCharSet {
                                     identifier,
-                                    value: parser.consume_plain_identifier()?,
+                                    value: parser.consume_plain_identifier_unrestricted()?,
                                 });
                             }
                             Token::Ident(_, Keyword::COLLATE) => {
@@ -776,7 +776,7 @@ pub(crate) fn parse_create_table<'a>(
                                 parser.skip_token(Token::Eq);
                                 options.push(TableOption::DefaultCollate {
                                     identifier,
-                                    value: parser.consume_plain_identifier()?,
+                                    value: parser.consume_plain_identifier_unrestricted()?,
                                 });
                             }
                             _ => parser.expected_failure("'CHARSET' or 'COLLATE'")?,
@@ -787,7 +787,7 @@ pub(crate) fn parse_create_table<'a>(
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::CharSet {
                             identifier,
-                            value: parser.consume_plain_identifier()?,
+                            value: parser.consume_plain_identifier_unrestricted()?,
                         });
                     }
                     Token::Ident(_, Keyword::COLLATE) => {
@@ -795,7 +795,7 @@ pub(crate) fn parse_create_table<'a>(
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::Collate {
                             identifier,
-                            value: parser.consume_plain_identifier()?,
+                            value: parser.consume_plain_identifier_unrestricted()?,
                         });
                     }
                     Token::Ident(_, Keyword::ROW_FORMAT) => {
@@ -803,7 +803,7 @@ pub(crate) fn parse_create_table<'a>(
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::RowFormat {
                             identifier,
-                            value: parser.consume_plain_identifier()?,
+                            value: parser.consume_plain_identifier_unrestricted()?,
                         });
                         //TODO validate raw format is in the keyword set
                     }
@@ -858,7 +858,7 @@ pub(crate) fn parse_create_table<'a>(
                         parser.skip_token(Token::Eq);
                         options.push(TableOption::InsertMethod {
                             identifier,
-                            value: parser.consume_plain_identifier()?,
+                            value: parser.consume_plain_identifier_unrestricted()?,
                         });
                     }
                     Token::Ident(_, Keyword::PACK_KEYS) => {
@@ -922,7 +922,7 @@ pub(crate) fn parse_create_table<'a>(
                                 (is_yes, s.span())
                             }
                             _ => {
-                                let id = parser.consume_plain_identifier()?;
+                                let id = parser.consume_plain_identifier_unrestricted()?;
                                 let is_yes = id.value.eq_ignore_ascii_case("yes");
                                 (is_yes, id.span())
                             }
@@ -1012,14 +1012,14 @@ pub(crate) fn parse_create_table<'a>(
                         let identifier = parser.consume_keyword(Keyword::TABLESPACE)?;
                         options.push(TableOption::Tablespace {
                             identifier,
-                            value: parser.consume_plain_identifier()?,
+                            value: parser.consume_plain_identifier_unrestricted()?,
                         });
                     }
                     Token::Ident(_, Keyword::STORAGE) => {
                         let identifier = parser.consume_keyword(Keyword::STORAGE)?;
                         options.push(TableOption::Storage {
                             identifier,
-                            value: parser.consume_plain_identifier()?,
+                            value: parser.consume_plain_identifier_unrestricted()?,
                         });
                     }
                     Token::Ident(_, Keyword::UNION) => {
@@ -1028,7 +1028,7 @@ pub(crate) fn parse_create_table<'a>(
                         parser.consume_token(Token::LParen)?;
                         let mut tables = Vec::new();
                         loop {
-                            tables.push(parser.consume_plain_identifier()?);
+                            tables.push(parser.consume_plain_identifier_unrestricted()?);
                             if parser.skip_token(Token::Comma).is_none() {
                                 break;
                             }

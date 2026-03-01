@@ -1,9 +1,7 @@
 use alloc::vec::Vec;
 
 use crate::{
-    Identifier, Span, Spanned,
-    lexer::Token,
-    parser::{ParseError, Parser},
+    Identifier, Span, Spanned, lexer::Token, parser::{ParseError, Parser}, restrict::Restrict
 };
 
 #[derive(Clone, Debug)]
@@ -20,12 +18,21 @@ impl<'a> Spanned for QualifiedName<'a> {
 
 pub(crate) fn parse_qualified_name<'a>(
     parser: &mut Parser<'a, '_>,
+    restricted: &Restrict,
 ) -> Result<QualifiedName<'a>, ParseError> {
-    let mut identifier = parser.consume_plain_identifier()?;
+    let mut identifier = parser.consume_plain_identifier(restricted)?;
     let mut prefix = Vec::new();
     while let Some(dot) = parser.skip_token(Token::Period) {
         prefix.push((identifier, dot));
-        identifier = parser.consume_plain_identifier()?;
+        identifier = parser.consume_plain_identifier(restricted)?;
     }
     Ok(QualifiedName { prefix, identifier })
+}
+
+/// Convenience wrapper for parse_qualified_name with no keyword restrictions.
+#[inline]
+pub(crate) fn parse_qualified_name_unrestricted<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<QualifiedName<'a>, ParseError> {
+    parse_qualified_name(parser, &Restrict::empty())
 }

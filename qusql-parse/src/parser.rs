@@ -13,11 +13,7 @@
 use alloc::{borrow::Cow, format, string::String, vec::Vec};
 
 use crate::{
-    Identifier, ParseOptions, SString, Span, Spanned,
-    issue::{IssueHandle, Issues},
-    keywords::Keyword,
-    lexer::{Lexer, Token},
-    span::OptSpanned,
+    Identifier, ParseOptions, SString, Span, Spanned, issue::{IssueHandle, Issues}, keywords::Keyword, lexer::{Lexer, Token}, restrict::Restrict, span::OptSpanned
 };
 
 #[derive(Debug)]
@@ -282,10 +278,17 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
     }
 
-    pub(crate) fn consume_plain_identifier(&mut self) -> Result<Identifier<'a>, ParseError> {
+    pub(crate) fn consume_plain_identifier_unrestricted(&mut self) -> Result<Identifier<'a>, ParseError> {
+        self.consume_plain_identifier(&Restrict::empty())
+    }
+
+    pub(crate) fn consume_plain_identifier(&mut self, restricted: &Restrict) -> Result<Identifier<'a>, ParseError> {
         match &self.token {
             Token::Ident(v, kw) => {
                 let v = *v;
+                if restricted.contains(*kw) {
+                    return self.expected_failure("identifier (restricted keyword)");
+                }
                 if kw.reserved() {
                     self.err(
                         format!("'{}' is a reserved identifier use `{}`", v, v),

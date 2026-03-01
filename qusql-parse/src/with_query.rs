@@ -75,7 +75,7 @@ pub(crate) fn parse_with_query<'a>(
     let with_span = parser.consume_keyword(Keyword::WITH)?;
     let mut with_blocks = Vec::new();
     loop {
-        let identifier = parser.consume_plain_identifier()?;
+        let identifier = parser.consume_plain_identifier_unrestricted()?;
         let as_span = parser.consume_keyword(Keyword::AS)?;
         let lparen_span = parser.consume_token(Token::LParen)?;
         let statement =

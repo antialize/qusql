@@ -29,7 +29,7 @@ use crate::{
         DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
         DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView, parse_drop,
     },
-    expression::{Expression, parse_expression},
+    expression::{Expression, parse_expression_unrestricted},
     flush::{Flush, parse_flush},
     insert_replace::{InsertReplace, parse_insert_replace},
     keywords::Keyword,
@@ -70,7 +70,7 @@ fn parse_set<'a>(parser: &mut Parser<'a, '_>) -> Result<Set<'a>, ParseError> {
     loop {
         let name = parse_qualified_name(parser)?;
         parser.consume_token(Token::Eq)?;
-        let val = parse_expression(parser, false)?;
+        let val = parse_expression_unrestricted(parser, false)?;
         values.push((name, val));
         if parser.skip_token(Token::Comma).is_none() {
             break;
@@ -157,9 +157,9 @@ fn parse_block<'a>(parser: &mut Parser<'a, '_>) -> Result<Block<'a>, ParseError>
     )?;
     if let Some(_exception_span) = parser.skip_keyword(Keyword::EXCEPTION) {
         while let Some(_when_span) = parser.skip_keyword(Keyword::WHEN) {
-            parser.consume_plain_identifier()?;
+            parser.consume_plain_identifier_unrestricted()?;
             parser.consume_keyword(Keyword::THEN)?;
-            parse_expression(parser, true)?;
+            parse_expression_unrestricted(parser, true)?;
             parser.consume_token(Token::SemiColon)?;
         }
     }
@@ -224,7 +224,7 @@ fn parse_if<'a>(parser: &mut Parser<'a, '_>) -> Result<If<'a>, ParseError> {
         "'END'",
         &|e| matches!(e, Token::Ident(_, Keyword::END)),
         |parser| {
-            let search_condition = parse_expression(parser, false)?;
+            let search_condition = parse_expression_unrestricted(parser, false)?;
             let then_span = parser.consume_keyword(Keyword::THEN)?;
             let mut then = Vec::new();
             parse_statement_list(parser, &mut then)?;
@@ -235,7 +235,7 @@ fn parse_if<'a>(parser: &mut Parser<'a, '_>) -> Result<If<'a>, ParseError> {
                 then,
             });
             while let Some(elseif_span) = parser.skip_keyword(Keyword::ELSEIF) {
-                let search_condition = parse_expression(parser, false)?;
+                let search_condition = parse_expression_unrestricted(parser, false)?;
                 let then_span = parser.consume_keyword(Keyword::THEN)?;
                 let mut then = Vec::new();
                 parse_statement_list(parser, &mut then)?;
@@ -279,7 +279,7 @@ impl<'a> Spanned for Return<'a> {
 
 fn parse_return<'a>(parser: &mut Parser<'a, '_>) -> Result<Return<'a>, ParseError> {
     let return_span = parser.consume_keyword(Keyword::RETURN)?;
-    let expr = parse_expression(parser, false)?;
+    let expr = parse_expression_unrestricted(parser, false)?;
     Ok(Return { return_span, expr })
 }
 
@@ -344,7 +344,7 @@ fn parse_signal<'a>(parser: &mut Parser<'a, '_>) -> Result<Signal<'a>, ParseErro
     let signal_span = parser.consume_keyword(Keyword::SIGNAL)?;
     let sqlstate_span = parser.consume_keyword(Keyword::SQLSTATE)?;
     let value_span = parser.skip_keyword(Keyword::VALUE);
-    let sql_state = parse_expression(parser, false)?;
+    let sql_state = parse_expression_unrestricted(parser, false)?;
     let mut sets = Vec::new();
     let set_span = parser.skip_keyword(Keyword::SET);
     if set_span.is_some() {
@@ -389,7 +389,7 @@ fn parse_signal<'a>(parser: &mut Parser<'a, '_>) -> Result<Signal<'a>, ParseErro
                 _ => parser.expected_failure("Condition information item name")?,
             };
             let eq_span = parser.consume_token(Token::Eq)?;
-            let value = parse_expression(parser, false)?;
+            let value = parse_expression_unrestricted(parser, false)?;
             sets.push((v, eq_span, value));
             if parser.skip_token(Token::Comma).is_none() {
                 break;
@@ -956,7 +956,7 @@ pub(crate) fn parse_case_statement<'a>(
 ) -> Result<CaseStatement<'a>, ParseError> {
     let case_span = parser.consume_keyword(Keyword::CASE)?;
     let value = if !matches!(parser.token, Token::Ident(_, Keyword::WHEN)) {
-        Some(parse_expression(parser, false)?)
+        Some(parse_expression_unrestricted(parser, false)?)
     } else {
         None
     };
@@ -969,7 +969,7 @@ pub(crate) fn parse_case_statement<'a>(
         |parser| {
             loop {
                 let when_span = parser.consume_keyword(Keyword::WHEN)?;
-                let when = parse_expression(parser, false)?;
+                let when = parse_expression_unrestricted(parser, false)?;
                 let then_span = parser.consume_keyword(Keyword::THEN)?;
                 let mut then = Vec::new();
                 parse_statement_list(parser, &mut then)?;
@@ -1005,7 +1005,7 @@ pub(crate) fn parse_copy_statement<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<Copy<'a>, ParseError> {
     let copy_span = parser.consume_keyword(Keyword::COPY)?;
-    let table = parser.consume_plain_identifier()?;
+    let table = parser.consume_plain_identifier_unrestricted()?;
     parser.consume_token(Token::LParen)?;
     let mut columns = Vec::new();
     if !matches!(parser.token, Token::RParen) {
@@ -1014,7 +1014,7 @@ pub(crate) fn parse_copy_statement<'a>(
                 "')' or ','",
                 &|t| matches!(t, Token::RParen | Token::Comma),
                 |parser| {
-                    columns.push(parser.consume_plain_identifier()?);
+                    columns.push(parser.consume_plain_identifier_unrestricted()?);
                     Ok(())
                 },
             )?;
@@ -1172,7 +1172,7 @@ pub(crate) fn parse_compound_query<'a>(
         let span = parser.consume_keyword(Keyword::BY)?.join_span(&span);
         let mut order = Vec::new();
         loop {
-            let e = parse_expression(parser, false)?;
+            let e = parse_expression_unrestricted(parser, false)?;
             let f = match &parser.token {
                 Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
                 Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
@@ -1189,15 +1189,15 @@ pub(crate) fn parse_compound_query<'a>(
     };
 
     let limit = if let Some(span) = parser.skip_keyword(Keyword::LIMIT) {
-        let n = parse_expression(parser, true)?;
+        let n = parse_expression_unrestricted(parser, true)?;
         match parser.token {
             Token::Comma => {
                 parser.consume();
-                Some((span, Some(n), parse_expression(parser, true)?))
+                Some((span, Some(n), parse_expression_unrestricted(parser, true)?))
             }
             Token::Ident(_, Keyword::OFFSET) => {
                 parser.consume();
-                Some((span, Some(parse_expression(parser, true)?), n))
+                Some((span, Some(parse_expression_unrestricted(parser, true)?), n))
             }
             _ => Some((span, None, n)),
         }

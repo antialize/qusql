@@ -144,7 +144,7 @@ pub(crate) fn parse_create_trigger<'a>(
         None
     };
 
-    let name = parser.consume_plain_identifier()?;
+    let name = parser.consume_plain_identifier_unrestricted()?;
 
     let trigger_time = match &parser.token {
         Token::Ident(_, Keyword::AFTER) => {
@@ -171,7 +171,7 @@ pub(crate) fn parse_create_trigger<'a>(
 
     let on_span = parser.consume_keyword(Keyword::ON)?;
 
-    let table = parser.consume_plain_identifier()?;
+    let table = parser.consume_plain_identifier_unrestricted()?;
 
     let for_each_row_span =
         parser.consume_keywords(&[Keyword::FOR, Keyword::EACH, Keyword::ROW])?;
@@ -183,7 +183,7 @@ pub(crate) fn parse_create_trigger<'a>(
         // Parse EXECUTE FUNCTION func_name()
         let _execute_span = parser.consume_keyword(Keyword::EXECUTE)?;
         parser.consume_keyword(Keyword::FUNCTION)?;
-        parser.consume_plain_identifier()?;
+        parser.consume_plain_identifier_unrestricted()?;
         let begin_span = parser.consume_token(Token::LParen)?;
         // TODO: parse function arguments if needed
         let end_span = parser.consume_token(Token::RParen)?;

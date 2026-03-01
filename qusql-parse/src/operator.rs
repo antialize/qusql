@@ -767,7 +767,7 @@ fn consume_operator_or_identifier<'a>(
         Token::DoubleExclamationMark => Ok(Identifier::new("!!", parser.consume())),
         Token::PostgresOperator(op) => Ok(Identifier::new(op, parser.consume())),
         // Regular identifiers
-        _ => parser.consume_plain_identifier(),
+        _ => parser.consume_plain_identifier_unrestricted(),
     }
 }
 

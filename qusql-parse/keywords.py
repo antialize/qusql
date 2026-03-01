@@ -935,6 +935,8 @@ ZEROFILL
 ZONE
 """
 
+
+# MySQL reserved keywords (cannot be used as unquoted identifiers in any context)
 RESERVED_KEYWORDS = """
 ACCESSIBLE
 ADD
@@ -943,7 +945,6 @@ ALTER
 ANALYZE
 AND
 AS
-ASC
 ASENSITIVE
 BEFORE
 BETWEEN
@@ -986,7 +987,6 @@ DECLARE
 DELAYED
 DELETE
 DELETE_DOMAIN_ID
-DESC
 DESCRIBE
 DETERMINISTIC
 DISTINCT
@@ -1188,6 +1188,11 @@ YEAR_MONTH
 ZEROFILL
 """
 
+
+CONTEXTUAL_KEYWORDS = """
+ASC
+"""
+
 EXPR_IDENT = """
 CURRENT_DATE
 CURRENT_TIME
@@ -1203,7 +1208,14 @@ UTC_TIMESTAMP
 VALUES
 """
 
-KEYWORDS=sorted([kw.strip() for kw in keywords.splitlines() if kw.strip()])
+# Partition keywords: reserved first, then the rest
+ALL_KEYWORDS = [kw.strip() for kw in keywords.splitlines() if kw.strip()]
+RESERVED_SET = set(kw.strip() for kw in RESERVED_KEYWORDS.splitlines() if kw.strip())
+RESERVED_KEYWORDS_LIST = [kw for kw in ALL_KEYWORDS if kw in RESERVED_SET]
+NON_RESERVED_KEYWORDS_LIST = [kw for kw in ALL_KEYWORDS if kw not in RESERVED_SET]
+
+# Keep reserved keywords at the top of the enum
+KEYWORDS = RESERVED_KEYWORDS_LIST + NON_RESERVED_KEYWORDS_LIST
 
 with open("src/keywords.rs", "w") as f:
     f.write("//! Contains the `Keyword` enum and related functions.\n")
@@ -1214,10 +1226,14 @@ with open("src/keywords.rs", "w") as f:
     f.write("#[allow(non_camel_case_types, clippy::upper_case_acronyms)]\n")
     f.write("#[derive(Default)]\n")
     f.write("pub enum Keyword {\n")
+    # Reserved (restrictable) keywords at the top
+    for kw in RESERVED_KEYWORDS_LIST:
+        f.write(f"    {kw},\n")
     f.write("    #[default]\n")
     f.write("    NOT_A_KEYWORD,\n")
     f.write("    QUOTED_IDENTIFIER,\n")
-    for kw in KEYWORDS:
+    # Non-reserved keywords after
+    for kw in NON_RESERVED_KEYWORDS_LIST:
         f.write(f"    {kw},\n")
     f.write("}\n")
     f.write("\n")

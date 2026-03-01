@@ -255,7 +255,7 @@ fn parse_drop_database<'a>(
     } else {
         None
     };
-    let database = parser.consume_plain_identifier()?;
+    let database = parser.consume_plain_identifier_unrestricted()?;
     Ok(DropDatabase {
         drop_span,
         database_span,
@@ -441,7 +441,7 @@ fn parse_drop_function<'a>(
                     // Parse parameter name (optional)
                     let name = match &parser.token {
                         Token::Ident(_, kw) if !kw.reserved() => {
-                            Some(parser.consume_plain_identifier()?)
+                            Some(parser.consume_plain_identifier_unrestricted()?)
                         }
                         _ => None,
                     };
@@ -673,7 +673,7 @@ fn parse_drop_server<'a>(
     } else {
         None
     };
-    let server = parser.consume_plain_identifier()?;
+    let server = parser.consume_plain_identifier_unrestricted()?;
     Ok(DropServer {
         drop_span,
         server_span,
@@ -834,7 +834,7 @@ fn parse_drop_index<'a>(
     } else {
         None
     };
-    let index_name = parser.consume_plain_identifier()?;
+    let index_name = parser.consume_plain_identifier_unrestricted()?;
     let on = if let Some(span) = parser.skip_keyword(Keyword::ON) {
         let table_name = parse_qualified_name(parser)?;
         Some((span, table_name))
@@ -979,7 +979,7 @@ fn parse_drop_extension<'a>(
     };
     let mut extensions = Vec::new();
     loop {
-        extensions.push(parser.consume_plain_identifier()?);
+        extensions.push(parser.consume_plain_identifier_unrestricted()?);
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
@@ -1152,7 +1152,7 @@ fn parse_drop_operator_family<'a>(
     };
     let family = parse_qualified_name(parser)?;
     let using = if let Some(span) = parser.skip_keyword(Keyword::USING) {
-        let method = parser.consume_plain_identifier()?;
+        let method = parser.consume_plain_identifier_unrestricted()?;
         Some((span, method))
     } else {
         None
@@ -1218,7 +1218,7 @@ fn parse_drop_operator_class<'a>(
     };
     let class = parse_qualified_name(parser)?;
     let using = if let Some(span) = parser.skip_keyword(Keyword::USING) {
-        let method = parser.consume_plain_identifier()?;
+        let method = parser.consume_plain_identifier_unrestricted()?;
         Some((span, method))
     } else {
         None

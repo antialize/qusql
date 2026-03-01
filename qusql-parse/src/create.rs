@@ -19,7 +19,7 @@ use crate::{
     create_trigger::parse_create_trigger,
     create_view::parse_create_view,
     data_type::parse_data_type,
-    expression::parse_expression,
+    expression::parse_expression_unrestricted,
     keywords::Keyword,
     lexer::Token,
     operator::{parse_create_operator, parse_create_operator_class, parse_create_operator_family},
@@ -61,7 +61,7 @@ fn parse_create_type<'a>(
 ) -> Result<CreateTypeEnum<'a>, ParseError> {
     let type_span = parser.consume_keyword(Keyword::TYPE)?;
     parser.postgres_only(&type_span);
-    let name = parser.consume_plain_identifier()?;
+    let name = parser.consume_plain_identifier_unrestricted()?;
     let as_enum_span = parser.consume_keywords(&[Keyword::AS, Keyword::ENUM])?;
     parser.consume_token(Token::LParen)?;
     let mut values = Vec::new();
@@ -278,7 +278,7 @@ fn parse_create_database<'a>(
     };
 
     let mut create_options = Vec::new();
-    let name = parser.consume_plain_identifier()?;
+    let name = parser.consume_plain_identifier_unrestricted()?;
     loop {
         let default_span = parser.skip_keyword(Keyword::DEFAULT);
         match &parser.token {
@@ -288,7 +288,7 @@ fn parse_create_database<'a>(
                 create_options.push(CreateDatabaseOption::CharSet {
                     default_span,
                     identifier,
-                    value: parser.consume_plain_identifier()?,
+                    value: parser.consume_plain_identifier_unrestricted()?,
                 });
             }
             Token::Ident(_, Keyword::CHARACTER) => {
@@ -297,7 +297,7 @@ fn parse_create_database<'a>(
                 create_options.push(CreateDatabaseOption::CharSet {
                     default_span,
                     identifier,
-                    value: parser.consume_plain_identifier()?,
+                    value: parser.consume_plain_identifier_unrestricted()?,
                 });
             }
             Token::Ident(_, Keyword::COLLATE) => {
@@ -306,7 +306,7 @@ fn parse_create_database<'a>(
                 create_options.push(CreateDatabaseOption::Collate {
                     default_span,
                     identifier,
-                    value: parser.consume_plain_identifier()?,
+                    value: parser.consume_plain_identifier_unrestricted()?,
                 });
             }
             Token::Ident(_, Keyword::ENCRYPTION) => {
@@ -367,16 +367,16 @@ fn parse_create_schema<'a>(
     // Check if next token is AUTHORIZATION
     if let Token::Ident(_, Keyword::AUTHORIZATION) = parser.token {
         let auth_span = parser.consume_keyword(Keyword::AUTHORIZATION)?;
-        let role_name = parser.consume_plain_identifier()?;
+        let role_name = parser.consume_plain_identifier_unrestricted()?;
         authorization = Some((auth_span, role_name));
     } else {
         // Parse schema name
-        name = Some(parser.consume_plain_identifier()?);
+        name = Some(parser.consume_plain_identifier_unrestricted()?);
 
         // Optional AUTHORIZATION after name
         if let Token::Ident(_, Keyword::AUTHORIZATION) = parser.token {
             let auth_span = parser.consume_keyword(Keyword::AUTHORIZATION)?;
-            let role_name = parser.consume_plain_identifier()?;
+            let role_name = parser.consume_plain_identifier_unrestricted()?;
             authorization = Some((auth_span, role_name));
         }
     }
@@ -441,32 +441,32 @@ fn parse_create_sequence<'a>(
             Token::Ident(_, Keyword::INCREMENT) => {
                 let increment_span = parser.consume_keyword(Keyword::INCREMENT)?;
                 parser.skip_keyword(Keyword::BY); // BY is optional
-                let expr = parse_expression(parser, true)?;
+                let expr = parse_expression_unrestricted(parser, true)?;
                 let span = increment_span.join_span(&expr);
                 options.push(SequenceOption::IncrementBy(span, expr));
             }
             Token::Ident(_, Keyword::MINVALUE) => {
                 let minvalue_span = parser.consume_keyword(Keyword::MINVALUE)?;
-                let expr = parse_expression(parser, true)?;
+                let expr = parse_expression_unrestricted(parser, true)?;
                 let span = minvalue_span.join_span(&expr);
                 options.push(SequenceOption::MinValue(span, expr));
             }
             Token::Ident(_, Keyword::MAXVALUE) => {
                 let maxvalue_span = parser.consume_keyword(Keyword::MAXVALUE)?;
-                let expr = parse_expression(parser, true)?;
+                let expr = parse_expression_unrestricted(parser, true)?;
                 let span = maxvalue_span.join_span(&expr);
                 options.push(SequenceOption::MaxValue(span, expr));
             }
             Token::Ident(_, Keyword::START) => {
                 let start_span = parser.consume_keyword(Keyword::START)?;
                 parser.skip_keyword(Keyword::WITH); // WITH is optional
-                let expr = parse_expression(parser, true)?;
+                let expr = parse_expression_unrestricted(parser, true)?;
                 let span = start_span.join_span(&expr);
                 options.push(SequenceOption::StartWith(span, expr));
             }
             Token::Ident(_, Keyword::CACHE) => {
                 let cache_span = parser.consume_keyword(Keyword::CACHE)?;
-                let expr = parse_expression(parser, true)?;
+                let expr = parse_expression_unrestricted(parser, true)?;
                 let span = cache_span.join_span(&expr);
                 options.push(SequenceOption::Cache(span, expr));
             }
@@ -580,7 +580,7 @@ fn parse_create_server<'a>(
     };
 
     // Parse server name
-    let server_name = parser.consume_plain_identifier()?;
+    let server_name = parser.consume_plain_identifier_unrestricted()?;
 
     // Parse optional TYPE 'server_type'
     let type_ = if let Some(type_span) = parser.skip_keyword(Keyword::TYPE) {
@@ -600,7 +600,7 @@ fn parse_create_server<'a>(
 
     // Parse FOREIGN DATA WRAPPER fdw_name
     let fdw_span = parser.consume_keywords(&[Keyword::FOREIGN, Keyword::DATA, Keyword::WRAPPER])?;
-    let fdw_name = parser.consume_plain_identifier()?;
+    let fdw_name = parser.consume_plain_identifier_unrestricted()?;
     let foreign_data_wrapper = (fdw_span, fdw_name);
 
     // Parse optional OPTIONS (option 'value', ...)
@@ -608,7 +608,7 @@ fn parse_create_server<'a>(
     if parser.skip_keyword(Keyword::OPTIONS).is_some() {
         parser.consume_token(Token::LParen)?;
         loop {
-            let option_name = parser.consume_plain_identifier()?;
+            let option_name = parser.consume_plain_identifier_unrestricted()?;
             let option_value = parser.consume_string()?;
             options.push((option_name, option_value));
 
@@ -714,7 +714,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                                 let v = *v;
                                 Identifier::new(v, parser.consume())
                             }
-                            _ => parser.consume_plain_identifier()?,
+                            _ => parser.consume_plain_identifier_unrestricted()?,
                         };
                         parser.consume_token(Token::At)?;
                         let host = match &parser.token {
@@ -722,7 +722,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                                 let v = *v;
                                 Identifier::new(v, parser.consume())
                             }
-                            _ => parser.consume_plain_identifier()?,
+                            _ => parser.consume_plain_identifier_unrestricted()?,
                         };
                         CreateOption::Definer {
                             definer_span,

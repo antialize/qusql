@@ -13,7 +13,7 @@ use crate::{
     Expression, Identifier, QualifiedName, Span, Spanned,
     alter_table::{IndexCol, IndexColExpr, parse_operator_class},
     create_option::CreateOption,
-    expression::parse_expression,
+    expression::parse_expression_unrestricted,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -185,7 +185,7 @@ pub(crate) fn parse_create_index<'a>(
         None
     } else {
         // Named index
-        Some(parser.consume_plain_identifier()?)
+        Some(parser.consume_plain_identifier_unrestricted()?)
     };
 
     // MySQL/MariaDB require index names
@@ -210,12 +210,12 @@ pub(crate) fn parse_create_index<'a>(
         let expr = if parser.token == Token::LParen {
             // Functional index: parse expression
             parser.consume_token(Token::LParen)?;
-            let expression = parse_expression(parser, false)?;
+            let expression = parse_expression_unrestricted(parser, false)?;
             parser.consume_token(Token::RParen)?;
             IndexColExpr::Expression(expression)
         } else {
             // Regular column name
-            let name = parser.consume_plain_identifier()?;
+            let name = parser.consume_plain_identifier_unrestricted()?;
             IndexColExpr::Column(name)
         };
 
@@ -260,7 +260,7 @@ pub(crate) fn parse_create_index<'a>(
         let l_paren = parser.consume_token(Token::LParen)?;
         let mut include_cols = Vec::new();
         loop {
-            include_cols.push(parser.consume_plain_identifier()?);
+            include_cols.push(parser.consume_plain_identifier_unrestricted()?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -290,7 +290,7 @@ pub(crate) fn parse_create_index<'a>(
             Token::Ident(_, Keyword::ALGORITHM) => {
                 let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
                 parser.skip_token(Token::Eq); // Optional =
-                let algorithm_value = parser.consume_plain_identifier()?;
+                let algorithm_value = parser.consume_plain_identifier_unrestricted()?;
                 index_options.push(CreateIndexOption::Algorithm(
                     algorithm_span,
                     algorithm_value,
@@ -299,7 +299,7 @@ pub(crate) fn parse_create_index<'a>(
             Token::Ident(_, Keyword::LOCK) => {
                 let lock_span = parser.consume_keyword(Keyword::LOCK)?;
                 parser.skip_token(Token::Eq); // Optional =
-                let lock_value = parser.consume_plain_identifier()?;
+                let lock_value = parser.consume_plain_identifier_unrestricted()?;
                 index_options.push(CreateIndexOption::Lock(lock_span, lock_value));
             }
             _ => break,
@@ -308,7 +308,7 @@ pub(crate) fn parse_create_index<'a>(
 
     let mut where_ = None;
     if let Some(where_span) = parser.skip_keyword(Keyword::WHERE) {
-        let where_expr = parse_expression(parser, false)?;
+        let where_expr = parse_expression_unrestricted(parser, false)?;
         if parser.options.dialect.is_maria() {
             parser.err(
                 "Partial indexes not supported",

@@ -12,7 +12,7 @@
 
 use crate::{
     Expression, Span, Spanned,
-    expression::{parse_expression, parse_expression_outer},
+    expression::{parse_expression_unrestricted, parse_expression_outer},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -507,7 +507,7 @@ pub(crate) fn parse_function<'a>(
         let order_span = parser.consume_keywords(&[Keyword::ORDER, Keyword::BY])?;
         let mut order = Vec::new();
         loop {
-            let e = parse_expression(parser, false)?;
+            let e = parse_expression_unrestricted(parser, false)?;
             let f = match &parser.token {
                 Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
                 Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
@@ -550,13 +550,13 @@ mod tests {
         issue::Issues, parser::Parser,
     };
 
-    use super::parse_expression;
+    use super::parse_expression_unrestricted;
 
     fn test_expr(src: &'static str, f: impl FnOnce(&Expression<'_>) -> Result<(), String>) {
         let mut issues = Issues::new(src);
         let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
         let mut parser = Parser::new(src, &mut issues, &options);
-        let res = parse_expression(&mut parser, false).expect("Expression in test expr");
+        let res = parse_expression_unrestricted(&mut parser, false).expect("Expression in test expr");
         if let Err(e) = f(&res) {
             panic!("Error parsing {}: {}\nGot {:#?}", src, e, res);
         }
@@ -568,7 +568,7 @@ mod tests {
             let mut issues = Issues::new(src);
             let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
             let mut parser = Parser::new(src, &mut issues, &options);
-            let res = match parse_expression(&mut parser, false) {
+            let res = match parse_expression_unrestricted(&mut parser, false) {
                 Ok(res) => res,
                 Err(e) => panic!("Unable to parse {}: {:?}", src, e),
             };

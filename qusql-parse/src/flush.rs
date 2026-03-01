@@ -135,7 +135,7 @@ pub(crate) fn parse_flush<'a>(parser: &mut Parser<'a, '_>) -> Result<Flush<'a>, 
                         .join_span(&parser.consume_keyword(Keyword::CHANNEL)?);
                     options.push(FlushOption::RelayLogsForChannel {
                         span,
-                        channel: parser.consume_plain_identifier()?,
+                        channel: parser.consume_plain_identifier_unrestricted()?,
                     });
                 } else {
                     options.push(FlushOption::RelayLogs(span));

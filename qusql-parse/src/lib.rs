@@ -81,6 +81,7 @@ mod truncate;
 mod update;
 mod values;
 mod with_query;
+mod restrict;
 
 pub use alter_table::{
     AlterAlgorithm, AlterColumnAction, AlterLock, AlterSpecification, AlterTable, AlterTableOwner,
