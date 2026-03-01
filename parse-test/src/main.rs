@@ -61,8 +61,10 @@ struct Args {
 #[derive(Copy, Clone, Debug, ValueEnum)]
 enum DialectArg {
     /// MariaDB / MySQL dialect
+    #[value(alias("mysql"), alias("mariadb"), alias("msql"))]
     Maria,
     /// PostgreSQL dialect
+    #[value(alias("postgres"), alias("pgsql"), alias("pg"), alias("postgis"))]
     Postgresql,
     /// SQLite dialect
     Sqlite,
@@ -81,7 +83,15 @@ fn map_dialect(d: DialectArg) -> qusql_parse::SQLDialect {
 fn main() {
     let args = Args::parse();
 
-    let src = match args.file {
+    let src = match &args.file {
+        Some(path) if matches!(path.to_str(), Some("-")) => {
+            let mut s = String::new();
+            if let Err(e) = std::io::stdin().read_to_string(&mut s) {
+                eprintln!("Failed to read from stdin: {}", e);
+                std::process::exit(2);
+            }
+            s
+        }
         Some(path) => match fs::read_to_string(&path) {
             Ok(s) => s,
             Err(e) => {
@@ -162,18 +172,23 @@ fn main() {
             }
             OutputFormatArg::PrettyJson => {
                 use ariadne::{Color, Label, Report, ReportKind, Source};
+                let file = args
+                    .file
+                    .as_ref()
+                    .map(|v| v.display().to_string())
+                    .unwrap_or("-".to_string());
                 let mut pretty_issues = Vec::new();
                 for issue in issues.get() {
                     let mut w = Vec::new();
-                    Report::build(ReportKind::Error, issue.span.clone())
+                    Report::build(ReportKind::Error, (&file, issue.span.clone()))
                         .with_message(&issue.message)
                         .with_label(
-                            Label::new(issue.span.clone())
+                            Label::new((&file, issue.span.clone()))
                                 .with_message("Issue here")
                                 .with_color(Color::Red),
                         )
                         .finish()
-                        .write(Source::from(&src), &mut w)
+                        .write((&file, Source::from(&src)), &mut w)
                         .unwrap();
                     pretty_issues.push(String::from_utf8(w).unwrap());
                 }
@@ -186,6 +201,12 @@ fn main() {
                 println!("{}", serde_json::to_string_pretty(&result).unwrap());
             }
             OutputFormatArg::Pretty => {
+                use ariadne::{Color, Label, Report, ReportKind, Source};
+                let file = args
+                    .file
+                    .as_ref()
+                    .map(|v| v.display().to_string())
+                    .unwrap_or("-".to_string());
                 if let Some(value) = &value {
                     println!("Parsed AST:\n{}", value);
                 } else {
@@ -193,16 +214,15 @@ fn main() {
                 }
                 println!("Issues:");
                 for issue in issues.get() {
-                    use ariadne::{Color, Label, Report, ReportKind, Source};
-                    Report::build(ReportKind::Error, issue.span.clone())
+                    Report::build(ReportKind::Error, (&file, issue.span.clone()))
                         .with_message(&issue.message)
                         .with_label(
-                            Label::new(issue.span.clone())
+                            Label::new((&file, issue.span.clone()))
                                 .with_message("Issue here")
                                 .with_color(Color::Red),
                         )
                         .finish()
-                        .print(Source::from(&src))
+                        .print((&file, Source::from(&src)))
                         .unwrap();
                 }
                 println!("Success: {}", success);
