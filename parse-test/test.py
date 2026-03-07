@@ -219,10 +219,12 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
                 # Update failure flag based on parse success (but don't touch should_fail)
                 if out["success"]:
                     test.pop("failure", None)
-                    print(f"Updated (success): {test['input'][:80]}")
+                    if not getattr(args, "failures_only", False):
+                        print(f"Updated (success): {test['input'][:80]}")
                 else:
                     test["failure"] = True
-                    print(f"Updated (failure): {test['input'][:80]}")
+                    if not getattr(args, "failures_only", False):
+                        print(f"Updated (failure): {test['input'][:80]}")
         elif args.interactive:
             # Interactive mode: prompt user to update expected results
             if result.returncode != 0:
@@ -240,13 +242,16 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
                     or out["success"] == test.get("failure", False)
                     or out["issues"] != test.get("issues", [])
                 ):
-                    print("===============> Test state changed <=========")
-                    print(f"Input: {test['input']}")
-                    print(f"Success: {out['success']} was {test.get('failure', False)}")
-                    print(f"Output: {out['value']}")
-                    print(f"Issues: {out['issues'] == test.get('issues', [])}")
-                    for issue in out["issues"]:
-                        print(f"  {issue.replace('\n', '\n  ')}")
+                    if not getattr(args, "failures_only", False):
+                        print("===============> Test state changed <=========")
+                        print(f"Input: {test['input']}")
+                        print(
+                            f"Success: {out['success']} was {test.get('failure', False)}"
+                        )
+                        print(f"Output: {out['value']}")
+                        print(f"Issues: {out['issues'] == test.get('issues', [])}")
+                        for issue in out["issues"]:
+                            print(f"  {issue.replace('\n', '\n  ')}")
 
                     # Prompt user for action
                     while True:
@@ -285,7 +290,8 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
                     else:
                         test["failure"] = True
                 else:
-                    print(f"No change: {inp}")
+                    if not getattr(args, "failures_only", False):
+                        print(f"No change: {inp}")
         else:
             # Non-interactive mode: just report pass/fail
             if result.returncode != 0:
@@ -295,6 +301,7 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
                 out = json.loads(result.stdout.decode())
                 # Check if test behaved as expected
                 if out["success"] == test.get("should_fail", False):
+                    # Test failed (either couldn't parse expected-to-parse, or parsed expected-to-fail)
                     if not out["success"]:
                         print(f"Test failed: '{inp}'")
                     else:
@@ -302,10 +309,11 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
                     print(f"Output: {out['value']}")
                     print("Issues:")
                     for issue in out["issues"]:
-                        print(f"  {issue.replace('\n', '\n  ')}")
+                        print(f"  {issue.replace('\\n', '\\n  ')}")
                     failure_count += 1
                 else:
-                    print(f"Test passed in: '{inp}'")
+                    if not getattr(args, "failures_only", False):
+                        print(f"Test passed in: '{inp}'")
 
     # Save changes if in interactive or update-output mode
     if args.interactive or args.update_output:
@@ -357,6 +365,11 @@ if __name__ == "__main__":
         type=str,
         help="Only run tests whose input contains this string",
     )
+    test_mysql_args.add_argument(
+        "--failures-only",
+        action="store_true",
+        help="Only print failed tests and the final summary line",
+    )
 
     # PostgreSQL import command
     subparsers.add_parser(
@@ -382,6 +395,11 @@ if __name__ == "__main__":
         "--filter",
         type=str,
         help="Only run tests whose input contains this string",
+    )
+    test_postgresql_args.add_argument(
+        "--failures-only",
+        action="store_true",
+        help="Only print failed tests and the final summary line",
     )
 
     args = parser.parse_args()
