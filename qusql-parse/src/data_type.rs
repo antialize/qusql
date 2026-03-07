@@ -122,6 +122,7 @@ pub enum Type<'a> {
     Named(Span),
     Json,
     Bit(usize, Span),
+    VarBit(Option<(usize, Span)>),
     Bytea,
     Inet4,
     Inet6,
@@ -165,6 +166,7 @@ impl<'a> OptSpanned for Type<'a> {
             Type::Named(v) => v.opt_span(),
             Type::Json => None,
             Type::Bit(_, b) => b.opt_span(),
+            Type::VarBit(v) => v.opt_span(),
             Type::Bytea => None,
             Type::Inet4 => None,
             Type::Inet6 => None,
@@ -412,6 +414,13 @@ pub(crate) fn parse_data_type<'a>(
             let t = parser.consume_keyword(Keyword::BIT)?;
             let (w, ws) = parse_width_req(parser)?;
             (t, Type::Bit(w, ws))
+        }
+        Token::Ident(_, Keyword::VARBIT) => {
+            let t = parser.consume_keyword(Keyword::VARBIT)?;
+            if !parser.options.dialect.is_postgresql() {
+                parser.err("VARBIT only supported by PostgreSQL", &t);
+            }
+            (t, Type::VarBit(parse_width(parser)?))
         }
         Token::Ident(_, _) if parser.options.dialect.is_postgresql() => {
             let name = parser.consume();

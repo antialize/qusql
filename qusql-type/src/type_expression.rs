@@ -417,6 +417,7 @@ pub(crate) fn type_expression<'a>(
                             | qusql_parse::Type::LongBlob(_)
                             | qusql_parse::Type::Json
                             | qusql_parse::Type::Bit(_, _)
+                            | qusql_parse::Type::VarBit(_)
                             | qusql_parse::Type::Bytea
                             | qusql_parse::Type::Named(_) // TODO lookup name
                             | qusql_parse::Type::Array(_, _)

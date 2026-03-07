@@ -2274,11 +2274,9 @@
   },
   {
     "input": "CREATE TABLE foo (x VARBIT, y VARBIT(42))",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 13..16,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"x\",\n                    span: 18..19,\n                },\n                data_type: DataType {\n                    identifier: 20..26,\n                    type_: Named(\n                        20..26,\n                    ),\n                    properties: [],\n                },\n            },\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"y\",\n                    span: 28..29,\n                },\n                data_type: DataType {\n                    identifier: 30..36,\n                    type_: Named(\n                        30..36,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected '')' or ','' here\",\n    span: 36..37,\n    sql_segment: \"(\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 13..16,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"x\",\n                    span: 18..19,\n                },\n                data_type: DataType {\n                    identifier: 20..26,\n                    type_: VarBit(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"y\",\n                    span: 28..29,\n                },\n                data_type: DataType {\n                    identifier: 30..36,\n                    type_: VarBit(\n                        Some(\n                            (\n                                42,\n                                37..39,\n                            ),\n                        ),\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
+    "issues": [],
+    "setup": "empty_setup"
   },
   {
     "input": "CREATE TABLE measurement_y2006m02 PARTITION OF measurement FOR VALUES FROM ('2006-02-01') TO ('2006-03-01')",
@@ -3312,6 +3310,14 @@
     ],
     "failure": true,
     "should_fail": true
+  },
+  {
+    "input": "Failed to parse CREATE ROLE test case: {err:?}",
+    "output": null,
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..6,\n    sql_segment: \"Failed\",\n    fragments: [],\n}"
+    ],
+    "failure": true
   },
   {
     "input": "IN, FROM, or WITH",
