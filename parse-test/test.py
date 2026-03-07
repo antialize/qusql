@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 SQL Parser Test Harness
 
@@ -9,8 +10,9 @@ both interactive and automated testing modes.
 import rust_lexer
 import subprocess
 import json
-from typing import TypedDict, NotRequired
+from typing import TypedDict, NotRequired, Optional
 import argparse
+import time
 
 
 class TestCase(TypedDict):
@@ -332,6 +334,337 @@ def test_postgresql(args) -> None:
     test_dialect(args, "postgres-tests.json", "postgresql", "PostgreSQL")
 
 
+def validate_database(
+    args,
+    tests_file: str,
+    setups_file: str,
+    container_name: str,
+    container_image: str,
+    db_name: str,
+    db_password: str,
+    db_port: int,
+    client_command: str,
+    client_args: list[str],
+    health_check_command: list[str],
+    health_check_success: str,
+    db_init_sql: list[str],
+    setup_file_name: str,
+) -> None:
+    """
+    Generic function to validate test cases against a real database running in Podman.
+    This helps ensure that 'should_fail' flags are correct.
+
+    Args:
+        args: Command-line arguments
+        tests_file: Path to JSON file with test cases
+        setups_file: Path to JSON file with named setups
+        container_name: Name for the Podman container
+        container_image: Docker image to use
+        db_name: Database name to create and use
+        db_password: Database password
+        db_port: Host port to map to container
+        client_command: Database client command (e.g., 'mariadb', 'psql')
+        client_args: Arguments for client command
+        health_check_command: Command to check if database is ready
+        health_check_success: String to look for in health check output
+        db_init_sql: SQL commands to initialize database for each test
+        setup_file_name: Human-readable name of setup file for error messages
+    """
+    # Load named setups if available
+    named_setups = {}
+    try:
+        with open(setups_file, "r") as f:
+            named_setups = json.load(f)
+    except FileNotFoundError:
+        pass
+
+    # Load tests
+    with open(tests_file, "r") as f:
+        tests = json.load(f)
+
+    # Filter tests if requested
+    if args.filter:
+        tests = [t for t in tests if args.filter in t["input"]]
+
+    # Limit if requested
+    if args.limit:
+        tests = tests[: args.limit]
+
+    def start_container():
+        """Start database container using Podman"""
+        print(f"🐋 Starting {container_image} container...")
+
+        # Check if container already exists
+        result = subprocess.run(
+            [
+                "podman",
+                "ps",
+                "-a",
+                "--filter",
+                f"name={container_name}",
+                "--format",
+                "{{.Names}}",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        if container_name in result.stdout:
+            print(f"   Container {container_name} already exists, removing...")
+            subprocess.run(["podman", "rm", "-f", container_name], check=True)
+
+        # Start new container - build command dynamically
+        run_cmd = [
+            "podman",
+            "run",
+            "-d",
+            "--name",
+            container_name,
+            "-p",
+            f"{db_port}:5432" if "postgres" in container_image else f"{db_port}:3306",
+        ]
+
+        # Add environment variables based on database type
+        if "postgres" in container_image:
+            run_cmd.extend(
+                [
+                    "-e",
+                    f"POSTGRES_PASSWORD={db_password}",
+                    "-e",
+                    f"POSTGRES_DB={db_name}",
+                ]
+            )
+        else:  # MariaDB/MySQL
+            run_cmd.extend(
+                [
+                    "-e",
+                    f"MYSQL_ROOT_PASSWORD={db_password}",
+                    "-e",
+                    f"MYSQL_DATABASE={db_name}",
+                ]
+            )
+
+        run_cmd.append(container_image)
+        subprocess.run(run_cmd, check=True)
+
+        print(f"   Waiting for {container_image} to be ready...")
+        max_attempts = 60
+        for i in range(max_attempts):
+            result = subprocess.run(
+                ["podman", "exec", container_name] + health_check_command,
+                capture_output=True,
+                text=True,
+            )
+
+            if health_check_success in result.stdout:
+                print(f"   ✓ {container_image} is ready!")
+                return
+
+            time.sleep(1)
+
+        raise Exception(f"{container_image} failed to start in time")
+
+    def stop_container():
+        """Stop and remove database container"""
+        print(f"\n🛑 Stopping {container_image} container...")
+        subprocess.run(["podman", "rm", "-f", container_name], capture_output=True)
+
+    def execute_sql(sql: str) -> tuple[bool, Optional[str]]:
+        """
+        Execute SQL in database container.
+        Returns (success: bool, error_message: Optional[str])
+        """
+        result = subprocess.run(
+            ["podman", "exec", "-i", container_name, client_command] + client_args,
+            input=sql,
+            capture_output=True,
+            text=True,
+        )
+
+        # Check both return code and stderr for errors
+        # Note: psql and mariadb return 0 even when SQL statements fail,
+        # so we must check stderr for "ERROR:" to detect failures
+        has_error = result.returncode != 0 or "ERROR:" in result.stderr
+        success = not has_error
+        error = result.stderr if has_error else None
+        return success, error
+
+    def test_case(test: dict) -> tuple[bool, Optional[str]]:
+        """
+        Test a single case with fresh database.
+        Returns (success: bool, error_message: Optional[str])
+        """
+        setup_name = test.get("setup")
+
+        # Only named setups are supported (must be a string reference)
+        if not isinstance(setup_name, str):
+            return False, f"Setup must be a string reference to {setup_file_name}"
+
+        if setup_name not in named_setups:
+            return False, f"Unknown setup: {setup_name}"
+
+        setup_statements = named_setups[setup_name]
+        input_sql = test["input"]
+
+        # Build SQL with fresh database for each test
+        sql_parts = list(db_init_sql)
+
+        # Add semicolons to setup statements if they don't have them
+        for stmt in setup_statements:
+            stmt = stmt.strip()
+            if not stmt.endswith(";"):
+                stmt += ";"
+            sql_parts.append(stmt)
+        sql_parts.append(input_sql + ";")
+
+        sql = "\n".join(sql_parts)
+        return execute_sql(sql)
+
+    # Main validation logic
+    try:
+        start_container()
+
+        print(f"\n📊 Validating {len(tests)} test cases...\n")
+
+        mismatches = []
+        correct = 0
+        skipped = 0
+
+        for i, test in enumerate(tests):
+            input_sql = test["input"]
+            should_fail = test.get("should_fail", False)
+
+            # Skip tests without setup
+            if "setup" not in test:
+                skipped += 1
+                continue
+
+            success, error = test_case(test)
+            actual_fails = not success
+
+            # Check if expectation matches reality
+            if should_fail == actual_fails:
+                correct += 1
+                status = "✓"
+            else:
+                status = "✗"
+                mismatches.append(
+                    {
+                        "index": i,
+                        "input": input_sql,
+                        "should_fail": should_fail,
+                        "actual_fails": actual_fails,
+                        "error": error,
+                    }
+                )
+
+            print(
+                f"{status} [{i + 1}/{len(tests)}] {input_sql[:60]}{'...' if len(input_sql) > 60 else ''}"
+            )
+            if status == "✗":
+                print(
+                    f"    Expected: {'FAIL' if should_fail else 'SUCCESS'}, Got: {'FAIL' if actual_fails else 'SUCCESS'}"
+                )
+                if error:
+                    # Print first 300 chars of error
+                    error_preview = error[:300] if len(error) > 300 else error
+                    print(f"    Error: {error_preview}")
+
+        # Summary
+        print(f"\n{'=' * 70}")
+        print(
+            f"Results: {correct} correct, {len(mismatches)} mismatches, {skipped} skipped"
+        )
+
+        if mismatches:
+            print(f"\n❌ Found {len(mismatches)} mismatches:")
+            for m in mismatches:
+                print(f"\n  Test #{m['index']}: {m['input']}")
+                print(
+                    f"    should_fail: {m['should_fail']} → should be: {m['actual_fails']}"
+                )
+
+            # Update if requested
+            if args.update:
+                with open(tests_file, "r") as f:
+                    all_tests = json.load(f)
+
+                for mismatch in mismatches:
+                    idx = mismatch["index"]
+                    all_tests[idx]["should_fail"] = mismatch["actual_fails"]
+
+                with open(tests_file, "w") as f:
+                    json.dump(all_tests, f, indent=2)
+
+                print(f"\n✏️  Updated {len(mismatches)} test cases in {tests_file}")
+        else:
+            print(f"\n✓ All tests match {container_image} behavior!")
+
+    finally:
+        stop_container()
+
+
+def validate_mysql(args) -> None:
+    """
+    Validate MySQL test cases against a real MariaDB database running in Podman.
+    This helps ensure that 'should_fail' flags are correct.
+    """
+    validate_database(
+        args=args,
+        tests_file="mysql-tests.json",
+        setups_file="mysql-setups.json",
+        container_name="qusql-test-mysql",
+        container_image="docker.io/library/mariadb:latest",
+        db_name="testdb",
+        db_password="testpass123",
+        db_port=13306,
+        client_command="mariadb",
+        client_args=["-h", "127.0.0.1", "-uroot", "-ptestpass123", "testdb"],
+        health_check_command=[
+            "mariadb-admin",
+            "ping",
+            "-h",
+            "localhost",
+            "-uroot",
+            "-ptestpass123",
+        ],
+        health_check_success="mysqld is alive",
+        db_init_sql=[
+            "DROP DATABASE IF EXISTS testdb;",
+            "CREATE DATABASE testdb;",
+            "USE testdb;",
+        ],
+        setup_file_name="mysql-setups.json",
+    )
+
+
+def validate_postgresql(args) -> None:
+    """
+    Validate PostgreSQL test cases against a real PostgreSQL database running in Podman.
+    This helps ensure that 'should_fail' flags are correct.
+    """
+    validate_database(
+        args=args,
+        tests_file="postgres-tests.json",
+        setups_file="postgres-setups.json",
+        container_name="qusql-test-postgresql",
+        container_image="docker.io/library/postgres:latest",
+        db_name="testdb",
+        db_password="testpass123",
+        db_port=15432,
+        client_command="psql",
+        client_args=["-h", "127.0.0.1", "-U", "postgres", "-d", "postgres"],
+        health_check_command=["pg_isready", "-U", "postgres"],
+        health_check_success="accepting connections",
+        db_init_sql=[
+            "DROP DATABASE IF EXISTS testdb;",
+            "CREATE DATABASE testdb;",
+            "\\c testdb;",
+        ],
+        setup_file_name="postgres-setups.json",
+    )
+
+
 if __name__ == "__main__":
     # Set up command-line argument parser
     parser = argparse.ArgumentParser(
@@ -402,6 +735,48 @@ if __name__ == "__main__":
         help="Only print failed tests and the final summary line",
     )
 
+    # MySQL validation command
+    validate_mysql_args = subparsers.add_parser(
+        "validate-mysql",
+        help="Validate MySQL test cases against real MySQL database in Podman",
+    )
+    validate_mysql_args.add_argument(
+        "--limit",
+        type=int,
+        help="Only validate the first N tests",
+    )
+    validate_mysql_args.add_argument(
+        "--filter",
+        type=str,
+        help="Only validate tests whose input contains this string",
+    )
+    validate_mysql_args.add_argument(
+        "--update",
+        action="store_true",
+        help="Automatically update should_fail flags based on MySQL behavior",
+    )
+
+    # PostgreSQL validation command
+    validate_postgresql_args = subparsers.add_parser(
+        "validate-postgresql",
+        help="Validate PostgreSQL test cases against real PostgreSQL database in Podman",
+    )
+    validate_postgresql_args.add_argument(
+        "--limit",
+        type=int,
+        help="Only validate the first N tests",
+    )
+    validate_postgresql_args.add_argument(
+        "--filter",
+        type=str,
+        help="Only validate tests whose input contains this string",
+    )
+    validate_postgresql_args.add_argument(
+        "--update",
+        action="store_true",
+        help="Automatically update should_fail flags based on PostgreSQL behavior",
+    )
+
     args = parser.parse_args()
 
     subprocess.run(
@@ -417,7 +792,11 @@ if __name__ == "__main__":
         import_mysql_tests(args)
     elif args.command == "test-mysql":
         test_mysql(args)
+    elif args.command == "validate-mysql":
+        validate_mysql(args)
     elif args.command == "import-postgresql":
         import_postgresql_tests(args)
     elif args.command == "test-postgresql":
         test_postgresql(args)
+    elif args.command == "validate-postgresql":
+        validate_postgresql(args)
