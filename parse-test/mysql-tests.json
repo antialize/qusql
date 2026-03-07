@@ -61,6 +61,7 @@
   },
   {
     "input": "ALTER TABLE `users` LOCK = EXCLUSIVE",
+    "setup": "users_table",
     "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"users\",\n                span: 12..19,\n            },\n        },\n        alter_specifications: [\n            Lock {\n                lock_span: 20..24,\n                lock: Exclusive(\n                    27..36,\n                ),\n            },\n        ],\n    },\n)",
     "issues": []
   },
