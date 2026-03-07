@@ -1001,6 +1001,9 @@ fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<AlterSpecification<'a>,
             let drop_column_span = drop_span.join_span(&parser.consume_keyword(Keyword::COLUMN)?);
             let column = parser.consume_plain_identifier()?;
             let cascade = parser.skip_keyword(Keyword::CASCADE);
+            if let Some(span) = &cascade {
+                parser.postgres_only(span);
+            }
             Ok(AlterSpecification::DropColumn {
                 drop_column_span,
                 column,
@@ -1203,6 +1206,14 @@ fn parse_alter_table<'a>(
     online: Option<Span>,
     ignore: Option<Span>,
 ) -> Result<AlterTable<'a>, ParseError> {
+    // ONLINE and IGNORE are MariaDB/MySQL-specific
+    if let Some(span) = &online {
+        parser.maria_only(span);
+    }
+    if let Some(span) = &ignore {
+        parser.maria_only(span);
+    }
+
     let table_span = parser.consume_keyword(Keyword::TABLE)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
@@ -1218,6 +1229,7 @@ fn parse_alter_table<'a>(
                 Token::Ident(_, Keyword::ADD) => parse_add_alter_specification(parser)?,
                 Token::Ident(_, Keyword::MODIFY) => {
                     let mut modify_span = parser.consume_keyword(Keyword::MODIFY)?;
+                    parser.maria_only(&modify_span);
                     if let Some(v) = parser.skip_keyword(Keyword::COLUMN) {
                         modify_span = modify_span.join_span(&v);
                     }
@@ -1233,10 +1245,13 @@ fn parse_alter_table<'a>(
                     let mut after = None;
                     match parser.token {
                         Token::Ident(_, Keyword::FIRST) => {
-                            first = Some(parser.consume_keyword(Keyword::FIRST)?);
+                            let first_span = parser.consume_keyword(Keyword::FIRST)?;
+                            parser.maria_only(&first_span);
+                            first = Some(first_span);
                         }
                         Token::Ident(_, Keyword::AFTER) => {
                             let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                            parser.maria_only(&after_span);
                             let col = parser.consume_plain_identifier()?;
                             after = Some((after_span, col));
                         }
@@ -1254,6 +1269,7 @@ fn parse_alter_table<'a>(
                 }
                 Token::Ident(_, Keyword::OWNER) => {
                     let span = parser.consume_keywords(&[Keyword::OWNER, Keyword::TO])?;
+                    parser.postgres_only(&span);
                     // In PostgreSQL, CURRENT_ROLE, CURRENT_USER, and SESSION_USER are valid without quotes
                     let owner = match &parser.token {
                         Token::Ident(_, Keyword::CURRENT_ROLE) => {
@@ -1272,6 +1288,7 @@ fn parse_alter_table<'a>(
                 Token::Ident(_, Keyword::DROP) => parse_drop(parser)?,
                 Token::Ident(_, Keyword::ALTER) => {
                     let span = parser.consume_keywords(&[Keyword::ALTER, Keyword::COLUMN])?;
+                    parser.postgres_only(&span);
                     let column = parser.consume_plain_identifier()?;
 
                     let alter_column_action = match parser.token {
@@ -1326,6 +1343,7 @@ fn parse_alter_table<'a>(
                 }
                 Token::Ident(_, Keyword::LOCK) => {
                     let lock_span = parser.consume_keyword(Keyword::LOCK)?;
+                    parser.maria_only(&lock_span);
                     parser.skip_token(Token::Eq);
                     let lock = match &parser.token {
                         Token::Ident(_, Keyword::DEFAULT) => {
@@ -1348,6 +1366,7 @@ fn parse_alter_table<'a>(
                 }
                 Token::Ident(_, Keyword::ALGORITHM) => {
                     let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
+                    parser.maria_only(&algorithm_span);
                     parser.skip_token(Token::Eq);
                     let algorithm = match &parser.token {
                         Token::Ident(_, Keyword::DEFAULT) => {
@@ -1373,6 +1392,7 @@ fn parse_alter_table<'a>(
                 }
                 Token::Ident(_, Keyword::AUTO_INCREMENT) => {
                     let auto_increment_span = parser.consume_keyword(Keyword::AUTO_INCREMENT)?;
+                    parser.maria_only(&auto_increment_span);
                     parser.skip_token(Token::Eq);
                     let (value, value_span) = parser.consume_int()?;
                     AlterSpecification::AutoIncrement {
@@ -1384,6 +1404,7 @@ fn parse_alter_table<'a>(
                 Token::Ident(_, Keyword::RENAME) => parse_rename_alter_specification(parser)?,
                 Token::Ident(_, Keyword::CHANGE) => {
                     let change_span = parser.consume_keyword(Keyword::CHANGE)?;
+                    parser.maria_only(&change_span);
                     let column_span = parser.skip_keyword(Keyword::COLUMN);
 
                     let column = parser.consume_plain_identifier()?;
@@ -1394,10 +1415,13 @@ fn parse_alter_table<'a>(
                     let mut after = None;
                     match &parser.token {
                         Token::Ident(_, Keyword::FIRST) => {
-                            first = Some(parser.consume_keyword(Keyword::FIRST)?);
+                            let first_span = parser.consume_keyword(Keyword::FIRST)?;
+                            parser.maria_only(&first_span);
+                            first = Some(first_span);
                         }
                         Token::Ident(_, Keyword::AFTER) => {
                             let after_span = parser.consume_keyword(Keyword::AFTER)?;
+                            parser.maria_only(&after_span);
                             let after_col = parser.consume_plain_identifier()?;
                             after = Some((after_span, after_col));
                         }
