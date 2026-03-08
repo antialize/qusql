@@ -1,21 +1,17 @@
 [
   {
     "input": "ALTER OPERATOR && (TEXT, TEXT) SET (RESTRICT = {}, JOIN = {})",
-    "output": "AlterOperator(\n    AlterOperator {\n        alter_operator_span: 0..14,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"&&\",\n                span: 15..17,\n            },\n        },\n        lparen_span: 18..19,\n        left_type: DataType(\n            DataType {\n                identifier: 19..23,\n                type_: Text(\n                    None,\n                ),\n                properties: [],\n            },\n        ),\n        comma_span: 23..24,\n        right_type: DataType {\n            identifier: 25..29,\n            type_: Text(\n                None,\n            ),\n            properties: [],\n        },\n        rparen_span: 29..30,\n        action: SetOptions {\n            set_span: 0..36,\n            options: [],\n        },\n    },\n)",
+    "output": "AlterOperator(\n    AlterOperator {\n        alter_operator_span: 0..14,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"&&\",\n                span: 15..17,\n            },\n        },\n        lparen_span: 18..19,\n        left_type: DataType(\n            DataType {\n                identifier: 19..23,\n                type_: Text(\n                    None,\n                ),\n                properties: [],\n            },\n        ),\n        comma_span: 23..24,\n        right_type: DataType {\n            identifier: 25..29,\n            type_: Text(\n                None,\n            ),\n            properties: [],\n        },\n        rparen_span: 29..30,\n        action: SetOptions {\n            set_span: 31..61,\n            options: [],\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 47..48,\n    sql_segment: \"{\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 60..61,\n    sql_segment: \")\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 47..48,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR + (INTEGER, INTEGER) SET (COMMUTATOR = +, NEGATOR = -, HASHES, MERGES)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''RESTRICT' | 'JOIN' | 'COMMUTATOR' | 'NEGATOR' | 'HASHES' | 'MERGES'' here\",\n    span: 85..85,\n    sql_segment: \"\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperator(\n    AlterOperator {\n        alter_operator_span: 0..14,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"+\",\n                span: 15..16,\n            },\n        },\n        lparen_span: 17..18,\n        left_type: DataType(\n            DataType {\n                identifier: 18..25,\n                type_: Integer(\n                    None,\n                ),\n                properties: [],\n            },\n        ),\n        comma_span: 25..26,\n        right_type: DataType {\n            identifier: 27..34,\n            type_: Integer(\n                None,\n            ),\n            properties: [],\n        },\n        rparen_span: 34..35,\n        action: SetOptions {\n            set_span: 36..85,\n            options: [\n                Commutator {\n                    commutator_span: 41..51,\n                    eq_span: 52..53,\n                    operator: Simple(\n                        QualifiedName {\n                            prefix: [],\n                            identifier: Identifier {\n                                value: \"+\",\n                                span: 54..55,\n                            },\n                        },\n                    ),\n                },\n                Negator {\n                    negator_span: 57..64,\n                    eq_span: 65..66,\n                    operator: Simple(\n                        QualifiedName {\n                            prefix: [],\n                            identifier: Identifier {\n                                value: \"-\",\n                                span: 67..68,\n                            },\n                        },\n                    ),\n                },\n                Hashes(\n                    70..76,\n                ),\n                Merges(\n                    78..84,\n                ),\n            ],\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR CLASS USING btree RENAME TO integer_ops",
@@ -175,11 +171,8 @@
   {
     "input": "ALTER OPERATOR FAMILY  integer_ops USING btree DROP FUNCTION 1 (INT4, INT2)",
     "setup": "operator_family_integer_ops",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 47..51,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"integer_ops\",\n                span: 23..34,\n            },\n        },\n        index_method: BTree(\n            35..46,\n        ),\n        action: Drop {\n            drop_span: 47..51,\n            items: [\n                Function {\n                    function_span: 52..60,\n                    number: (\n                        1,\n                        61..62,\n                    ),\n                    lparen_span: 63..64,\n                    left_type: Some(\n                        DataType {\n                            identifier: 64..68,\n                            type_: Named(\n                                64..68,\n                            ),\n                            properties: [],\n                        },\n                    ),\n                    comma_span: Some(\n                        68..69,\n                    ),\n                    right_type: Some(\n                        DataType {\n                            identifier: 70..74,\n                            type_: Named(\n                                70..74,\n                            ),\n                            properties: [],\n                        },\n                    ),\n                    rparen_span: 74..75,\n                },\n            ],\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR FAMILY 123invalid.my_ops USING btree ADD OPERATOR 1 < (INT4, INT2)",
@@ -204,29 +197,23 @@
   {
     "input": "ALTER OPERATOR FAMILY integer_ops USING btree ADD FUNCTION 1 btint42cmp(INT4, INT2)",
     "setup": "operator_family_integer_ops",
-    "output": null,
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"integer_ops\",\n                span: 22..33,\n            },\n        },\n        index_method: BTree(\n            34..45,\n        ),\n        action: Add {\n            add_span: 46..49,\n            items: [\n                Function {\n                    function_span: 50..58,\n                    number: (\n                        1,\n                        59..60,\n                    ),\n                    lparen_span: None,\n                    left_type: None,\n                    comma_span: None,\n                    right_type: None,\n                    rparen_span: None,\n                    function: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"btint42cmp\",\n                            span: 61..71,\n                        },\n                    },\n                    arg_lparen_span: Some(\n                        71..72,\n                    ),\n                    arg_types: [\n                        DataType {\n                            identifier: 72..76,\n                            type_: Named(\n                                72..76,\n                            ),\n                            properties: [],\n                        },\n                        DataType {\n                            identifier: 78..82,\n                            type_: Named(\n                                78..82,\n                            ),\n                            properties: [],\n                        },\n                    ],\n                    arg_rparen_span: Some(\n                        82..83,\n                    ),\n                },\n            ],\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 46..49,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 61..71,\n    sql_segment: \"btint42cmp\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY integer_ops USING btree ADD OPERATOR 1 < (INT4, INT2)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 46..49,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"integer_ops\",\n                span: 22..33,\n            },\n        },\n        index_method: BTree(\n            34..45,\n        ),\n        action: Add {\n            add_span: 46..49,\n            items: [\n                Operator {\n                    operator_span: 50..58,\n                    number: (\n                        1,\n                        59..60,\n                    ),\n                    operator: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"<\",\n                            span: 61..62,\n                        },\n                    },\n                    lparen_span: 63..64,\n                    left_type: DataType {\n                        identifier: 64..68,\n                        type_: Named(\n                            64..68,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: 68..69,\n                    right_type: DataType {\n                        identifier: 70..74,\n                        type_: Named(\n                            70..74,\n                        ),\n                        properties: [],\n                    },\n                    rparen_span: 74..75,\n                    for_search: None,\n                    for_order_by: None,\n                },\n            ],\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR FAMILY integer_ops USING btree DROP OPERATOR 1 (INT4, INT2)",
     "setup": "operator_family_integer_ops",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 46..50,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"integer_ops\",\n                span: 22..33,\n            },\n        },\n        index_method: BTree(\n            34..45,\n        ),\n        action: Drop {\n            drop_span: 46..50,\n            items: [\n                Operator {\n                    operator_span: 51..59,\n                    number: (\n                        1,\n                        60..61,\n                    ),\n                    lparen_span: 62..63,\n                    left_type: DataType {\n                        identifier: 63..67,\n                        type_: Named(\n                            63..67,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: Some(\n                        67..68,\n                    ),\n                    right_type: Some(\n                        DataType {\n                            identifier: 69..73,\n                            type_: Named(\n                                69..73,\n                            ),\n                            properties: [],\n                        },\n                    ),\n                    rparen_span: 73..74,\n                },\n            ],\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops ADD OPERATOR 1 < (INT4, INT2)",
@@ -242,7 +229,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''OPERATOR' or 'FUNCTION'' here\",\n    span: 44..44,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -251,7 +238,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD FUNCTION -1 func(INT4, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'integer' here\",\n    span: 54..55,\n    sql_segment: \"-\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -260,7 +247,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD FUNCTION 1 () func",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 57..58,\n    sql_segment: \")\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -269,7 +256,8 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD FUNCTION 1 (INT4 func(INT2",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected '','' here\",\n    span: 62..66,\n    sql_segment: \"func\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected '')'' here\",\n    span: 62..66,\n    sql_segment: \"func\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -278,7 +266,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD FUNCTION 1 (INT4, INT2 func()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected '')'' here\",\n    span: 68..72,\n    sql_segment: \"func\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -287,7 +275,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD FUNCTION 1 (INT4, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 68..68,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -296,7 +284,8 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD FUNCTION 1 123invalid(INT4, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 56..59,\n    sql_segment: \"123\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 56..59,\n    sql_segment: \"123\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -305,7 +294,8 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD FUNCTION 1 func(@#$%, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 56..60,\n    sql_segment: \"func\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 61..63,\n    sql_segment: \"@#\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -314,7 +304,8 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD FUNCTION 1 func(INT4, INT2",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 56..60,\n    sql_segment: \"func\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected '')'' here\",\n    span: 71..71,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -323,7 +314,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD FUNCTION 1.5 func(INT4, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'integer' here\",\n    span: 54..57,\n    sql_segment: \"1.5\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -332,7 +323,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR -1 < (INT4, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'integer' here\",\n    span: 54..55,\n    sql_segment: \"-\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -341,7 +332,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1  (INT4, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 57..58,\n    sql_segment: \"(\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -350,7 +341,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 (INT4, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 56..57,\n    sql_segment: \"(\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -359,7 +350,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < ()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 59..60,\n    sql_segment: \")\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -368,7 +359,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (@#$%, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 59..61,\n    sql_segment: \"@#\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -377,16 +368,16 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected '')'' here\",\n    span: 69..69,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2) EXTRA",
-    "output": null,
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: Add {\n            add_span: 41..44,\n            items: [\n                Operator {\n                    operator_span: 45..53,\n                    number: (\n                        1,\n                        54..55,\n                    ),\n                    operator: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"<\",\n                            span: 56..57,\n                        },\n                    },\n                    lparen_span: 58..59,\n                    left_type: DataType {\n                        identifier: 59..63,\n                        type_: Named(\n                            59..63,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: 63..64,\n                    right_type: DataType {\n                        identifier: 65..69,\n                        type_: Named(\n                            65..69,\n                        ),\n                        properties: [],\n                    },\n                    rparen_span: 69..70,\n                    for_search: None,\n                    for_order_by: None,\n                },\n            ],\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 71..76,\n    sql_segment: \"EXTRA\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -394,18 +385,15 @@
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2) FOR",
     "setup": "operator_family_my_ops",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
-    ],
-    "should_fail": true,
-    "failure": true
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: Add {\n            add_span: 41..44,\n            items: [\n                Operator {\n                    operator_span: 45..53,\n                    number: (\n                        1,\n                        54..55,\n                    ),\n                    operator: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"<\",\n                            span: 56..57,\n                        },\n                    },\n                    lparen_span: 58..59,\n                    left_type: DataType {\n                        identifier: 59..63,\n                        type_: Named(\n                            59..63,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: 63..64,\n                    right_type: DataType {\n                        identifier: 65..69,\n                        type_: Named(\n                            65..69,\n                        ),\n                        properties: [],\n                    },\n                    rparen_span: 69..70,\n                    for_search: None,\n                    for_order_by: None,\n                },\n            ],\n        },\n    },\n)",
+    "issues": [],
+    "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2) FOR INVALID",
-    "output": null,
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: Add {\n            add_span: 41..44,\n            items: [\n                Operator {\n                    operator_span: 45..53,\n                    number: (\n                        1,\n                        54..55,\n                    ),\n                    operator: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"<\",\n                            span: 56..57,\n                        },\n                    },\n                    lparen_span: 58..59,\n                    left_type: DataType {\n                        identifier: 59..63,\n                        type_: Named(\n                            59..63,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: 63..64,\n                    right_type: DataType {\n                        identifier: 65..69,\n                        type_: Named(\n                            65..69,\n                        ),\n                        properties: [],\n                    },\n                    rparen_span: 69..70,\n                    for_search: None,\n                    for_order_by: None,\n                },\n            ],\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 75..82,\n    sql_segment: \"INVALID\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -414,7 +402,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2) FOR ORDER BY",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 83..83,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -423,25 +411,25 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2) FOR ORDER BY 123invalid",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 84..87,\n    sql_segment: \"123\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2) FOR SEARCH EXTRA",
-    "output": null,
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: Add {\n            add_span: 41..44,\n            items: [\n                Operator {\n                    operator_span: 45..53,\n                    number: (\n                        1,\n                        54..55,\n                    ),\n                    operator: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"<\",\n                            span: 56..57,\n                        },\n                    },\n                    lparen_span: 58..59,\n                    left_type: DataType {\n                        identifier: 59..63,\n                        type_: Named(\n                            59..63,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: 63..64,\n                    right_type: DataType {\n                        identifier: 65..69,\n                        type_: Named(\n                            65..69,\n                        ),\n                        properties: [],\n                    },\n                    rparen_span: 69..70,\n                    for_search: Some(\n                        71..81,\n                    ),\n                    for_order_by: None,\n                },\n            ],\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 82..87,\n    sql_segment: \"EXTRA\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2) FOR SEARCH FOR ORDER BY sort_family",
-    "output": null,
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: Add {\n            add_span: 41..44,\n            items: [\n                Operator {\n                    operator_span: 45..53,\n                    number: (\n                        1,\n                        54..55,\n                    ),\n                    operator: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"<\",\n                            span: 56..57,\n                        },\n                    },\n                    lparen_span: 58..59,\n                    left_type: DataType {\n                        identifier: 59..63,\n                        type_: Named(\n                            59..63,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: 63..64,\n                    right_type: DataType {\n                        identifier: 65..69,\n                        type_: Named(\n                            65..69,\n                        ),\n                        properties: [],\n                    },\n                    rparen_span: 69..70,\n                    for_search: Some(\n                        71..81,\n                    ),\n                    for_order_by: None,\n                },\n            ],\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 82..85,\n    sql_segment: \"FOR\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -450,7 +438,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2), INVALID_ITEM",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''OPERATOR' or 'FUNCTION'' here\",\n    span: 72..84,\n    sql_segment: \"INVALID_ITEM\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -459,7 +447,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < INT4, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 58..62,\n    sql_segment: \"INT4\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -469,7 +457,7 @@
     "setup": "operator_family_my_ops",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 58..59,\n    sql_segment: \"$\",\n    fragments: [],\n}"
     ],
     "should_fail": true,
     "failure": true
@@ -478,16 +466,16 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1.5 < (INT4, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'integer' here\",\n    span: 54..57,\n    sql_segment: \"1.5\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 999999999999999999999 < (INT4, INT2)",
-    "output": null,
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: Add {\n            add_span: 41..44,\n            items: [\n                Operator {\n                    operator_span: 45..53,\n                    number: (\n                        0,\n                        54..75,\n                    ),\n                    operator: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"<\",\n                            span: 76..77,\n                        },\n                    },\n                    lparen_span: 78..79,\n                    left_type: DataType {\n                        identifier: 79..83,\n                        type_: Named(\n                            79..83,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: 83..84,\n                    right_type: DataType {\n                        identifier: 85..89,\n                        type_: Named(\n                            85..89,\n                        ),\n                        properties: [],\n                    },\n                    rparen_span: 89..90,\n                    for_search: None,\n                    for_order_by: None,\n                },\n            ],\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"integer outside range\",\n    span: 54..75,\n    sql_segment: \"999999999999999999999\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -496,16 +484,16 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree DROP FUNCTION 1 ()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..45,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 58..59,\n    sql_segment: \")\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree DROP FUNCTION 1 (INT4, INT2) func(INT4)",
-    "output": null,
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: Drop {\n            drop_span: 41..45,\n            items: [\n                Function {\n                    function_span: 46..54,\n                    number: (\n                        1,\n                        55..56,\n                    ),\n                    lparen_span: 57..58,\n                    left_type: Some(\n                        DataType {\n                            identifier: 58..62,\n                            type_: Named(\n                                58..62,\n                            ),\n                            properties: [],\n                        },\n                    ),\n                    comma_span: Some(\n                        62..63,\n                    ),\n                    right_type: Some(\n                        DataType {\n                            identifier: 64..68,\n                            type_: Named(\n                                64..68,\n                            ),\n                            properties: [],\n                        },\n                    ),\n                    rparen_span: 68..69,\n                },\n            ],\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..45,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 70..74,\n    sql_segment: \"func\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -514,16 +502,16 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree DROP OPERATOR 1 ()",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..45,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'type' here\",\n    span: 58..59,\n    sql_segment: \")\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree DROP OPERATOR 1 (INT4, INT2) FOR SEARCH",
-    "output": null,
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: Drop {\n            drop_span: 41..45,\n            items: [\n                Operator {\n                    operator_span: 46..54,\n                    number: (\n                        1,\n                        55..56,\n                    ),\n                    lparen_span: 57..58,\n                    left_type: DataType {\n                        identifier: 58..62,\n                        type_: Named(\n                            58..62,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: Some(\n                        62..63,\n                    ),\n                    right_type: Some(\n                        DataType {\n                            identifier: 64..68,\n                            type_: Named(\n                                64..68,\n                            ),\n                            properties: [],\n                        },\n                    ),\n                    rparen_span: 68..69,\n                },\n            ],\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..45,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 70..73,\n    sql_segment: \"FOR\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -532,7 +520,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree DROP OPERATOR 1 (INT4, INT2), INVALID_ITEM",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..45,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''OPERATOR' or 'FUNCTION'' here\",\n    span: 71..83,\n    sql_segment: \"INVALID_ITEM\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -541,7 +529,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree DROP OPERATOR 1 INT4, INT2",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..45,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 57..61,\n    sql_segment: \"INT4\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -550,7 +538,7 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree INVALID_OPERATION",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..58,\n    sql_segment: \"INVALID_OPERATION\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''ADD', 'DROP', 'RENAME', 'OWNER', or 'SET SCHEMA'' here\",\n    span: 41..58,\n    sql_segment: \"INVALID_OPERATION\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -559,24 +547,21 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree OWNER TO 123invalid",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..46,\n    sql_segment: \"OWNER\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 50..53,\n    sql_segment: \"123\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree OWNER TO joe",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..46,\n    sql_segment: \"OWNER\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: OwnerTo {\n            owner_span: 41..46,\n            to_span: 47..49,\n            new_owner: Identifier(\n                Identifier {\n                    value: \"joe\",\n                    span: 50..53,\n                },\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree RENAME TO 123invalid",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..47,\n    sql_segment: \"RENAME\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 51..54,\n    sql_segment: \"123\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -585,34 +570,25 @@
     "input": "ALTER OPERATOR FAMILY my_ops USING btree SET SCHEMA 123invalid",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"SET\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 52..55,\n    sql_segment: \"123\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree SET SCHEMA new_schema",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 41..44,\n    sql_segment: \"SET\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: SetSchema {\n            set_span: 41..44,\n            schema_span: 45..51,\n            new_schema: QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"new_schema\",\n                    span: 52..62,\n                },\n            },\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR FAMILY old_ops USING btree RENAME TO new_ops",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 42..48,\n    sql_segment: \"RENAME\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"old_ops\",\n                span: 22..29,\n            },\n        },\n        index_method: BTree(\n            30..41,\n        ),\n        action: RenameTo {\n            rename_span: 42..48,\n            to_span: 49..51,\n            new_name: QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"new_ops\",\n                    span: 52..59,\n                },\n            },\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR FAMILY text_ops USING btree ADD OPERATOR 1 @@ (TEXT, TEXT) FOR SEARCH",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 43..46,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"text_ops\",\n                span: 22..30,\n            },\n        },\n        index_method: BTree(\n            31..42,\n        ),\n        action: Add {\n            add_span: 43..46,\n            items: [\n                Operator {\n                    operator_span: 47..55,\n                    number: (\n                        1,\n                        56..57,\n                    ),\n                    operator: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"@@\",\n                            span: 58..60,\n                        },\n                    },\n                    lparen_span: 61..62,\n                    left_type: DataType {\n                        identifier: 62..66,\n                        type_: Text(\n                            None,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: 66..67,\n                    right_type: DataType {\n                        identifier: 68..72,\n                        type_: Text(\n                            None,\n                        ),\n                        properties: [],\n                    },\n                    rparen_span: 72..73,\n                    for_search: Some(\n                        74..84,\n                    ),\n                    for_order_by: None,\n                },\n            ],\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR {} (INTEGER, INTEGER) SET (COMMUTATOR = {}, NEGATOR = {})",
