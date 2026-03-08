@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 
 use crate::{
     Expression, Identifier, Span, Spanned,
-    expression::parse_expression,
+    expression::parse_expression_unreserved,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -145,12 +145,12 @@ pub(crate) fn parse_alter_role<'a>(
     let role_span = parser.consume_keyword(Keyword::ROLE)?;
     parser.postgres_only(&role_span);
 
-    let role_name = parser.consume_plain_identifier()?;
+    let role_name = parser.consume_plain_identifier_unreserved()?;
 
     let action = match &parser.token {
         Token::Ident(_, Keyword::RENAME) => {
             let rename_to_span = parser.consume_keywords(&[Keyword::RENAME, Keyword::TO])?;
-            let new_name = parser.consume_plain_identifier()?;
+            let new_name = parser.consume_plain_identifier_unreserved()?;
             AlterRoleAction::RenameTo {
                 rename_to_span,
                 new_name,
@@ -158,24 +158,24 @@ pub(crate) fn parse_alter_role<'a>(
         }
         Token::Ident(_, Keyword::IN) => {
             let in_database_span = parser.consume_keywords(&[Keyword::IN, Keyword::DATABASE])?;
-            let database_name = parser.consume_plain_identifier()?;
+            let database_name = parser.consume_plain_identifier_unreserved()?;
 
             match &parser.token {
                 Token::Ident(_, Keyword::SET) => {
                     let set_span = parser.consume_keyword(Keyword::SET)?;
-                    let parameter = parser.consume_plain_identifier()?;
+                    let parameter = parser.consume_plain_identifier_unreserved()?;
 
                     let value = if let Some(eq_span) = parser.skip_token(Token::Eq) {
                         if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
                             AlterRoleValue::Default(eq_span.join_span(&default_span))
                         } else {
-                            AlterRoleValue::Value(parse_expression(parser, false)?)
+                            AlterRoleValue::Value(parse_expression_unreserved(parser, false)?)
                         }
                     } else if let Some(to_span) = parser.skip_keyword(Keyword::TO) {
                         if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
                             AlterRoleValue::Default(to_span.join_span(&default_span))
                         } else {
-                            AlterRoleValue::Value(parse_expression(parser, false)?)
+                            AlterRoleValue::Value(parse_expression_unreserved(parser, false)?)
                         }
                     } else {
                         parser.expected_failure("'=' or 'TO'")?
@@ -191,7 +191,7 @@ pub(crate) fn parse_alter_role<'a>(
                 }
                 Token::Ident(_, Keyword::RESET) => {
                     let reset_span = parser.consume_keyword(Keyword::RESET)?;
-                    let parameter = parser.consume_plain_identifier()?;
+                    let parameter = parser.consume_plain_identifier_unreserved()?;
 
                     AlterRoleAction::ResetInDatabase {
                         in_database_span,
@@ -209,7 +209,7 @@ pub(crate) fn parse_alter_role<'a>(
         }
         Token::Ident(_, Keyword::SET) => {
             let set_span = parser.consume_keyword(Keyword::SET)?;
-            let parameter = parser.consume_plain_identifier()?;
+            let parameter = parser.consume_plain_identifier_unreserved()?;
 
             let value = if matches!(parser.token, Token::Ident(_, Keyword::FROM)) {
                 let from_current_span =
@@ -219,13 +219,13 @@ pub(crate) fn parse_alter_role<'a>(
                 if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
                     AlterRoleValue::Default(eq_span.join_span(&default_span))
                 } else {
-                    AlterRoleValue::Value(parse_expression(parser, false)?)
+                    AlterRoleValue::Value(parse_expression_unreserved(parser, false)?)
                 }
             } else if let Some(to_span) = parser.skip_keyword(Keyword::TO) {
                 if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
                     AlterRoleValue::Default(to_span.join_span(&default_span))
                 } else {
-                    AlterRoleValue::Value(parse_expression(parser, false)?)
+                    AlterRoleValue::Value(parse_expression_unreserved(parser, false)?)
                 }
             } else {
                 parser.expected_failure("'=', 'TO', or 'FROM'")?
@@ -247,24 +247,24 @@ pub(crate) fn parse_alter_role<'a>(
                     break;
                 }
 
-                let option_name = parser.consume_plain_identifier()?;
+                let option_name = parser.consume_plain_identifier_unreserved()?;
 
                 // Check for options with values
                 let option_value = match option_name.as_str().to_uppercase().as_str() {
                     "CONNECTION" => {
                         parser.consume_keyword(Keyword::LIMIT)?;
-                        Some(parse_expression(parser, false)?)
+                        Some(parse_expression_unreserved(parser, false)?)
                     }
                     "PASSWORD" => {
                         if parser.skip_keyword(Keyword::NULL).is_some() {
                             None
                         } else {
-                            Some(parse_expression(parser, false)?)
+                            Some(parse_expression_unreserved(parser, false)?)
                         }
                     }
                     "VALID" => {
                         parser.consume_keyword(Keyword::UNTIL)?;
-                        Some(parse_expression(parser, false)?)
+                        Some(parse_expression_unreserved(parser, false)?)
                     }
                     _ => None,
                 };

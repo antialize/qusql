@@ -30,6 +30,9 @@ impl Restrict {
         (self.0 & rhs.0) != 0
     }
 
+    /// A empty restrict set
+    pub const EMPTY: Self = Restrict(0b0);
+
     /// A restrict set for MARIADB reserved keywords.
     pub const MARIADB: Self = Restrict(0b1);
 
