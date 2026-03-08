@@ -12,13 +12,13 @@
 
 use alloc::vec::Vec;
 
+use crate::qualified_name::parse_qualified_name_unreserved;
 use crate::{
     CreateOption, DataType, QualifiedName, Span, Spanned, UsingIndexMethod,
     data_type::parse_data_type,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
-    qualified_name::parse_qualified_name,
 };
 
 /// CREATE OPERATOR statement (PostgreSQL)
@@ -217,7 +217,7 @@ pub(crate) fn parse_create_operator<'a>(
             Token::Ident(_, Keyword::FUNCTION) => {
                 let keyword_span = parser.consume_keyword(Keyword::FUNCTION)?;
                 let eq_span = parser.consume_token(Token::Eq)?;
-                let function_name = parse_qualified_name(parser)?;
+                let function_name = parse_qualified_name_unreserved(parser)?;
                 OperatorOption::Function {
                     keyword_span,
                     eq_span,
@@ -227,7 +227,7 @@ pub(crate) fn parse_create_operator<'a>(
             Token::Ident(_, Keyword::PROCEDURE) => {
                 let keyword_span = parser.consume_keyword(Keyword::PROCEDURE)?;
                 let eq_span = parser.consume_token(Token::Eq)?;
-                let procedure_name = parse_qualified_name(parser)?;
+                let procedure_name = parse_qualified_name_unreserved(parser)?;
                 OperatorOption::Procedure {
                     keyword_span,
                     eq_span,
@@ -277,7 +277,7 @@ pub(crate) fn parse_create_operator<'a>(
             Token::Ident(_, Keyword::RESTRICT) => {
                 let keyword_span = parser.consume_keyword(Keyword::RESTRICT)?;
                 let eq_span = parser.consume_token(Token::Eq)?;
-                let function_name = parse_qualified_name(parser)?;
+                let function_name = parse_qualified_name_unreserved(parser)?;
                 OperatorOption::Restrict {
                     keyword_span,
                     eq_span,
@@ -287,7 +287,7 @@ pub(crate) fn parse_create_operator<'a>(
             Token::Ident(_, Keyword::JOIN) => {
                 let keyword_span = parser.consume_keyword(Keyword::JOIN)?;
                 let eq_span = parser.consume_token(Token::Eq)?;
-                let function_name = parse_qualified_name(parser)?;
+                let function_name = parse_qualified_name_unreserved(parser)?;
                 OperatorOption::Join {
                     keyword_span,
                     eq_span,
@@ -382,7 +382,7 @@ fn consume_operator_or_identifier<'a>(
         Token::RDoubleArrowJson => Ok(Identifier::new("#>>", parser.consume())),
         Token::DoubleExclamationMark => Ok(Identifier::new("!!", parser.consume())),
         // Regular identifiers
-        _ => parser.consume_plain_identifier(),
+        _ => parser.consume_plain_identifier_unreserved(),
     }
 }
 
@@ -519,7 +519,7 @@ pub(crate) fn parse_create_operator_class<'a>(
     }
 
     // Parse name
-    let name = parse_qualified_name(parser)?;
+    let name = parse_qualified_name_unreserved(parser)?;
 
     // Optional DEFAULT
     let default_span = parser.skip_keyword(Keyword::DEFAULT);
@@ -534,7 +534,7 @@ pub(crate) fn parse_create_operator_class<'a>(
 
     // Optional FAMILY clause
     let family = if let Some(family_span) = parser.skip_keyword(Keyword::FAMILY) {
-        let family_name = parse_qualified_name(parser)?;
+        let family_name = parse_qualified_name_unreserved(parser)?;
         Some((family_span, family_name))
     } else {
         None
@@ -588,7 +588,7 @@ pub(crate) fn parse_create_operator_class<'a>(
                     }
                     parser.consume_token(Token::RParen)?;
                 }
-                let function = parse_qualified_name(parser)?;
+                let function = parse_qualified_name_unreserved(parser)?;
                 items.push(OperatorClassItem::Function {
                     function_span,
                     number: (num, num_span),
@@ -658,7 +658,7 @@ pub(crate) fn parse_create_operator_family<'a>(
             &create_option.span(),
         );
     }
-    let name = parse_qualified_name(parser)?;
+    let name = parse_qualified_name_unreserved(parser)?;
     let using_span = parser.consume_keyword(Keyword::USING)?;
     let using_index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
     let lparen_span = parser.consume_token(Token::LParen)?;
@@ -703,7 +703,7 @@ pub(crate) fn parse_alter_operator_family<'a>(
     alter_operator_family_span: Span,
 ) -> Result<AlterOperatorFamily<'a>, ParseError> {
     parser.postgres_only(&alter_operator_family_span);
-    let name = parse_qualified_name(parser)?;
+    let name = parse_qualified_name_unreserved(parser)?;
     let using_span = parser.consume_keyword(Keyword::USING)?;
     let index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
     let lparen_span = parser.consume_token(Token::LParen)?;
