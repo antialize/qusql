@@ -1,5 +1,6 @@
 use crate::{
     QualifiedName, Span, Spanned,
+    drop::{CascadeOrRestrict, parse_cascade_or_restrict},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -7,44 +8,6 @@ use crate::{
 };
 
 use alloc::vec::Vec;
-
-/// Drop cascade or restrict option (PostgreSQL)
-#[derive(Debug, Clone)]
-pub enum CascadeOrRestrict {
-    /// CASCADE option
-    Cascade(Span),
-    /// RESTRICT option
-    Restrict(Span),
-}
-
-impl Spanned for CascadeOrRestrict {
-    fn span(&self) -> Span {
-        match self {
-            CascadeOrRestrict::Cascade(s) => s.clone(),
-            CascadeOrRestrict::Restrict(s) => s.clone(),
-        }
-    }
-}
-
-pub(crate) fn parse_cascade_or_restrict<'a>(
-    parser: &mut Parser<'a, '_>,
-) -> Option<CascadeOrRestrict> {
-    let cascade_span = parser.skip_keyword(Keyword::CASCADE);
-    parser.postgres_only(&cascade_span);
-    let restrict_span = parser.skip_keyword(Keyword::RESTRICT);
-    parser.postgres_only(&restrict_span);
-    match (cascade_span, restrict_span) {
-        (Some(cascade), None) => Some(CascadeOrRestrict::Cascade(cascade)),
-        (None, Some(restrict)) => Some(CascadeOrRestrict::Restrict(restrict)),
-        (Some(cascade), Some(restrict)) => {
-            parser
-                .err("Cannot specify both CASCADE and RESTRICT", &cascade)
-                .frag("RESTRICT specified here", &restrict);
-            None
-        }
-        (None, None) => None,
-    }
-}
 
 /// Represent a truncate table statement
 /// ```

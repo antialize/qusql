@@ -1115,19 +1115,19 @@
   },
   {
     "input": "DROP INDEX idx_name ON table_name",
-    "output": "DropIndex(\n    DropIndex {\n        drop_span: 0..4,\n        index_span: 5..10,\n        if_exists: None,\n        index_name: Identifier {\n            value: \"idx_name\",\n            span: 11..19,\n        },\n        on: Some(\n            (\n                20..22,\n                QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"table_name\",\n                        span: 23..33,\n                    },\n                },\n            ),\n        ),\n    },\n)",
+    "output": "DropIndex(\n    DropIndex {\n        drop_span: 0..4,\n        index_span: 5..10,\n        if_exists: None,\n        index_name: Identifier {\n            value: \"idx_name\",\n            span: 11..19,\n        },\n        on: Some(\n            (\n                20..22,\n                QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"table_name\",\n                        span: 23..33,\n                    },\n                },\n            ),\n        ),\n        restrict_or_cascade: None,\n    },\n)",
     "issues": [],
     "setup": "table_name_with_index"
   },
   {
     "input": "DROP TEMPORARY TABLE foo",
-    "output": "DropTable(\n    DropTable {\n        drop_span: 0..4,\n        temporary: Some(\n            5..14,\n        ),\n        table_span: 15..20,\n        if_exists: None,\n        tables: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"foo\",\n                    span: 21..24,\n                },\n            },\n        ],\n        cascade: None,\n    },\n)",
+    "output": "DropTable(\n    DropTable {\n        drop_span: 0..4,\n        temporary: Some(\n            5..14,\n        ),\n        table_span: 15..20,\n        if_exists: None,\n        tables: [\n            QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"foo\",\n                    span: 21..24,\n                },\n            },\n        ],\n        restrict_or_cascade: None,\n    },\n)",
     "issues": [],
     "setup": "foo_temporary_table"
   },
   {
     "input": "DROP TRIGGER emp_stamp",
-    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"emp_stamp\",\n                span: 13..22,\n            },\n        },\n    },\n)",
+    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"emp_stamp\",\n                span: 13..22,\n            },\n        },\n        restrict_or_cascade: None,\n    },\n)",
     "issues": [],
     "setup": "emp_table_with_trigger"
   },
