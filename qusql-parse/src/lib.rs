@@ -135,8 +135,9 @@ pub use kill::{Kill, KillType};
 pub use lock::{Lock, LockMember, LockType, Unlock};
 pub use operator::{
     AlterOperator, AlterOperatorAction, AlterOperatorClass, AlterOperatorClassAction,
-    AlterOperatorFamily, CreateOperator, CreateOperatorClass, CreateOperatorFamily,
-    LeftOperatorType, OperatorClassItem, OperatorClassOperatorOption, OperatorOption, OperatorRef,
+    AlterOperatorFamily, AlterOperatorFamilyAction, CreateOperator, CreateOperatorClass,
+    CreateOperatorFamily, LeftOperatorType, OperatorClassItem, OperatorClassOperatorOption,
+    OperatorFamilyDropItem, OperatorFamilyItem, OperatorOption, OperatorRef,
 };
 pub use qualified_name::QualifiedName;
 pub use rename::{RenameTable, TableToTable};
