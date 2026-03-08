@@ -1,0 +1,18 @@
+{
+  "empty_setup": [],
+  "operator_class_int_ops": [
+    "CREATE OPERATOR CLASS int_ops FOR TYPE int4 USING btree AS OPERATOR 1 <, OPERATOR 2 <=, OPERATOR 3 =, OPERATOR 4 >=, OPERATOR 5 >, FUNCTION 1 btint4cmp(int4, int4)"
+  ],
+  "operator_family_integer_ops": [
+    "CREATE OPERATOR FAMILY integer_ops USING btree"
+  ],
+  "operator_family_my_ops": [
+    "CREATE OPERATOR FAMILY my_ops USING btree"
+  ],
+  "custom_type_int": [
+    "CREATE TYPE \"int\" AS (value INTEGER)"
+  ],
+  "users_table": [
+    "CREATE TABLE users (id INTEGER, name TEXT)"
+  ]
+}
