@@ -228,6 +228,95 @@ impl<'a> Spanned for SequenceOption<'a> {
     }
 }
 
+/// Parse sequence options (used by CREATE SEQUENCE and ALTER TABLE ADD GENERATED AS IDENTITY)
+pub(crate) fn parse_sequence_options<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Vec<SequenceOption<'a>>, ParseError> {
+    let mut options = Vec::new();
+    loop {
+        match &parser.token {
+            Token::Ident(_, Keyword::AS) => {
+                let as_span = parser.consume_keyword(Keyword::AS)?;
+                let data_type = parse_data_type(parser, false)?;
+                options.push(SequenceOption::As(as_span, data_type));
+            }
+            Token::Ident(_, Keyword::INCREMENT) => {
+                let increment_span = parser.consume_keyword(Keyword::INCREMENT)?;
+                parser.skip_keyword(Keyword::BY); // BY is optional
+                let expr = parse_expression_unreserved(parser, true)?;
+                let span = increment_span.join_span(&expr);
+                options.push(SequenceOption::IncrementBy(span, expr));
+            }
+            Token::Ident(_, Keyword::MINVALUE) => {
+                let minvalue_span = parser.consume_keyword(Keyword::MINVALUE)?;
+                let expr = parse_expression_unreserved(parser, true)?;
+                let span = minvalue_span.join_span(&expr);
+                options.push(SequenceOption::MinValue(span, expr));
+            }
+            Token::Ident(_, Keyword::MAXVALUE) => {
+                let maxvalue_span = parser.consume_keyword(Keyword::MAXVALUE)?;
+                let expr = parse_expression_unreserved(parser, true)?;
+                let span = maxvalue_span.join_span(&expr);
+                options.push(SequenceOption::MaxValue(span, expr));
+            }
+            Token::Ident(_, Keyword::START) => {
+                let start_span = parser.consume_keyword(Keyword::START)?;
+                parser.skip_keyword(Keyword::WITH); // WITH is optional
+                let expr = parse_expression_unreserved(parser, true)?;
+                let span = start_span.join_span(&expr);
+                options.push(SequenceOption::StartWith(span, expr));
+            }
+            Token::Ident(_, Keyword::CACHE) => {
+                let cache_span = parser.consume_keyword(Keyword::CACHE)?;
+                let expr = parse_expression_unreserved(parser, true)?;
+                let span = cache_span.join_span(&expr);
+                options.push(SequenceOption::Cache(span, expr));
+            }
+            Token::Ident(_, Keyword::CYCLE) => {
+                let cycle_span = parser.consume_keyword(Keyword::CYCLE)?;
+                options.push(SequenceOption::Cycle(cycle_span));
+            }
+            Token::Ident(_, Keyword::NO) => {
+                // Could be NO MINVALUE, NO MAXVALUE, or NO CYCLE
+                let no_span = parser.consume_keyword(Keyword::NO)?;
+                match &parser.token {
+                    Token::Ident(_, Keyword::MINVALUE) => {
+                        let minvalue_span = parser.consume_keyword(Keyword::MINVALUE)?;
+                        let span = no_span.join_span(&minvalue_span);
+                        options.push(SequenceOption::NoMinValue(span));
+                    }
+                    Token::Ident(_, Keyword::MAXVALUE) => {
+                        let maxvalue_span = parser.consume_keyword(Keyword::MAXVALUE)?;
+                        let span = no_span.join_span(&maxvalue_span);
+                        options.push(SequenceOption::NoMaxValue(span));
+                    }
+                    Token::Ident(_, Keyword::CYCLE) => {
+                        let cycle_span = parser.consume_keyword(Keyword::CYCLE)?;
+                        let span = no_span.join_span(&cycle_span);
+                        options.push(SequenceOption::NoCycle(span));
+                    }
+                    _ => parser.expected_failure("'MINVALUE', 'MAXVALUE' or 'CYCLE' after 'NO'")?,
+                }
+            }
+            Token::Ident(_, Keyword::OWNED) => {
+                let owned_span = parser.consume_keyword(Keyword::OWNED)?;
+                parser.consume_keyword(Keyword::BY)?;
+                if let Token::Ident(_, Keyword::NONE) = parser.token {
+                    let none_span = parser.consume_keyword(Keyword::NONE)?;
+                    let span = owned_span.join_span(&none_span);
+                    options.push(SequenceOption::OwnedByNone(span));
+                } else {
+                    let qualified_name = parse_qualified_name_unreserved(parser)?;
+                    let span = owned_span.join_span(&qualified_name);
+                    options.push(SequenceOption::OwnedBy(span, qualified_name));
+                }
+            }
+            _ => break,
+        }
+    }
+    Ok(options)
+}
+
 /// CREATE SEQUENCE statement (PostgreSQL)
 #[derive(Clone, Debug)]
 pub struct CreateSequence<'a> {
@@ -424,88 +513,7 @@ fn parse_create_sequence<'a>(
     let name = parse_qualified_name_unreserved(parser)?;
 
     // Parse sequence options
-    let mut options = Vec::new();
-    loop {
-        match &parser.token {
-            Token::Ident(_, Keyword::AS) => {
-                let as_span = parser.consume_keyword(Keyword::AS)?;
-                let data_type = parse_data_type(parser, false)?;
-                options.push(SequenceOption::As(as_span, data_type));
-            }
-            Token::Ident(_, Keyword::INCREMENT) => {
-                let increment_span = parser.consume_keyword(Keyword::INCREMENT)?;
-                parser.skip_keyword(Keyword::BY); // BY is optional
-                let expr = parse_expression_unreserved(parser, true)?;
-                let span = increment_span.join_span(&expr);
-                options.push(SequenceOption::IncrementBy(span, expr));
-            }
-            Token::Ident(_, Keyword::MINVALUE) => {
-                let minvalue_span = parser.consume_keyword(Keyword::MINVALUE)?;
-                let expr = parse_expression_unreserved(parser, true)?;
-                let span = minvalue_span.join_span(&expr);
-                options.push(SequenceOption::MinValue(span, expr));
-            }
-            Token::Ident(_, Keyword::MAXVALUE) => {
-                let maxvalue_span = parser.consume_keyword(Keyword::MAXVALUE)?;
-                let expr = parse_expression_unreserved(parser, true)?;
-                let span = maxvalue_span.join_span(&expr);
-                options.push(SequenceOption::MaxValue(span, expr));
-            }
-            Token::Ident(_, Keyword::START) => {
-                let start_span = parser.consume_keyword(Keyword::START)?;
-                parser.skip_keyword(Keyword::WITH); // WITH is optional
-                let expr = parse_expression_unreserved(parser, true)?;
-                let span = start_span.join_span(&expr);
-                options.push(SequenceOption::StartWith(span, expr));
-            }
-            Token::Ident(_, Keyword::CACHE) => {
-                let cache_span = parser.consume_keyword(Keyword::CACHE)?;
-                let expr = parse_expression_unreserved(parser, true)?;
-                let span = cache_span.join_span(&expr);
-                options.push(SequenceOption::Cache(span, expr));
-            }
-            Token::Ident(_, Keyword::CYCLE) => {
-                let cycle_span = parser.consume_keyword(Keyword::CYCLE)?;
-                options.push(SequenceOption::Cycle(cycle_span));
-            }
-            Token::Ident(_, Keyword::NO) => {
-                // Could be NO MINVALUE, NO MAXVALUE, or NO CYCLE
-                let no_span = parser.consume_keyword(Keyword::NO)?;
-                match &parser.token {
-                    Token::Ident(_, Keyword::MINVALUE) => {
-                        let minvalue_span = parser.consume_keyword(Keyword::MINVALUE)?;
-                        let span = no_span.join_span(&minvalue_span);
-                        options.push(SequenceOption::NoMinValue(span));
-                    }
-                    Token::Ident(_, Keyword::MAXVALUE) => {
-                        let maxvalue_span = parser.consume_keyword(Keyword::MAXVALUE)?;
-                        let span = no_span.join_span(&maxvalue_span);
-                        options.push(SequenceOption::NoMaxValue(span));
-                    }
-                    Token::Ident(_, Keyword::CYCLE) => {
-                        let cycle_span = parser.consume_keyword(Keyword::CYCLE)?;
-                        let span = no_span.join_span(&cycle_span);
-                        options.push(SequenceOption::NoCycle(span));
-                    }
-                    _ => parser.expected_failure("'MINVALUE', 'MAXVALUE' or 'CYCLE' after 'NO'")?,
-                }
-            }
-            Token::Ident(_, Keyword::OWNED) => {
-                let owned_span = parser.consume_keyword(Keyword::OWNED)?;
-                parser.consume_keyword(Keyword::BY)?;
-                if let Token::Ident(_, Keyword::NONE) = parser.token {
-                    let none_span = parser.consume_keyword(Keyword::NONE)?;
-                    let span = owned_span.join_span(&none_span);
-                    options.push(SequenceOption::OwnedByNone(span));
-                } else {
-                    let qualified_name = parse_qualified_name_unreserved(parser)?;
-                    let span = owned_span.join_span(&qualified_name);
-                    options.push(SequenceOption::OwnedBy(span, qualified_name));
-                }
-            }
-            _ => break,
-        }
-    }
+    let options = parse_sequence_options(parser)?;
 
     Ok(CreateSequence {
         create_span,
