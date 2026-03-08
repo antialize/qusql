@@ -158,7 +158,7 @@ pub(crate) fn parse_flush<'a>(parser: &mut Parser<'a, '_>) -> Result<Flush<'a>, 
                 let mut tables = Vec::new();
 
                 if let Token::Ident(_, kw) = parser.token
-                    && !kw.reserved()
+                    && !kw.restricted(parser.reserved())
                 {
                     loop {
                         tables.push(parse_qualified_name(parser)?);

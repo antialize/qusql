@@ -15,7 +15,7 @@ use alloc::{borrow::Cow, format, string::String, vec::Vec};
 use crate::{
     Identifier, ParseOptions, SString, Span, Spanned,
     issue::{IssueHandle, Issues},
-    keywords::Keyword,
+    keywords::{Keyword, Restrict},
     lexer::{Lexer, Token},
     span::OptSpanned,
 };
@@ -260,6 +260,15 @@ impl<'a, 'b> Parser<'a, 'b> {
         Err(ParseError::Unrecovered)
     }
 
+    /// Check if the given keyword is reserved in the current dialect.
+    pub(crate) fn reserved(&self) -> Restrict {
+        match self.options.dialect {
+            crate::SQLDialect::MariaDB => Restrict::MARIADB,
+            crate::SQLDialect::PostgreSQL => Restrict::POSTGRES,
+            crate::SQLDialect::Sqlite => Restrict::SQLITE,
+        }
+    }
+
     pub(crate) fn token_to_plain_identifier(
         &mut self,
         token: &Token<'a>,
@@ -268,7 +277,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         match &token {
             Token::Ident(v, kw) => {
                 let v = *v;
-                if kw.reserved() {
+                if kw.restricted(self.reserved()) {
                     self.err(
                         format!("'{}' is a reserved identifier use `{}`", v, v),
                         &span,
@@ -288,7 +297,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         match &self.token {
             Token::Ident(v, kw) => {
                 let v = *v;
-                if kw.reserved() {
+                if kw.restricted(self.reserved()) {
                     self.err(
                         format!("'{}' is a reserved identifier use `{}`", v, v),
                         &self.span.span(),

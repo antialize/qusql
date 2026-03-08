@@ -477,7 +477,7 @@ pub(crate) fn parse_function<'a>(
         // Sqlite
         Token::Ident(_, Keyword::STRFTIME) => Function::Strftime,
         Token::Ident(_, Keyword::DATETIME) => Function::Datetime,
-        Token::Ident(v, k) if !k.reserved() => Function::Other(v),
+        Token::Ident(v, k) if !k.restricted(parser.reserved()) => Function::Other(v),
         _ => {
             parser.err("Unknown function", &span);
             Function::Unknown

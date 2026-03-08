@@ -1,1280 +1,1053 @@
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+//! SQL keyword definitions and related types.
+//!
+//! This crate provides the `Keyword` enum and `Restrict` type for SQL keyword handling.
+//! Keywords with reserved status are marked with comments that are parsed by build.rs.
 
-macro_rules! keywords {
-    [$(
-        $ident:ident
-    )*] => {
-        #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
-        #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-        #[derive(Default)]
-        pub enum Keyword {
-            #[default]
-            NOT_A_KEYWORD,
-            QUOTED_IDENTIFIER,
-            $($ident),*
-        }
-
-        impl From<&str> for Keyword {
-            fn from(v: &str) -> Self {
-                match v {
-                    $(stringify!($ident) => Keyword::$ident),*,
-                    _ => Keyword::NOT_A_KEYWORD
-                }
-            }
-        }
-
-        impl Keyword {
-            pub fn name(&self) -> &'static str {
-                match self {
-                    $(Keyword::$ident => stringify!($ident)),*,
-                    Keyword::NOT_A_KEYWORD => "NOT_A_KEYWORD",
-                    Keyword::QUOTED_IDENTIFIER => "QUOTED_IDENTIFIER",
-                }
-            }
-        }
-    };
+// Include the generated data and constants
+mod keyword_gen {
+    include!(concat!(env!("OUT_DIR"), "/keyword_gen.rs"));
 }
 
-macro_rules! reserved {
-    [$(
-        $ident:ident
-    )*] => {
-        impl Keyword {
-            pub const fn reserved(&self) -> bool {
-                match self {
-                    $(Keyword::$ident => true),*,
-                    _ => false
-                }
-            }
-        }
-    };
+/// A bitset representing the restrict sets a keyword belongs to.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Restrict(u16);
+
+impl core::ops::BitOr for Restrict {
+    type Output = Self;
+    #[inline]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let mut result = self;
+        result.0 |= rhs.0;
+        result
+    }
 }
 
-macro_rules! expr_ident {
-    [$(
-        $ident:ident
-    )*] => {
-        impl Keyword {
-            pub const fn expr_ident(&self) -> bool {
-                match self {
-                    $(Keyword::$ident => true),*,
-                    _ => !self.reserved()
-                }
-            }
-        }
-    };
+impl Restrict {
+    /// Checks if this restrict set has any common bits with another restrict set,
+    /// i.e. if there is any restrict set that is a subset of both.
+    #[inline]
+    fn check(self, rhs: Self) -> bool {
+        (self.0 & rhs.0) != 0
+    }
+
+    /// A restrict set for MARIADB reserved keywords.
+    pub const MARIADB: Self = Restrict(0b1);
+
+    /// A restrict set for POSTGRES reserved keywords.
+    pub const POSTGRES: Self = Restrict(0b10);
+
+    /// A restrict set for SQLITE reserved keywords.
+    pub const SQLITE: Self = Restrict(0b100);
+
+    // Start restrict set list
+
+    // End restrict set list
 }
 
-keywords![
-_LIST_
-ABS
-ACCESSIBLE
-ACCOUNT
-ACOS
-ACTION
-ADD
-ADD_MONTHS
-ADDDATE
-ADDTIME
-ADMIN
-AFTER
-AGAINST
-AGGREGATE
-ALGORITHM
-ALL
-ALTER
-ALWAYS
-ANALYZE
-AND
-ANY
-AS
-ASC
-ASCII
-ASENSITIVE
-ASIN
-AT
-ATAN
-ATAN2
-ATOMIC
-AUTHORIZATION
-AUTHORS
-AUTO
-AUTO_INCREMENT
-AUTOEXTEND_SIZE
-AVG
-AVG_ROW_LENGTH
-BACKUP
-BEFORE
-BEGIN
-BETWEEN
-BIGINT
-BIN
-BINARY
-BINLOG
-BIT
-BIT_LENGTH
-BLOB
-BLOCK
-BLOOM
-BODY
-BOOL
-BOOLEAN
-BOTH
-BPCHAR_PATTERN_OPS
-BRIN
-BTREE
-BY
-BYPASSRLS
-BYTE
-BYTEA
-CACHE
-CALL
-CASCADE
-CASCADED
-CASE
-CAST
-CATALOG_NAME
-CEIL
-CEILING
-CHAIN
-CHANGE
-CHANGED
-CHANNEL
-CHAR
-CHAR_LENGTH
-CHARACTER
-CHARACTER_LENGTH
-CHARSET
-CHECK
-CHECKPOINT
-CHECKSUM
-CHR
-CIPHER
-CLASS
-CLASS_ORIGIN
-CLIENT
-CLOB
-CLOSE
-COALESCE
-CODE
-COLLATE
-COLLATION
-COLUMN
-COLUMN_ADD
-COLUMN_CHECK
-COLUMN_CREATE
-COLUMN_DELETE
-COLUMN_GET
-COLUMN_NAME
-COLUMNS
-COMMENT
-COMMIT
-COMMITTED
-COMMUTATOR
-COMPACT
-COMPLETION
-COMPRESSED
-COMPRESSION
-CONCAT
-CONCAT_WS
-CONCURRENT
-CONCURRENTLY
-CONDITION
-CONFLICT
-CONNECTION
-CONSISTENT
-CONSTRAINT
-CONSTRAINT_CATALOG
-CONSTRAINT_NAME
-CONSTRAINT_SCHEMA
-CONTAINS
-CONTEXT
-CONTINUE
-CONTRIBUTORS
-CONV
-CONVERT
-CONVERT_TZ
-COPY
-COS
-COSTS
-COT
-COUNT
-CPU
-CRC32
-CRC32C
-CREATE
-CREATEDB
-CREATEROLE
-CROSS
-CUBE
-CURDATE
-CURRENT
-CURRENT_DATE
-CURRENT_POS
-CURRENT_ROLE
-CURRENT_TIME
-CURRENT_TIMESTAMP
-CURRENT_USER
-CURSOR
-CURSOR_NAME
-CURTIME
-CYCLE
-DATA
-DATABASE
-DATABASES
-DATAFILE
-DATE
-DATE_ADD
-DATE_FORMAT
-DATE_SUB
-DATEDIFF
-DATETIME
-DAY
-DAY_HOUR
-DAY_MICROSECOND
-DAY_MINUTE
-DAY_SECOND
-DAYNAME
-DAYOFMONTH
-DAYOFWEEK
-DAYOFYEAR
-DEALLOCATE
-DEC
-DECIMAL
-DECLARE
-DEFAULT
-DEFINER
-DEGREES
-DELAY_KEY_WRITE
-DELAYED
-DELETE
-DELETE_DOMAIN_ID
-DELIMITER
-DES_KEY_FILE
-DESC
-DESCRIBE
-DETERMINISTIC
-DIAGNOSTICS
-DIRECTORY
-DISABLE
-DISCARD
-DISK
-DISTINCT
-DISTINCTROW
-DIV
-DO
-DO_DOMAIN_IDS
-DOMAIN
-DOUBLE
-DROP
-DUAL
-DUMPFILE
-DUPLICATE
-DYNAMIC
-EACH
-ELSE
-ELSEIF
-ELSIF
-ELT
-EMPTY
-ENABLE
-ENCLOSED
-ENCRYPTED
-ENCRYPTION
-END
-ENDS
-ENGINE
-ENGINE_ATTRIBUTE
-ENGINES
-ENUM
-ERROR
-ERRORS
-ESCAPE
-ESCAPED
-EVENT
-EVENTS
-EVERY
-EXAMINED
-EXCEPT
-EXCEPTION
-EXCHANGE
-EXCLUDE
-EXCLUSIVE
-EXECUTE
-EXISTS
-EXIT
-EXP
-EXPANSION
-EXPIRE
-EXPLAIN
-EXPORT
-EXPORT_SET
-EXTENDED
-EXTENSION
-EXTENT_SIZE
-EXTRACT
-EXTRACTVALUE
-FALSE
-FAMILY
-FAST
-FAULTS
-FEDERATED
-FETCH
-FIELD
-FIELDS
-FILE
-FIND_IN_SET
-FIRST
-FIXED
-FLOAT
-FLOAT4
-FLOAT8
-FLOOR
-FLUSH
-FOLLOWING
-FOLLOWS
-FOR
-FORCE
-FOREIGN
-FORMAT
-FOUND
-FROM
-FROM_BASE64
-FROM_DAYS
-FROM_UNIXTIME
-FULL
-FULLTEXT
-FUNCTION
-GENERAL
-GENERATED
-GET
-GET_FORMAT
-GIN
-GIST
-GLOBAL
-GOTO
-GRANT
-GRANTS
-GREATEST
-GROUP
-GROUP_CONCAT
-HANDLER
-HARD
-HASH
-HASHES
-HAVING
-HELP
-HEX
-HIGH_PRIORITY
-HISTORY
-HNSW
-HOST
-HOSTS
-HOUR
-HOUR_MICROSECOND
-HOUR_MINUTE
-HOUR_SECOND
-ID
-IDENTIFIED
-IDENTITY
-IF
-IFNULL
-IGNORE
-IGNORE_DOMAIN_IDS
-IGNORE_SERVER_IDS
-IGNORED
-IMMEDIATE
-IMPORT
-IN
-INCLUDE
-INCREMENT
-INDEX
-INDEXES
-INET4
-INET6
-INFILE
-INHERIT
-INHERITS
-INITIAL_SIZE
-INNER
-INOUT
-INPLACE
-INSENSITIVE
-INSERT
-INSERT_METHOD
-INSTALL
-INSTANT
-INSTR
-INT
-INT1
-INT2
-INT2_OPS
-INT3
-INT4
-INT4_OPS
-INT8
-INT8_OPS
-INTEGER
-INTERSECT
-INTERSECTA
-INTERVAL
-INTO
-INVISIBLE
-INVOKER
-IO
-IO_THREAD
-IPC
-IS
-ISOLATION
-ISOPEN
-ISSUER
-ITERATE
-JOIN
-JSON
-JSON_ARRAY
-JSON_ARRAY_APPEND
-JSON_ARRAY_INSERT
-JSON_ARRAY_INTERSECT
-JSON_ARRAYAGG
-JSON_COMPACT
-JSON_CONTAINS
-JSON_CONTAINS_PATH
-JSON_DEPTH
-JSON_DETAILED
-JSON_EQUALS
-JSON_EXISTS
-JSON_EXTRACT
-JSON_INSERT
-JSON_KEYS
-JSON_LENGTH
-JSON_LOOSE
-JSON_MERGE
-JSON_MERGE_PATCH
-JSON_MERGE_PRESERVE
-JSON_NORMALIZE
-JSON_OBJECT
-JSON_OBJECT_FILTER_KEYS
-JSON_OBJECT_TO_ARRAY
-JSON_OBJECTAGG
-JSON_OVERLAPS
-JSON_PRETTY
-JSON_QUERY
-JSON_QUOTE
-JSON_REMOVE
-JSON_REPLACE
-JSON_SCHEMA_VALID
-JSON_SEARCH
-JSON_SET
-JSON_TABLE
-JSON_TYPE
-JSON_UNQUOTE
-JSON_VALID
-JSON_VALUE
-KEY
-KEY_BLOCK_SIZE
-KEYS
-KILL
-LAG
-LANGUAGE
-LAST
-LAST_DAY
-LAST_VALUE
-LASTVAL
-LCASE
-LEAD
-LEADING
-LEAST
-LEAVE
-LEAVES
-LEFT
-LEFTARG
-LENGTH
-LENGTHB
-LESS
-LEVEL
-LIKE
-LIMIT
-LINEAR
-LINES
-LIST
-LN
-LOAD
-LOAD_FILE
-LOCAL
-LOCALTIME
-LOCALTIMESTAMP
-LOCATE
-LOCK
-LOCKED
-LOCKS
-LOG
-LOG10
-LOG2
-LOGFILE
-LOGIN
-LOGS
-LONG
-LONGBLOB
-LONGTEXT
-LOOP
-LOW_PRIORITY
-LOWER
-LPAD
-LTRIM
-MAKE_SET
-MAKEDATE
-MAKETIME
-MASTER
-MASTER_CONNECT_RETRY
-MASTER_DELAY
-MASTER_GTID_POS
-MASTER_HEARTBEAT_PERIOD
-MASTER_HOST
-MASTER_LOG_FILE
-MASTER_LOG_POS
-MASTER_PASSWORD
-MASTER_PORT
-MASTER_SERVER_ID
-MASTER_SSL
-MASTER_SSL_CA
-MASTER_SSL_CAPATH
-MASTER_SSL_CERT
-MASTER_SSL_CIPHER
-MASTER_SSL_CRL
-MASTER_SSL_CRLPATH
-MASTER_SSL_KEY
-MASTER_SSL_VERIFY_SERVER_CERT
-MASTER_USE_GTID
-MASTER_USER
-MATCH
-MATERIALIZED
-MAX
-MAX_CONNECTIONS_PER_HOUR
-MAX_QUERIES_PER_HOUR
-MAX_ROWS
-MAX_SIZE
-MAX_STATEMENT_TIME
-MAX_UPDATES_PER_HOUR
-MAX_USER_CONNECTIONS
-MAXVALUE
-MEDIUM
-MEDIUMBLOB
-MEDIUMINT
-MEDIUMTEXT
-MEMBER
-MEMORY
-MERGE
-MERGES
-MESSAGE_TEXT
-MICROSECOND
-MID
-MIDDLEINT
-MIGRATE
-MIN
-MIN_ROWS
-MINUS
-MINUTE
-MINUTE_MICROSECOND
-MINUTE_SECOND
-MINVALUE
-MOD
-MODE
-MODIFIES
-MODIFY
-MONITOR
-MONTH
-MONTHNAME
-MUTEX
-MYSQL
-MYSQL_ERRNO
-NAME
-NAMES
-NATIONAL
-NATURAL
-NATURAL_SORT_KEY
-NCHAR
-NEGATOR
-NESTED
-NEVER
-NEW
-NEXT
-NEXTVAL
-NO
-NO_WAIT
-NO_WRITE_TO_BINLOG
-NOBYPASSRLS
-NOCACHE
-NOCREATEDB
-NOCREATEROLE
-NOCYCLE
-NODEGROUP
-NOINHERIT
-NOLOGIN
-NOMAXVALUE
-NOMINVALUE
-NONE
-NOREPLICATION
-NOSUPERUSER
-NOT
-NOTFOUND
-NOTHING
-NOTICE
-NOW
-NOWAIT
-NULL
-NULLIF
-NULLS
-NUMBER
-NUMERIC
-NVARCHAR
-NVL
-NVL2
-OCT
-OCTET_LENGTH
-OF
-OFFSET
-OLD_PASSWORD
-ON
-ONE
-ONLINE
-ONLY
-OPEN
-OPERATOR
-OPTIMIZE
-OPTIMIZER
-OPTIMIZER_COSTS
-OPTION
-OPTIONALLY
-OPTIONS
-OR
-ORD
-ORDER
-ORDINALITY
-OTHERS
-OUT
-OUTER
-OUTFILE
-OVER
-OVERLAPS
-OWNED
-OWNER
-PACK_KEYS
-PACKAGE
-PAGE
-PAGE_CHECKSUM
-PARSE_VCOL_EXPR
-PARSER
-PARTIAL
-PARTITION
-PARTITIONING
-PARTITIONS
-PASSWORD
-PATH
-PERIOD
-PERIOD_ADD
-PERIOD_DIFF
-PERSISTENT
-PHASE
-PI
-PLPGSQL
-PLUGIN
-PLUGINS
-PORT
-PORTION
-POSITION
-POW
-POWER
-PRECEDES
-PRECEDING
-PRECISION
-PREPARE
-PRESERVE
-PREV
-PREVIOUS
-PRIMARY
-PRIVILEGES
-PROCEDURE
-PROCESS
-PROCESSLIST
-PROFILE
-PROFILES
-PROXY
-PURGE
-QUARTER
-QUERY
-QUICK
-QUOTE
-RADIANS
-RAISE
-RAND
-RANGE
-RAW
-READ
-READ_ONLY
-READ_WRITE
-READS
-REAL
-REBUILD
-RECOVER
-RECURSIVE
-REDO_BUFFER_SIZE
-REDOFILE
-REDUNDANT
-REF_SYSTEM_ID
-REFERENCES
-REGEXP
-RELAY
-RELAY_LOG_FILE
-RELAY_LOG_POS
-RELAY_THREAD
-RELAYLOG
-RELEASE
-RELOAD
-REMOVE
-RENAME
-REORGANIZE
-REPAIR
-REPEAT
-REPEATABLE
-REPLACE
-REPLAY
-REPLICA
-REPLICA_POS
-REPLICAS
-REPLICATION
-REQUIRE
-RESET
-RESIGNAL
-RESTART
-RESTORE
-RESTRICT
-RESUME
-RETURN
-RETURNED_SQLSTATE
-RETURNING
-RETURNS
-REUSE
-REVERSE
-REVOKE
-RIGHT
-RIGHTARG
-RLIKE
-ROLE
-ROLLBACK
-ROLLUP
-ROUND
-ROUTINE
-ROW
-ROW_COUNT
-ROW_FORMAT
-ROWCOUNT
-ROWNUM
-ROWS
-ROWTYPE
-RPAD
-RTREE
-RTRIM
-SAVEPOINT
-SCHEDULE
-SCHEMA
-SCHEMA_NAME
-SCHEMAS
-SEARCH
-SEC_TO_TIME
-SECOND
-SECOND_MICROSECOND
-SECONDARY
-SECONDARY_ENGINE
-SECONDARY_ENGINE_ATTRIBUTE
-SECURITY
-SELECT
-SENSITIVE
-SEPARATOR
-SEQUENCE
-SERIAL
-SERIALIZABLE
-SERVER
-SESSION
-SESSION_USER
-SET
-SETVAL
-SFORMAT
-SHARE
-SHARED
-SHOW
-SHUTDOWN
-SIGN
-SIGNAL
-SIGNED
-SIMPLE
-SIN
-SKIP
-SLAVE
-SLAVE_POS
-SLAVES
-SLEEP
-SLOW
-SMALLINT
-SNAPSHOT
-SOCKET
-SOFT
-SOME
-SONAME
-SOUNDEX
-SOUNDS
-SOURCE
-SPACE
-SPATIAL
-SPECIFIC
-SQL
-SQL_BIG_RESULT
-SQL_BUFFER_RESULT
-SQL_CACHE
-SQL_CALC_FOUND_ROWS
-SQL_NO_CACHE
-SQL_SMALL_RESULT
-SQL_THREAD
-SQL_TSI_DAY
-SQL_TSI_HOUR
-SQL_TSI_MINUTE
-SQL_TSI_MONTH
-SQL_TSI_QUARTER
-SQL_TSI_SECOND
-SQL_TSI_WEEK
-SQL_TSI_YEAR
-SQLEXCEPTION
-SQLSTATE
-SQLWARNING
-SQRT
-SSL
-STAGE
-START
-STARTING
-STARTS
-STARTS_WITH
-STATEMENT
-STATS_AUTO_RECALC
-STATS_PERSISTENT
-STATS_SAMPLE_PAGES
-STATUS
-STDIN
-STOP
-STORAGE
-STORED
-STR_TO_DATE
-STRAIGHT_JOIN
-STRCMP
-STRFTIME
-STRICT
-STRING
-SUBCLASS_ORIGIN
-SUBDATE
-SUBJECT
-SUBPARTITION
-SUBPARTITIONS
-SUBSTR
-SUBSTRING
-SUBSTRING_INDEX
-SUBTIME
-SUM
-SUPER
-SUPERUSER
-SUSPEND
-SWAPS
-SWITCHES
-SYSDATE
-SYSID
-SYSTEM
-SYSTEM_TIME
-TABLE
-TABLE_CHECKSUM
-TABLE_NAME
-TABLES
-TABLESPACE
-TAN
-TEMPORARY
-TEMPTABLE
-TERMINATED
-TEXT
-TEXT_PATTERN_OPS
-THAN
-THEN
-THREADS
-TIES
-TIME
-TIME_FORMAT
-TIME_TO_SEC
-TIME_ZONE
-TIMEDIFF
-TIMESTAMP
-TIMESTAMPADD
-TIMESTAMPDIFF
-TIMESTAMPTZ
-TINYBLOB
-TINYINT
-TINYTEXT
-TO
-TO_BASE64
-TO_CHAR
-TO_DAYS
-TO_SECONDS
-TRAILING
-TRANSACTION
-TRANSACTIONAL
-TRIGGER
-TRIGGERS
-TRUE
-TRUNCATE
-TYPE
-TYPES
-UCASE
-UNBOUNDED
-UNCOMMITTED
-UNCOMPRESSED_LENGTH
-UNDEFINED
-UNDO
-UNDO_BUFFER_SIZE
-UNDOFILE
-UNHEX
-UNICODE
-UNINSTALL
-UNION
-UNIQUE
-UNIX_TIMESTAMP
-UNKNOWN
-UNLOCK
-UNSIGNED
-UNTIL
-UPDATE
-UPDATEXML
-UPGRADE
-UPPER
-USAGE
-USE
-USE_FRM
-USER
-USER_RESOURCES
-USING
-UTC_DATE
-UTC_TIME
-UTC_TIMESTAMP
-VALID
-VALUE
-VALUES
-VARBINARY
-VARBIT
-VARCHAR
-VARCHAR_PATTERN_OPS
-VARCHAR2
-VARCHARACTER
-VARIABLES
-VARYING
-VERSION
-VERSIONING
-VIA
-VIEW
-VIRTUAL
-VISIBLE
-WAIT
-WARNINGS
-WEEK
-WEEKDAY
-WEEKOFYEAR
-WEIGHT_STRING
-WHEN
-WHERE
-WHILE
-WINDOW
-WITH
-WITHIN
-WITHOUT
-WORK
-WRAPPER
-WRITE
-X509
-XA
-XML
-XOR
-YEAR
-YEAR_MONTH
-YEARWEEK
-ZEROFILL
-ZONE
-];
+// The keyword list below, is read by build.rs to generate the keyword data and functions.
+// Each keyword is marked with comments indicating if it is within the reserved keyword
+// list for a particular database
 
-reserved![
-ACCESSIBLE
-ADD
-ALL
-ALTER
-ANALYZE
-AND
-AS
-ASC
-ASENSITIVE
-BEFORE
-BETWEEN
-BIGINT
-BINARY
-BLOB
-BOTH
-BY
-CALL
-CASCADE
-CASE
-CHANGE
-CHAR
-CHARACTER
-CHECK
-COLLATE
-COLUMN
-COMMENT
-CONDITION
-CONSTRAINT
-CONTINUE
-CONVERT
-CREATE
-CROSS
-CURRENT_DATE
-CURRENT_ROLE
-CURRENT_TIME
-CURRENT_TIMESTAMP
-CURRENT_USER
-CURSOR
-DATABASE
-DATABASES
-DAY_HOUR
-DAY_MICROSECOND
-DAY_MINUTE
-DAY_SECOND
-DEC
-DECIMAL
-DECLARE
-DELAYED
-DELETE
-DELETE_DOMAIN_ID
-DESC
-DESCRIBE
-DETERMINISTIC
-DISTINCT
-DISTINCTROW
-DIV
-DO_DOMAIN_IDS
-DOUBLE
-DROP
-DUAL
-EACH
-ELSE
-ELSEIF
-ENCLOSED
-END
-ESCAPED
-EXCEPT
-EXISTS
-EXIT
-EXPLAIN
-FALSE
-FETCH
-FLOAT
-FLOAT4
-FLOAT8
-FOR
-FORCE
-FOREIGN
-FROM
-FULLTEXT
-GENERAL
-GRANT
-GROUP
-HAVING
-HIGH_PRIORITY
-HOUR_MICROSECOND
-HOUR_MINUTE
-HOUR_SECOND
-IF
-IGNORE
-IGNORE_DOMAIN_IDS
-IGNORE_SERVER_IDS
-IN
-INFILE
-INNER
-INOUT
-INSENSITIVE
-INSERT
-INT
-INT1
-INT2
-INT3
-INT4
-INT8
-INTEGER
-INTERSECTA
-INTERVAL
-INTO
-IS
-ITERATE
-JOIN
-KEY
-KEYS
-KILL
-LEADING
-LEAVE
-LEFT
-LIKE
-LIMIT
-LINEAR
-LINES
-LOAD
-LOCALTIME
-LOCALTIMESTAMP
-LOCK
-LONG
-LONGBLOB
-LONGTEXT
-LOOP
-LOW_PRIORITY
-MASTER_HEARTBEAT_PERIOD
-MASTER_SSL_VERIFY_SERVER_CERT
-MATCH
-MAXVALUE
-MEDIUMBLOB
-MEDIUMINT
-MEDIUMTEXT
-MIDDLEINT
-MINUTE_MICROSECOND
-MINUTE_SECOND
-MOD
-MODIFIES
-NATURAL
-NO_WRITE_TO_BINLOG
-NOT
-NULL
-NUMERIC
-OFFSET
-ON
-OPTIMIZE
-OPTION
-OPTIONALLY
-OR
-ORDER
-OUT
-OUTER
-OUTFILE
-OVER
-PAGE_CHECKSUM
-PARSE_VCOL_EXPR
-PARTITION
-POSITION
-PRECISION
-PRIMARY
-PROCEDURE
-PURGE
-RANGE
-READ
-READ_WRITE
-READS
-REAL
-RECURSIVE
-REF_SYSTEM_ID
-REFERENCES
-REGEXP
-RENAME
-REPEAT
-REPLACE
-REQUIRE
-RESIGNAL
-RESTRICT
-RETURN
-RETURNING
-REVOKE
-RIGHT
-RLIKE
-ROWS
-SCHEMA
-SCHEMAS
-SECOND_MICROSECOND
-SELECT
-SENSITIVE
-SEPARATOR
-SET
-SHOW
-SIGNAL
-SLOW
-SMALLINT
-SPATIAL
-SPECIFIC
-SQL
-SQL_BIG_RESULT
-SQL_CALC_FOUND_ROWS
-SQL_SMALL_RESULT
-SQLEXCEPTION
-SQLSTATE
-SQLWARNING
-SSL
-STARTING
-STATS_AUTO_RECALC
-STATS_PERSISTENT
-STATS_SAMPLE_PAGES
-STRAIGHT_JOIN
-TABLE
-TERMINATED
-THEN
-TINYBLOB
-TINYINT
-TINYTEXT
-TO
-TRAILING
-TRIGGER
-TRUE
-UNDO
-UNION
-UNIQUE
-UNLOCK
-UNSIGNED
-UPDATE
-USAGE
-USE
-USING
-UTC_DATE
-UTC_TIME
-UTC_TIMESTAMP
-VALUES
-VARBINARY
-VARCHAR
-VARCHARACTER
-VARYING
-WHEN
-WHERE
-WHILE
-WINDOW
-WITH
-WRITE
-XOR
-YEAR_MONTH
-ZEROFILL
-];
+// Start of keyword list
+/// A SQL keyword.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
+#[derive(Default)]
+#[repr(usize)]
+pub(crate) enum Keyword {
+    ADD,                 // reserved: mariadb, sqlite
+    ALL,                 // reserved: mariadb, postgres, sqlite
+    ALTER,               // reserved: mariadb, sqlite
+    ANALYZE,             // reserved: mariadb, postgres
+    AND,                 // reserved: mariadb, postgres, sqlite
+    ANY,                 // reserved: postgres
+    AS,                  // reserved: mariadb, postgres, sqlite
+    ASC,                 // reserved: mariadb, postgres
+    ASENSITIVE,          // reserved: mariadb
+    AUTHORIZATION,       // reserved: postgres
+    BEFORE,              // reserved: mariadb
+    BETWEEN,             // reserved: mariadb, sqlite
+    BIGINT,              // reserved: mariadb
+    BINARY,              // reserved: mariadb, postgres
+    BLOB,                // reserved: mariadb
+    BOTH,                // reserved: mariadb, postgres
+    BY,                  // reserved: mariadb
+    CALL,                // reserved: mariadb
+    CASCADE,             // reserved: mariadb
+    CASE,                // reserved: mariadb, postgres, sqlite
+    CAST,                // reserved: postgres
+    CHANGE,              // reserved: mariadb
+    CHAR,                // reserved: mariadb
+    CHARACTER,           // reserved: mariadb
+    CHECK,               // reserved: mariadb, postgres, sqlite
+    COLLATE,             // reserved: mariadb, postgres, sqlite
+    COLLATION,           // reserved: postgres
+    COLUMN,              // reserved: mariadb, postgres
+    COMMENT,             // reserved: mariadb
+    COMMIT,              // reserved: sqlite
+    CONCURRENTLY,        // reserved: postgres
+    CONDITION,           // reserved: mariadb
+    CONSTRAINT,          // reserved: mariadb, postgres, sqlite
+    CONTINUE,            // reserved: mariadb
+    CONVERT,             // reserved: mariadb
+    CREATE,              // reserved: mariadb, postgres, sqlite
+    CROSS,               // reserved: mariadb, postgres
+    CURRENT_DATE,        // reserved: mariadb, postgres; expr_ident
+    CURRENT_ROLE,        // reserved: mariadb, postgres
+    CURRENT_TIME,        // reserved: mariadb, postgres; expr_ident
+    CURRENT_TIMESTAMP,   // reserved: mariadb, postgres; expr_ident
+    CURRENT_USER,        // reserved: mariadb, postgres
+    CURSOR,              // reserved: mariadb
+    DATABASES,           // reserved: mariadb
+    DAY_HOUR,            // reserved: mariadb
+    DAY_MICROSECOND,     // reserved: mariadb
+    DAY_MINUTE,          // reserved: mariadb
+    DAY_SECOND,          // reserved: mariadb
+    DEC,                 // reserved: mariadb
+    DECIMAL,             // reserved: mariadb
+    DECLARE,             // reserved: mariadb
+    DEFAULT,             // reserved: mariadb, postgres, sqlite
+    DELAYED,             // reserved: mariadb
+    DELETE,              // reserved: mariadb, sqlite
+    DELETE_DOMAIN_ID,    // reserved: mariadb
+    DESC,                // reserved: mariadb, postgres
+    DESCRIBE,            // reserved: mariadb
+    DETERMINISTIC,       // reserved: mariadb
+    DISTINCT,            // reserved: mariadb, postgres, sqlite
+    DISTINCTROW,         // reserved: mariadb
+    DIV,                 // reserved: mariadb
+    DO,                  // reserved: postgres
+    DOUBLE,              // reserved: mariadb
+    DO_DOMAIN_IDS,       // reserved: mariadb
+    DROP,                // reserved: mariadb, sqlite
+    DUAL,                // reserved: mariadb
+    EACH,                // reserved: mariadb
+    ELSE,                // reserved: mariadb, postgres, sqlite
+    ELSEIF,              // reserved: mariadb
+    ENCLOSED,            // reserved: mariadb
+    END,                 // reserved: mariadb, postgres, sqlite
+    ESCAPE,              // reserved: sqlite
+    ESCAPED,             // reserved: mariadb
+    EXCEPT,              // reserved: mariadb, postgres, sqlite
+    EXISTS,              // reserved: mariadb, sqlite
+    EXIT,                // reserved: mariadb
+    EXPLAIN,             // reserved: mariadb
+    FALSE,               // reserved: mariadb, postgres
+    FETCH,               // reserved: mariadb, postgres
+    FLOAT,               // reserved: mariadb
+    FLOAT4,              // reserved: mariadb
+    FLOAT8,              // reserved: mariadb
+    FOR,                 // reserved: mariadb, postgres
+    FORCE,               // reserved: mariadb
+    FOREIGN,             // reserved: mariadb, postgres, sqlite
+    FROM,                // reserved: mariadb, postgres, sqlite
+    FULL,                // reserved: postgres
+    FULLTEXT,            // reserved: mariadb
+    GRANT,               // reserved: mariadb, postgres
+    GROUP,               // reserved: mariadb, postgres, sqlite
+    HAVING,              // reserved: mariadb, postgres, sqlite
+    HIGH_PRIORITY,       // reserved: mariadb
+    HOUR_MICROSECOND,    // reserved: mariadb
+    HOUR_MINUTE,         // reserved: mariadb
+    HOUR_SECOND,         // reserved: mariadb
+    IF,                  // reserved: mariadb, sqlite; expr_ident
+    IGNORE,              // reserved: mariadb
+    IGNORE_DOMAIN_IDS,   // reserved: mariadb
+    IN,                  // reserved: mariadb, postgres, sqlite
+    INDEX,               // reserved: mariadb, sqlite
+    INFILE,              // reserved: mariadb
+    INNER,               // reserved: mariadb, postgres
+    INOUT,               // reserved: mariadb
+    INSENSITIVE,         // reserved: mariadb
+    INSERT,              // reserved: mariadb, sqlite
+    INT,                 // reserved: mariadb
+    INT1,                // reserved: mariadb
+    INT2,                // reserved: mariadb
+    INT3,                // reserved: mariadb
+    INT4,                // reserved: mariadb
+    INT8,                // reserved: mariadb
+    INTEGER,             // reserved: mariadb
+    INTERSECT,           // reserved: mariadb, postgres, sqlite
+    INTERVAL,            // reserved: mariadb
+    INTO,                // reserved: mariadb, postgres, sqlite
+    IS,                  // reserved: mariadb, postgres, sqlite
+    ITERATE,             // reserved: mariadb
+    JOIN,                // reserved: mariadb, postgres, sqlite
+    KEY,                 // reserved: mariadb
+    KEYS,                // reserved: mariadb
+    KILL,                // reserved: mariadb
+    LEADING,             // reserved: mariadb, postgres
+    LEAVE,               // reserved: mariadb
+    LEFT,                // reserved: mariadb, postgres
+    LIKE,                // reserved: mariadb, postgres
+    LIMIT,               // reserved: mariadb, postgres, sqlite
+    LINEAR,              // reserved: mariadb
+    LINES,               // reserved: mariadb
+    LOAD,                // reserved: mariadb
+    LOCALTIME,           // reserved: mariadb, postgres; expr_ident
+    LOCALTIMESTAMP,      // reserved: mariadb, postgres; expr_ident
+    LOCK,                // reserved: mariadb
+    LONG,                // reserved: mariadb
+    LONGBLOB,            // reserved: mariadb
+    LONGTEXT,            // reserved: mariadb
+    LOOP,                // reserved: mariadb
+    LOW_PRIORITY,        // reserved: mariadb
+    MATCH,               // reserved: mariadb
+    MAXVALUE,            // reserved: mariadb
+    MEDIUMBLOB,          // reserved: mariadb
+    MEDIUMINT,           // reserved: mariadb
+    MEDIUMTEXT,          // reserved: mariadb
+    MIDDLEINT,           // reserved: mariadb
+    MINUTE_MICROSECOND,  // reserved: mariadb
+    MINUTE_SECOND,       // reserved: mariadb
+    MOD,                 // reserved: mariadb
+    MODIFIES,            // reserved: mariadb
+    NATURAL,             // reserved: mariadb, postgres
+    NOT,                 // reserved: mariadb, postgres, sqlite
+    NOTHING,             // reserved: sqlite
+    NO_WRITE_TO_BINLOG,  // reserved: mariadb
+    NULL,                // reserved: mariadb, postgres, sqlite
+    NUMERIC,             // reserved: mariadb
+    OFFSET,              // reserved: mariadb, postgres
+    ON,                  // reserved: mariadb, postgres, sqlite
+    ONLY,                // reserved: postgres
+    OPTIMIZE,            // reserved: mariadb
+    OPTIONALLY,          // reserved: mariadb
+    OR,                  // reserved: mariadb, postgres, sqlite
+    ORDER,               // reserved: mariadb, postgres, sqlite
+    OUT,                 // reserved: mariadb
+    OUTER,               // reserved: mariadb, postgres
+    OUTFILE,             // reserved: mariadb
+    OVER,                // reserved: mariadb
+    OVERLAPS,            // reserved: postgres
+    PAGE_CHECKSUM,       // reserved: mariadb
+    PARSE_VCOL_EXPR,     // reserved: mariadb
+    PARTITION,           // reserved: mariadb
+    PORTION,             // reserved: mariadb
+    PRECISION,           // reserved: mariadb
+    PRIMARY,             // reserved: mariadb, postgres, sqlite
+    PROCEDURE,           // reserved: mariadb
+    PURGE,               // reserved: mariadb
+    RANGE,               // reserved: mariadb
+    READ,                // reserved: mariadb
+    READS,               // reserved: mariadb
+    READ_WRITE,          // reserved: mariadb
+    REAL,                // reserved: mariadb
+    RECURSIVE,           // reserved: mariadb
+    REFERENCES,          // reserved: mariadb, postgres, sqlite
+    REF_SYSTEM_ID,       // reserved: mariadb
+    REGEXP,              // reserved: mariadb
+    RELEASE,             // reserved: mariadb
+    RENAME,              // reserved: mariadb
+    REPEAT,              // reserved: mariadb
+    REPLACE,             // reserved: mariadb; expr_ident
+    REQUIRE,             // reserved: mariadb
+    RESIGNAL,            // reserved: mariadb
+    RESTRICT,            // reserved: mariadb
+    RETURN,              // reserved: mariadb
+    RETURNING,           // reserved: mariadb, postgres, sqlite
+    REVOKE,              // reserved: mariadb
+    RIGHT,               // reserved: mariadb, postgres; expr_ident
+    RLIKE,               // reserved: mariadb
+    ROWS,                // reserved: mariadb
+    SCHEMAS,             // reserved: mariadb
+    SECOND_MICROSECOND,  // reserved: mariadb
+    SELECT,              // reserved: mariadb, postgres, sqlite
+    SENSITIVE,           // reserved: mariadb
+    SEPARATOR,           // reserved: mariadb
+    SESSION_USER,        // reserved: postgres
+    SET,                 // reserved: mariadb, postgres, sqlite
+    SHOW,                // reserved: mariadb
+    SIGNAL,              // reserved: mariadb
+    SMALLINT,            // reserved: mariadb
+    SOME,                // reserved: postgres
+    SPATIAL,             // reserved: mariadb
+    SPECIFIC,            // reserved: mariadb
+    SQL,                 // reserved: mariadb
+    SQLEXCEPTION,        // reserved: mariadb
+    SQLSTATE,            // reserved: mariadb
+    SQLWARNING,          // reserved: mariadb
+    SQL_BIG_RESULT,      // reserved: mariadb
+    SQL_CALC_FOUND_ROWS, // reserved: mariadb
+    SQL_SMALL_RESULT,    // reserved: mariadb
+    SSL,                 // reserved: mariadb
+    STARTING,            // reserved: mariadb
+    STATS_AUTO_RECALC,   // reserved: mariadb
+    STATS_PERSISTENT,    // reserved: mariadb
+    STATS_SAMPLE_PAGES,  // reserved: mariadb
+    STRAIGHT_JOIN,       // reserved: mariadb
+    TABLE,               // reserved: mariadb, postgres, sqlite
+    TERMINATED,          // reserved: mariadb
+    THEN,                // reserved: mariadb, postgres, sqlite
+    TINYBLOB,            // reserved: mariadb
+    TINYINT,             // reserved: mariadb
+    TINYTEXT,            // reserved: mariadb
+    TO,                  // reserved: mariadb, postgres, sqlite
+    TRAILING,            // reserved: mariadb, postgres
+    TRANSACTION,         // reserved: sqlite
+    TRIGGER,             // reserved: mariadb
+    TRUE,                // reserved: mariadb, postgres
+    UNDO,                // reserved: mariadb
+    UNION,               // reserved: mariadb, postgres, sqlite
+    UNIQUE,              // reserved: mariadb, postgres, sqlite
+    UNLOCK,              // reserved: mariadb
+    UNSIGNED,            // reserved: mariadb
+    UPDATE,              // reserved: mariadb, sqlite
+    USAGE,               // reserved: mariadb
+    USE,                 // reserved: mariadb
+    USER,                // reserved: postgres
+    USING,               // reserved: mariadb, postgres, sqlite
+    UTC_DATE,            // reserved: mariadb; expr_ident
+    UTC_TIME,            // reserved: mariadb; expr_ident
+    UTC_TIMESTAMP,       // reserved: mariadb; expr_ident
+    VALUES,              // reserved: mariadb, sqlite; expr_ident
+    VARBINARY,           // reserved: mariadb
+    VARCHAR,             // reserved: mariadb
+    VARCHARACTER,        // reserved: mariadb
+    VARYING,             // reserved: mariadb
+    WHEN,                // reserved: mariadb, postgres, sqlite
+    WHERE,               // reserved: mariadb, postgres, sqlite
+    WHILE,               // reserved: mariadb
+    WINDOW,              // reserved: postgres
+    WITH,                // reserved: mariadb, postgres
+    WRITE,               // reserved: mariadb
+    XOR,                 // reserved: mariadb
+    YEAR_MONTH,          // reserved: mariadb
+    ZEROFILL,            // reserved: mariadb
+    #[default]
+    NOT_A_KEYWORD,
+    QUOTED_IDENTIFIER,
+    // Possibly restricted keywords above. Keywords never restricted below.
+    ABS,
+    ACCESSIBLE,
+    ACCOUNT,
+    ACOS,
+    ACTION,
+    ADDDATE,
+    ADDTIME,
+    ADD_MONTHS,
+    ADMIN,
+    AFTER,
+    AGAINST,
+    AGGREGATE,
+    ALGORITHM,
+    ALWAYS,
+    ASCII,
+    ASIN,
+    AT,
+    ATAN,
+    ATAN2,
+    ATOMIC,
+    AUTHORS,
+    AUTO,
+    AUTOEXTEND_SIZE,
+    AUTO_INCREMENT,
+    AVG,
+    AVG_ROW_LENGTH,
+    BACKUP,
+    BEGIN,
+    BIN,
+    BINLOG,
+    BIT,
+    BIT_LENGTH,
+    BLOCK,
+    BLOOM,
+    BODY,
+    BOOL,
+    BOOLEAN,
+    BPCHAR_PATTERN_OPS,
+    BRIN,
+    BTREE,
+    BYPASSRLS,
+    BYTE,
+    BYTEA,
+    CACHE,
+    CASCADED,
+    CATALOG_NAME,
+    CEIL,
+    CEILING,
+    CHAIN,
+    CHANGED,
+    CHANNEL,
+    CHARACTER_LENGTH,
+    CHARSET,
+    CHAR_LENGTH,
+    CHECKPOINT,
+    CHECKSUM,
+    CHR,
+    CIPHER,
+    CLASS,
+    CLASS_ORIGIN,
+    CLIENT,
+    CLOB,
+    CLOSE,
+    COALESCE,
+    CODE,
+    COLUMNS,
+    COLUMN_ADD,
+    COLUMN_CHECK,
+    COLUMN_CREATE,
+    COLUMN_DELETE,
+    COLUMN_GET,
+    COLUMN_NAME,
+    COMMITTED,
+    COMMUTATOR,
+    COMPACT,
+    COMPLETION,
+    COMPRESSED,
+    COMPRESSION,
+    CONCAT,
+    CONCAT_WS,
+    CONCURRENT,
+    CONFLICT,
+    CONNECTION,
+    CONSISTENT,
+    CONSTRAINT_CATALOG,
+    CONSTRAINT_NAME,
+    CONSTRAINT_SCHEMA,
+    CONTAINS,
+    CONTEXT,
+    CONTRIBUTORS,
+    CONV,
+    CONVERT_TZ,
+    COPY,
+    COS,
+    COSTS,
+    COT,
+    COUNT,
+    CPU,
+    CRC32,
+    CRC32C,
+    CREATEDB,
+    CREATEROLE,
+    CUBE,
+    CURDATE,
+    CURRENT,
+    CURRENT_POS,
+    CURSOR_NAME,
+    CURTIME,
+    CYCLE,
+    DATA,
+    DATABASE,
+    DATAFILE,
+    DATE,
+    DATEDIFF,
+    DATETIME,
+    DATE_ADD,
+    DATE_FORMAT,
+    DATE_SUB,
+    DAY,
+    DAYNAME,
+    DAYOFMONTH,
+    DAYOFWEEK,
+    DAYOFYEAR,
+    DEALLOCATE,
+    DEFINER,
+    DEGREES,
+    DELAY_KEY_WRITE,
+    DELIMITER,
+    DES_KEY_FILE,
+    DIAGNOSTICS,
+    DIRECTORY,
+    DISABLE,
+    DISCARD,
+    DISK,
+    DOMAIN,
+    DUMPFILE,
+    DUPLICATE,
+    DYNAMIC,
+    ELSIF,
+    ELT,
+    EMPTY,
+    ENABLE,
+    ENCRYPTED,
+    ENCRYPTION,
+    ENDS,
+    ENGINE,
+    ENGINES,
+    ENGINE_ATTRIBUTE,
+    ENUM,
+    ERROR,
+    ERRORS,
+    EVENT,
+    EVENTS,
+    EVERY,
+    EXAMINED,
+    EXCEPTION,
+    EXCHANGE,
+    EXCLUDE,
+    EXCLUSIVE,
+    EXECUTE,
+    EXP,
+    EXPANSION,
+    EXPIRE,
+    EXPORT,
+    EXPORT_SET,
+    EXTENDED,
+    EXTENSION,
+    EXTENT_SIZE,
+    EXTRACT,
+    EXTRACTVALUE,
+    FAMILY,
+    FAST,
+    FAULTS,
+    FEDERATED,
+    FIELD,
+    FIELDS,
+    FILE,
+    FIND_IN_SET,
+    FIRST,
+    FIXED,
+    FLOOR,
+    FLUSH,
+    FOLLOWING,
+    FOLLOWS,
+    FORMAT,
+    FOUND,
+    FROM_BASE64,
+    FROM_DAYS,
+    FROM_UNIXTIME,
+    FUNCTION,
+    GENERAL,
+    GENERATED,
+    GET,
+    GET_FORMAT,
+    GIN,
+    GIST,
+    GLOBAL,
+    GOTO,
+    GRANTS,
+    GREATEST,
+    GROUP_CONCAT,
+    HANDLER,
+    HARD,
+    HASH,
+    HASHES,
+    HELP,
+    HEX,
+    HISTORY,
+    HNSW,
+    HOST,
+    HOSTS,
+    HOUR,
+    ID,
+    IDENTIFIED,
+    IDENTITY,
+    IFNULL,
+    IGNORED,
+    IGNORE_SERVER_IDS,
+    IMMEDIATE,
+    IMPORT,
+    INCLUDE,
+    INCREMENT,
+    INDEXES,
+    INET4,
+    INET6,
+    INHERIT,
+    INHERITS,
+    INITIAL_SIZE,
+    INPLACE,
+    INSERT_METHOD,
+    INSTALL,
+    INSTANT,
+    INSTR,
+    INT2_OPS,
+    INT4_OPS,
+    INT8_OPS,
+    INTERSECTA,
+    INVISIBLE,
+    INVOKER,
+    IO,
+    IO_THREAD,
+    IPC,
+    ISOLATION,
+    ISOPEN,
+    ISSUER,
+    JSON,
+    JSON_ARRAY,
+    JSON_ARRAYAGG,
+    JSON_ARRAY_APPEND,
+    JSON_ARRAY_INSERT,
+    JSON_ARRAY_INTERSECT,
+    JSON_COMPACT,
+    JSON_CONTAINS,
+    JSON_CONTAINS_PATH,
+    JSON_DEPTH,
+    JSON_DETAILED,
+    JSON_EQUALS,
+    JSON_EXISTS,
+    JSON_EXTRACT,
+    JSON_INSERT,
+    JSON_KEYS,
+    JSON_LENGTH,
+    JSON_LOOSE,
+    JSON_MERGE,
+    JSON_MERGE_PATCH,
+    JSON_MERGE_PRESERVE,
+    JSON_NORMALIZE,
+    JSON_OBJECT,
+    JSON_OBJECTAGG,
+    JSON_OBJECT_FILTER_KEYS,
+    JSON_OBJECT_TO_ARRAY,
+    JSON_OVERLAPS,
+    JSON_PRETTY,
+    JSON_QUERY,
+    JSON_QUOTE,
+    JSON_REMOVE,
+    JSON_REPLACE,
+    JSON_SCHEMA_VALID,
+    JSON_SEARCH,
+    JSON_SET,
+    JSON_TABLE,
+    JSON_TYPE,
+    JSON_UNQUOTE,
+    JSON_VALID,
+    JSON_VALUE,
+    KEY_BLOCK_SIZE,
+    LAG,
+    LANGUAGE,
+    LAST,
+    LASTVAL,
+    LAST_DAY,
+    LAST_VALUE,
+    LCASE,
+    LEAD,
+    LEAST,
+    LEAVES,
+    LEFTARG,
+    LENGTH,
+    LENGTHB,
+    LESS,
+    LEVEL,
+    LIST,
+    LN,
+    LOAD_FILE,
+    LOCAL,
+    LOCATE,
+    LOCKED,
+    LOCKS,
+    LOG,
+    LOG10,
+    LOG2,
+    LOGFILE,
+    LOGIN,
+    LOGS,
+    LOWER,
+    LPAD,
+    LTRIM,
+    MAKEDATE,
+    MAKETIME,
+    MAKE_SET,
+    MASTER,
+    MASTER_CONNECT_RETRY,
+    MASTER_DELAY,
+    MASTER_GTID_POS,
+    MASTER_HEARTBEAT_PERIOD,
+    MASTER_HOST,
+    MASTER_LOG_FILE,
+    MASTER_LOG_POS,
+    MASTER_PASSWORD,
+    MASTER_PORT,
+    MASTER_SERVER_ID,
+    MASTER_SSL,
+    MASTER_SSL_CA,
+    MASTER_SSL_CAPATH,
+    MASTER_SSL_CERT,
+    MASTER_SSL_CIPHER,
+    MASTER_SSL_CRL,
+    MASTER_SSL_CRLPATH,
+    MASTER_SSL_KEY,
+    MASTER_SSL_VERIFY_SERVER_CERT,
+    MASTER_USER,
+    MASTER_USE_GTID,
+    MATERIALIZED,
+    MAX,
+    MAX_CONNECTIONS_PER_HOUR,
+    MAX_QUERIES_PER_HOUR,
+    MAX_ROWS,
+    MAX_SIZE,
+    MAX_STATEMENT_TIME,
+    MAX_UPDATES_PER_HOUR,
+    MAX_USER_CONNECTIONS,
+    MEDIUM,
+    MEMBER,
+    MEMORY,
+    MERGE,
+    MERGES,
+    MESSAGE_TEXT,
+    MICROSECOND,
+    MID,
+    MIGRATE,
+    MIN,
+    MINUS,
+    MINUTE,
+    MINVALUE,
+    MIN_ROWS,
+    MODE,
+    MODIFY,
+    MONITOR,
+    MONTH,
+    MONTHNAME,
+    MUTEX,
+    MYSQL,
+    MYSQL_ERRNO,
+    NAME,
+    NAMES,
+    NATIONAL,
+    NATURAL_SORT_KEY,
+    NCHAR,
+    NEGATOR,
+    NESTED,
+    NEVER,
+    NEW,
+    NEXT,
+    NEXTVAL,
+    NO,
+    NOBYPASSRLS,
+    NOCACHE,
+    NOCREATEDB,
+    NOCREATEROLE,
+    NOCYCLE,
+    NODEGROUP,
+    NOINHERIT,
+    NOLOGIN,
+    NOMAXVALUE,
+    NOMINVALUE,
+    NONE,
+    NOREPLICATION,
+    NOSUPERUSER,
+    NOTFOUND,
+    NOTICE,
+    NOW,
+    NOWAIT,
+    NO_WAIT,
+    NULLIF,
+    NULLS,
+    NUMBER,
+    NVARCHAR,
+    NVL,
+    NVL2,
+    OCT,
+    OCTET_LENGTH,
+    OF,
+    OLD_PASSWORD,
+    ONE,
+    ONLINE,
+    OPEN,
+    OPERATOR,
+    OPTIMIZER,
+    OPTIMIZER_COSTS,
+    OPTION,
+    OPTIONS,
+    ORD,
+    ORDINALITY,
+    OTHERS,
+    OWNED,
+    OWNER,
+    PACKAGE,
+    PACK_KEYS,
+    PAGE,
+    PARSER,
+    PARTIAL,
+    PARTITIONING,
+    PARTITIONS,
+    PASSWORD,
+    PATH,
+    PERIOD,
+    PERIOD_ADD,
+    PERIOD_DIFF,
+    PERSISTENT,
+    PHASE,
+    PI,
+    PLPGSQL,
+    PLUGIN,
+    PLUGINS,
+    PORT,
+    POSITION,
+    POW,
+    POWER,
+    PRECEDES,
+    PRECEDING,
+    PREPARE,
+    PRESERVE,
+    PREV,
+    PREVIOUS,
+    PRIVILEGES,
+    PROCESS,
+    PROCESSLIST,
+    PROFILE,
+    PROFILES,
+    PROXY,
+    QUARTER,
+    QUERY,
+    QUICK,
+    QUOTE,
+    RADIANS,
+    RAISE,
+    RAND,
+    RAW,
+    READ_ONLY,
+    REBUILD,
+    RECOVER,
+    REDOFILE,
+    REDO_BUFFER_SIZE,
+    REDUNDANT,
+    RELAY,
+    RELAYLOG,
+    RELAY_LOG_FILE,
+    RELAY_LOG_POS,
+    RELAY_THREAD,
+    RELOAD,
+    REMOVE,
+    REORGANIZE,
+    REPAIR,
+    REPEATABLE,
+    REPLAY,
+    REPLICA,
+    REPLICAS,
+    REPLICATION,
+    REPLICA_POS,
+    RESET,
+    RESTART,
+    RESTORE,
+    RESUME,
+    RETURNED_SQLSTATE,
+    RETURNS,
+    REUSE,
+    REVERSE,
+    RIGHTARG,
+    ROLE,
+    ROLLBACK,
+    ROLLUP,
+    ROUND,
+    ROUTINE,
+    ROW,
+    ROWCOUNT,
+    ROWNUM,
+    ROWTYPE,
+    ROW_COUNT,
+    ROW_FORMAT,
+    RPAD,
+    RTREE,
+    RTRIM,
+    RULE,
+    SAVEPOINT,
+    SCHEDULE,
+    SCHEMA,
+    SCHEMA_NAME,
+    SEARCH,
+    SECOND,
+    SECONDARY,
+    SECONDARY_ENGINE,
+    SECONDARY_ENGINE_ATTRIBUTE,
+    SECURITY,
+    SEC_TO_TIME,
+    SEQUENCE,
+    SERIAL,
+    SERIALIZABLE,
+    SERVER,
+    SESSION,
+    SETVAL,
+    SFORMAT,
+    SHARE,
+    SHARED,
+    SHUTDOWN,
+    SIGN,
+    SIGNED,
+    SIMPLE,
+    SIN,
+    SKIP,
+    SLAVE,
+    SLAVES,
+    SLAVE_POS,
+    SLEEP,
+    SLOW,
+    SNAPSHOT,
+    SOCKET,
+    SOFT,
+    SONAME,
+    SOUNDEX,
+    SOUNDS,
+    SOURCE,
+    SPACE,
+    SQL_BUFFER_RESULT,
+    SQL_CACHE,
+    SQL_NO_CACHE,
+    SQL_THREAD,
+    SQL_TSI_DAY,
+    SQL_TSI_HOUR,
+    SQL_TSI_MINUTE,
+    SQL_TSI_MONTH,
+    SQL_TSI_QUARTER,
+    SQL_TSI_SECOND,
+    SQL_TSI_WEEK,
+    SQL_TSI_YEAR,
+    SQRT,
+    STAGE,
+    START,
+    STARTS,
+    STARTS_WITH,
+    STATEMENT,
+    STATUS,
+    STDIN,
+    STOP,
+    STORAGE,
+    STORED,
+    STRCMP,
+    STRFTIME,
+    STRICT,
+    STRING,
+    STR_TO_DATE,
+    SUBCLASS_ORIGIN,
+    SUBDATE,
+    SUBJECT,
+    SUBPARTITION,
+    SUBPARTITIONS,
+    SUBSTR,
+    SUBSTRING,
+    SUBSTRING_INDEX,
+    SUBTIME,
+    SUM,
+    SUPER,
+    SUPERUSER,
+    SUSPEND,
+    SWAPS,
+    SWITCHES,
+    SYSDATE,
+    SYSID,
+    SYSTEM,
+    SYSTEM_TIME,
+    TABLES,
+    TABLESPACE,
+    TABLE_CHECKSUM,
+    TABLE_NAME,
+    TAN,
+    TEMPORARY,
+    TEMPTABLE,
+    TEXT,
+    TEXT_PATTERN_OPS,
+    THAN,
+    THREADS,
+    TIES,
+    TIME,
+    TIMEDIFF,
+    TIMESTAMP,
+    TIMESTAMPADD,
+    TIMESTAMPDIFF,
+    TIMESTAMPTZ,
+    TIME_FORMAT,
+    TIME_TO_SEC,
+    TIME_ZONE,
+    TO_BASE64,
+    TO_CHAR,
+    TO_DAYS,
+    TO_SECONDS,
+    TRANSACTIONAL,
+    TRIGGERS,
+    TRUNCATE,
+    TYPE,
+    TYPES,
+    UCASE,
+    UNBOUNDED,
+    UNCOMMITTED,
+    UNCOMPRESSED_LENGTH,
+    UNDEFINED,
+    UNDOFILE,
+    UNDO_BUFFER_SIZE,
+    UNHEX,
+    UNICODE,
+    UNINSTALL,
+    UNIX_TIMESTAMP,
+    UNKNOWN,
+    UNTIL,
+    UPDATEXML,
+    UPGRADE,
+    UPPER,
+    USER_RESOURCES,
+    USE_FRM,
+    VALID,
+    VALIDATE,
+    VALUE,
+    VARBIT,
+    VARCHAR2,
+    VARCHAR_PATTERN_OPS,
+    VARIABLES,
+    VERSION,
+    VERSIONING,
+    VIA,
+    VIEW,
+    VIRTUAL,
+    VISIBLE,
+    WAIT,
+    WARNINGS,
+    WEEK,
+    WEEKDAY,
+    WEEKOFYEAR,
+    WEIGHT_STRING,
+    WITHIN,
+    WITHOUT,
+    WORK,
+    WRAPPER,
+    X509,
+    XA,
+    XML,
+    YEAR,
+    YEARWEEK,
+    ZONE,
+    _LIST_,
+}
+// End of keyword list
 
-expr_ident![
-CURRENT_DATE
-CURRENT_TIME
-CURRENT_TIMESTAMP
-IF
-LOCALTIME
-LOCALTIMESTAMP
-REPLACE
-RIGHT
-UTC_DATE
-UTC_TIME
-UTC_TIMESTAMP
-VALUES
-];
+impl Keyword {
+    /// Returns the name of this keyword as a string.
+    pub fn name(&self) -> &'static str {
+        keyword_gen::keyword_name(*self)
+    }
+
+    /// Checks if this keyword is reserved in any of the restrict sets.
+    pub fn restricted(&self, restrict: Restrict) -> bool {
+        keyword_gen::KEYWORDS_RESTRICT
+            .get(*self as usize)
+            .is_some_and(|r| r.check(restrict))
+    }
+
+    /// Checks if this keyword can be used as an identifier in an expression without quoting.
+    pub const fn expr_ident(&self) -> bool {
+        keyword_gen::keyword_expr_ident(*self)
+    }
+}
+
+// Implement From<&str> for Keyword using the generated function
+// if the string matches a known keyword, it returns that keyword, otherwise it returns NOT_A_KEYWORD.
+impl From<&str> for Keyword {
+    fn from(s: &str) -> Self {
+        keyword_gen::keyword_from_str(s)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_keyword_from_str() {
+        assert_eq!(Keyword::from("SELECT"), Keyword::SELECT);
+        assert_eq!(Keyword::from("select"), Keyword::SELECT);
+        assert_eq!(Keyword::from("SeLeCt"), Keyword::SELECT);
+        assert_eq!(Keyword::from("not_a_keyword"), Keyword::NOT_A_KEYWORD);
+    }
+
+    #[test]
+    fn test_keyword_name() {
+        assert_eq!(Keyword::SELECT.name(), "SELECT");
+        assert_eq!(Keyword::CREATE.name(), "CREATE");
+        assert_eq!(Keyword::NOT_A_KEYWORD.name(), "NOT_A_KEYWORD");
+    }
+
+    #[test]
+    fn test_restrict_check() {
+        // Test that reserved keywords work correctly
+        assert!(Keyword::SELECT.restricted(Restrict::MARIADB));
+        assert!(Keyword::SELECT.restricted(Restrict::POSTGRES));
+    }
+}

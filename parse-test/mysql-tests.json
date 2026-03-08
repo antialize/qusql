@@ -475,8 +475,11 @@
   {
     "input": "CREATE INDEX idx_name ON t(c1, c2) USING BTREE LOCK = EXCLUSIVE ALGORITHM = DEFAULT",
     "output": "CreateIndex(\n    CreateIndex {\n        create_span: 0..6,\n        create_options: [],\n        index_span: 7..12,\n        index_name: Some(\n            Identifier {\n                value: \"idx_name\",\n                span: 13..21,\n            },\n        ),\n        if_not_exists: None,\n        on_span: 22..24,\n        table_name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"t\",\n                span: 25..26,\n            },\n        },\n        index_options: [\n            UsingIndex(\n                BTree(\n                    35..46,\n                ),\n            ),\n            Lock(\n                47..51,\n                Identifier {\n                    value: \"EXCLUSIVE\",\n                    span: 54..63,\n                },\n            ),\n            Algorithm(\n                64..73,\n                Identifier {\n                    value: \"DEFAULT\",\n                    span: 76..83,\n                },\n            ),\n        ],\n        l_paren_span: 26..27,\n        column_names: [\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"c1\",\n                        span: 27..29,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n            IndexCol {\n                expr: Column(\n                    Identifier {\n                        value: \"c2\",\n                        span: 31..33,\n                    },\n                ),\n                size: None,\n                opclass: None,\n                asc: None,\n                desc: None,\n            },\n        ],\n        r_paren_span: 33..34,\n        include_clause: None,\n        where_: None,\n        nulls_distinct: None,\n    },\n)",
-    "issues": [],
-    "setup": "t_table_for_indexes"
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"'DEFAULT' is a reserved identifier use `DEFAULT`\",\n    span: 76..83,\n    sql_segment: \"DEFAULT\",\n    fragments: [],\n}"
+    ],
+    "setup": "t_table_for_indexes",
+    "failure": true
   },
   {
     "input": "CREATE INDEX idx_name ON t(c1, c2) USING HASH LOCK = SHARED",
@@ -579,14 +582,20 @@
   {
     "input": "CREATE TABLE foo (bar INT, CONSTRAINT constr INDEX index (bar))",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 13..16,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"bar\",\n                    span: 18..21,\n                },\n                data_type: DataType {\n                    identifier: 22..25,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            IndexDefinition {\n                constraint_span: Some(\n                    27..37,\n                ),\n                constraint_symbol: Some(\n                    Identifier {\n                        value: \"constr\",\n                        span: 38..44,\n                    },\n                ),\n                index_type: Index(\n                    45..50,\n                ),\n                index_name: Some(\n                    Identifier {\n                        value: \"index\",\n                        span: 51..56,\n                    },\n                ),\n                cols: [\n                    IndexCol {\n                        expr: Column(\n                            Identifier {\n                                value: \"bar\",\n                                span: 58..61,\n                            },\n                        ),\n                        size: None,\n                        opclass: None,\n                        asc: None,\n                        desc: None,\n                    },\n                ],\n                index_options: [],\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
-    "issues": [],
-    "setup": "empty_setup"
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"'index' is a reserved identifier use `index`\",\n    span: 51..56,\n    sql_segment: \"index\",\n    fragments: [],\n}"
+    ],
+    "setup": "empty_setup",
+    "failure": true
   },
   {
     "input": "CREATE TABLE foo (bar INT, INDEX index (bar))",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 13..16,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"bar\",\n                    span: 18..21,\n                },\n                data_type: DataType {\n                    identifier: 22..25,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            IndexDefinition {\n                constraint_span: None,\n                constraint_symbol: None,\n                index_type: Index(\n                    27..32,\n                ),\n                index_name: Some(\n                    Identifier {\n                        value: \"index\",\n                        span: 33..38,\n                    },\n                ),\n                cols: [\n                    IndexCol {\n                        expr: Column(\n                            Identifier {\n                                value: \"bar\",\n                                span: 40..43,\n                            },\n                        ),\n                        size: None,\n                        opclass: None,\n                        asc: None,\n                        desc: None,\n                    },\n                ],\n                index_options: [],\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
-    "issues": [],
-    "setup": "empty_setup"
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"'index' is a reserved identifier use `index`\",\n    span: 33..38,\n    sql_segment: \"index\",\n    fragments: [],\n}"
+    ],
+    "setup": "empty_setup",
+    "failure": true
   },
   {
     "input": "CREATE TABLE foo (bar INT, PRIMARY KEY index_name USING BTREE (bar) USING HASH)",
@@ -710,12 +719,9 @@
   },
   {
     "input": "CREATE TABLE foo (id INT(11)) ENGINE = InnoDB AS SELECT 1 DEFAULT CHARSET = utf8mb3",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 13..16,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 18..20,\n                },\n                data_type: DataType {\n                    identifier: 21..24,\n                    type_: Int(\n                        Some(\n                            (\n                                11,\n                                25..27,\n                            ),\n                        ),\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [\n            Engine {\n                identifier: 30..36,\n                value: Identifier {\n                    value: \"InnoDB\",\n                    span: 39..45,\n                },\n            },\n        ],\n        table_as: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 66..73,\n    sql_segment: \"CHARSET\",\n    fragments: [],\n}"
-    ],
-    "setup": "empty_setup",
-    "failure": true
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 13..16,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 18..20,\n                },\n                data_type: DataType {\n                    identifier: 21..24,\n                    type_: Int(\n                        Some(\n                            (\n                                11,\n                                25..27,\n                            ),\n                        ),\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [\n            Engine {\n                identifier: 30..36,\n                value: Identifier {\n                    value: \"InnoDB\",\n                    span: 39..45,\n                },\n            },\n            DefaultCharSet {\n                identifier: 58..73,\n                value: Identifier {\n                    value: \"utf8mb3\",\n                    span: 76..83,\n                },\n            },\n        ],\n        table_as: Some(\n            CreateTableAs {\n                ignore_span: None,\n                replace_span: None,\n                as_span: 46..48,\n                query: Select(\n                    Select {\n                        select_span: 49..55,\n                        flags: [],\n                        select_exprs: [\n                            SelectExpr {\n                                expr: Integer(\n                                    IntegerExpression {\n                                        value: 1,\n                                        span: 56..57,\n                                    },\n                                ),\n                                as_: None,\n                            },\n                        ],\n                        from_span: None,\n                        table_references: None,\n                        where_: None,\n                        group_by: None,\n                        having: None,\n                        window_span: None,\n                        order_by: None,\n                        limit: None,\n                        locking: None,\n                    },\n                ),\n            },\n        ),\n    },\n)",
+    "issues": [],
+    "setup": "empty_setup"
   },
   {
     "input": "CREATE TABLE foo (id INT(11)) ENGINE = InnoDB DEFAULT CHARSET = utf8mb3",
@@ -998,14 +1004,20 @@
   {
     "input": "CREATE TABLE tb (id INT, INDEX index USING BTREE (id))",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tb\",\n                span: 13..15,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 17..19,\n                },\n                data_type: DataType {\n                    identifier: 20..23,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            IndexDefinition {\n                constraint_span: None,\n                constraint_symbol: None,\n                index_type: Index(\n                    25..30,\n                ),\n                index_name: Some(\n                    Identifier {\n                        value: \"index\",\n                        span: 31..36,\n                    },\n                ),\n                cols: [\n                    IndexCol {\n                        expr: Column(\n                            Identifier {\n                                value: \"id\",\n                                span: 50..52,\n                            },\n                        ),\n                        size: None,\n                        opclass: None,\n                        asc: None,\n                        desc: None,\n                    },\n                ],\n                index_options: [\n                    IndexTypeBTree(\n                        43..48,\n                    ),\n                ],\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
-    "issues": [],
-    "setup": "empty_setup"
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"'index' is a reserved identifier use `index`\",\n    span: 31..36,\n    sql_segment: \"index\",\n    fragments: [],\n}"
+    ],
+    "setup": "empty_setup",
+    "failure": true
   },
   {
     "input": "CREATE TABLE tb (id INT, INDEX index USING HASH (id))",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tb\",\n                span: 13..15,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 17..19,\n                },\n                data_type: DataType {\n                    identifier: 20..23,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            IndexDefinition {\n                constraint_span: None,\n                constraint_symbol: None,\n                index_type: Index(\n                    25..30,\n                ),\n                index_name: Some(\n                    Identifier {\n                        value: \"index\",\n                        span: 31..36,\n                    },\n                ),\n                cols: [\n                    IndexCol {\n                        expr: Column(\n                            Identifier {\n                                value: \"id\",\n                                span: 49..51,\n                            },\n                        ),\n                        size: None,\n                        opclass: None,\n                        asc: None,\n                        desc: None,\n                    },\n                ],\n                index_options: [\n                    IndexTypeHash(\n                        43..47,\n                    ),\n                ],\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
-    "issues": [],
-    "setup": "empty_setup"
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"'index' is a reserved identifier use `index`\",\n    span: 31..36,\n    sql_segment: \"index\",\n    fragments: [],\n}"
+    ],
+    "setup": "empty_setup",
+    "failure": true
   },
   {
     "input": "CREATE TABLE tb (id INT, KEY USING HASH (id))",
@@ -1016,8 +1028,11 @@
   {
     "input": "CREATE TABLE tb (id INT, KEY index (id))",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tb\",\n                span: 13..15,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 17..19,\n                },\n                data_type: DataType {\n                    identifier: 20..23,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            IndexDefinition {\n                constraint_span: None,\n                constraint_symbol: None,\n                index_type: Index(\n                    25..28,\n                ),\n                index_name: Some(\n                    Identifier {\n                        value: \"index\",\n                        span: 29..34,\n                    },\n                ),\n                cols: [\n                    IndexCol {\n                        expr: Column(\n                            Identifier {\n                                value: \"id\",\n                                span: 36..38,\n                            },\n                        ),\n                        size: None,\n                        opclass: None,\n                        asc: None,\n                        desc: None,\n                    },\n                ],\n                index_options: [],\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
-    "issues": [],
-    "setup": "empty_setup"
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"'index' is a reserved identifier use `index`\",\n    span: 29..34,\n    sql_segment: \"index\",\n    fragments: [],\n}"
+    ],
+    "setup": "empty_setup",
+    "failure": true
   },
   {
     "input": "CREATE TABLE tb (id INT, SPATIAL (id))",
@@ -1064,8 +1079,11 @@
   {
     "input": "CREATE TABLE tb (id INT, key index (id))",
     "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tb\",\n                span: 13..15,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"id\",\n                    span: 17..19,\n                },\n                data_type: DataType {\n                    identifier: 20..23,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n            },\n            IndexDefinition {\n                constraint_span: None,\n                constraint_symbol: None,\n                index_type: Index(\n                    25..28,\n                ),\n                index_name: Some(\n                    Identifier {\n                        value: \"index\",\n                        span: 29..34,\n                    },\n                ),\n                cols: [\n                    IndexCol {\n                        expr: Column(\n                            Identifier {\n                                value: \"id\",\n                                span: 36..38,\n                            },\n                        ),\n                        size: None,\n                        opclass: None,\n                        asc: None,\n                        desc: None,\n                    },\n                ],\n                index_options: [],\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
-    "issues": [],
-    "setup": "empty_setup"
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"'index' is a reserved identifier use `index`\",\n    span: 29..34,\n    sql_segment: \"index\",\n    fragments: [],\n}"
+    ],
+    "setup": "empty_setup",
+    "failure": true
   },
   {
     "input": "CREATE TABLE tb (id TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci)",

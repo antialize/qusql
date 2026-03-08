@@ -754,7 +754,9 @@ fn parse_add_alter_specification<'a>(
     let add_span = parser.consume_keyword(Keyword::ADD)?;
     let constraint = if let Some(span) = parser.skip_keyword(Keyword::CONSTRAINT) {
         let v = match &parser.token {
-            Token::Ident(_, kw) if !kw.reserved() => Some(parser.consume_plain_identifier()?),
+            Token::Ident(_, kw) if !kw.restricted(parser.reserved()) => {
+                Some(parser.consume_plain_identifier()?)
+            }
             _ => None,
         };
         Some((span, v))
@@ -774,7 +776,9 @@ fn parse_add_alter_specification<'a>(
                 None
             };
             let name = match &parser.token {
-                Token::Ident(_, kw) if !kw.reserved() => Some(parser.consume_plain_identifier()?),
+                Token::Ident(_, kw) if !kw.restricted(parser.reserved()) => {
+                    Some(parser.consume_plain_identifier()?)
+                }
                 _ => None,
             };
 
@@ -893,7 +897,9 @@ fn parse_add_alter_specification<'a>(
             };
 
             let name = match &parser.token {
-                Token::Ident(_, kw) if !kw.reserved() => Some(parser.consume_plain_identifier()?),
+                Token::Ident(_, kw) if !kw.restricted(parser.reserved()) => {
+                    Some(parser.consume_plain_identifier()?)
+                }
                 _ => None,
             };
 

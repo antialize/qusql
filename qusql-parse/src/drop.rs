@@ -442,7 +442,7 @@ fn parse_drop_function<'a>(
                     };
                     // Parse parameter name (optional)
                     let name = match &parser.token {
-                        Token::Ident(_, kw) if !kw.reserved() => {
+                        Token::Ident(_, kw) if !kw.restricted(parser.reserved()) => {
                             Some(parser.consume_plain_identifier()?)
                         }
                         _ => None,
