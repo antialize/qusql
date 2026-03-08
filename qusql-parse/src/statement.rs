@@ -83,7 +83,7 @@ fn parse_statement_list_inner<'a>(
     out: &mut Vec<Statement<'a>>,
 ) -> Result<(), ParseError> {
     loop {
-        while parser.skip_token(Token::SemiColon).is_some() {}
+        while parser.skip_token(Token::Delimiter).is_some() {}
         let stdin = match parse_statement(parser)? {
             Some(v) => {
                 let stdin = v.reads_from_stdin();
@@ -92,14 +92,14 @@ fn parse_statement_list_inner<'a>(
             }
             None => break,
         };
-        if !matches!(parser.token, Token::SemiColon) {
+        if !matches!(parser.token, Token::Delimiter) {
             break;
         }
         if stdin {
             let (s, span) = parser.read_from_stdin_and_next();
             out.push(Statement::Stdin(Box::new(Stdin { input: s, span })));
         } else {
-            parser.consume_token(Token::SemiColon)?;
+            parser.consume_token(Token::Delimiter)?;
         }
     }
     Ok(())
@@ -109,9 +109,9 @@ fn parse_statement_list<'a>(
     parser: &mut Parser<'a, '_>,
     out: &mut Vec<Statement<'a>>,
 ) -> Result<(), ParseError> {
-    let old_delimiter = core::mem::replace(&mut parser.delimiter, Token::SemiColon);
+    let old_delimiter = parser.lexer.replace_delimitor(None);
     let r = parse_statement_list_inner(parser, out);
-    parser.delimiter = old_delimiter;
+    parser.lexer.replace_delimitor(old_delimiter);
     r
 }
 
@@ -773,6 +773,14 @@ pub(crate) fn parse_statement<'a>(
 
 pub(crate) fn parse_do<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let do_span = parser.consume_keyword(Keyword::DO)?;
+    if matches!(parser.token, Token::DollarQuotedString(_)) {
+        // PostgreSQL: DO $$...$$ — the body is a dollar-quoted string literal
+        parser.consume();
+        return Ok(Statement::Do(Box::new(Do {
+            do_span,
+            statements: Vec::new(),
+        })));
+    }
     parser.consume_token(Token::DoubleDollar)?;
     let block = parse_block(parser)?;
     parser.consume_token(Token::DoubleDollar)?;
@@ -1094,24 +1102,20 @@ pub(crate) fn parse_compound_query<'a>(
 pub(crate) fn parse_statements<'a>(parser: &mut Parser<'a, '_>) -> Vec<Statement<'a>> {
     let mut ans = Vec::new();
     loop {
-        loop {
-            match &parser.token {
-                t if t == &parser.delimiter => {
-                    parser.consume();
-                }
-                Token::Eof => return ans,
-                _ => break,
+        match &parser.token {
+            Token::Delimiter => {
+                parser.consume();
+                continue;
             }
+            Token::Eof => return ans,
+            _ => (),
         }
 
-        if parser.skip_keyword(Keyword::DELIMITER).is_some() {
-            let t = parser.token.clone();
-
-            if !matches!(t, Token::DoubleDollar | Token::SemiColon) {
-                parser.warn("Unknown delimiter", &parser.span.span());
+        if matches!(parser.token, Token::Ident(_, Keyword::DELIMITER)) {
+            if let Err(e) = parser.lexer.update_mysql_delimitor() {
+                parser.err("Invalid delimiter", &e);
             }
-            parser.delimiter = t;
-            parser.next();
+            parser.consume();
             continue;
         }
 
@@ -1127,15 +1131,15 @@ pub(crate) fn parse_statements<'a>(parser: &mut Parser<'a, '_>) -> Vec<Statement
             ans.push(stmt);
         }
 
-        if parser.token != parser.delimiter {
+        if !matches!(parser.token, Token::Delimiter) {
             if !err {
-                parser.expected_error(parser.delimiter.name());
+                parser.expected_error(parser.lexer.delimiter_name());
             }
             // We use a custom recovery here as ; is not allowed in sub expressions, it always terminates outer most statements
             loop {
                 parser.next();
                 match &parser.token {
-                    t if t == &parser.delimiter => break,
+                    Token::Delimiter => break,
                     Token::Eof => return ans,
                     _ => (),
                 }
@@ -1146,8 +1150,8 @@ pub(crate) fn parse_statements<'a>(parser: &mut Parser<'a, '_>) -> Vec<Statement
             ans.push(Statement::Stdin(Box::new(Stdin { span, input: s })));
         } else {
             parser
-                .consume_token(parser.delimiter.clone())
-                .expect("Delimiter");
+                .consume_token(Token::Delimiter)
+                .unwrap_or_else(|_| panic!("{}", parser.lexer.delimiter_name()));
         }
     }
 }

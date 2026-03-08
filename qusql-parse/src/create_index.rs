@@ -290,6 +290,7 @@ pub(crate) fn parse_create_index<'a>(
             Token::Ident(_, Keyword::ALGORITHM) => {
                 let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
                 parser.skip_token(Token::Eq); // Optional =
+
                 let algorithm_value = parser.consume_plain_identifier_unreserved()?;
                 index_options.push(CreateIndexOption::Algorithm(
                     algorithm_span,

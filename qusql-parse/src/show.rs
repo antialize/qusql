@@ -61,6 +61,7 @@ fn parse_show_tables<'a>(
     match &parser.token {
         Token::Ident(_, Keyword::FROM) => {
             parser.consume_keyword(Keyword::FROM)?;
+            // Only restrict LIKE and WHERE, which can follow the db name
             let q = parse_qualified_name_unreserved(parser)?;
             db = Some(q);
         }
@@ -358,6 +359,7 @@ fn parse_show_columns<'a>(
     };
     let mut table = None;
     let mut db = None;
+    // Restrict LIKE and WHERE after table/db names
     if parser.skip_keyword(Keyword::FROM).is_some() || parser.skip_keyword(Keyword::IN).is_some() {
         let q = parse_qualified_name_unreserved(parser)?;
         table = Some(q);
