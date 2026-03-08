@@ -127,8 +127,9 @@ pub use issue::{Fragment, Issue, IssueHandle, Issues, Level};
 pub use kill::{Kill, KillType};
 pub use lock::{Lock, LockMember, LockType, Unlock};
 pub use operator::{
-    AlterOperatorFamily, CreateOperator, CreateOperatorClass, CreateOperatorFamily,
-    OperatorClassItem, OperatorClassOperatorOption, OperatorOption, OperatorRef,
+    AlterOperatorClass, AlterOperatorClassAction, AlterOperatorFamily, CreateOperator,
+    CreateOperatorClass, CreateOperatorFamily, OperatorClassItem, OperatorClassOperatorOption,
+    OperatorOption, OperatorRef,
 };
 pub use qualified_name::QualifiedName;
 pub use rename::{RenameTable, TableToTable};

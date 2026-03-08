@@ -3,7 +3,7 @@
     "input": "ALTER OPERATOR && (TEXT, TEXT) SET (RESTRICT = {}, JOIN = {})",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..17,\n    sql_segment: \"&&\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''CLASS' or 'FAMILY' after ALTER OPERATOR' here\",\n    span: 15..17,\n    sql_segment: \"&&\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -12,7 +12,7 @@
     "input": "ALTER OPERATOR + (INTEGER, INTEGER) SET (COMMUTATOR = +, NEGATOR = -, HASHES, MERGES)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..16,\n    sql_segment: \"+\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''CLASS' or 'FAMILY' after ALTER OPERATOR' here\",\n    span: 15..16,\n    sql_segment: \"+\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -21,7 +21,8 @@
     "setup": "operator_class_int_ops",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"'USING' is a reserved identifier use `USING`\",\n    span: 21..26,\n    sql_segment: \"USING\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected 'USING' here\",\n    span: 27..32,\n    sql_segment: \"btree\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -31,7 +32,7 @@
     "setup": "operator_class_int_ops",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'USING' here\",\n    span: 29..35,\n    sql_segment: \"RENAME\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -40,7 +41,7 @@
     "input": "ALTER OPERATOR CLASS int_ops USING 123invalid RENAME TO integer_ops",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected GIST, BLOOM, BRIN, HNSW, BTREE, HASH, or RTREE after USING\",\n    span: 35..38,\n    sql_segment: \"123\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -50,7 +51,7 @@
     "setup": "operator_class_int_ops",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''RENAME', 'OWNER', or 'SET SCHEMA'' here\",\n    span: 41..44,\n    sql_segment: \"ADD\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -59,7 +60,7 @@
     "input": "ALTER OPERATOR CLASS int_ops USING btree DROP OPERATOR 1 (INT4, INT2)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''RENAME', 'OWNER', or 'SET SCHEMA'' here\",\n    span: 41..45,\n    sql_segment: \"DROP\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -68,7 +69,7 @@
     "input": "ALTER OPERATOR CLASS int_ops USING btree INVALID_OPERATION",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''RENAME', 'OWNER', or 'SET SCHEMA'' here\",\n    span: 41..58,\n    sql_segment: \"INVALID_OPERATION\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -77,7 +78,7 @@
     "input": "ALTER OPERATOR CLASS int_ops USING btree OWNER TO",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 49..49,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -86,32 +87,26 @@
     "input": "ALTER OPERATOR CLASS int_ops USING btree OWNER TO 123invalid",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 50..53,\n    sql_segment: \"123\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR CLASS int_ops USING btree OWNER TO CURRENT_USER",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorClass(\n    AlterOperatorClass {\n        alter_operator_class_span: 0..20,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"int_ops\",\n                span: 21..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: OwnerTo {\n            owner_to_span: 41..49,\n            new_owner: CurrentUser(\n                50..62,\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR CLASS int_ops USING btree OWNER TO joe",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorClass(\n    AlterOperatorClass {\n        alter_operator_class_span: 0..20,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"int_ops\",\n                span: 21..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: OwnerTo {\n            owner_to_span: 41..49,\n            new_owner: Identifier(\n                Identifier {\n                    value: \"joe\",\n                    span: 50..53,\n                },\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR CLASS int_ops USING btree RENAME TO",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 50..50,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -120,24 +115,21 @@
     "input": "ALTER OPERATOR CLASS int_ops USING btree RENAME TO 123invalid",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 51..54,\n    sql_segment: \"123\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR CLASS int_ops USING btree RENAME TO integer_ops",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorClass(\n    AlterOperatorClass {\n        alter_operator_class_span: 0..20,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"int_ops\",\n                span: 21..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: RenameTo {\n            rename_to_span: 41..50,\n            new_name: QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"integer_ops\",\n                    span: 51..62,\n                },\n            },\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR CLASS int_ops USING btree RENAME TO integer_ops EXTRA",
-    "output": null,
+    "output": "AlterOperatorClass(\n    AlterOperatorClass {\n        alter_operator_class_span: 0..20,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"int_ops\",\n                span: 21..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: RenameTo {\n            rename_to_span: 41..50,\n            new_name: QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"integer_ops\",\n                    span: 51..62,\n                },\n            },\n        },\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 63..68,\n    sql_segment: \"EXTRA\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -146,7 +138,7 @@
     "input": "ALTER OPERATOR CLASS int_ops USING btree SET SCHEMA",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 51..51,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -155,35 +147,29 @@
     "input": "ALTER OPERATOR CLASS int_ops USING btree SET SCHEMA 123invalid",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 52..55,\n    sql_segment: \"123\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR CLASS int_ops USING btree SET SCHEMA new_schema",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorClass(\n    AlterOperatorClass {\n        alter_operator_class_span: 0..20,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"int_ops\",\n                span: 21..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: SetSchema {\n            set_schema_span: 41..51,\n            new_schema: QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"new_schema\",\n                    span: 52..62,\n                },\n            },\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR CLASS int_ops USING {} RENAME TO integer_ops",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected GIST, BLOOM, BRIN, HNSW, BTREE, HASH, or RTREE after USING\",\n    span: 35..36,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "ALTER OPERATOR CLASS myschema.int_ops USING btree RENAME TO integer_ops",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..20,\n    sql_segment: \"CLASS\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterOperatorClass(\n    AlterOperatorClass {\n        alter_operator_class_span: 0..20,\n        name: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"myschema\",\n                        span: 21..29,\n                    },\n                    29..30,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"int_ops\",\n                span: 30..37,\n            },\n        },\n        index_method: BTree(\n            38..49,\n        ),\n        action: RenameTo {\n            rename_to_span: 50..59,\n            new_name: QualifiedName {\n                prefix: [],\n                identifier: Identifier {\n                    value: \"integer_ops\",\n                    span: 60..71,\n                },\n            },\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER OPERATOR FAMILY  integer_ops USING btree DROP FUNCTION 1 (INT4, INT2)",
@@ -631,7 +617,7 @@
     "input": "ALTER OPERATOR {} (INTEGER, INTEGER) SET (COMMUTATOR = {}, NEGATOR = {})",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..16,\n    sql_segment: \"{\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''CLASS' or 'FAMILY' after ALTER OPERATOR' here\",\n    span: 15..16,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -640,7 +626,7 @@
     "input": "ALTER OPERATOR {} (INTEGER, INTEGER) SET ({})",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..16,\n    sql_segment: \"{\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''CLASS' or 'FAMILY' after ALTER OPERATOR' here\",\n    span: 15..16,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -649,7 +635,7 @@
     "input": "ALTER OPERATOR {} (TEXT, TEXT) SET SCHEMA {}",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..16,\n    sql_segment: \"{\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''CLASS' or 'FAMILY' after ALTER OPERATOR' here\",\n    span: 15..16,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -658,7 +644,7 @@
     "input": "ALTER OPERATOR {} ({}, {}) OWNER TO {}",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'FAMILY' here\",\n    span: 15..16,\n    sql_segment: \"{\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''CLASS' or 'FAMILY' after ALTER OPERATOR' here\",\n    span: 15..16,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
