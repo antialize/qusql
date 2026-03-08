@@ -10,16 +10,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::qualified_name::parse_qualified_name_unreserved;
 use alloc::vec::Vec;
 
 use crate::{
     DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned,
     data_type::parse_data_type,
-    expression::parse_expression,
-    keywords::Keyword,
+    expression::parse_expression_unreserved,
+    keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
-    qualified_name::parse_qualified_name,
 };
 
 /// Option on an index
@@ -666,7 +666,7 @@ pub(crate) fn parse_operator_class<'a>(
         && *parser.peek() != Token::RParen
     {
         // Try to parse as qualified name (for things like public.vector_cosine_ops)
-        let qname = parse_qualified_name(parser)?;
+        let qname = parse_qualified_name_unreserved(parser)?;
         parser.postgres_only(&qname);
         Ok(Some(qname))
     } else {
@@ -685,12 +685,12 @@ pub(crate) fn parse_index_cols<'a>(
             let expr = if parser.token == Token::LParen {
                 // Functional index: parse expression
                 parser.consume_token(Token::LParen)?;
-                let expression = parse_expression(parser, false)?;
+                let expression = parse_expression_unreserved(parser, false)?;
                 parser.consume_token(Token::RParen)?;
                 IndexColExpr::Expression(expression)
             } else {
                 // Regular column name
-                let name = parser.consume_plain_identifier()?;
+                let name = parser.consume_plain_identifier_unreserved()?;
                 IndexColExpr::Column(name)
             };
 
@@ -737,7 +737,7 @@ fn parse_cols<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<Identifier<'a>>, Pa
     let mut ans = Vec::new();
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
         loop {
-            ans.push(parser.consume_plain_identifier()?);
+            ans.push(parser.consume_plain_identifier_unreserved()?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -754,8 +754,10 @@ fn parse_add_alter_specification<'a>(
     let add_span = parser.consume_keyword(Keyword::ADD)?;
     let constraint = if let Some(span) = parser.skip_keyword(Keyword::CONSTRAINT) {
         let v = match &parser.token {
-            Token::Ident(_, kw) if !kw.restricted(parser.reserved()) => {
-                Some(parser.consume_plain_identifier()?)
+            Token::Ident(_, kw)
+                if !kw.restricted(parser.reserved()) || kw == &Keyword::QUOTED_IDENTIFIER =>
+            {
+                Some(parser.consume_plain_identifier_restrict(Restrict::EMPTY)?)
             }
             _ => None,
         };
@@ -777,14 +779,14 @@ fn parse_add_alter_specification<'a>(
             };
             let name = match &parser.token {
                 Token::Ident(_, kw) if !kw.restricted(parser.reserved()) => {
-                    Some(parser.consume_plain_identifier()?)
+                    Some(parser.consume_plain_identifier_unreserved()?)
                 }
                 _ => None,
             };
 
             let cols = parse_index_cols(parser)?;
             let references_span = parser.consume_keyword(Keyword::REFERENCES)?;
-            let references_table = parser.consume_plain_identifier()?;
+            let references_table = parser.consume_plain_identifier_unreserved()?;
             let references_cols = parse_cols(parser)?;
             let mut ons = Vec::new();
             while let Some(on) = parser.skip_keyword(Keyword::ON) {
@@ -898,7 +900,7 @@ fn parse_add_alter_specification<'a>(
 
             let name = match &parser.token {
                 Token::Ident(_, kw) if !kw.restricted(parser.reserved()) => {
-                    Some(parser.consume_plain_identifier()?)
+                    Some(parser.consume_plain_identifier_unreserved()?)
                 }
                 _ => None,
             };
@@ -934,7 +936,7 @@ fn parse_add_alter_specification<'a>(
                 parser.err("IF NOT EXIST is not supported", s);
             }
 
-            let identifier = parser.consume_plain_identifier()?;
+            let identifier = parser.consume_plain_identifier_unreserved()?;
             let data_type = parse_data_type(parser, false)?;
 
             let mut first = None;
@@ -945,7 +947,7 @@ fn parse_add_alter_specification<'a>(
                 }
                 Token::Ident(_, Keyword::AFTER) => {
                     let after_span = parser.consume_keyword(Keyword::AFTER)?;
-                    let after_col = parser.consume_plain_identifier()?;
+                    let after_col = parser.consume_plain_identifier_unreserved()?;
                     after = Some((after_span, after_col));
                 }
                 _ => {}
@@ -972,9 +974,9 @@ fn parse_rename_alter_specification<'a>(
     match parser.token {
         Token::Ident(_, Keyword::COLUMN) => {
             let column_span = parser.consume_keyword(Keyword::COLUMN)?;
-            let old_col_name = parser.consume_plain_identifier()?;
+            let old_col_name = parser.consume_plain_identifier_unreserved()?;
             let to_span = parser.consume_keyword(Keyword::TO)?;
-            let new_col_name = parser.consume_plain_identifier()?;
+            let new_col_name = parser.consume_plain_identifier_unreserved()?;
             Ok(AlterSpecification::RenameColumn {
                 rename_column_span: rename_span.join_span(&column_span),
                 old_col_name,
@@ -984,9 +986,9 @@ fn parse_rename_alter_specification<'a>(
         }
         Token::Ident(_, Keyword::INDEX | Keyword::KEY) => {
             let index_span = parser.consume();
-            let old_index_name = parser.consume_plain_identifier()?;
+            let old_index_name = parser.consume_plain_identifier_unreserved()?;
             let to_span = parser.consume_keyword(Keyword::TO)?;
-            let new_index_name = parser.consume_plain_identifier()?;
+            let new_index_name = parser.consume_plain_identifier_unreserved()?;
             Ok(AlterSpecification::RenameIndex {
                 rename_index_span: rename_span.join_span(&index_span),
                 old_index_name,
@@ -997,9 +999,9 @@ fn parse_rename_alter_specification<'a>(
         Token::Ident(_, Keyword::CONSTRAINT) => {
             let constraint_span = parser.consume_keyword(Keyword::CONSTRAINT)?;
             parser.postgres_only(&constraint_span);
-            let old_constraint_name = parser.consume_plain_identifier()?;
+            let old_constraint_name = parser.consume_plain_identifier_unreserved()?;
             let to_span = parser.consume_keyword(Keyword::TO)?;
-            let new_constraint_name = parser.consume_plain_identifier()?;
+            let new_constraint_name = parser.consume_plain_identifier_unreserved()?;
             Ok(AlterSpecification::RenameConstraint {
                 rename_constraint_span: rename_span.join_span(&constraint_span),
                 old_constraint_name,
@@ -1009,7 +1011,7 @@ fn parse_rename_alter_specification<'a>(
         }
         Token::Ident(_, Keyword::TO) | Token::Ident(_, Keyword::AS) => {
             let to_span = parser.consume();
-            let new_table_name = parser.consume_plain_identifier()?;
+            let new_table_name = parser.consume_plain_identifier_unreserved()?;
             Ok(AlterSpecification::RenameTo {
                 rename_span,
                 to_span,
@@ -1025,7 +1027,7 @@ fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<AlterSpecification<'a>,
     match parser.token {
         Token::Ident(_, Keyword::INDEX | Keyword::KEY) => {
             let index_span = parser.consume();
-            let name = parser.consume_plain_identifier()?;
+            let name = parser.consume_plain_identifier_unreserved()?;
             Ok(AlterSpecification::DropIndex {
                 drop_index_span: drop_span.join_span(&index_span).join_span(&name),
                 name,
@@ -1033,7 +1035,7 @@ fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<AlterSpecification<'a>,
         }
         Token::Ident(_, Keyword::FOREIGN) => {
             let foreign_span = parser.consume_keywords(&[Keyword::FOREIGN, Keyword::KEY])?;
-            let name = parser.consume_plain_identifier()?;
+            let name = parser.consume_plain_identifier_unreserved()?;
             Ok(AlterSpecification::DropForeignKey {
                 drop_foreign_key_span: drop_span.join_span(&foreign_span).join_span(&name),
                 name,
@@ -1047,7 +1049,7 @@ fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<AlterSpecification<'a>,
         }
         Token::Ident(_, Keyword::COLUMN) => {
             let drop_column_span = drop_span.join_span(&parser.consume_keyword(Keyword::COLUMN)?);
-            let column = parser.consume_plain_identifier()?;
+            let column = parser.consume_plain_identifier_unreserved()?;
             let cascade = parser.skip_keyword(Keyword::CASCADE);
             if let Some(span) = &cascade {
                 parser.postgres_only(span);
@@ -1150,7 +1152,7 @@ pub(crate) fn parse_alter_table<'a>(
     } else {
         None
     };
-    let table = parse_qualified_name(parser)?;
+    let table = parse_qualified_name_unreserved(parser)?;
     let d = parser.delimiter.clone();
     let mut alter_specifications = Vec::new();
     parser.recovered(d.name(), &|t| t == &d || t == &Token::Eof, |parser| {
@@ -1168,7 +1170,7 @@ pub(crate) fn parse_alter_table<'a>(
                     } else {
                         None
                     };
-                    let col = parser.consume_plain_identifier()?;
+                    let col = parser.consume_plain_identifier_unreserved()?;
                     let definition = parse_data_type(parser, false)?;
 
                     let mut first = None;
@@ -1182,7 +1184,7 @@ pub(crate) fn parse_alter_table<'a>(
                         Token::Ident(_, Keyword::AFTER) => {
                             let after_span = parser.consume_keyword(Keyword::AFTER)?;
                             parser.maria_only(&after_span);
-                            let col = parser.consume_plain_identifier()?;
+                            let col = parser.consume_plain_identifier_unreserved()?;
                             after = Some((after_span, col));
                         }
                         _ => {}
@@ -1211,7 +1213,9 @@ pub(crate) fn parse_alter_table<'a>(
                         Token::Ident(_, Keyword::SESSION_USER) => {
                             AlterTableOwner::SessionUser(parser.consume())
                         }
-                        _ => AlterTableOwner::Identifier(parser.consume_plain_identifier()?),
+                        _ => AlterTableOwner::Identifier(
+                            parser.consume_plain_identifier_unreserved()?,
+                        ),
                     };
                     AlterSpecification::OwnerTo { span, owner }
                 }
@@ -1219,7 +1223,7 @@ pub(crate) fn parse_alter_table<'a>(
                 Token::Ident(_, Keyword::ALTER) => {
                     let span = parser.consume_keywords(&[Keyword::ALTER, Keyword::COLUMN])?;
                     parser.postgres_only(&span);
-                    let column = parser.consume_plain_identifier()?;
+                    let column = parser.consume_plain_identifier_unreserved()?;
 
                     let alter_column_action = match parser.token {
                         Token::Ident(_, Keyword::SET) => {
@@ -1227,7 +1231,7 @@ pub(crate) fn parse_alter_table<'a>(
                             match parser.token {
                                 Token::Ident(_, Keyword::DEFAULT) => {
                                     let set_default_span = parser.consume().join_span(&set_span);
-                                    let value = parse_expression(parser, false)?;
+                                    let value = parse_expression_unreserved(parser, false)?;
                                     AlterColumnAction::SetDefault {
                                         set_default_span,
                                         value,
@@ -1337,8 +1341,8 @@ pub(crate) fn parse_alter_table<'a>(
                     parser.maria_only(&change_span);
                     let column_span = parser.skip_keyword(Keyword::COLUMN);
 
-                    let column = parser.consume_plain_identifier()?;
-                    let new_column = parser.consume_plain_identifier()?;
+                    let column = parser.consume_plain_identifier_unreserved()?;
+                    let new_column = parser.consume_plain_identifier_unreserved()?;
                     let definition = parse_data_type(parser, false)?;
 
                     let mut first = None;
@@ -1352,7 +1356,7 @@ pub(crate) fn parse_alter_table<'a>(
                         Token::Ident(_, Keyword::AFTER) => {
                             let after_span = parser.consume_keyword(Keyword::AFTER)?;
                             parser.maria_only(&after_span);
-                            let after_col = parser.consume_plain_identifier()?;
+                            let after_col = parser.consume_plain_identifier_unreserved()?;
                             after = Some((after_span, after_col));
                         }
                         _ => (),

@@ -19,7 +19,7 @@ use crate::{
     lexer::Token,
     operator::parse_operator_name,
     parser::{ParseError, Parser},
-    qualified_name::parse_qualified_name,
+    qualified_name::parse_qualified_name_unreserved,
 };
 
 /// Drop cascade or restrict option (PostgreSQL)
@@ -117,7 +117,7 @@ fn parse_drop_table<'a>(
     };
     let mut tables = Vec::new();
     loop {
-        tables.push(parse_qualified_name(parser)?);
+        tables.push(parse_qualified_name_unreserved(parser)?);
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
@@ -190,7 +190,7 @@ fn parse_drop_view<'a>(
     };
     let mut views = Vec::new();
     loop {
-        views.push(parse_qualified_name(parser)?);
+        views.push(parse_qualified_name_unreserved(parser)?);
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
@@ -257,7 +257,7 @@ fn parse_drop_database<'a>(
     } else {
         None
     };
-    let database = parser.consume_plain_identifier()?;
+    let database = parser.consume_plain_identifier_unreserved()?;
     Ok(DropDatabase {
         drop_span,
         database_span,
@@ -315,7 +315,7 @@ fn parse_drop_event<'a>(
     } else {
         None
     };
-    let event = parse_qualified_name(parser)?;
+    let event = parse_qualified_name_unreserved(parser)?;
     Ok(DropEvent {
         drop_span,
         event_span,
@@ -421,7 +421,7 @@ fn parse_drop_function<'a>(
     };
     let mut functions = Vec::new();
     loop {
-        let name = parse_qualified_name(parser)?;
+        let name = parse_qualified_name_unreserved(parser)?;
         let args = if parser.token == Token::LParen {
             let lparen = parser.consume_token(Token::LParen)?;
             let mut arg_list = Vec::new();
@@ -443,7 +443,7 @@ fn parse_drop_function<'a>(
                     // Parse parameter name (optional)
                     let name = match &parser.token {
                         Token::Ident(_, kw) if !kw.restricted(parser.reserved()) => {
-                            Some(parser.consume_plain_identifier()?)
+                            Some(parser.consume_plain_identifier_unreserved()?)
                         }
                         _ => None,
                     };
@@ -545,7 +545,7 @@ fn parse_drop_procedure<'a>(
     } else {
         None
     };
-    let procedure = parse_qualified_name(parser)?;
+    let procedure = parse_qualified_name_unreserved(parser)?;
     Ok(DropProcedure {
         drop_span,
         procedure_span,
@@ -609,7 +609,7 @@ fn parse_drop_sequence<'a>(
     };
     let mut sequences = Vec::new();
     loop {
-        sequences.push(parse_qualified_name(parser)?);
+        sequences.push(parse_qualified_name_unreserved(parser)?);
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
@@ -675,7 +675,7 @@ fn parse_drop_server<'a>(
     } else {
         None
     };
-    let server = parser.consume_plain_identifier()?;
+    let server = parser.consume_plain_identifier_unreserved()?;
     Ok(DropServer {
         drop_span,
         server_span,
@@ -735,7 +735,7 @@ fn parse_drop_trigger<'a>(
     } else {
         None
     };
-    let identifier = parse_qualified_name(parser)?;
+    let identifier = parse_qualified_name_unreserved(parser)?;
     let restrict_or_cascade = parse_cascade_or_restrict(parser);
     Ok(DropTrigger {
         drop_span,
@@ -822,9 +822,9 @@ fn parse_drop_index<'a>(
     } else {
         None
     };
-    let index_name = parser.consume_plain_identifier()?;
+    let index_name = parser.consume_plain_identifier_unreserved()?;
     let on = if let Some(span) = parser.skip_keyword(Keyword::ON) {
-        let table_name = parse_qualified_name(parser)?;
+        let table_name = parse_qualified_name_unreserved(parser)?;
         Some((span, table_name))
     } else {
         None
@@ -900,7 +900,7 @@ fn parse_drop_domain<'a>(
     };
     let mut domains = Vec::new();
     loop {
-        domains.push(parse_qualified_name(parser)?);
+        domains.push(parse_qualified_name_unreserved(parser)?);
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
@@ -967,7 +967,7 @@ fn parse_drop_extension<'a>(
     };
     let mut extensions = Vec::new();
     loop {
-        extensions.push(parser.consume_plain_identifier()?);
+        extensions.push(parser.consume_plain_identifier_unreserved()?);
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
@@ -1138,9 +1138,9 @@ fn parse_drop_operator_family<'a>(
     } else {
         None
     };
-    let family = parse_qualified_name(parser)?;
+    let family = parse_qualified_name_unreserved(parser)?;
     let using = if let Some(span) = parser.skip_keyword(Keyword::USING) {
-        let method = parser.consume_plain_identifier()?;
+        let method = parser.consume_plain_identifier_unreserved()?;
         Some((span, method))
     } else {
         None
@@ -1204,9 +1204,9 @@ fn parse_drop_operator_class<'a>(
     } else {
         None
     };
-    let class = parse_qualified_name(parser)?;
+    let class = parse_qualified_name_unreserved(parser)?;
     let using = if let Some(span) = parser.skip_keyword(Keyword::USING) {
-        let method = parser.consume_plain_identifier()?;
+        let method = parser.consume_plain_identifier_unreserved()?;
         Some((span, method))
     } else {
         None
