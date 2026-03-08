@@ -1573,7 +1573,7 @@ pub(crate) fn parse_expression<'a>(
                 // Parse the string literal
                 r.shift_expr(Expression::String(Box::new(parser.consume_string()?)))
             }
-            Token::Ident(_, k) if k.expr_ident() => {
+            Token::Ident(_, k) if k.expr_ident() || !k.restricted(parser.reserved()) => {
                 let i = parser.token.clone();
                 let s = parser.span.clone();
                 parser.consume();

@@ -9,3 +9,4 @@ readme = "README.md"
 repository = "https://github.com/antialize/qusql/"
 homepage = "https://github.com/antialize/qusql/"
 description = "Parser for sql"
+

@@ -369,7 +369,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
             let query = parse_compound_query(parser)?;
             let as_span = parser.skip_keyword(Keyword::AS);
             let as_ = if as_span.is_some()
-                || (matches!(&parser.token, Token::Ident(_, k) if !k.reserved()))
+                || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved())))
             {
                 Some(parser.consume_plain_identifier()?)
             } else {
@@ -434,7 +434,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
                     // Parse AS and alias
                     let as_span = parser.skip_keyword(Keyword::AS);
                     let as_ = if as_span.is_some()
-                        || (matches!(&parser.token, Token::Ident(_, k) if !k.reserved()))
+                        || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved())))
                     {
                         Some(parser.consume_plain_identifier()?)
                     } else {
@@ -474,7 +474,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
             // TODO [PARTITION (partition_names)] [[AS] alias]
             let as_span = parser.skip_keyword(Keyword::AS);
             let as_ = if as_span.is_some()
-                || (matches!(&parser.token, Token::Ident(_, k) if !k.reserved()))
+                || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved())))
             {
                 Some(parser.consume_plain_identifier()?)
             } else {
