@@ -3070,38 +3070,35 @@
   },
   {
     "input": "DROP TRIGGER check_update ON table_name CASCADE CASCADE",
-    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"check_update\",\n                span: 13..25,\n            },\n        },\n        restrict_or_cascade: None,\n    },\n)",
+    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"check_update\",\n                span: 13..25,\n            },\n        },\n        on: Some(\n            (\n                26..28,\n                QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"table_name\",\n                        span: 29..39,\n                    },\n                },\n            ),\n        ),\n        restrict_or_cascade: Some(\n            Cascade(\n                40..47,\n            ),\n        ),\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 26..28,\n    sql_segment: \"ON\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 48..55,\n    sql_segment: \"CASCADE\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "DROP TRIGGER check_update ON table_name CASCADE CASCADE CASCADE",
-    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"check_update\",\n                span: 13..25,\n            },\n        },\n        restrict_or_cascade: None,\n    },\n)",
+    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"check_update\",\n                span: 13..25,\n            },\n        },\n        on: Some(\n            (\n                26..28,\n                QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"table_name\",\n                        span: 29..39,\n                    },\n                },\n            ),\n        ),\n        restrict_or_cascade: Some(\n            Cascade(\n                40..47,\n            ),\n        ),\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 26..28,\n    sql_segment: \"ON\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 48..55,\n    sql_segment: \"CASCADE\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "DROP TRIGGER check_update ON table_name CASCADE RESTRICT",
-    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"check_update\",\n                span: 13..25,\n            },\n        },\n        restrict_or_cascade: None,\n    },\n)",
+    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"check_update\",\n                span: 13..25,\n            },\n        },\n        on: Some(\n            (\n                26..28,\n                QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"table_name\",\n                        span: 29..39,\n                    },\n                },\n            ),\n        ),\n        restrict_or_cascade: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 26..28,\n    sql_segment: \"ON\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Cannot specify both CASCADE and RESTRICT\",\n    span: 40..47,\n    sql_segment: \"CASCADE\",\n    fragments: [\n        Fragment {\n            message: \"RESTRICT specified here\",\n            span: 48..56,\n            sql_segment: \"RESTRICT\",\n        },\n    ],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "DROP TRIGGER emp_stamp ON emp",
-    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"emp_stamp\",\n                span: 13..22,\n            },\n        },\n        restrict_or_cascade: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 23..25,\n    sql_segment: \"ON\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "DropTrigger(\n    DropTrigger {\n        drop_span: 0..4,\n        trigger_span: 5..12,\n        if_exists: None,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"emp_stamp\",\n                span: 13..22,\n            },\n        },\n        on: Some(\n            (\n                23..25,\n                QualifiedName {\n                    prefix: [],\n                    identifier: Identifier {\n                        value: \"emp\",\n                        span: 26..29,\n                    },\n                },\n            ),\n        ),\n        restrict_or_cascade: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "DROP TRIGGER{} check_update ON table_name{}",
