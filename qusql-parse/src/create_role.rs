@@ -10,9 +10,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-    Expression, Identifier, Span, Spanned,
+    Identifier, SString, Span, Spanned,
     create_option::CreateOption,
-    expression::parse_expression_unreserved,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -36,12 +35,38 @@ pub enum RoleOption<'a> {
     NoReplication(Span),
     BypassRls(Span),
     NoBypassRls(Span),
-    ConnectionLimit(Span, Expression<'a>),
-    EncryptedPassword(Span, Expression<'a>),
-    Password(Span, Expression<'a>),
+    /// CONNECTION LIMIT value
+    ConnectionLimit {
+        connection_span: Span,
+        limit_span: Span,
+        value: i64,
+        value_span: Span,
+    },
+    /// ENCRYPTED PASSWORD 'password'
+    EncryptedPassword {
+        encrypted_span: Span,
+        password_span: Span,
+        password: SString<'a>,
+    },
+    /// PASSWORD 'password'
+    Password {
+        password_span: Span,
+        password: SString<'a>,
+    },
+    /// PASSWORD NULL
     PasswordNull(Span),
-    ValidUntil(Span, Expression<'a>),
-    Sysid(Span, Expression<'a>),
+    /// VALID UNTIL 'timestamp'
+    ValidUntil {
+        valid_span: Span,
+        until_span: Span,
+        timestamp: SString<'a>,
+    },
+    /// SYSID value
+    Sysid {
+        sysid_span: Span,
+        value: i64,
+        value_span: Span,
+    },
 }
 
 impl<'a> Spanned for RoleOption<'a> {
@@ -61,12 +86,31 @@ impl<'a> Spanned for RoleOption<'a> {
             RoleOption::NoReplication(s) => s.span(),
             RoleOption::BypassRls(s) => s.span(),
             RoleOption::NoBypassRls(s) => s.span(),
-            RoleOption::ConnectionLimit(s, e) => s.join_span(e),
-            RoleOption::EncryptedPassword(s, e) => s.join_span(e),
-            RoleOption::Password(s, e) => s.join_span(e),
+            RoleOption::ConnectionLimit {
+                connection_span,
+                value_span,
+                ..
+            } => connection_span.join_span(value_span),
+            RoleOption::EncryptedPassword {
+                encrypted_span,
+                password,
+                ..
+            } => encrypted_span.join_span(password),
+            RoleOption::Password {
+                password_span,
+                password,
+            } => password_span.join_span(password),
             RoleOption::PasswordNull(s) => s.span(),
-            RoleOption::ValidUntil(s, e) => s.join_span(e),
-            RoleOption::Sysid(s, e) => s.join_span(e),
+            RoleOption::ValidUntil {
+                valid_span,
+                timestamp,
+                ..
+            } => valid_span.join_span(timestamp),
+            RoleOption::Sysid {
+                sysid_span,
+                value_span,
+                ..
+            } => sysid_span.join_span(value_span),
         }
     }
 }
@@ -133,33 +177,56 @@ pub(crate) fn parse_role_option<'a>(
             Some(RoleOption::NoBypassRls(span))
         }
         Token::Ident(_, Keyword::CONNECTION) => {
-            let span = parser.consume_keywords(&[Keyword::CONNECTION, Keyword::LIMIT])?;
-            let expr = parse_expression_unreserved(parser, true)?;
-            Some(RoleOption::ConnectionLimit(span, expr))
+            let connection_span = parser.consume_keyword(Keyword::CONNECTION)?;
+            let limit_span = parser.consume_keyword(Keyword::LIMIT)?;
+            let (value, value_span) = parser.consume_signed_int::<i64>()?;
+            Some(RoleOption::ConnectionLimit {
+                connection_span,
+                limit_span,
+                value,
+                value_span,
+            })
         }
         Token::Ident(_, Keyword::ENCRYPTED) => {
-            let span = parser.consume_keywords(&[Keyword::ENCRYPTED, Keyword::PASSWORD])?;
-            let expr = parse_expression_unreserved(parser, true)?;
-            Some(RoleOption::EncryptedPassword(span, expr))
+            let encrypted_span = parser.consume_keyword(Keyword::ENCRYPTED)?;
+            let password_span = parser.consume_keyword(Keyword::PASSWORD)?;
+            let password = parser.consume_string()?;
+            Some(RoleOption::EncryptedPassword {
+                encrypted_span,
+                password_span,
+                password,
+            })
         }
         Token::Ident(_, Keyword::PASSWORD) => {
             let password_span = parser.consume_keyword(Keyword::PASSWORD)?;
             if parser.skip_keyword(Keyword::NULL).is_some() {
                 Some(RoleOption::PasswordNull(password_span))
             } else {
-                let expr = parse_expression_unreserved(parser, true)?;
-                Some(RoleOption::Password(password_span, expr))
+                let password = parser.consume_string()?;
+                Some(RoleOption::Password {
+                    password_span,
+                    password,
+                })
             }
         }
         Token::Ident(_, Keyword::VALID) => {
-            let span = parser.consume_keywords(&[Keyword::VALID, Keyword::UNTIL])?;
-            let expr = parse_expression_unreserved(parser, true)?;
-            Some(RoleOption::ValidUntil(span, expr))
+            let valid_span = parser.consume_keyword(Keyword::VALID)?;
+            let until_span = parser.consume_keyword(Keyword::UNTIL)?;
+            let timestamp = parser.consume_string()?;
+            Some(RoleOption::ValidUntil {
+                valid_span,
+                until_span,
+                timestamp,
+            })
         }
         Token::Ident(_, Keyword::SYSID) => {
             let sysid_span = parser.consume_keyword(Keyword::SYSID)?;
-            let expr = parse_expression_unreserved(parser, true)?;
-            Some(RoleOption::Sysid(sysid_span, expr))
+            let (value, value_span) = parser.consume_signed_int::<i64>()?;
+            Some(RoleOption::Sysid {
+                sysid_span,
+                value,
+                value_span,
+            })
         }
         _ => None,
     })

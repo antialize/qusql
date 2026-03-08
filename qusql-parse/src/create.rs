@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-    DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
+    DataType, Identifier, QualifiedName, SString, Span, Spanned, Statement,
     create_function::parse_create_function,
     create_index::parse_create_index,
     create_option::{CreateAlgorithm, CreateOption},
@@ -19,7 +19,6 @@ use crate::{
     create_trigger::parse_create_trigger,
     create_view::parse_create_view,
     data_type::parse_data_type,
-    expression::parse_expression_unreserved,
     keywords::Keyword,
     lexer::Token,
     operator::{parse_create_operator, parse_create_operator_class, parse_create_operator_family},
@@ -27,6 +26,7 @@ use crate::{
     qualified_name::parse_qualified_name_unreserved,
 };
 use alloc::{boxed::Box, vec::Vec};
+
 #[derive(Clone, Debug)]
 pub struct CreateTypeEnum<'a> {
     /// Span of "CREATE"
@@ -184,46 +184,107 @@ impl Spanned for CreateSchema<'_> {
 #[derive(Clone, Debug)]
 pub enum SequenceOption<'a> {
     /// AS data_type
-    As(Span, DataType<'a>),
-    /// INCREMENT BY value
-    IncrementBy(Span, Expression<'a>),
+    As {
+        as_span: Span,
+        data_type: DataType<'a>,
+    },
+    /// INCREMENT [BY] value
+    IncrementBy {
+        increment_span: Span,
+        by_span: Option<Span>,
+        value: i64,
+        value_span: Span,
+    },
     /// MINVALUE value
-    MinValue(Span, Expression<'a>),
+    MinValue {
+        minvalue_span: Span,
+        value: i64,
+        value_span: Span,
+    },
     /// NO MINVALUE
     NoMinValue(Span),
     /// MAXVALUE value
-    MaxValue(Span, Expression<'a>),
+    MaxValue {
+        maxvalue_span: Span,
+        value: i64,
+        value_span: Span,
+    },
     /// NO MAXVALUE
     NoMaxValue(Span),
-    /// START WITH value
-    StartWith(Span, Expression<'a>),
+    /// START [WITH] value
+    StartWith {
+        start_span: Span,
+        with_span: Option<Span>,
+        value: i64,
+        value_span: Span,
+    },
     /// CACHE value
-    Cache(Span, Expression<'a>),
+    Cache {
+        cache_span: Span,
+        value: i64,
+        value_span: Span,
+    },
     /// CYCLE
     Cycle(Span),
     /// NO CYCLE
     NoCycle(Span),
     /// OWNED BY table.column
-    OwnedBy(Span, QualifiedName<'a>),
+    OwnedBy {
+        owned_span: Span,
+        by_span: Span,
+        table_column: QualifiedName<'a>,
+    },
     /// OWNED BY NONE
-    OwnedByNone(Span),
+    OwnedByNone {
+        owned_span: Span,
+        by_span: Span,
+        none_span: Span,
+    },
 }
 
 impl<'a> Spanned for SequenceOption<'a> {
     fn span(&self) -> Span {
         match self {
-            SequenceOption::As(s, t) => s.join_span(t),
-            SequenceOption::IncrementBy(s, e) => s.join_span(e),
-            SequenceOption::MinValue(s, e) => s.join_span(e),
+            SequenceOption::As { as_span, data_type } => as_span.join_span(data_type),
+            SequenceOption::IncrementBy {
+                increment_span,
+                value_span,
+                ..
+            } => increment_span.join_span(value_span),
+            SequenceOption::MinValue {
+                minvalue_span,
+                value_span,
+                ..
+            } => minvalue_span.join_span(value_span),
             SequenceOption::NoMinValue(s) => s.span(),
-            SequenceOption::MaxValue(s, e) => s.join_span(e),
+            SequenceOption::MaxValue {
+                maxvalue_span,
+                value_span,
+                ..
+            } => maxvalue_span.join_span(value_span),
             SequenceOption::NoMaxValue(s) => s.span(),
-            SequenceOption::StartWith(s, e) => s.join_span(e),
-            SequenceOption::Cache(s, e) => s.join_span(e),
+            SequenceOption::StartWith {
+                start_span,
+                value_span,
+                ..
+            } => start_span.join_span(value_span),
+            SequenceOption::Cache {
+                cache_span,
+                value_span,
+                ..
+            } => cache_span.join_span(value_span),
             SequenceOption::Cycle(s) => s.span(),
             SequenceOption::NoCycle(s) => s.span(),
-            SequenceOption::OwnedBy(s, q) => s.join_span(q),
-            SequenceOption::OwnedByNone(s) => s.span(),
+            SequenceOption::OwnedBy {
+                owned_span,
+                table_column,
+                ..
+            } => owned_span.join_span(table_column),
+            SequenceOption::OwnedByNone {
+                owned_span,
+                none_span,
+                ..
+            } => owned_span.join_span(none_span),
         }
     }
 }
@@ -238,39 +299,56 @@ pub(crate) fn parse_sequence_options<'a>(
             Token::Ident(_, Keyword::AS) => {
                 let as_span = parser.consume_keyword(Keyword::AS)?;
                 let data_type = parse_data_type(parser, false)?;
-                options.push(SequenceOption::As(as_span, data_type));
+                options.push(SequenceOption::As { as_span, data_type });
             }
             Token::Ident(_, Keyword::INCREMENT) => {
                 let increment_span = parser.consume_keyword(Keyword::INCREMENT)?;
-                parser.skip_keyword(Keyword::BY); // BY is optional
-                let expr = parse_expression_unreserved(parser, true)?;
-                let span = increment_span.join_span(&expr);
-                options.push(SequenceOption::IncrementBy(span, expr));
+                let by_span = parser.skip_keyword(Keyword::BY); // BY is optional
+                let (value, value_span) = parser.consume_signed_int::<i64>()?;
+                options.push(SequenceOption::IncrementBy {
+                    increment_span,
+                    by_span,
+                    value,
+                    value_span,
+                });
             }
             Token::Ident(_, Keyword::MINVALUE) => {
                 let minvalue_span = parser.consume_keyword(Keyword::MINVALUE)?;
-                let expr = parse_expression_unreserved(parser, true)?;
-                let span = minvalue_span.join_span(&expr);
-                options.push(SequenceOption::MinValue(span, expr));
+                let (value, value_span) = parser.consume_signed_int::<i64>()?;
+                options.push(SequenceOption::MinValue {
+                    minvalue_span,
+                    value,
+                    value_span,
+                });
             }
             Token::Ident(_, Keyword::MAXVALUE) => {
                 let maxvalue_span = parser.consume_keyword(Keyword::MAXVALUE)?;
-                let expr = parse_expression_unreserved(parser, true)?;
-                let span = maxvalue_span.join_span(&expr);
-                options.push(SequenceOption::MaxValue(span, expr));
+                let (value, value_span) = parser.consume_signed_int::<i64>()?;
+                options.push(SequenceOption::MaxValue {
+                    maxvalue_span,
+                    value,
+                    value_span,
+                });
             }
             Token::Ident(_, Keyword::START) => {
                 let start_span = parser.consume_keyword(Keyword::START)?;
-                parser.skip_keyword(Keyword::WITH); // WITH is optional
-                let expr = parse_expression_unreserved(parser, true)?;
-                let span = start_span.join_span(&expr);
-                options.push(SequenceOption::StartWith(span, expr));
+                let with_span = parser.skip_keyword(Keyword::WITH); // WITH is optional
+                let (value, value_span) = parser.consume_signed_int::<i64>()?;
+                options.push(SequenceOption::StartWith {
+                    start_span,
+                    with_span,
+                    value,
+                    value_span,
+                });
             }
             Token::Ident(_, Keyword::CACHE) => {
                 let cache_span = parser.consume_keyword(Keyword::CACHE)?;
-                let expr = parse_expression_unreserved(parser, true)?;
-                let span = cache_span.join_span(&expr);
-                options.push(SequenceOption::Cache(span, expr));
+                let (value, value_span) = parser.consume_signed_int::<i64>()?;
+                options.push(SequenceOption::Cache {
+                    cache_span,
+                    value,
+                    value_span,
+                });
             }
             Token::Ident(_, Keyword::CYCLE) => {
                 let cycle_span = parser.consume_keyword(Keyword::CYCLE)?;
@@ -300,15 +378,21 @@ pub(crate) fn parse_sequence_options<'a>(
             }
             Token::Ident(_, Keyword::OWNED) => {
                 let owned_span = parser.consume_keyword(Keyword::OWNED)?;
-                parser.consume_keyword(Keyword::BY)?;
+                let by_span = parser.consume_keyword(Keyword::BY)?;
                 if let Token::Ident(_, Keyword::NONE) = parser.token {
                     let none_span = parser.consume_keyword(Keyword::NONE)?;
-                    let span = owned_span.join_span(&none_span);
-                    options.push(SequenceOption::OwnedByNone(span));
+                    options.push(SequenceOption::OwnedByNone {
+                        owned_span,
+                        by_span,
+                        none_span,
+                    });
                 } else {
-                    let qualified_name = parse_qualified_name_unreserved(parser)?;
-                    let span = owned_span.join_span(&qualified_name);
-                    options.push(SequenceOption::OwnedBy(span, qualified_name));
+                    let table_column = parse_qualified_name_unreserved(parser)?;
+                    options.push(SequenceOption::OwnedBy {
+                        owned_span,
+                        by_span,
+                        table_column,
+                    });
                 }
             }
             _ => break,

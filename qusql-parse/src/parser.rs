@@ -471,6 +471,36 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
     }
 
+    pub(crate) fn consume_signed_int<
+        T: core::str::FromStr + Default + core::ops::Neg<Output = T>,
+    >(
+        &mut self,
+    ) -> Result<(T, Span), ParseError> {
+        let minus = self.skip_token(Token::Minus);
+        if minus.is_none() {
+            self.skip_token(Token::Plus);
+        }
+        match &self.token {
+            Token::Integer(v) => {
+                let v: T = match v.parse() {
+                    Ok(v) => v,
+                    Err(_) => self.err_here("integer outside range").unwrap_or_default(),
+                };
+                if let Some(minus) = minus {
+                    let v = -v;
+                    let span = minus.join_span(&self.span);
+                    self.next();
+                    Ok((v, span))
+                } else {
+                    let span = self.span.clone();
+                    self.next();
+                    Ok((v, span))
+                }
+            }
+            _ => self.expected_failure("integer"),
+        }
+    }
+
     pub(crate) fn consume_float<T: core::str::FromStr + Default>(
         &mut self,
     ) -> Result<(T, Span), ParseError> {
