@@ -334,11 +334,6 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
     }
 
-    /// Temporary function will be removed
-    pub(crate) fn consume_plain_identifier(&mut self) -> Result<Identifier<'a>, ParseError> {
-        self.consume_plain_identifier_restrict(self.reserved())
-    }
-
     pub(crate) fn consume_keyword(&mut self, keyword: Keyword) -> Result<Span, ParseError> {
         match &self.token {
             Token::Ident(v, kw) if kw == &keyword => {

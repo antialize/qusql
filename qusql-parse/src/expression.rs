@@ -1765,14 +1765,6 @@ pub(crate) fn parse_expression_unreserved<'a>(
     parse_expression_restricted(parser, inner, parser.reserved())
 }
 
-/// Temporary function will be removed
-pub(crate) fn parse_expression<'a>(
-    parser: &mut Parser<'a, '_>,
-    inner: bool,
-) -> Result<Expression<'a>, ParseError> {
-    parse_expression_restricted(parser, inner, parser.reserved())
-}
-
 pub(crate) fn parse_expression_outer<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<Expression<'a>, ParseError> {

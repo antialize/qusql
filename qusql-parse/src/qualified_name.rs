@@ -39,10 +39,3 @@ pub(crate) fn parse_qualified_name_unreserved<'a>(
 ) -> Result<QualifiedName<'a>, ParseError> {
     parse_qualified_name_restrict(parser, parser.reserved())
 }
-
-/// Temporary function will be removed
-pub(crate) fn parse_qualified_name<'a>(
-    parser: &mut Parser<'a, '_>,
-) -> Result<QualifiedName<'a>, ParseError> {
-    parse_qualified_name_restrict(parser, parser.reserved())
-}

@@ -14,7 +14,7 @@ use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     Identifier, InvalidExpression, SString, Span, Spanned,
-    expression::{Expression, parse_expression},
+    expression::{Expression, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -468,13 +468,13 @@ pub(crate) fn parse_data_type<'a>(
             Token::Ident(_, Keyword::CHARACTER) => {
                 parser.consume_keywords(&[Keyword::CHARACTER, Keyword::SET])?;
                 properties.push(DataTypeProperty::Charset(
-                    parser.consume_plain_identifier()?,
+                    parser.consume_plain_identifier_unreserved()?,
                 ));
             }
             Token::Ident(_, Keyword::COLLATE) => {
                 parser.consume_keyword(Keyword::COLLATE)?;
                 properties.push(DataTypeProperty::Charset(
-                    parser.consume_plain_identifier()?,
+                    parser.consume_plain_identifier_unreserved()?,
                 ));
             }
             Token::Ident(_, Keyword::COMMENT) => {
@@ -483,7 +483,9 @@ pub(crate) fn parse_data_type<'a>(
             }
             Token::Ident(_, Keyword::DEFAULT) => {
                 parser.consume_keyword(Keyword::DEFAULT)?;
-                properties.push(DataTypeProperty::Default(parse_expression(parser, true)?));
+                properties.push(DataTypeProperty::Default(parse_expression_unreserved(
+                    parser, true,
+                )?));
             }
             Token::Ident(_, Keyword::VIRTUAL) => properties.push(DataTypeProperty::Virtual(
                 parser.consume_keyword(Keyword::VIRTUAL)?,
@@ -522,7 +524,7 @@ pub(crate) fn parse_data_type<'a>(
                 let span = parser.consume_keyword(Keyword::AS)?;
                 let s1 = parser.consume_token(Token::LParen)?;
                 let e = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
-                    Ok(Some(parse_expression(parser, false)?))
+                    Ok(Some(parse_expression_unreserved(parser, false)?))
                 })?;
                 let s2 = parser.consume_token(Token::RParen)?;
                 let e = e.unwrap_or_else(|| {
@@ -539,7 +541,7 @@ pub(crate) fn parse_data_type<'a>(
                 let span = parser.consume_keyword(Keyword::CHECK)?;
                 let s1 = parser.consume_token(Token::LParen)?;
                 let e = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
-                    Ok(Some(parse_expression(parser, false)?))
+                    Ok(Some(parse_expression_unreserved(parser, false)?))
                 })?;
                 let s2 = parser.consume_token(Token::RParen)?;
                 let e = e.unwrap_or_else(|| {
@@ -551,7 +553,7 @@ pub(crate) fn parse_data_type<'a>(
             }
             Token::Ident(_, Keyword::ON) => {
                 let span = parser.consume_keywords(&[Keyword::ON, Keyword::UPDATE])?;
-                let expr = parse_expression(parser, true)?;
+                let expr = parse_expression_unreserved(parser, true)?;
                 properties.push(DataTypeProperty::OnUpdate((span, expr)));
             }
             _ => break,
