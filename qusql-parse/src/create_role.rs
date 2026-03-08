@@ -175,7 +175,6 @@ pub(crate) fn parse_create_role<'a>(
 
     loop {
         match &parser.token {
-            // Membership clauses
             Token::Ident(_, Keyword::USER) => {
                 let user_span = parser.consume_keyword(Keyword::USER)?;
                 let mut roles = Vec::new();

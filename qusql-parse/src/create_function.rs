@@ -191,15 +191,20 @@ pub(crate) fn parse_create_function<'a>(
     let returns_span = parser.consume_keyword(Keyword::RETURNS)?;
     let return_type = parse_data_type(parser, true)?;
     if parser.options.dialect.is_postgresql() && parser.skip_keyword(Keyword::AS).is_some() {
-        parser.consume_token(Token::DoubleDollar)?;
-        loop {
-            match &parser.token {
-                Token::Eof | Token::DoubleDollar => {
-                    parser.consume_token(Token::DoubleDollar)?;
-                    break;
-                }
-                _ => {
-                    parser.consume();
+        if matches!(parser.token, Token::DollarQuotedString(_)) {
+            // PostgreSQL: function body is a dollar-quoted string literal
+            parser.consume();
+        } else {
+            parser.consume_token(Token::DoubleDollar)?;
+            loop {
+                match &parser.token {
+                    Token::Eof | Token::DoubleDollar => {
+                        parser.consume_token(Token::DoubleDollar)?;
+                        break;
+                    }
+                    _ => {
+                        parser.consume();
+                    }
                 }
             }
         }

@@ -16,7 +16,7 @@ use crate::{
     function_expression::{
         Function, FunctionCallExpression, WindowFunctionCallExpression, parse_function,
     },
-    keywords::{self, Keyword},
+    keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
     select::parse_select,
@@ -945,7 +945,7 @@ impl<'a> Reducer<'a> {
 pub(crate) fn parse_expression_restricted<'a>(
     parser: &mut Parser<'a, '_>,
     inner: bool,
-    _restrict: keywords::Restrict,
+    _restrict: Restrict,
 ) -> Result<Expression<'a>, ParseError> {
     let mut r = Reducer { stack: Vec::new() };
     loop {
