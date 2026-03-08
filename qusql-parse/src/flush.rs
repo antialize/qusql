@@ -5,7 +5,7 @@ use crate::{
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
-    qualified_name::parse_qualified_name,
+    qualified_name::parse_qualified_name_unreserved,
 };
 
 #[derive(Debug, Clone)]
@@ -135,7 +135,7 @@ pub(crate) fn parse_flush<'a>(parser: &mut Parser<'a, '_>) -> Result<Flush<'a>, 
                         .join_span(&parser.consume_keyword(Keyword::CHANNEL)?);
                     options.push(FlushOption::RelayLogsForChannel {
                         span,
-                        channel: parser.consume_plain_identifier()?,
+                        channel: parser.consume_plain_identifier_unreserved()?,
                     });
                 } else {
                     options.push(FlushOption::RelayLogs(span));
@@ -161,7 +161,7 @@ pub(crate) fn parse_flush<'a>(parser: &mut Parser<'a, '_>) -> Result<Flush<'a>, 
                     && !kw.restricted(parser.reserved())
                 {
                     loop {
-                        tables.push(parse_qualified_name(parser)?);
+                        tables.push(parse_qualified_name_unreserved(parser)?);
                         if parser.skip_token(Token::Comma).is_none() {
                             break;
                         }

@@ -2,11 +2,11 @@ use alloc::boxed::Box;
 
 use crate::{
     SString, Span, Spanned, Statement,
-    expression::{Expression, parse_expression},
+    expression::{Expression, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
-    qualified_name::parse_qualified_name,
+    qualified_name::parse_qualified_name_unreserved,
 };
 
 /// Parse result for `SHOW TABLES` variants
@@ -61,12 +61,12 @@ fn parse_show_tables<'a>(
     match &parser.token {
         Token::Ident(_, Keyword::FROM) => {
             parser.consume_keyword(Keyword::FROM)?;
-            let q = parse_qualified_name(parser)?;
+            let q = parse_qualified_name_unreserved(parser)?;
             db = Some(q);
         }
         Token::Ident(_, Keyword::IN) => {
             parser.consume_keyword(Keyword::IN)?;
-            let q = parse_qualified_name(parser)?;
+            let q = parse_qualified_name_unreserved(parser)?;
             db = Some(q);
         }
         _ => {}
@@ -79,7 +79,7 @@ fn parse_show_tables<'a>(
         None
     };
     let where_expr = if like.is_none() && parser.skip_keyword(Keyword::WHERE).is_some() {
-        Some(parse_expression(parser, false)?)
+        Some(parse_expression_unreserved(parser, false)?)
     } else {
         None
     };
@@ -233,7 +233,7 @@ fn parse_show_variables<'a>(
         None
     };
     let where_expr = if parser.skip_keyword(Keyword::WHERE).is_some() {
-        Some(parse_expression(parser, false)?)
+        Some(parse_expression_unreserved(parser, false)?)
     } else {
         None
     };
@@ -293,7 +293,7 @@ fn parse_show_status<'a>(
         None
     };
     let where_expr = if parser.skip_keyword(Keyword::WHERE).is_some() {
-        Some(parse_expression(parser, false)?)
+        Some(parse_expression_unreserved(parser, false)?)
     } else {
         None
     };
@@ -359,7 +359,7 @@ fn parse_show_columns<'a>(
     let mut table = None;
     let mut db = None;
     if parser.skip_keyword(Keyword::FROM).is_some() || parser.skip_keyword(Keyword::IN).is_some() {
-        let q = parse_qualified_name(parser)?;
+        let q = parse_qualified_name_unreserved(parser)?;
         table = Some(q);
     }
     // optional second FROM/IN specifying database: SHOW COLUMNS FROM tbl FROM db
@@ -367,12 +367,12 @@ fn parse_show_columns<'a>(
         match &parser.token {
             Token::Ident(_, Keyword::FROM) => {
                 parser.consume_keyword(Keyword::FROM)?;
-                let q = parse_qualified_name(parser)?;
+                let q = parse_qualified_name_unreserved(parser)?;
                 db = Some(q);
             }
             Token::Ident(_, Keyword::IN) => {
                 parser.consume_keyword(Keyword::IN)?;
-                let q = parse_qualified_name(parser)?;
+                let q = parse_qualified_name_unreserved(parser)?;
                 db = Some(q);
             }
             _ => {}
@@ -384,7 +384,7 @@ fn parse_show_columns<'a>(
         None
     };
     let where_expr = if like.is_none() && parser.skip_keyword(Keyword::WHERE).is_some() {
-        Some(parse_expression(parser, false)?)
+        Some(parse_expression_unreserved(parser, false)?)
     } else {
         None
     };
@@ -455,7 +455,7 @@ fn parse_show_character_set<'a>(
     if parser.skip_keyword(Keyword::LIKE).is_some() {
         like = Some(parser.consume_string()?);
     } else if parser.skip_keyword(Keyword::WHERE).is_some() {
-        where_expr = Some(parse_expression(parser, false)?);
+        where_expr = Some(parse_expression_unreserved(parser, false)?);
     }
 
     Ok(ShowCharacterSet {
@@ -574,7 +574,7 @@ fn parse_show_create<'a>(
     match &parser.token {
         Token::Ident(_, Keyword::TABLE) => {
             let object_span = parser.consume_keyword(Keyword::TABLE)?;
-            let table = parse_qualified_name(parser)?;
+            let table = parse_qualified_name_unreserved(parser)?;
             Ok(crate::Statement::ShowCreateTable(Box::new(
                 ShowCreateTable {
                     show_span,
@@ -586,7 +586,7 @@ fn parse_show_create<'a>(
         }
         Token::Ident(_, Keyword::DATABASE) => {
             let object_span = parser.consume_keyword(Keyword::DATABASE)?;
-            let db = parse_qualified_name(parser)?;
+            let db = parse_qualified_name_unreserved(parser)?;
             Ok(crate::Statement::ShowCreateDatabase(Box::new(
                 ShowCreateDatabase {
                     show_span,
@@ -598,7 +598,7 @@ fn parse_show_create<'a>(
         }
         Token::Ident(_, Keyword::VIEW) => {
             let object_span = parser.consume_keyword(Keyword::VIEW)?;
-            let view = parse_qualified_name(parser)?;
+            let view = parse_qualified_name_unreserved(parser)?;
             Ok(crate::Statement::ShowCreateView(Box::new(ShowCreateView {
                 show_span,
                 create_span,
@@ -653,7 +653,7 @@ fn parse_show_collation<'a>(
     if parser.skip_keyword(Keyword::LIKE).is_some() {
         like = Some(parser.consume_string()?);
     } else if parser.skip_keyword(Keyword::WHERE).is_some() {
-        where_expr = Some(parse_expression(parser, false)?);
+        where_expr = Some(parse_expression_unreserved(parser, false)?);
     }
     Ok(ShowCollation {
         show_span,
