@@ -4,7 +4,7 @@ use crate::{
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
-    qualified_name::parse_qualified_name,
+    qualified_name::parse_qualified_name_unreserved,
 };
 
 use alloc::vec::Vec;
@@ -104,7 +104,7 @@ pub(crate) fn parse_truncate_table<'a>(
         let only_span = parser.skip_keyword(Keyword::ONLY);
         parser.postgres_only(&only_span);
 
-        let table_name = parse_qualified_name(parser)?;
+        let table_name = parse_qualified_name_unreserved(parser)?;
 
         let descendants_span = parser.skip_token(Token::Mul);
         parser.postgres_only(&descendants_span);

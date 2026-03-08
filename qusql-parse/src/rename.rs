@@ -5,7 +5,7 @@ use crate::{
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
-    qualified_name::parse_qualified_name,
+    qualified_name::parse_qualified_name_unreserved,
 };
 
 #[derive(Debug, Clone)]
@@ -68,9 +68,9 @@ pub(crate) fn parse_rename_table<'a>(
     let table_span = parser.skip_keyword(Keyword::TABLE);
     let mut table_to_tables = Vec::new();
     loop {
-        let table = parse_qualified_name(parser)?;
+        let table = parse_qualified_name_unreserved(parser)?;
         let to_span = parser.consume_keyword(Keyword::TO)?;
-        let new_table = parse_qualified_name(parser)?;
+        let new_table = parse_qualified_name_unreserved(parser)?;
         table_to_tables.push(TableToTable {
             table,
             to_span,
