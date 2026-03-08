@@ -101,9 +101,10 @@ pub use create_view::CreateView;
 pub use data_type::{DataType, DataTypeProperty, Timestamp, Type};
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
-    DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropFunctionArg,
-    DropFunctionArgMode, DropIndex, DropOperator, DropOperatorClass, DropOperatorFamily,
-    DropOperatorItem, DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView,
+    CascadeOrRestrict, DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction,
+    DropFunctionArg, DropFunctionArgMode, DropIndex, DropOperator, DropOperatorClass,
+    DropOperatorFamily, DropOperatorItem, DropProcedure, DropSequence, DropServer, DropTable,
+    DropTrigger, DropView,
 };
 pub use expression::{
     ArgExpression, BinaryExpression, BinaryOperator, BoolExpression, CaseExpression,
@@ -149,7 +150,7 @@ pub use statement::{
     Signal, SignalConditionInformationName, StartTransaction, Statement, Stdin, Union, UnionType,
     UnionWith, WhenStatement,
 };
-pub use truncate::{CascadeOrRestrict, IdentityOption, TruncateTable, TruncateTableSpec};
+pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
 pub use with_query::{WithBlock, WithQuery};
 
