@@ -10,9 +10,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::create::parse_sequence_options;
 use crate::qualified_name::parse_qualified_name_unreserved;
 use crate::{
-    DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned,
+    DataType, Expression, Identifier, QualifiedName, SString, SequenceOption, Span, Spanned,
     data_type::parse_data_type,
     expression::parse_expression_unreserved,
     keywords::{Keyword, Restrict},
@@ -209,7 +210,7 @@ pub enum AlterColumnAction<'a> {
         always_or_default: Option<(Span, Span)>, // (ALWAYS|BY, DEFAULT)
         as_span: Span,
         identity_span: Span,
-        sequence_options: Vec<(Identifier<'a>, Expression<'a>)>,
+        sequence_options: Vec<SequenceOption<'a>>,
     },
 }
 
@@ -1685,6 +1686,9 @@ fn parse_add_alter_specification<'a>(
             {
                 Some(parser.consume_plain_identifier_restrict(Restrict::EMPTY)?)
             }
+            Token::DoubleQuotedString(_) if parser.options.dialect.is_postgresql() => {
+                Some(parser.consume_plain_identifier_restrict(Restrict::EMPTY)?)
+            }
             _ => None,
         };
         Some((span, v))
@@ -1879,6 +1883,8 @@ pub struct AlterTable<'a> {
     pub table_span: Span,
     /// Span of "IF EXISTS" if specified
     pub if_exists: Option<Span>,
+    /// Span of "ONLY" if specified after IF EXISTS
+    pub only: Option<Span>,
     /// The identifier of the table to alter
     pub table: QualifiedName<'a>,
     /// List of alterations to do
@@ -1892,6 +1898,7 @@ impl<'a> Spanned for AlterTable<'a> {
             .join_span(&self.ignore)
             .join_span(&self.table_span)
             .join_span(&self.if_exists)
+            .join_span(&self.only)
             .join_span(&self.table)
             .join_span(&self.alter_specifications)
     }
@@ -1914,6 +1921,11 @@ pub(crate) fn parse_alter_table<'a>(
     let table_span = parser.consume_keyword(Keyword::TABLE)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let only = if if_exists.is_some() {
+        parser.skip_keyword(Keyword::ONLY)
     } else {
         None
     };
@@ -2040,22 +2052,14 @@ pub(crate) fn parse_alter_table<'a>(
                                 let as_span = parser.consume_keyword(Keyword::AS)?;
                                 let identity_span = parser.consume_keyword(Keyword::IDENTITY)?;
                                 // Parse optional sequence options in parentheses
-                                let mut sequence_options = Vec::new();
-                                if parser.skip_token(Token::LParen).is_some() {
-                                    loop {
-                                        if parser.skip_token(Token::RParen).is_some() {
-                                            break;
-                                        }
-                                        let option_name =
-                                            parser.consume_plain_identifier_unreserved()?;
-                                        let option_value =
-                                            parse_expression_unreserved(parser, false)?;
-                                        sequence_options.push((option_name, option_value));
-                                        if parser.skip_token(Token::RParen).is_some() {
-                                            break;
-                                        }
-                                    }
-                                }
+                                let sequence_options = if parser.skip_token(Token::LParen).is_some()
+                                {
+                                    let options = parse_sequence_options(parser)?;
+                                    parser.consume_token(Token::RParen)?;
+                                    options
+                                } else {
+                                    Vec::new()
+                                };
                                 AlterColumnAction::AddGenerated {
                                     add_span,
                                     generated_span,
@@ -2282,6 +2286,7 @@ pub(crate) fn parse_alter_table<'a>(
         ignore,
         table_span,
         if_exists,
+        only,
         table,
         alter_specifications,
     })
