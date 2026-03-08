@@ -92,7 +92,7 @@ pub use create::{
     CreateTypeEnum, SequenceOption,
 };
 pub use create_function::{CreateFunction, FunctionCharacteristic, FunctionParamDirection};
-pub use create_index::{CreateIndex, CreateIndexOption, IncludeClause};
+pub use create_index::{CreateIndex, CreateIndexOption, IncludeClause, UsingIndexMethod};
 pub use create_option::{CreateAlgorithm, CreateOption};
 pub use create_role::{CreateRole, RoleMembership, RoleMembershipType, RoleOption};
 pub use create_table::{CreateDefinition, CreateTable, CreateTableAs, TableOption};
@@ -126,7 +126,10 @@ pub use insert_replace::{
 pub use issue::{Fragment, Issue, IssueHandle, Issues, Level};
 pub use kill::{Kill, KillType};
 pub use lock::{Lock, LockMember, LockType, Unlock};
-pub use operator::{CreateOperator, OperatorOption, OperatorRef};
+pub use operator::{
+    AlterOperatorFamily, CreateOperator, CreateOperatorClass, CreateOperatorFamily,
+    OperatorClassItem, OperatorClassOperatorOption, OperatorOption, OperatorRef,
+};
 pub use qualified_name::QualifiedName;
 pub use rename::{RenameTable, TableToTable};
 pub use select::{

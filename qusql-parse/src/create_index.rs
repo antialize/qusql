@@ -22,14 +22,77 @@ use crate::{
 use alloc::vec::Vec;
 
 #[derive(Clone, Debug)]
+pub enum UsingIndexMethod {
+    Gist(Span),
+    Bloom(Span),
+    Brin(Span),
+    Hnsw(Span),
+    Gin(Span),
+    BTree(Span),
+    Hash(Span),
+    RTree(Span),
+}
+
+impl Spanned for UsingIndexMethod {
+    fn span(&self) -> Span {
+        match self {
+            UsingIndexMethod::Gist(s) => s.clone(),
+            UsingIndexMethod::Bloom(s) => s.clone(),
+            UsingIndexMethod::Brin(s) => s.clone(),
+            UsingIndexMethod::Hnsw(s) => s.clone(),
+            UsingIndexMethod::BTree(s) => s.clone(),
+            UsingIndexMethod::Hash(s) => s.clone(),
+            UsingIndexMethod::RTree(s) => s.clone(),
+            UsingIndexMethod::Gin(s) => s.clone(),
+        }
+    }
+}
+
+pub(crate) fn parse_using_index_method<'a>(
+    parser: &mut Parser<'a, '_>,
+    using_span: Span,
+) -> Result<UsingIndexMethod, ParseError> {
+    match &parser.token {
+        Token::Ident(_, Keyword::GIST) => {
+            let gist_span = parser.consume_keyword(Keyword::GIST)?;
+            Ok(UsingIndexMethod::Gist(using_span.join_span(&gist_span)))
+        }
+        Token::Ident(_, Keyword::BLOOM) => {
+            let bloom_span = parser.consume_keyword(Keyword::BLOOM)?;
+            Ok(UsingIndexMethod::Bloom(using_span.join_span(&bloom_span)))
+        }
+        Token::Ident(_, Keyword::BRIN) => {
+            let brin_span = parser.consume_keyword(Keyword::BRIN)?;
+            Ok(UsingIndexMethod::Brin(using_span.join_span(&brin_span)))
+        }
+        Token::Ident(_, Keyword::HNSW) => {
+            let hnsw_span = parser.consume_keyword(Keyword::HNSW)?;
+            Ok(UsingIndexMethod::Hnsw(using_span.join_span(&hnsw_span)))
+        }
+        Token::Ident(_, Keyword::GIN) => {
+            let gin_span = parser.consume_keyword(Keyword::GIN)?;
+            Ok(UsingIndexMethod::Gin(using_span.join_span(&gin_span)))
+        }
+        Token::Ident(_, Keyword::BTREE) => {
+            let btree_span = parser.consume_keyword(Keyword::BTREE)?;
+            Ok(UsingIndexMethod::BTree(using_span.join_span(&btree_span)))
+        }
+        Token::Ident(_, Keyword::HASH) => {
+            let hash_span = parser.consume_keyword(Keyword::HASH)?;
+            Ok(UsingIndexMethod::Hash(using_span.join_span(&hash_span)))
+        }
+        Token::Ident(_, Keyword::RTREE) => {
+            let rtree_span = parser.consume_keyword(Keyword::RTREE)?;
+            Ok(UsingIndexMethod::RTree(using_span.join_span(&rtree_span)))
+        }
+        _ => Err(parser
+            .err_here("Expected GIST, BLOOM, BRIN, HNSW, BTREE, HASH, or RTREE after USING")?),
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum CreateIndexOption<'a> {
-    UsingGist(Span),
-    UsingBTree(Span),
-    UsingHash(Span),
-    UsingRTree(Span),
-    UsingBloom(Span),
-    UsingBrin(Span),
-    UsingHnsw(Span),
+    UsingIndex(UsingIndexMethod),
     Algorithm(Span, Identifier<'a>),
     Lock(Span, Identifier<'a>),
 }
@@ -37,13 +100,7 @@ pub enum CreateIndexOption<'a> {
 impl<'a> Spanned for CreateIndexOption<'a> {
     fn span(&self) -> Span {
         match self {
-            CreateIndexOption::UsingGist(s) => s.clone(),
-            CreateIndexOption::UsingBTree(s) => s.clone(),
-            CreateIndexOption::UsingHash(s) => s.clone(),
-            CreateIndexOption::UsingRTree(s) => s.clone(),
-            CreateIndexOption::UsingBloom(s) => s.clone(),
-            CreateIndexOption::UsingBrin(s) => s.clone(),
-            CreateIndexOption::UsingHnsw(s) => s.clone(),
+            CreateIndexOption::UsingIndex(method) => method.span(),
             CreateIndexOption::Algorithm(s, i) => s.join_span(i),
             CreateIndexOption::Lock(s, i) => s.join_span(i),
         }
@@ -142,37 +199,8 @@ pub(crate) fn parse_create_index<'a>(
     // PostgreSQL: USING (GIST|BLOOM|BRIN|HNSW) before column list
     let mut index_options = Vec::new();
     if let Some(using_span) = parser.skip_keyword(Keyword::USING) {
-        match &parser.token {
-            Token::Ident(_, Keyword::GIST) => {
-                let gist_span = parser.consume_keyword(Keyword::GIST)?;
-                index_options.push(CreateIndexOption::UsingGist(
-                    using_span.join_span(&gist_span),
-                ));
-            }
-            Token::Ident(_, Keyword::BLOOM) => {
-                let bloom_span = parser.consume_keyword(Keyword::BLOOM)?;
-                index_options.push(CreateIndexOption::UsingBloom(
-                    using_span.join_span(&bloom_span),
-                ));
-            }
-            Token::Ident(_, Keyword::BRIN) => {
-                let brin_span = parser.consume_keyword(Keyword::BRIN)?;
-                index_options.push(CreateIndexOption::UsingBrin(
-                    using_span.join_span(&brin_span),
-                ));
-            }
-            Token::Ident(_, Keyword::HNSW) => {
-                let hnsw_span = parser.consume_keyword(Keyword::HNSW)?;
-                index_options.push(CreateIndexOption::UsingHnsw(
-                    using_span.join_span(&hnsw_span),
-                ));
-            }
-            _ => {
-                // Error - USING before column list requires GIST/BLOOM/BRIN/HNSW for PostgreSQL
-                parser
-                    .err_here("Expected GIST, BLOOM, BRIN, or HNSW after USING (or use USING after column list for MySQL)")?;
-            }
-        }
+        let using_index_method = parse_using_index_method(parser, using_span)?;
+        index_options.push(CreateIndexOption::UsingIndex(using_index_method));
     }
 
     let l_paren_span = parser.consume_token(Token::LParen)?;
@@ -256,27 +284,8 @@ pub(crate) fn parse_create_index<'a>(
         match &parser.token {
             Token::Ident(_, Keyword::USING) => {
                 let using_span = parser.consume_keyword(Keyword::USING)?;
-                match &parser.token {
-                    Token::Ident(_, Keyword::BTREE) => {
-                        let btree_span = parser.consume_keyword(Keyword::BTREE)?;
-                        index_options.push(CreateIndexOption::UsingBTree(
-                            using_span.join_span(&btree_span),
-                        ));
-                    }
-                    Token::Ident(_, Keyword::HASH) => {
-                        let hash_span = parser.consume_keyword(Keyword::HASH)?;
-                        index_options.push(CreateIndexOption::UsingHash(
-                            using_span.join_span(&hash_span),
-                        ));
-                    }
-                    Token::Ident(_, Keyword::RTREE) => {
-                        let rtree_span = parser.consume_keyword(Keyword::RTREE)?;
-                        index_options.push(CreateIndexOption::UsingRTree(
-                            using_span.join_span(&rtree_span),
-                        ));
-                    }
-                    _ => parser.err_here("Expected BTREE, HASH, or RTREE after USING")?,
-                }
+                let using_index_method = parse_using_index_method(parser, using_span)?;
+                index_options.push(CreateIndexOption::UsingIndex(using_index_method));
             }
             Token::Ident(_, Keyword::ALGORITHM) => {
                 let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
