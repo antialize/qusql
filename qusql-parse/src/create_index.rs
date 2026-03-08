@@ -94,6 +94,10 @@ pub(crate) fn parse_using_index_method<'a>(
 pub enum CreateIndexOption<'a> {
     UsingIndex(UsingIndexMethod),
     Algorithm(Span, Identifier<'a>),
+    AlgorithmDefault {
+        algorithm_span: Span,
+        default_span: Span,
+    },
     Lock(Span, Identifier<'a>),
 }
 
@@ -102,6 +106,10 @@ impl<'a> Spanned for CreateIndexOption<'a> {
         match self {
             CreateIndexOption::UsingIndex(method) => method.span(),
             CreateIndexOption::Algorithm(s, i) => s.join_span(i),
+            CreateIndexOption::AlgorithmDefault {
+                algorithm_span,
+                default_span,
+            } => algorithm_span.join_span(default_span),
             CreateIndexOption::Lock(s, i) => s.join_span(i),
         }
     }
@@ -290,11 +298,19 @@ pub(crate) fn parse_create_index<'a>(
             Token::Ident(_, Keyword::ALGORITHM) => {
                 let algorithm_span = parser.consume_keyword(Keyword::ALGORITHM)?;
                 parser.skip_token(Token::Eq); // Optional =
-                let algorithm_value = parser.consume_plain_identifier_unreserved()?;
-                index_options.push(CreateIndexOption::Algorithm(
-                    algorithm_span,
-                    algorithm_value,
-                ));
+                if matches!(&parser.token, Token::Ident(_, Keyword::DEFAULT)) {
+                    let default_span = parser.consume_keyword(Keyword::DEFAULT)?;
+                    index_options.push(CreateIndexOption::AlgorithmDefault {
+                        algorithm_span,
+                        default_span,
+                    });
+                } else {
+                    let algorithm_value = parser.consume_plain_identifier_unreserved()?;
+                    index_options.push(CreateIndexOption::Algorithm(
+                        algorithm_span,
+                        algorithm_value,
+                    ));
+                }
             }
             Token::Ident(_, Keyword::LOCK) => {
                 let lock_span = parser.consume_keyword(Keyword::LOCK)?;
