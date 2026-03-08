@@ -293,11 +293,14 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
     }
 
-    pub(crate) fn consume_plain_identifier(&mut self) -> Result<Identifier<'a>, ParseError> {
+    pub(crate) fn consume_plain_identifier_restrict(
+        &mut self,
+        restricted: Restrict,
+    ) -> Result<Identifier<'a>, ParseError> {
         match &self.token {
             Token::Ident(v, kw) => {
                 let v = *v;
-                if kw.restricted(self.reserved()) {
+                if kw.restricted(restricted) {
                     self.err(
                         format!("'{}' is a reserved identifier use `{}`", v, v),
                         &self.span.span(),
@@ -323,6 +326,11 @@ impl<'a, 'b> Parser<'a, 'b> {
             }
             _ => self.expected_failure("identifier"),
         }
+    }
+
+    /// Temporary function will be removed
+    pub(crate) fn consume_plain_identifier(&mut self) -> Result<Identifier<'a>, ParseError> {
+        self.consume_plain_identifier_restrict(self.reserved())
     }
 
     pub(crate) fn consume_keyword(&mut self, keyword: Keyword) -> Result<Span, ParseError> {
