@@ -17,7 +17,7 @@ use crate::{
     DataType, Identifier, SString, Span, Spanned, Statement,
     data_type::parse_data_type,
     expression::{Expression, parse_expression_unreserved},
-    keywords::Keyword,
+    keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
     span::OptSpanned,
@@ -358,6 +358,7 @@ impl<'a> Spanned for TableReference<'a> {
 
 pub(crate) fn parse_table_reference_inner<'a>(
     parser: &mut Parser<'a, '_>,
+    additional_restrict: crate::keywords::Restrict,
 ) -> Result<TableReference<'a>, ParseError> {
     // TODO [LATERAL] table_subquery [AS] alias [(col_list)]
     // if parser.skip_token(Token::LParen).is_some() {
@@ -371,9 +372,13 @@ pub(crate) fn parse_table_reference_inner<'a>(
             let query = parse_compound_query(parser)?;
             let as_span = parser.skip_keyword(Keyword::AS);
             let as_ = if as_span.is_some()
-                || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved())))
+                || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
             {
-                Some(parser.consume_plain_identifier_unreserved()?)
+                Some(
+                    parser.consume_plain_identifier_restrict(
+                        parser.reserved() | additional_restrict,
+                    )?,
+                )
             } else {
                 None
             };
@@ -436,7 +441,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
                     // Parse AS and alias
                     let as_span = parser.skip_keyword(Keyword::AS);
                     let as_ = if as_span.is_some()
-                        || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved())))
+                        || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
                     {
                         Some(parser.consume_plain_identifier_unreserved()?)
                     } else {
@@ -476,9 +481,13 @@ pub(crate) fn parse_table_reference_inner<'a>(
             // TODO [PARTITION (partition_names)] [[AS] alias]
             let as_span = parser.skip_keyword(Keyword::AS);
             let as_ = if as_span.is_some()
-                || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved())))
+                || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
             {
-                Some(parser.consume_plain_identifier_unreserved()?)
+                Some(
+                    parser.consume_plain_identifier_restrict(
+                        parser.reserved() | additional_restrict,
+                    )?,
+                )
             } else {
                 None
             };
@@ -705,8 +714,9 @@ fn parse_json_table_columns<'a>(
 
 pub(crate) fn parse_table_reference<'a>(
     parser: &mut Parser<'a, '_>,
+    additional_restrict: crate::keywords::Restrict,
 ) -> Result<TableReference<'a>, ParseError> {
-    let mut ans = parse_table_reference_inner(parser)?;
+    let mut ans = parse_table_reference_inner(parser, additional_restrict)?;
     loop {
         let join = match parser.token {
             Token::Ident(_, Keyword::FULL) => {
@@ -803,7 +813,7 @@ pub(crate) fn parse_table_reference<'a>(
             _ => break,
         };
 
-        let right = parse_table_reference_inner(parser)?;
+        let right = parse_table_reference_inner(parser, additional_restrict)?;
 
         let specification = match &parser.token {
             Token::Ident(_, Keyword::ON) => {
@@ -1076,7 +1086,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
     let table_references = if from_span.is_some() {
         let mut table_references = Vec::new();
         loop {
-            table_references.push(parse_table_reference(parser)?);
+            table_references.push(parse_table_reference(parser, Restrict::EMPTY)?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }

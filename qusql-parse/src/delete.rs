@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 use crate::{
     QualifiedName, SelectExpr, Span, Spanned, TableReference,
     expression::{Expression, parse_expression_unreserved},
-    keywords::Keyword,
+    keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name_unreserved,
@@ -138,7 +138,7 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
         }
         let from_span = parser.consume_keyword(Keyword::FROM)?;
         loop {
-            using.push(parse_table_reference(parser)?);
+            using.push(parse_table_reference(parser, Restrict::EMPTY)?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -157,7 +157,7 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
             );
         }
         loop {
-            using.push(parse_table_reference(parser)?);
+            using.push(parse_table_reference(parser, Restrict::EMPTY)?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
