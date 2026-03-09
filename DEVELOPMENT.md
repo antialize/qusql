@@ -33,6 +33,86 @@ python3 test.py test-postgresql --filter "CREATE MATERIALIZED"
 python3 test.py test-postgresql --update-output --filter "CREATE MATERIALIZED"
 ```
 
+### Validating Against Real Databases
+
+The `validate-postgresql` and `validate-mysql` commands run tests against actual database servers in Docker containers to verify the parser's behavior matches real database behavior.
+
+```bash
+# Validate all PostgreSQL tests
+python3 test.py validate-postgresql
+
+# Validate specific tests with a filter
+python3 test.py validate-postgresql --filter "INSERT INTO"
+
+# Validate MySQL tests
+python3 test.py validate-mysql --filter "CREATE TABLE"
+```
+
+#### The `should_fail` Flag
+
+Tests can be marked with `"should_fail": true` to indicate that the SQL should fail when executed against a real database:
+
+```json
+{
+  "input": "SELECT c FROM cte WHERE c = 1",
+  "should_fail": true,
+  "output": "...",
+  "issues": []
+}
+```
+
+When validation runs:
+- **`should_fail: true`**: The test passes if the SQL fails in the real database
+- **`should_fail: false`** (or omitted): The test passes if the SQL succeeds in the real database
+
+#### Database Setup for Tests
+
+Tests that require tables or other database objects can reference setup SQL using the `"setup"` field:
+
+```json
+{
+  "input": "INSERT INTO test_tables VALUES (1, 2, 3)",
+  "setup": "test_tables",
+  "output": "...",
+  "issues": []
+}
+```
+
+The setup name references entries in `postgres-setups.json` or `mysql-setups.json`:
+
+```json
+{
+  "test_tables": [
+    "CREATE TABLE test_tables (id INTEGER, a INTEGER, b INTEGER, c INTEGER)"
+  ]
+}
+```
+
+#### Interpreting Validation Results
+
+When validation finds mismatches, it suggests fixing the `should_fail` flag:
+
+```
+❌ Found 1 mismatches:
+
+  Test #42: SELECT nonexistent_column FROM users
+    should_fail: False → should be: True
+```
+
+This means:
+1. The test currently has `should_fail: false` (or omitted)
+2. The SQL failed when executed against the real database
+3. You should add `"should_fail": true` to the test
+
+#### Workflow for Adding Tests with Real Database Validation
+
+1. Add the test to `postgres-tests.json` or `mysql-tests.json`
+2. If the test needs tables, add setup SQL to `postgres-setups.json` or `mysql-setups.json`
+3. Reference the setup in your test with `"setup": "setup_name"`
+4. Run validation: `python3 test.py validate-postgresql --filter "YOUR SQL"`
+5. If validation shows a mismatch, add or remove `"should_fail": true` accordingly
+6. Re-run validation to confirm all tests match database behavior
+
 ## Building and Checking Code
 
 ```bash

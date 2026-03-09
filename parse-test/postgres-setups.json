@@ -14,5 +14,8 @@
   ],
   "users_table": [
     "CREATE TABLE users (id INTEGER, name TEXT)"
+  ],
+  "test_tables": [
+    "CREATE TABLE test_tables (id INTEGER, a INTEGER, b INTEGER, c INTEGER)"
   ]
 }
