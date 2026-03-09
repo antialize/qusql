@@ -1372,6 +1372,8 @@ fn parse_operator_family_item<'a>(
                     parser.consume_keyword(Keyword::BY)?;
                     let sort_family = parse_operator_name(parser)?;
                     for_order_by = Some((for_span.join_span(&order_span), sort_family));
+                } else {
+                    parser.expected_failure("'SEARCH' or 'ORDER BY' after 'FOR'")?;
                 }
             }
             Ok(OperatorFamilyItem::Operator {

@@ -385,15 +385,18 @@
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2) FOR",
     "setup": "operator_family_my_ops",
-    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: Add {\n            add_span: 41..44,\n            items: [\n                Operator {\n                    operator_span: 45..53,\n                    number: (\n                        1,\n                        54..55,\n                    ),\n                    operator: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"<\",\n                            span: 56..57,\n                        },\n                    },\n                    lparen_span: 58..59,\n                    left_type: DataType {\n                        identifier: 59..63,\n                        type_: Named(\n                            59..63,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: 63..64,\n                    right_type: DataType {\n                        identifier: 65..69,\n                        type_: Named(\n                            65..69,\n                        ),\n                        properties: [],\n                    },\n                    rparen_span: 69..70,\n                    for_search: None,\n                    for_order_by: None,\n                },\n            ],\n        },\n    },\n)",
-    "issues": [],
-    "should_fail": true
+    "output": null,
+    "issues": [
+      "Issue {\n    level: Error,\n    message: \"Expected ''SEARCH' or 'ORDER BY' after 'FOR'' here\",\n    span: 74..74,\n    sql_segment: \"\",\n    fragments: [],\n}"
+    ],
+    "should_fail": true,
+    "failure": true
   },
   {
     "input": "ALTER OPERATOR FAMILY my_ops USING btree ADD OPERATOR 1 < (INT4, INT2) FOR INVALID",
-    "output": "AlterOperatorFamily(\n    AlterOperatorFamily {\n        alter_operator_family_span: 0..21,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_ops\",\n                span: 22..28,\n            },\n        },\n        index_method: BTree(\n            29..40,\n        ),\n        action: Add {\n            add_span: 41..44,\n            items: [\n                Operator {\n                    operator_span: 45..53,\n                    number: (\n                        1,\n                        54..55,\n                    ),\n                    operator: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"<\",\n                            span: 56..57,\n                        },\n                    },\n                    lparen_span: 58..59,\n                    left_type: DataType {\n                        identifier: 59..63,\n                        type_: Named(\n                            59..63,\n                        ),\n                        properties: [],\n                    },\n                    comma_span: 63..64,\n                    right_type: DataType {\n                        identifier: 65..69,\n                        type_: Named(\n                            65..69,\n                        ),\n                        properties: [],\n                    },\n                    rparen_span: 69..70,\n                    for_search: None,\n                    for_order_by: None,\n                },\n            ],\n        },\n    },\n)",
+    "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 75..82,\n    sql_segment: \"INVALID\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''SEARCH' or 'ORDER BY' after 'FOR'' here\",\n    span: 75..82,\n    sql_segment: \"INVALID\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
