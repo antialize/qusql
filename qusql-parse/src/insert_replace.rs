@@ -326,6 +326,30 @@ pub(crate) fn parse_insert_replace<'a>(
         parser.consume_token(Token::RParen)?;
     }
 
+    // Parse AS alias before VALUES/SELECT/SET (PostgreSQL style)
+    let as_alias_before = if let Some(as_span) = parser.skip_keyword(Keyword::AS) {
+        let alias = parser.consume_plain_identifier_unreserved()?;
+        let columns = if parser.skip_token(Token::LParen).is_some() {
+            let mut cols = Vec::new();
+            // Check for empty column list ()
+            if !matches!(parser.token, Token::RParen) {
+                loop {
+                    cols.push(parser.consume_plain_identifier_unreserved()?);
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+            }
+            parser.consume_token(Token::RParen)?;
+            Some(cols)
+        } else {
+            None
+        };
+        Some((as_span, alias, columns))
+    } else {
+        None
+    };
+
     let mut select = None;
     let mut values = None;
     let mut set = None;
@@ -500,28 +524,32 @@ pub(crate) fn parse_insert_replace<'a>(
             (None, None)
         };
 
-    // Parse AS alias (MySQL/MariaDB): AS alias [(col1, col2, ...)]
-    let as_alias = if let Some(as_span) = parser.skip_keyword(Keyword::AS) {
-        let alias = parser.consume_plain_identifier_unreserved()?;
-        let columns = if parser.skip_token(Token::LParen).is_some() {
-            let mut cols = Vec::new();
-            // Check for empty column list ()
-            if !matches!(parser.token, Token::RParen) {
-                loop {
-                    cols.push(parser.consume_plain_identifier_unreserved()?);
-                    if parser.skip_token(Token::Comma).is_none() {
-                        break;
+    // Parse AS alias after VALUES/SELECT/SET (MySQL/MariaDB style) if not already parsed
+    let as_alias = if as_alias_before.is_none() {
+        if let Some(as_span) = parser.skip_keyword(Keyword::AS) {
+            let alias = parser.consume_plain_identifier_unreserved()?;
+            let columns = if parser.skip_token(Token::LParen).is_some() {
+                let mut cols = Vec::new();
+                // Check for empty column list ()
+                if !matches!(parser.token, Token::RParen) {
+                    loop {
+                        cols.push(parser.consume_plain_identifier_unreserved()?);
+                        if parser.skip_token(Token::Comma).is_none() {
+                            break;
+                        }
                     }
                 }
-            }
-            parser.consume_token(Token::RParen)?;
-            Some(cols)
+                parser.consume_token(Token::RParen)?;
+                Some(cols)
+            } else {
+                None
+            };
+            Some((as_span, alias, columns))
         } else {
             None
-        };
-        Some((as_span, alias, columns))
+        }
     } else {
-        None
+        as_alias_before
     };
 
     let returning = if let Some(returning_span) = parser.skip_keyword(Keyword::RETURNING) {
