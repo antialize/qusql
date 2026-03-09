@@ -595,6 +595,19 @@ impl Spanned for NullExpression {
     }
 }
 
+/// Literal DEFAULT expression
+#[derive(Debug, Clone)]
+pub struct DefaultExpression {
+    /// Span of "DEFAULT"
+    pub span: Span,
+}
+
+impl Spanned for DefaultExpression {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+}
+
 /// Literal bool expression "TRUE" or "FALSE"
 #[derive(Debug, Clone)]
 pub struct BoolExpression {
@@ -735,6 +748,8 @@ pub enum Expression<'a> {
     Subquery(Box<SubqueryExpression<'a>>),
     /// Literal NULL expression
     Null(Box<NullExpression>),
+    /// Literal DEFAULT expression
+    Default(Box<DefaultExpression>),
     /// Literal bool expression "TRUE" or "FALSE"
     Bool(Box<BoolExpression>),
     /// Literal string expression, the SString contains the represented string
@@ -799,6 +814,7 @@ impl<'a> Spanned for Expression<'a> {
             Expression::Unary(e) => e.span(),
             Expression::Subquery(v) => v.span(),
             Expression::Null(v) => v.span(),
+            Expression::Default(v) => v.span(),
             Expression::Bool(v) => v.span(),
             Expression::String(v) => v.span(),
             Expression::Integer(v) => v.span(),
@@ -1832,6 +1848,20 @@ pub(crate) fn parse_expression_unreserved<'a>(
     inner: bool,
 ) -> Result<Expression<'a>, ParseError> {
     parse_expression_restricted(parser, inner, parser.reserved())
+}
+
+/// Parse an expression that may be DEFAULT (for INSERT VALUES, INSERT SET, UPDATE SET contexts)
+pub(crate) fn parse_expression_or_default<'a>(
+    parser: &mut Parser<'a, '_>,
+    inner: bool,
+) -> Result<Expression<'a>, ParseError> {
+    if matches!(parser.token, Token::Ident(_, Keyword::DEFAULT)) {
+        Ok(Expression::Default(Box::new(DefaultExpression {
+            span: parser.consume_keyword(Keyword::DEFAULT)?,
+        })))
+    } else {
+        parse_expression_unreserved(parser, inner)
+    }
 }
 
 pub(crate) fn parse_expression_outer<'a>(

@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 
 use crate::{
     Identifier, SelectExpr, Span, Spanned,
-    expression::{Expression, parse_expression_unreserved},
+    expression::{Expression, parse_expression_or_default, parse_expression_unreserved},
     keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
@@ -127,7 +127,7 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
             col.push(parser.consume_plain_identifier_unreserved()?);
         }
         parser.consume_token(Token::Eq)?;
-        let val = parse_expression_unreserved(parser, false)?;
+        let val = parse_expression_or_default(parser, false)?;
         set.push((col, val));
         if parser.skip_token(Token::Comma).is_none() {
             break;
