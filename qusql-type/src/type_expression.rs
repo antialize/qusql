@@ -506,5 +506,9 @@ pub(crate) fn type_expression<'a>(
             issue_todo!(typer.issues, e);
             FullType::invalid()
         }
+        e @ Expression::Default(_) => {
+            issue_todo!(typer.issues, e);
+            FullType::invalid()
+        }
     }
 }

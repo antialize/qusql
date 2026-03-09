@@ -113,8 +113,8 @@ pub use drop::{
 };
 pub use expression::{
     ArgExpression, BinaryExpression, BinaryOperator, BoolExpression, CaseExpression,
-    CastExpression, ConvertExpression, CountExpression, ExistsExpression, Expression,
-    ExtractExpression, FloatExpression, GroupConcatExpression, IdentifierExpression,
+    CastExpression, ConvertExpression, CountExpression, DefaultExpression, ExistsExpression,
+    Expression, ExtractExpression, FloatExpression, GroupConcatExpression, IdentifierExpression,
     IdentifierPart, InExpression, IntegerExpression, IntervalExpression, InvalidExpression, Is,
     IsExpression, ListHackExpression, MatchAgainstExpression, MatchMode, MemberOfExpression,
     NullExpression, SubqueryExpression, TimeUnit, TimestampAddExpression, TimestampDiffExpression,
