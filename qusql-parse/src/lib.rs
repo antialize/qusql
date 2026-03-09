@@ -46,6 +46,7 @@ use lexer::Token;
 use parser::Parser;
 mod alter_role;
 mod alter_table;
+mod alter_type;
 mod create;
 mod create_function;
 mod create_index;
@@ -92,6 +93,7 @@ pub use alter_table::{
     RenameIndex, RenameTo, ReplicaIdentity, ReplicaIdentityOption, TableConstraintType,
     TriggerName, ValidateConstraint,
 };
+pub use alter_type::{AlterType, AlterTypeAction, AttributeAction};
 pub use create::{
     CreateDatabase, CreateDatabaseOption, CreateSchema, CreateSequence, CreateServer,
     CreateTypeEnum, SequenceOption,

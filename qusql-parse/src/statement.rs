@@ -621,6 +621,12 @@ pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, Par
         Token::Ident(_, Keyword::ROLE) => Ok(Statement::AlterRole(Box::new(parse_alter_role(
             parser, alter_span,
         )?))),
+        Token::Ident(_, Keyword::TYPE) => {
+            let type_span = parser.consume_keyword(Keyword::TYPE)?;
+            Ok(Statement::AlterType(Box::new(
+                crate::alter_type::parse_alter_type(parser, alter_span.join_span(&type_span))?,
+            )))
+        }
         Token::Ident(_, Keyword::OPERATOR) => {
             let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
             match &parser.token {
@@ -711,6 +717,7 @@ pub enum Statement<'a> {
     ShowEngines(Box<ShowEngines>),
     AlterTable(Box<AlterTable<'a>>),
     AlterRole(Box<AlterRole<'a>>),
+    AlterType(Box<crate::alter_type::AlterType<'a>>),
     AlterOperatorFamily(Box<AlterOperatorFamily<'a>>),
     Block(Box<Block<'a>>),
     Begin(Box<Begin>),
@@ -775,6 +782,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::AlterOperatorFamily(v) => v.span(),
             Statement::DropOperatorFamily(v) => v.span(),
             Statement::AlterRole(v) => v.span(),
+            Statement::AlterType(v) => v.span(),
             Statement::AlterTable(v) => v.span(),
             Statement::Block(v) => v.opt_span().expect("Span of block"),
             Statement::If(v) => v.span(),
