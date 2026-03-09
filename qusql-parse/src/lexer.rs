@@ -63,6 +63,7 @@ pub(crate) enum Token<'a> {
     ShiftRight,
     SingleQuotedString(&'a str),
     DoubleQuotedString(&'a str),
+    DollarQuotedString(&'a str),
     HexString(&'a str),
     BinaryString(&'a str),
     Spaceship,
@@ -138,6 +139,7 @@ impl<'a> Token<'a> {
             Token::DollarArg(_) => "'$i'",
             Token::SingleQuotedString(_) => "String",
             Token::DoubleQuotedString(_) => "String",
+            Token::DollarQuotedString(_) => "String",
             Token::HexString(_) => "HexString",
             Token::BinaryString(_) => "BinaryString",
             Token::Spaceship => "'<=>'",
@@ -479,26 +481,119 @@ impl<'a> Lexer<'a> {
                     }
                     _ => self.next_operator(start, (start, c), Token::Colon),
                 },
-                b'$' => match self.chars.peek() {
-                    Some((_, b'$')) => {
-                        self.chars.next();
-                        Token::DoubleDollar
-                    }
-                    Some((_, b'1'..=b'9')) if self.dialect.is_postgresql() => {
-                        let mut v = (self.chars.peek().unwrap().1 - b'0') as usize;
-                        self.chars.next();
-                        while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
-                            v = v * 10 + (self.chars.peek().unwrap().1 - b'0') as usize;
-                            self.chars.next();
+                b'$' => {
+                    // Check for PostgreSQL dollar-quoted strings first
+                    let dollar_string = if self.dialect.is_postgresql() {
+                        // Try to parse a dollar-quoted string: $tag$...$tag$ or $$...$$
+                        let start_pos = start;
+                        let mut temp_chars = self.chars.clone();
+
+                        // Scan the tag (can be empty)
+                        let tag_start = start_pos + 1;
+                        let mut tag_end = tag_start;
+
+                        // Tag can contain letters, digits, and underscores
+                        let mut is_dollar_string = false;
+                        loop {
+                            match temp_chars.peek() {
+                                Some((i, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_')) => {
+                                    tag_end = i + 1;
+                                    temp_chars.next();
+                                }
+                                Some((_, b'$')) => {
+                                    // Found the closing $ of the opening delimiter
+                                    temp_chars.next(); // consume the $
+                                    is_dollar_string = true;
+                                    break;
+                                }
+                                _ => break,
+                            }
                         }
-                        Token::DollarArg(v)
+
+                        if is_dollar_string {
+                            let tag = self.s(tag_start..tag_end);
+                            let content_start = tag_end + 1;
+
+                            // Now search for the closing delimiter
+                            let mut found = false;
+                            let mut content_end = content_start;
+
+                            loop {
+                                match temp_chars.next() {
+                                    Some((i, b'$')) => {
+                                        // Possible start of closing delimiter
+                                        let mut closing_chars = temp_chars.clone();
+                                        let mut matches = true;
+
+                                        // Check if the tag matches
+                                        for tag_byte in tag.bytes() {
+                                            match closing_chars.next() {
+                                                Some((_, c)) if c == tag_byte => {}
+                                                _ => {
+                                                    matches = false;
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        // Check for closing $
+                                        if matches && let Some((_, b'$')) = closing_chars.peek() {
+                                            // Found the closing delimiter!
+                                            content_end = i;
+
+                                            // Advance the main iterator to after the closing delimiter
+                                            self.chars = closing_chars;
+                                            self.chars.next(); // consume the final $
+
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+                                    Some(_) => {}
+                                    None => break,
+                                }
+                            }
+
+                            if found {
+                                Some(Token::DollarQuotedString(
+                                    self.s(content_start..content_end),
+                                ))
+                            } else {
+                                Some(Token::Invalid)
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    if let Some(token) = dollar_string {
+                        token
+                    } else {
+                        // Not a dollar-quoted string, check other dollar patterns
+                        match self.chars.peek() {
+                            Some((_, b'$')) => {
+                                self.chars.next();
+                                Token::DoubleDollar
+                            }
+                            Some((_, b'1'..=b'9')) if self.dialect.is_postgresql() => {
+                                let mut v = (self.chars.peek().unwrap().1 - b'0') as usize;
+                                self.chars.next();
+                                while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
+                                    v = v * 10 + (self.chars.peek().unwrap().1 - b'0') as usize;
+                                    self.chars.next();
+                                }
+                                Token::DollarArg(v)
+                            }
+                            _ if self.dialect.is_maria() => {
+                                // In MariaDB, $ can start an identifier
+                                self.unquoted_identifier(start)
+                            }
+                            _ => Token::Invalid,
+                        }
                     }
-                    _ if self.dialect.is_maria() => {
-                        // In MariaDB, $ can start an identifier
-                        self.unquoted_identifier(start)
-                    }
-                    _ => Token::Invalid,
-                },
+                }
                 b'=' => match self.chars.peek() {
                     Some((_, b'>')) => {
                         let next = self.chars.next().unwrap();
@@ -1249,9 +1344,11 @@ mod tests {
             Token::Ident(_, Keyword::NOT_A_KEYWORD)
         ));
 
-        // Double dollar works in both dialects
+        // In MariaDB, $$ is a statement delimiter token
         assert_eq!(lex_single("$$", &mariadb), Token::DoubleDollar);
-        assert_eq!(lex_single("$$", &postgresql), Token::DoubleDollar);
+        // In PostgreSQL, $$ opens a dollar-quoted string; a bare $$ with no closing
+        // delimiter is unterminated → Invalid
+        assert_eq!(lex_single("$$", &postgresql), Token::Invalid);
 
         // Session variables (MariaDB)
         assert_eq!(lex_single("@@GLOBAL", &mariadb), Token::AtAtGlobal);
@@ -1261,6 +1358,73 @@ mod tests {
 
         // Percent s
         assert_eq!(lex_single("%s", &mariadb), Token::PercentS);
+    }
+
+    /// Tests that PostgreSQL dollar-quoted strings are correctly recognized and parsed.
+    #[test]
+    fn test_dollar_quoted_strings() {
+        let postgresql = SQLDialect::PostgreSQL;
+
+        // Simple dollar-quoted string
+        if let Token::DollarQuotedString(value) = lex_single("$$Hello World$$", &postgresql) {
+            assert_eq!(value, "Hello World");
+        } else {
+            panic!("Expected dollar-quoted string");
+        }
+
+        // Empty dollar-quoted string
+        if let Token::DollarQuotedString(value) = lex_single("$$$$", &postgresql) {
+            assert_eq!(value, "");
+        } else {
+            panic!("Expected empty dollar-quoted string");
+        }
+
+        // Dollar-quoted string with tag
+        if let Token::DollarQuotedString(value) = lex_single("$tag$Hello World$tag$", &postgresql) {
+            assert_eq!(value, "Hello World");
+        } else {
+            panic!("Expected tagged dollar-quoted string");
+        }
+
+        // Dollar-quoted string with special characters
+        if let Token::DollarQuotedString(value) = lex_single("$$hello$$world$$", &postgresql) {
+            assert_eq!(value, "hello");
+        } else {
+            panic!("Expected dollar-quoted string with $$ inside");
+        }
+
+        // Dollar-quoted string with tag containing various characters
+        if let Token::DollarQuotedString(value) = lex_single("$x$hello$x$", &postgresql) {
+            assert_eq!(value, "hello");
+        } else {
+            panic!("Expected dollar-quoted string with tag 'x'");
+        }
+
+        // Dollar-quoted string with underscore in tag
+        if let Token::DollarQuotedString(value) =
+            lex_single("$tag_name$world$tag_name$", &postgresql)
+        {
+            assert_eq!(value, "world");
+        } else {
+            panic!("Expected dollar-quoted string with tag 'tag_name'");
+        }
+
+        // Dollar-quoted string with newlines and special characters
+        if let Token::DollarQuotedString(value) = lex_single("$$Foo$Bar$$", &postgresql) {
+            assert_eq!(value, "Foo$Bar");
+        } else {
+            panic!("Expected dollar-quoted string with $ character inside");
+        }
+
+        // Dollar-quoted string in a SELECT statement
+        let tokens = lex_all("SELECT $$Hello$$", &postgresql);
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0], Token::Ident(_, Keyword::SELECT)));
+        if let Token::DollarQuotedString(value) = &tokens[1] {
+            assert_eq!(*value, "Hello");
+        } else {
+            panic!("Expected dollar-quoted string in SELECT");
+        }
     }
 
     /// Tests that comments are correctly skipped and do not produce tokens. It covers single-line comments with both -- and //, as well as multi-line comments.
