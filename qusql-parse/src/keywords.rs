@@ -346,6 +346,7 @@ pub(crate) enum Keyword {
     AT,
     ATAN,
     ATAN2,
+    ATTRIBUTE,
     ATOMIC,
     AUTHORS,
     AUTO,

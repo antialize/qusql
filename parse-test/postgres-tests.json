@@ -946,59 +946,38 @@
   },
   {
     "input": "ALTER TYPE public.my_type ADD VALUE 'label3.5' AFTER 'label3'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"TYPE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterType(\n    AlterType {\n        alter_type_span: 0..10,\n        name: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"public\",\n                        span: 11..17,\n                    },\n                    17..18,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"my_type\",\n                span: 18..25,\n            },\n        },\n        action: AddValue {\n            add_value_span: 26..35,\n            if_not_exists_span: None,\n            new_enum_value: SString {\n                value: \"label3.5\",\n                span: 36..46,\n            },\n            placement: Some(\n                (\n                    47..52,\n                    SString {\n                        value: \"label3\",\n                        span: 53..61,\n                    },\n                ),\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TYPE public.my_type ADD VALUE 'label3.5' BEFORE 'label4'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"TYPE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterType(\n    AlterType {\n        alter_type_span: 0..10,\n        name: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"public\",\n                        span: 11..17,\n                    },\n                    17..18,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"my_type\",\n                span: 18..25,\n            },\n        },\n        action: AddValue {\n            add_value_span: 26..35,\n            if_not_exists_span: None,\n            new_enum_value: SString {\n                value: \"label3.5\",\n                span: 36..46,\n            },\n            placement: Some(\n                (\n                    47..53,\n                    SString {\n                        value: \"label4\",\n                        span: 54..62,\n                    },\n                ),\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TYPE public.my_type ADD VALUE 'label5'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"TYPE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterType(\n    AlterType {\n        alter_type_span: 0..10,\n        name: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"public\",\n                        span: 11..17,\n                    },\n                    17..18,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"my_type\",\n                span: 18..25,\n            },\n        },\n        action: AddValue {\n            add_value_span: 26..35,\n            if_not_exists_span: None,\n            new_enum_value: SString {\n                value: \"label5\",\n                span: 36..44,\n            },\n            placement: None,\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TYPE public.my_type ADD VALUE IF NOT EXISTS 'label3.5' AFTER 'label3'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"TYPE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterType(\n    AlterType {\n        alter_type_span: 0..10,\n        name: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"public\",\n                        span: 11..17,\n                    },\n                    17..18,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"my_type\",\n                span: 18..25,\n            },\n        },\n        action: AddValue {\n            add_value_span: 26..35,\n            if_not_exists_span: Some(\n                36..49,\n            ),\n            new_enum_value: SString {\n                value: \"label3.5\",\n                span: 50..60,\n            },\n            placement: Some(\n                (\n                    61..66,\n                    SString {\n                        value: \"label3\",\n                        span: 67..75,\n                    },\n                ),\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TYPE public.my_type ADD VALUE IF NOT EXISTS 'label3.5' BEFORE 'label4'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"TYPE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterType(\n    AlterType {\n        alter_type_span: 0..10,\n        name: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"public\",\n                        span: 11..17,\n                    },\n                    17..18,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"my_type\",\n                span: 18..25,\n            },\n        },\n        action: AddValue {\n            add_value_span: 26..35,\n            if_not_exists_span: Some(\n                36..49,\n            ),\n            new_enum_value: SString {\n                value: \"label3.5\",\n                span: 50..60,\n            },\n            placement: Some(\n                (\n                    61..67,\n                    SString {\n                        value: \"label4\",\n                        span: 68..76,\n                    },\n                ),\n            ),\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TYPE public.my_type ADD VALUE IF NOT EXISTS 'label5'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"TYPE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterType(\n    AlterType {\n        alter_type_span: 0..10,\n        name: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"public\",\n                        span: 11..17,\n                    },\n                    17..18,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"my_type\",\n                span: 18..25,\n            },\n        },\n        action: AddValue {\n            add_value_span: 26..35,\n            if_not_exists_span: Some(\n                36..49,\n            ),\n            new_enum_value: SString {\n                value: \"label5\",\n                span: 50..58,\n            },\n            placement: None,\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TYPE public.my_type RENAME TO my_new_type",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'alterable' here\",\n    span: 6..10,\n    sql_segment: \"TYPE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterType(\n    AlterType {\n        alter_type_span: 0..10,\n        name: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"public\",\n                        span: 11..17,\n                    },\n                    17..18,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"my_type\",\n                span: 18..25,\n            },\n        },\n        action: RenameTo {\n            rename_to_span: 26..35,\n            new_name: Identifier {\n                value: \"my_new_type\",\n                span: 36..47,\n            },\n        },\n    },\n)",
+    "issues": []
   },
   {
     "input": "BEGIN\n            -- Check that empname and salary are given\n            IF NEW.empname IS NULL THEN\n                RAISE EXCEPTION 'empname cannot be null';\n            END IF;\n            IF NEW.salary IS NULL THEN\n                RAISE EXCEPTION '% cannot have null salary', NEW.empname;\n            END IF;\n\n            -- Who works for us when they must pay for it?\n            IF NEW.salary < 0 THEN\n                RAISE EXCEPTION '% cannot have a negative salary', NEW.empname;\n            END IF;\n\n            -- Remember who changed the payroll when\n            NEW.last_date := current_timestamp;\n            NEW.last_user := current_user;\n            RETURN NEW;\n        END;",
