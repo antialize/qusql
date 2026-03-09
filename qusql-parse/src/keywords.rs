@@ -47,6 +47,9 @@ impl Restrict {
     /// Restrict keywords: USING
     pub const USING: Self = Restrict(0b1000);
 
+    /// Restrict keywords: SET
+    pub const UPDATE_TABLE: Self = Restrict(0b10000);
+
     // End restrict set list
 }
 

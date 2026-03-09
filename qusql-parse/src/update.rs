@@ -16,7 +16,7 @@ use alloc::vec::Vec;
 use crate::{
     Identifier, SelectExpr, Span, Spanned,
     expression::{Expression, parse_expression_unreserved},
-    keywords::Keyword,
+    keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
     select::{TableReference, parse_select_expr, parse_table_reference},
@@ -110,12 +110,15 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
 
     let mut tables = Vec::new();
     loop {
-        tables.push(parse_table_reference(parser)?);
+        tables.push(parse_table_reference(parser, Restrict::UPDATE_TABLE)?);
+        // In PostgreSQL UPDATE, SET is not fully reserved, so stop here before comma
+        if matches!(parser.token, Token::Ident(_, Keyword::SET)) {
+            break;
+        }
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
     }
-
     let set_span = parser.consume_keyword(Keyword::SET)?;
     let mut set = Vec::new();
     loop {
