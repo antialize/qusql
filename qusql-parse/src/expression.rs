@@ -1176,6 +1176,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                 let time_interval = match parser.token {
                     Token::SingleQuotedString(_)
                     | Token::DoubleQuotedString(_)
+                    | Token::DollarQuotedString(_)
                     | Token::HexString(_)
                     | Token::BinaryString(_) => {
                         let v = parser.consume_string()?;
@@ -1311,6 +1312,7 @@ pub(crate) fn parse_expression_restricted<'a>(
             }
             Token::SingleQuotedString(_)
             | Token::DoubleQuotedString(_)
+            | Token::DollarQuotedString(_)
             | Token::HexString(_)
             | Token::BinaryString(_) => {
                 r.shift_expr(Expression::String(Box::new(parser.consume_string()?)))
@@ -1565,6 +1567,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                         parser.peek(),
                         Token::SingleQuotedString(_)
                             | Token::DoubleQuotedString(_)
+                            | Token::DollarQuotedString(_)
                             | Token::HexString(_)
                             | Token::BinaryString(_)
                     ) =>

@@ -406,6 +406,13 @@ impl<'a, 'b> Parser<'a, 'b> {
                 self.next();
                 (decode_double_quoted_string(v), span)
             }
+            Token::DollarQuotedString(v) => {
+                let v = *v;
+                let span = self.span.clone();
+                self.next();
+                // Dollar-quoted strings are literal, no decoding needed
+                (Cow::Borrowed(v), span)
+            }
             Token::HexString(v) => {
                 let v = *v;
                 let span = self.span.clone();
@@ -430,6 +437,12 @@ impl<'a, 'b> Parser<'a, 'b> {
                 Token::DoubleQuotedString(v) => {
                     b = b.join_span(&self.span);
                     a.to_mut().push_str(decode_double_quoted_string(v).as_ref());
+                    self.next();
+                }
+                Token::DollarQuotedString(v) => {
+                    b = b.join_span(&self.span);
+                    // Dollar-quoted strings are literal, no decoding needed
+                    a.to_mut().push_str(v);
                     self.next();
                 }
                 Token::HexString(v) => {

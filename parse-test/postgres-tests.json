@@ -1480,16 +1480,17 @@
     "output": null,
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 26..27,\n    sql_segment: \")\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected ''$$'' here\",\n    span: 47..48,\n    sql_segment: \"$\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''$$'' here\",\n    span: 47..771,\n    sql_segment: \"$emp_stamp$\\n        BEGIN\\n            -- Check that empname and salary are given\\n            IF NEW.empname IS NULL THEN\\n                RAISE EXCEPTION 'empname cannot be null';\\n            END IF;\\n            IF NEW.salary IS NULL THEN\\n                RAISE EXCEPTION '% cannot have null salary', NEW.empname;\\n            END IF;\\n\\n            -- Who works for us when they must pay for it?\\n            IF NEW.salary < 0 THEN\\n                RAISE EXCEPTION '% cannot have a negative salary', NEW.empname;\\n            END IF;\\n\\n            -- Remember who changed the payroll when\\n            NEW.last_date := current_timestamp;\\n            NEW.last_user := current_user;\\n            RETURN NEW;\\n        END;\\n    $emp_stamp$\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "CREATE FUNCTION test() RETURNS TEXT AS $$SELECT 'hello'$$ LANGUAGE SQL",
-    "output": "CreateFunction(\n    CreateFunction {\n        create_span: 0..6,\n        create_options: [],\n        function_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"test\",\n            span: 16..20,\n        },\n        params: [],\n        returns_span: 23..30,\n        return_type: DataType {\n            identifier: 31..35,\n            type_: Text(\n                None,\n            ),\n            properties: [],\n        },\n        characteristics: [\n            LanguageSql(\n                58..70,\n            ),\n        ],\n        return_: None,\n    },\n)",
+    "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 21..22,\n    sql_segment: \")\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 21..22,\n    sql_segment: \")\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''$$'' here\",\n    span: 39..57,\n    sql_segment: \"$$SELECT 'hello'$$\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1499,7 +1500,7 @@
     "output": null,
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 21..22,\n    sql_segment: \")\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected ''$$'' here\",\n    span: 39..40,\n    sql_segment: \"$\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''$$'' here\",\n    span: 39..65,\n    sql_segment: \"$body$SELECT 'hello'$body$\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -7799,51 +7800,51 @@
   },
   {
     "input": "SELECT $$$",
+    "setup": "empty_setup",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..9,\n    sql_segment: \"$$\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..8,\n    sql_segment: \"$\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "SELECT $$Hello World$$",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..9,\n    sql_segment: \"$$\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"Hello World\",\n                        span: 7..22,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT $$hello$$, $tag_name$world$tag_name$, $$Foo$Bar$$, $$Foo$Bar$$col_name, $$$$, $tag_name$$tag_name$",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..9,\n    sql_segment: \"$$\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 77..78,\n    sql_segment: \",\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "SELECT $hello$$",
+    "setup": "empty_setup",
     "output": null,
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..8,\n    sql_segment: \"$\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "SELECT $tag$Hello World$tag$",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..8,\n    sql_segment: \"$\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"Hello World\",\n                        span: 7..28,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT $x$hello$$",
+    "setup": "empty_setup",
     "output": null,
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..8,\n    sql_segment: \"$\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "SELECT '1 second'::INTERVAL {field}",
