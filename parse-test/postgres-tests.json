@@ -1160,7 +1160,7 @@
     "input": "CREATE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 6..6,\n    sql_segment: \"\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 6..6,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1169,7 +1169,7 @@
     "input": "CREATE CONSTRAINT TRIGGER check_multiple_events BEFORE INSERT OR UPDATE OR DELETE ON accounts DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_account_changes",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..17,\n    sql_segment: \"CONSTRAINT\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..17,\n    sql_segment: \"CONSTRAINT\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'ON' here\",\n    span: 62..64,\n    sql_segment: \"OR\",\n    fragments: [],\n}"
     ],
     "failure": true,
@@ -1179,7 +1179,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1187,7 +1187,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER COLLATE \"en_US\" CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1195,7 +1195,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER COLLATE \"en_US\" DEFAULT 1 CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1203,7 +1203,7 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER CONSTRAINT my_constraint CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -1211,76 +1211,49 @@
     "input": "CREATE DOMAIN my_domain AS INTEGER DEFAULT 1 CHECK (VALUE > 0)",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "CREATE EXTENSION extension_name",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateExtension(\n    CreateExtension {\n        create_span: 0..6,\n        extension_span: 7..16,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"extension_name\",\n            span: 17..31,\n        },\n        schema: None,\n        version: None,\n        cascade: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE EXTENSION extension_name WITH CASCADE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateExtension(\n    CreateExtension {\n        create_span: 0..6,\n        extension_span: 7..16,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"extension_name\",\n            span: 17..31,\n        },\n        schema: None,\n        version: None,\n        cascade: Some(\n            37..44,\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name",
-    "output": "CreateSchema(\n    CreateSchema {\n        create_span: 0..6,\n        schema_span: 37..43,\n        if_not_exists: None,\n        name: Some(\n            Identifier {\n                value: \"schema_name\",\n                span: 44..55,\n            },\n        ),\n        authorization: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateExtension(\n    CreateExtension {\n        create_span: 0..6,\n        extension_span: 7..16,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"extension_name\",\n            span: 17..31,\n        },\n        schema: Some(\n            (\n                37..43,\n                Identifier {\n                    value: \"schema_name\",\n                    span: 44..55,\n                },\n            ),\n        ),\n        version: None,\n        cascade: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name CASCADE",
-    "output": "CreateSchema(\n    CreateSchema {\n        create_span: 0..6,\n        schema_span: 37..43,\n        if_not_exists: None,\n        name: Some(\n            Identifier {\n                value: \"schema_name\",\n                span: 44..55,\n            },\n        ),\n        authorization: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 56..63,\n    sql_segment: \"CASCADE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateExtension(\n    CreateExtension {\n        create_span: 0..6,\n        extension_span: 7..16,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"extension_name\",\n            span: 17..31,\n        },\n        schema: Some(\n            (\n                37..43,\n                Identifier {\n                    value: \"schema_name\",\n                    span: 44..55,\n                },\n            ),\n        ),\n        version: None,\n        cascade: Some(\n            56..63,\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name VERSION version",
-    "output": "CreateSchema(\n    CreateSchema {\n        create_span: 0..6,\n        schema_span: 37..43,\n        if_not_exists: None,\n        name: Some(\n            Identifier {\n                value: \"schema_name\",\n                span: 44..55,\n            },\n        ),\n        authorization: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 56..63,\n    sql_segment: \"VERSION\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateExtension(\n    CreateExtension {\n        create_span: 0..6,\n        extension_span: 7..16,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"extension_name\",\n            span: 17..31,\n        },\n        schema: Some(\n            (\n                37..43,\n                Identifier {\n                    value: \"schema_name\",\n                    span: 44..55,\n                },\n            ),\n        ),\n        version: Some(\n            (\n                56..63,\n                SString {\n                    value: \"version\",\n                    span: 64..71,\n                },\n            ),\n        ),\n        cascade: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE EXTENSION extension_name WITH SCHEMA schema_name VERSION version CASCADE",
-    "output": "CreateSchema(\n    CreateSchema {\n        create_span: 0..6,\n        schema_span: 37..43,\n        if_not_exists: None,\n        name: Some(\n            Identifier {\n                value: \"schema_name\",\n                span: 44..55,\n            },\n        ),\n        authorization: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 56..63,\n    sql_segment: \"VERSION\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateExtension(\n    CreateExtension {\n        create_span: 0..6,\n        extension_span: 7..16,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"extension_name\",\n            span: 17..31,\n        },\n        schema: Some(\n            (\n                37..43,\n                Identifier {\n                    value: \"schema_name\",\n                    span: 44..55,\n                },\n            ),\n        ),\n        version: Some(\n            (\n                56..63,\n                SString {\n                    value: \"version\",\n                    span: 64..71,\n                },\n            ),\n        ),\n        cascade: Some(\n            72..79,\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE EXTENSION extension_name WITH VERSION version",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateExtension(\n    CreateExtension {\n        create_span: 0..6,\n        extension_span: 7..16,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"extension_name\",\n            span: 17..31,\n        },\n        schema: None,\n        version: Some(\n            (\n                37..44,\n                SString {\n                    value: \"version\",\n                    span: 45..52,\n                },\n            ),\n        ),\n        cascade: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE EXTENSION extension_name WITH VERSION version CASCADE",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..16,\n    sql_segment: \"EXTENSION\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateExtension(\n    CreateExtension {\n        create_span: 0..6,\n        extension_span: 7..16,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"extension_name\",\n            span: 17..31,\n        },\n        schema: None,\n        version: Some(\n            (\n                37..44,\n                SString {\n                    value: \"version\",\n                    span: 45..52,\n                },\n            ),\n        ),\n        cascade: Some(\n            53..60,\n        ),\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE FUNCTION add(INTEGER, INTEGER = 1) RETURNS INTEGER AS 'select $1 + $2;'",
