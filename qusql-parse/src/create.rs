@@ -155,6 +155,105 @@ impl Spanned for CreateDatabase<'_> {
     }
 }
 
+/// CREATE EXTENSION statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct CreateExtension<'a> {
+    /// Span of "CREATE"
+    pub create_span: Span,
+    /// Span of "EXTENSION"
+    pub extension_span: Span,
+    /// Span of "IF NOT EXISTS" if specified
+    pub if_not_exists: Option<Span>,
+    /// Name of the extension
+    pub name: Identifier<'a>,
+    /// Optional SCHEMA clause
+    pub schema: Option<(Span, Identifier<'a>)>,
+    /// Optional VERSION clause
+    pub version: Option<(Span, SString<'a>)>,
+    /// CASCADE option
+    pub cascade: Option<Span>,
+}
+
+impl Spanned for CreateExtension<'_> {
+    fn span(&self) -> Span {
+        self.create_span
+            .join_span(&self.extension_span)
+            .join_span(&self.if_not_exists)
+            .join_span(&self.name)
+            .join_span(&self.schema)
+            .join_span(&self.version)
+            .join_span(&self.cascade)
+    }
+}
+
+fn parse_create_extension<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<CreateExtension<'a>, ParseError> {
+    let extension_span = parser.consume_keyword(Keyword::EXTENSION)?;
+    parser.postgres_only(&extension_span);
+
+    for option in create_options {
+        parser.err("Not supported for CREATE EXTENSION", &option.span());
+    }
+
+    let if_not_exists = if let Some(if_span) = parser.skip_keyword(Keyword::IF) {
+        Some(
+            parser
+                .consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?
+                .join_span(&if_span),
+        )
+    } else {
+        None
+    };
+
+    let name = parser.consume_plain_identifier_unreserved()?;
+
+    // Optional WITH
+    parser.skip_keyword(Keyword::WITH);
+
+    // Parse optional SCHEMA, VERSION, CASCADE (any order)
+    let mut schema = None;
+    let mut version = None;
+    let mut cascade = None;
+    loop {
+        match &parser.token {
+            Token::Ident(_, Keyword::SCHEMA) => {
+                let schema_span = parser.consume_keyword(Keyword::SCHEMA)?;
+                let schema_name = parser.consume_plain_identifier_unreserved()?;
+                schema = Some((schema_span, schema_name));
+            }
+            Token::Ident(_, Keyword::VERSION) => {
+                let version_span = parser.consume_keyword(Keyword::VERSION)?;
+                // Version can be identifier or string
+                let version_value = match &parser.token {
+                    Token::SingleQuotedString(v) => SString::new((*v).into(), parser.consume()),
+                    _ => {
+                        let ident = parser.consume_plain_identifier_unreserved()?;
+                        SString::new(ident.value.into(), ident.span)
+                    }
+                };
+                version = Some((version_span, version_value));
+            }
+            Token::Ident(_, Keyword::CASCADE) => {
+                cascade = Some(parser.consume_keyword(Keyword::CASCADE)?);
+            }
+            _ => break,
+        }
+    }
+
+    Ok(CreateExtension {
+        create_span,
+        extension_span,
+        if_not_exists,
+        name,
+        schema,
+        version,
+        cascade,
+    })
+}
+
 /// CREATE SCHEMA statement (PostgreSQL)
 #[derive(Clone, Debug)]
 pub struct CreateSchema<'a> {
@@ -722,7 +821,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
     parser.consume_keyword(Keyword::CREATE)?;
 
     let mut create_options = Vec::new();
-    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'";
+    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'";
 
     parser.recovered(
         CREATABLE,
@@ -744,6 +843,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         | Keyword::ROLE
                         | Keyword::SERVER
                         | Keyword::OPERATOR
+                        | Keyword::EXTENSION
                 )
             )
         },
@@ -870,6 +970,9 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
             )?)),
             Token::Ident(_, Keyword::DATABASE) => Statement::CreateDatabase(Box::new(
                 parse_create_database(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::EXTENSION) => Statement::CreateExtension(Box::new(
+                parse_create_extension(parser, create_span, create_options)?,
             )),
             Token::Ident(_, Keyword::SCHEMA) => Statement::CreateSchema(Box::new(
                 parse_create_schema(parser, create_span, create_options)?,

@@ -13,10 +13,10 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    AlterOperator, AlterOperatorClass, AlterOperatorFamily, AlterRole, AlterTable, CreateIndex,
-    CreateOperator, CreateOperatorClass, CreateOperatorFamily, CreateRole, CreateTrigger,
-    DropOperatorClass, DropOperatorFamily, Identifier, QualifiedName, RenameTable, Span, Spanned,
-    WithQuery,
+    AlterOperator, AlterOperatorClass, AlterOperatorFamily, AlterRole, AlterTable, CreateExtension,
+    CreateIndex, CreateOperator, CreateOperatorClass, CreateOperatorFamily, CreateRole,
+    CreateTrigger, DropOperatorClass, DropOperatorFamily, Identifier, QualifiedName, RenameTable,
+    Span, Spanned, WithQuery,
     alter_role::parse_alter_role,
     alter_table::parse_alter_table,
     create::{
@@ -678,8 +678,9 @@ pub enum Statement<'a> {
     CreateTypeEnum(Box<CreateTypeEnum<'a>>),
     CreateOperatorClass(Box<CreateOperatorClass<'a>>),
     CreateOperatorFamily(Box<CreateOperatorFamily<'a>>),
-    AlterOperatorClass(Box<AlterOperatorClass<'a>>),
+    CreateExtension(Box<CreateExtension<'a>>),
     AlterOperator(Box<AlterOperator<'a>>),
+    AlterOperatorClass(Box<AlterOperatorClass<'a>>),
     Select(Box<Select<'a>>),
     Delete(Box<Delete<'a>>),
     InsertReplace(Box<InsertReplace<'a>>),
@@ -820,6 +821,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Flush(v) => v.span(),
             Statement::CreateOperatorFamily(v) => v.span(),
             Statement::Values(v) => v.span(),
+            Statement::CreateExtension(v) => v.span(),
         }
     }
 }
