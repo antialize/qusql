@@ -23,7 +23,7 @@ use crate::{
         CreateDatabase, CreateSchema, CreateSequence, CreateServer, CreateTypeEnum, parse_create,
     },
     create_function::CreateFunction,
-    create_table::CreateTable,
+    create_table::{CreateTable, CreateTablePartitionOf},
     create_view::CreateView,
     delete::{Delete, parse_delete},
     drop::{
@@ -681,6 +681,7 @@ pub enum Statement<'a> {
     CreateExtension(Box<CreateExtension<'a>>),
     CreateDomain(Box<CreateDomain<'a>>),
     CreateConstraintTrigger(Box<CreateConstraintTrigger<'a>>),
+    CreateTablePartitionOf(Box<CreateTablePartitionOf<'a>>),
     AlterOperator(Box<AlterOperator<'a>>),
     AlterOperatorClass(Box<AlterOperatorClass<'a>>),
     Select(Box<Select<'a>>),
@@ -826,6 +827,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::CreateExtension(v) => v.span(),
             Statement::CreateDomain(v) => v.span(),
             Statement::CreateConstraintTrigger(v) => v.span(),
+            Statement::CreateTablePartitionOf(v) => v.span(),
         }
     }
 }
