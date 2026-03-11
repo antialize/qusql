@@ -25,6 +25,7 @@ use crate::{
     qualified_name::parse_qualified_name_unreserved,
     statement::parse_compound_query,
 };
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 /// Options on created table
@@ -363,6 +364,175 @@ impl Spanned for CreateTableAs<'_> {
     }
 }
 
+/// The partitioning method for PARTITION BY
+#[derive(Clone, Debug)]
+pub enum PartitionMethod {
+    Range(Span),
+    List(Span),
+    Hash(Span),
+}
+
+impl Spanned for PartitionMethod {
+    fn span(&self) -> Span {
+        match self {
+            PartitionMethod::Range(s) => s.span(),
+            PartitionMethod::List(s) => s.span(),
+            PartitionMethod::Hash(s) => s.span(),
+        }
+    }
+}
+
+/// PARTITION BY clause, appended to a CREATE TABLE statement
+#[derive(Clone, Debug)]
+pub struct PartitionBy<'a> {
+    /// Span of "PARTITION BY"
+    pub partition_by_span: Span,
+    /// The partitioning method: RANGE, LIST, or HASH
+    pub method: PartitionMethod,
+    /// The partition key expressions
+    pub keys: Vec<Expression<'a>>,
+}
+
+impl<'a> Spanned for PartitionBy<'a> {
+    fn span(&self) -> Span {
+        self.partition_by_span
+            .join_span(&self.method)
+            .join_span(&self.keys)
+    }
+}
+
+/// A single value in a partition bound specification: an expression, MINVALUE, or MAXVALUE
+#[derive(Clone, Debug)]
+pub enum PartitionBoundExpr<'a> {
+    Expr(Expression<'a>),
+    MinValue(Span),
+    MaxValue(Span),
+}
+
+impl<'a> Spanned for PartitionBoundExpr<'a> {
+    fn span(&self) -> Span {
+        match self {
+            PartitionBoundExpr::Expr(e) => e.span(),
+            PartitionBoundExpr::MinValue(s) => s.span(),
+            PartitionBoundExpr::MaxValue(s) => s.span(),
+        }
+    }
+}
+
+/// The partition bound specification for CREATE TABLE ... PARTITION OF
+#[derive(Clone, Debug)]
+pub enum PartitionBoundSpec<'a> {
+    /// FOR VALUES IN (expr [, ...]) — list partitioning
+    In {
+        in_span: Span,
+        values: Vec<PartitionBoundExpr<'a>>,
+    },
+    /// FOR VALUES FROM (...) TO (...) — range partitioning
+    FromTo {
+        from_span: Span,
+        from_values: Vec<PartitionBoundExpr<'a>>,
+        to_span: Span,
+        to_values: Vec<PartitionBoundExpr<'a>>,
+    },
+    /// FOR VALUES WITH (MODULUS n, REMAINDER r) — hash partitioning
+    WithModulusRemainder {
+        with_span: Span,
+        modulus_span: Span,
+        modulus: (u64, Span),
+        remainder_span: Span,
+        remainder: (u64, Span),
+    },
+}
+
+impl<'a> Spanned for PartitionBoundSpec<'a> {
+    fn span(&self) -> Span {
+        match self {
+            PartitionBoundSpec::In { in_span, values } => in_span.join_span(values),
+            PartitionBoundSpec::FromTo {
+                from_span,
+                from_values: _,
+                to_span,
+                to_values,
+            } => from_span.join_span(to_span).join_span(to_values),
+            PartitionBoundSpec::WithModulusRemainder {
+                with_span,
+                modulus_span,
+                modulus,
+                remainder_span,
+                remainder,
+            } => with_span
+                .join_span(modulus_span)
+                .join_span(modulus)
+                .join_span(remainder_span)
+                .join_span(remainder),
+        }
+    }
+}
+
+/// The bound clause of a PARTITION OF statement
+#[derive(Clone, Debug)]
+pub enum PartitionOfBound<'a> {
+    /// FOR VALUES partition_bound_spec
+    ForValues {
+        for_values_span: Span,
+        spec: PartitionBoundSpec<'a>,
+    },
+    /// DEFAULT partition
+    Default(Span),
+}
+
+impl<'a> Spanned for PartitionOfBound<'a> {
+    fn span(&self) -> Span {
+        match self {
+            PartitionOfBound::ForValues {
+                for_values_span,
+                spec,
+            } => for_values_span.join_span(spec),
+            PartitionOfBound::Default(s) => s.span(),
+        }
+    }
+}
+
+/// CREATE TABLE name PARTITION OF parent_table (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct CreateTablePartitionOf<'a> {
+    /// Span of "CREATE"
+    pub create_span: Span,
+    /// Options specified after "CREATE"
+    pub create_options: Vec<CreateOption<'a>>,
+    /// Span of "TABLE"
+    pub table_span: Span,
+    /// Span of "IF NOT EXISTS" if specified
+    pub if_not_exists: Option<Span>,
+    /// Name of the new partition table
+    pub identifier: QualifiedName<'a>,
+    /// Span of "PARTITION OF"
+    pub partition_of_span: Span,
+    /// The parent partitioned table name
+    pub parent_table: QualifiedName<'a>,
+    /// Optional column definitions / constraint overrides
+    pub create_definitions: Vec<CreateDefinition<'a>>,
+    /// FOR VALUES ... | DEFAULT
+    pub bound: PartitionOfBound<'a>,
+    /// Optional sub-partitioning specification
+    pub partition_by: Option<PartitionBy<'a>>,
+}
+
+impl<'a> Spanned for CreateTablePartitionOf<'a> {
+    fn span(&self) -> Span {
+        self.create_span
+            .join_span(&self.create_options)
+            .join_span(&self.table_span)
+            .join_span(&self.if_not_exists)
+            .join_span(&self.identifier)
+            .join_span(&self.partition_of_span)
+            .join_span(&self.parent_table)
+            .join_span(&self.create_definitions)
+            .join_span(&self.bound)
+            .join_span(&self.partition_by)
+    }
+}
+
 /// Represent a create table statement
 /// ```
 /// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, CreateTable, Statement, Issues};
@@ -406,6 +576,8 @@ pub struct CreateTable<'a> {
     pub options: Vec<TableOption<'a>>,
     /// Create table as
     pub table_as: Option<CreateTableAs<'a>>,
+    /// Optional PARTITION BY clause (PostgreSQL declarative partitioning)
+    pub partition_by: Option<PartitionBy<'a>>,
 }
 
 impl<'a> Spanned for CreateTable<'a> {
@@ -418,6 +590,7 @@ impl<'a> Spanned for CreateTable<'a> {
             .join_span(&self.create_definitions)
             .join_span(&self.options)
             .join_span(&self.table_as)
+            .join_span(&self.partition_by)
     }
 }
 
@@ -708,32 +881,135 @@ pub(crate) fn parse_create_definition<'a>(
     })
 }
 
+/// Parse PARTITION BY RANGE|LIST|HASH (key [, ...])
+fn parse_partition_by<'a>(parser: &mut Parser<'a, '_>) -> Result<PartitionBy<'a>, ParseError> {
+    let partition_span = parser.consume_keyword(Keyword::PARTITION)?;
+    let by_span = parser.consume_keyword(Keyword::BY)?;
+    let partition_by_span = partition_span.join_span(&by_span);
+
+    let method = match &parser.token {
+        Token::Ident(_, Keyword::RANGE) => {
+            PartitionMethod::Range(parser.consume_keyword(Keyword::RANGE)?)
+        }
+        Token::Ident(_, Keyword::LIST) => {
+            PartitionMethod::List(parser.consume_keyword(Keyword::LIST)?)
+        }
+        Token::Ident(_, Keyword::HASH) => {
+            PartitionMethod::Hash(parser.consume_keyword(Keyword::HASH)?)
+        }
+        _ => parser.expected_failure("RANGE, LIST, or HASH")?,
+    };
+
+    parser.consume_token(Token::LParen)?;
+    let mut keys = Vec::new();
+    loop {
+        // Key element is either a parenthesised expression or a bare column/expression
+        let key = if matches!(parser.token, Token::LParen) {
+            parser.consume_token(Token::LParen)?;
+            let expr = parse_expression_unreserved(parser, false)?;
+            parser.consume_token(Token::RParen)?;
+            expr
+        } else {
+            parse_expression_unreserved(parser, false)?
+        };
+        keys.push(key);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    parser.consume_token(Token::RParen)?;
+
+    Ok(PartitionBy {
+        partition_by_span,
+        method,
+        keys,
+    })
+}
+
+/// Parse a single partition bound expression: value expression, MINVALUE, or MAXVALUE
+fn parse_partition_bound_expr<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<PartitionBoundExpr<'a>, ParseError> {
+    match &parser.token {
+        Token::Ident(_, Keyword::MINVALUE) => Ok(PartitionBoundExpr::MinValue(
+            parser.consume_keyword(Keyword::MINVALUE)?,
+        )),
+        Token::Ident(_, Keyword::MAXVALUE) => Ok(PartitionBoundExpr::MaxValue(
+            parser.consume_keyword(Keyword::MAXVALUE)?,
+        )),
+        _ => Ok(PartitionBoundExpr::Expr(parse_expression_unreserved(
+            parser, false,
+        )?)),
+    }
+}
+
+/// Parse a parenthesised list of partition bound expressions
+fn parse_partition_bound_exprs<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Vec<PartitionBoundExpr<'a>>, ParseError> {
+    parser.consume_token(Token::LParen)?;
+    let mut values = Vec::new();
+    loop {
+        values.push(parse_partition_bound_expr(parser)?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    parser.consume_token(Token::RParen)?;
+    Ok(values)
+}
+
+/// Parse a partition_bound_spec: IN (...) | FROM (...) TO (...) | WITH (MODULUS n, REMAINDER r)
+fn parse_partition_bound_spec<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<PartitionBoundSpec<'a>, ParseError> {
+    match &parser.token {
+        Token::Ident(_, Keyword::IN) => {
+            let in_span = parser.consume_keyword(Keyword::IN)?;
+            let values = parse_partition_bound_exprs(parser)?;
+            Ok(PartitionBoundSpec::In { in_span, values })
+        }
+        Token::Ident(_, Keyword::FROM) => {
+            let from_span = parser.consume_keyword(Keyword::FROM)?;
+            let from_values = parse_partition_bound_exprs(parser)?;
+            let to_span = parser.consume_keyword(Keyword::TO)?;
+            let to_values = parse_partition_bound_exprs(parser)?;
+            Ok(PartitionBoundSpec::FromTo {
+                from_span,
+                from_values,
+                to_span,
+                to_values,
+            })
+        }
+        Token::Ident(_, Keyword::WITH) => {
+            let with_span = parser.consume_keyword(Keyword::WITH)?;
+            parser.consume_token(Token::LParen)?;
+            let modulus_span = parser.consume_keyword(Keyword::MODULUS)?;
+            let modulus = parser.consume_int::<u64>()?;
+            parser.consume_token(Token::Comma)?;
+            let remainder_span = parser.consume_keyword(Keyword::REMAINDER)?;
+            let remainder = parser.consume_int::<u64>()?;
+            parser.consume_token(Token::RParen)?;
+            Ok(PartitionBoundSpec::WithModulusRemainder {
+                with_span,
+                modulus_span,
+                modulus,
+                remainder_span,
+                remainder,
+            })
+        }
+        _ => parser.expected_failure("IN, FROM, or WITH"),
+    }
+}
+
 pub(crate) fn parse_create_table<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
     create_options: Vec<CreateOption<'a>>,
+    table_span: Span,
+    if_not_exists: Option<Span>,
+    identifier: QualifiedName<'a>,
 ) -> Result<CreateTable<'a>, ParseError> {
-    let table_span = parser.consume_keyword(Keyword::TABLE)?;
-
-    let mut identifier = QualifiedName {
-        identifier: Identifier::new("", 0..0),
-        prefix: Default::default(),
-    };
-    let mut if_not_exists = None;
-
-    parser.recovered("'('", &|t| t == &Token::LParen, |parser| {
-        if let Some(if_) = parser.skip_keyword(Keyword::IF) {
-            if_not_exists = Some(
-                if_.start
-                    ..parser
-                        .consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?
-                        .end,
-            );
-        }
-        identifier = parse_qualified_name_unreserved(parser)?;
-        Ok(())
-    })?;
-
     parser.consume_token(Token::LParen)?;
 
     let mut create_definitions = Vec::new();
@@ -757,6 +1033,7 @@ pub(crate) fn parse_create_table<'a>(
 
     let mut options = Vec::new();
     let mut table_as: Option<CreateTableAs<'_>> = None;
+    let mut partition_by: Option<PartitionBy<'_>> = None;
     let delimiter_name = parser.lexer.delimiter_name();
     parser.recovered(
         delimiter_name,
@@ -1073,6 +1350,9 @@ pub(crate) fn parse_create_table<'a>(
                             value: tables,
                         });
                     }
+                    Token::Ident(_, Keyword::PARTITION) => {
+                        partition_by = Some(parse_partition_by(parser)?);
+                    }
                     Token::Ident(_, Keyword::IGNORE)
                     | Token::Ident(_, Keyword::REPLACE)
                     | Token::Ident(_, Keyword::AS) => {
@@ -1115,5 +1395,126 @@ pub(crate) fn parse_create_table<'a>(
         options,
         create_definitions,
         table_as,
+        partition_by,
     })
+}
+
+fn parse_create_table_partition_of<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+    table_span: Span,
+    if_not_exists: Option<Span>,
+    identifier: QualifiedName<'a>,
+) -> Result<CreateTablePartitionOf<'a>, ParseError> {
+    let partition_span = parser.consume_keyword(Keyword::PARTITION)?;
+    let of_span = parser.consume_keyword(Keyword::OF)?;
+    let partition_of_span = partition_span.join_span(&of_span);
+
+    let parent_table = parse_qualified_name_unreserved(parser)?;
+
+    // Optional column definitions / constraint overrides
+    let mut create_definitions = Vec::new();
+    if matches!(parser.token, Token::LParen) {
+        parser.consume_token(Token::LParen)?;
+        if !matches!(parser.token, Token::RParen) {
+            loop {
+                parser.recovered(
+                    "')' or ','",
+                    &|t| matches!(t, Token::RParen | Token::Comma),
+                    |parser| {
+                        create_definitions.push(parse_create_definition(parser)?);
+                        Ok(())
+                    },
+                )?;
+                if matches!(parser.token, Token::RParen) {
+                    break;
+                }
+                parser.consume_token(Token::Comma)?;
+            }
+        }
+        parser.consume_token(Token::RParen)?;
+    }
+
+    // FOR VALUES … | DEFAULT
+    let bound = match &parser.token {
+        Token::Ident(_, Keyword::DEFAULT) => {
+            PartitionOfBound::Default(parser.consume_keyword(Keyword::DEFAULT)?)
+        }
+        Token::Ident(_, Keyword::FOR) => {
+            let for_values_span = parser.consume_keywords(&[Keyword::FOR, Keyword::VALUES])?;
+            let spec = parse_partition_bound_spec(parser)?;
+            PartitionOfBound::ForValues {
+                for_values_span,
+                spec,
+            }
+        }
+        _ => parser.expected_failure("FOR VALUES or DEFAULT")?,
+    };
+
+    // Optional sub-partitioning
+    let partition_by = if matches!(parser.token, Token::Ident(_, Keyword::PARTITION)) {
+        Some(parse_partition_by(parser)?)
+    } else {
+        None
+    };
+
+    Ok(CreateTablePartitionOf {
+        create_span,
+        create_options,
+        table_span,
+        if_not_exists,
+        identifier,
+        partition_of_span,
+        parent_table,
+        create_definitions,
+        bound,
+        partition_by,
+    })
+}
+
+/// Entry point for `CREATE TABLE` dispatching.
+///
+/// Parses TABLE + optional IF NOT EXISTS + table identifier, then dispatches to either
+/// `parse_create_table_partition_of` (for `PARTITION OF`) or `parse_create_table`.
+pub(crate) fn parse_create_table_or_partition_of<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<Statement<'a>, ParseError> {
+    let table_span = parser.consume_keyword(Keyword::TABLE)?;
+
+    let if_not_exists = if let Some(if_) = parser.skip_keyword(Keyword::IF) {
+        Some(
+            if_.start
+                ..parser
+                    .consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?
+                    .end,
+        )
+    } else {
+        None
+    };
+    let identifier = parse_qualified_name_unreserved(parser)?;
+
+    if matches!(parser.token, Token::Ident(_, Keyword::PARTITION)) {
+        Ok(Statement::CreateTablePartitionOf(Box::new(
+            parse_create_table_partition_of(
+                parser,
+                create_span,
+                create_options,
+                table_span,
+                if_not_exists,
+                identifier,
+            )?,
+        )))
+    } else {
+        Ok(Statement::CreateTable(Box::new(parse_create_table(
+            parser,
+            create_span,
+            create_options,
+            table_span,
+            if_not_exists,
+            identifier,
+        )?)))
+    }
 }

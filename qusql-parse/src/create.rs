@@ -16,7 +16,7 @@ use crate::{
     create_index::parse_create_index,
     create_option::{CreateAlgorithm, CreateOption},
     create_role::parse_create_role,
-    create_table::parse_create_table,
+    create_table::parse_create_table_or_partition_of,
     create_trigger::parse_create_trigger,
     create_view::parse_create_view,
     data_type::parse_data_type,
@@ -1093,9 +1093,9 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
             Token::Ident(_, Keyword::INDEX) => Statement::CreateIndex(Box::new(
                 parse_create_index(parser, create_span, create_options)?,
             )),
-            Token::Ident(_, Keyword::TABLE) => Statement::CreateTable(Box::new(
-                parse_create_table(parser, create_span, create_options)?,
-            )),
+            Token::Ident(_, Keyword::TABLE) => {
+                parse_create_table_or_partition_of(parser, create_span, create_options)?
+            }
             Token::Ident(_, Keyword::MATERIALIZED) => {
                 // MATERIALIZED VIEW
                 let materialized_span = parser.consume_keyword(Keyword::MATERIALIZED)?;
