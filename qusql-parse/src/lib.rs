@@ -48,6 +48,7 @@ mod alter_role;
 mod alter_table;
 mod alter_type;
 mod create;
+mod create_constraint_trigger;
 mod create_function;
 mod create_index;
 mod create_option;
@@ -98,6 +99,7 @@ pub use create::{
     CreateDatabase, CreateDatabaseOption, CreateDomain, CreateExtension, CreateSchema,
     CreateSequence, CreateServer, CreateTypeEnum, DomainConstraint, SequenceOption,
 };
+pub use create_constraint_trigger::{AfterEvent, CreateConstraintTrigger, Deferrable, Initially};
 pub use create_function::{CreateFunction, FunctionCharacteristic, FunctionParamDirection};
 pub use create_index::{CreateIndex, CreateIndexOption, IncludeClause, UsingIndexMethod};
 pub use create_option::{CreateAlgorithm, CreateOption};

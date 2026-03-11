@@ -14,9 +14,9 @@ use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     AlterOperator, AlterOperatorClass, AlterOperatorFamily, AlterRole, AlterTable, AlterType,
-    CreateDomain, CreateExtension, CreateIndex, CreateOperator, CreateOperatorClass,
-    CreateOperatorFamily, CreateRole, CreateTrigger, DropOperatorClass, DropOperatorFamily,
-    Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
+    CreateConstraintTrigger, CreateDomain, CreateExtension, CreateIndex, CreateOperator,
+    CreateOperatorClass, CreateOperatorFamily, CreateRole, CreateTrigger, DropOperatorClass,
+    DropOperatorFamily, Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
     alter_role::parse_alter_role,
     alter_table::parse_alter_table,
     create::{
@@ -680,6 +680,7 @@ pub enum Statement<'a> {
     CreateOperatorFamily(Box<CreateOperatorFamily<'a>>),
     CreateExtension(Box<CreateExtension<'a>>),
     CreateDomain(Box<CreateDomain<'a>>),
+    CreateConstraintTrigger(Box<CreateConstraintTrigger<'a>>),
     AlterOperator(Box<AlterOperator<'a>>),
     AlterOperatorClass(Box<AlterOperatorClass<'a>>),
     Select(Box<Select<'a>>),
@@ -824,6 +825,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Values(v) => v.span(),
             Statement::CreateExtension(v) => v.span(),
             Statement::CreateDomain(v) => v.span(),
+            Statement::CreateConstraintTrigger(v) => v.span(),
         }
     }
 }
