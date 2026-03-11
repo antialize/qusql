@@ -1160,7 +1160,7 @@
     "input": "CREATE",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 6..6,\n    sql_segment: \"\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'DOMAIN' |'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 6..6,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
@@ -1169,7 +1169,7 @@
     "input": "CREATE CONSTRAINT TRIGGER check_multiple_events BEFORE INSERT OR UPDATE OR DELETE ON accounts DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_account_changes",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..17,\n    sql_segment: \"CONSTRAINT\",\n    fragments: [],\n}",
+      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'DOMAIN' |'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..17,\n    sql_segment: \"CONSTRAINT\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected 'ON' here\",\n    span: 62..64,\n    sql_segment: \"OR\",\n    fragments: [],\n}"
     ],
     "failure": true,
@@ -1177,43 +1177,28 @@
   },
   {
     "input": "CREATE DOMAIN my_domain AS INTEGER CHECK (VALUE > 0)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDomain(\n    CreateDomain {\n        create_span: 0..6,\n        domain_span: 7..13,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_domain\",\n                span: 14..23,\n            },\n        },\n        data_type: DataType {\n            identifier: 27..34,\n            type_: Integer(\n                None,\n            ),\n            properties: [\n                Check(\n                    (\n                        35..40,\n                        Binary(\n                            BinaryExpression {\n                                op: Gt,\n                                op_span: 48..49,\n                                lhs: Identifier(\n                                    IdentifierExpression {\n                                        parts: [\n                                            Name(\n                                                Identifier {\n                                                    value: \"VALUE\",\n                                                    span: 42..47,\n                                                },\n                                            ),\n                                        ],\n                                    },\n                                ),\n                                rhs: Integer(\n                                    IntegerExpression {\n                                        value: 0,\n                                        span: 50..51,\n                                    },\n                                ),\n                            },\n                        ),\n                    ),\n                ),\n            ],\n        },\n        collate: None,\n        default: None,\n        constraints: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DOMAIN my_domain AS INTEGER COLLATE \"en_US\" CHECK (VALUE > 0)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDomain(\n    CreateDomain {\n        create_span: 0..6,\n        domain_span: 7..13,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_domain\",\n                span: 14..23,\n            },\n        },\n        data_type: DataType {\n            identifier: 27..34,\n            type_: Integer(\n                None,\n            ),\n            properties: [\n                Charset(\n                    Identifier {\n                        value: \"en_US\",\n                        span: 43..50,\n                    },\n                ),\n                Check(\n                    (\n                        51..56,\n                        Binary(\n                            BinaryExpression {\n                                op: Gt,\n                                op_span: 64..65,\n                                lhs: Identifier(\n                                    IdentifierExpression {\n                                        parts: [\n                                            Name(\n                                                Identifier {\n                                                    value: \"VALUE\",\n                                                    span: 58..63,\n                                                },\n                                            ),\n                                        ],\n                                    },\n                                ),\n                                rhs: Integer(\n                                    IntegerExpression {\n                                        value: 0,\n                                        span: 66..67,\n                                    },\n                                ),\n                            },\n                        ),\n                    ),\n                ),\n            ],\n        },\n        collate: None,\n        default: None,\n        constraints: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DOMAIN my_domain AS INTEGER COLLATE \"en_US\" DEFAULT 1 CHECK (VALUE > 0)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDomain(\n    CreateDomain {\n        create_span: 0..6,\n        domain_span: 7..13,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_domain\",\n                span: 14..23,\n            },\n        },\n        data_type: DataType {\n            identifier: 27..34,\n            type_: Integer(\n                None,\n            ),\n            properties: [\n                Charset(\n                    Identifier {\n                        value: \"en_US\",\n                        span: 43..50,\n                    },\n                ),\n                Default(\n                    Integer(\n                        IntegerExpression {\n                            value: 1,\n                            span: 59..60,\n                        },\n                    ),\n                ),\n                Check(\n                    (\n                        61..66,\n                        Binary(\n                            BinaryExpression {\n                                op: Gt,\n                                op_span: 74..75,\n                                lhs: Identifier(\n                                    IdentifierExpression {\n                                        parts: [\n                                            Name(\n                                                Identifier {\n                                                    value: \"VALUE\",\n                                                    span: 68..73,\n                                                },\n                                            ),\n                                        ],\n                                    },\n                                ),\n                                rhs: Integer(\n                                    IntegerExpression {\n                                        value: 0,\n                                        span: 76..77,\n                                    },\n                                ),\n                            },\n                        ),\n                    ),\n                ),\n            ],\n        },\n        collate: None,\n        default: None,\n        constraints: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DOMAIN my_domain AS INTEGER CONSTRAINT my_constraint CHECK (VALUE > 0)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDomain(\n    CreateDomain {\n        create_span: 0..6,\n        domain_span: 7..13,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_domain\",\n                span: 14..23,\n            },\n        },\n        data_type: DataType {\n            identifier: 27..34,\n            type_: Integer(\n                None,\n            ),\n            properties: [],\n        },\n        collate: None,\n        default: None,\n        constraints: [\n            ConstraintName(\n                35..45,\n                Identifier {\n                    value: \"my_constraint\",\n                    span: 46..59,\n                },\n            ),\n            Check(\n                60..65,\n                Binary(\n                    BinaryExpression {\n                        op: Gt,\n                        op_span: 73..74,\n                        lhs: Identifier(\n                            IdentifierExpression {\n                                parts: [\n                                    Name(\n                                        Identifier {\n                                            value: \"VALUE\",\n                                            span: 67..72,\n                                        },\n                                    ),\n                                ],\n                            },\n                        ),\n                        rhs: Integer(\n                            IntegerExpression {\n                                value: 0,\n                                span: 75..76,\n                            },\n                        ),\n                    },\n                ),\n            ),\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE DOMAIN my_domain AS INTEGER DEFAULT 1 CHECK (VALUE > 0)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'' here\",\n    span: 7..13,\n    sql_segment: \"DOMAIN\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateDomain(\n    CreateDomain {\n        create_span: 0..6,\n        domain_span: 7..13,\n        if_not_exists: None,\n        name: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"my_domain\",\n                span: 14..23,\n            },\n        },\n        data_type: DataType {\n            identifier: 27..34,\n            type_: Integer(\n                None,\n            ),\n            properties: [\n                Default(\n                    Integer(\n                        IntegerExpression {\n                            value: 1,\n                            span: 43..44,\n                        },\n                    ),\n                ),\n                Check(\n                    (\n                        45..50,\n                        Binary(\n                            BinaryExpression {\n                                op: Gt,\n                                op_span: 58..59,\n                                lhs: Identifier(\n                                    IdentifierExpression {\n                                        parts: [\n                                            Name(\n                                                Identifier {\n                                                    value: \"VALUE\",\n                                                    span: 52..57,\n                                                },\n                                            ),\n                                        ],\n                                    },\n                                ),\n                                rhs: Integer(\n                                    IntegerExpression {\n                                        value: 0,\n                                        span: 60..61,\n                                    },\n                                ),\n                            },\n                        ),\n                    ),\n                ),\n            ],\n        },\n        collate: None,\n        default: None,\n        constraints: [],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE EXTENSION extension_name",
