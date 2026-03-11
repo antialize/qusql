@@ -95,8 +95,8 @@ pub use alter_table::{
 };
 pub use alter_type::{AlterType, AlterTypeAction, AttributeAction};
 pub use create::{
-    CreateDatabase, CreateDatabaseOption, CreateExtension, CreateSchema, CreateSequence,
-    CreateServer, CreateTypeEnum, SequenceOption,
+    CreateDatabase, CreateDatabaseOption, CreateDomain, CreateExtension, CreateSchema,
+    CreateSequence, CreateServer, CreateTypeEnum, DomainConstraint, SequenceOption,
 };
 pub use create_function::{CreateFunction, FunctionCharacteristic, FunctionParamDirection};
 pub use create_index::{CreateIndex, CreateIndexOption, IncludeClause, UsingIndexMethod};

@@ -19,6 +19,7 @@ use crate::{
     create_trigger::parse_create_trigger,
     create_view::parse_create_view,
     data_type::parse_data_type,
+    expression::{Expression, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     operator::{parse_create_operator, parse_create_operator_class, parse_create_operator_family},
@@ -251,6 +252,147 @@ fn parse_create_extension<'a>(
         schema,
         version,
         cascade,
+    })
+}
+
+/// CREATE DOMAIN statement (PostgreSQL)
+#[derive(Clone, Debug)]
+pub struct CreateDomain<'a> {
+    /// Span of "CREATE"
+    pub create_span: Span,
+    /// Span of "DOMAIN"
+    pub domain_span: Span,
+    /// Span of "IF NOT EXISTS" if specified
+    pub if_not_exists: Option<Span>,
+    /// Name of the domain (optionally schema-qualified)
+    pub name: QualifiedName<'a>,
+    /// Underlying data type
+    pub data_type: DataType<'a>,
+    /// Optional COLLATE clause
+    pub collate: Option<(Span, Identifier<'a>)>,
+    /// Optional DEFAULT clause
+    pub default: Option<(Span, Expression<'a>)>,
+    /// List of domain constraints (CONSTRAINT name, NOT NULL, NULL, CHECK)
+    pub constraints: Vec<DomainConstraint<'a>>,
+}
+
+impl<'a> Spanned for CreateDomain<'a> {
+    fn span(&self) -> Span {
+        self.create_span
+            .join_span(&self.domain_span)
+            .join_span(&self.if_not_exists)
+            .join_span(&self.name)
+            .join_span(&self.data_type)
+            .join_span(&self.collate)
+            .join_span(&self.default)
+            .join_span(&self.constraints)
+    }
+}
+
+/// Domain constraint for CREATE DOMAIN
+#[derive(Clone, Debug)]
+pub enum DomainConstraint<'a> {
+    ConstraintName(Span, Identifier<'a>),
+    NotNull(Span),
+    Null(Span),
+    Check(Span, Expression<'a>),
+}
+
+impl<'a> Spanned for DomainConstraint<'a> {
+    fn span(&self) -> Span {
+        match self {
+            DomainConstraint::ConstraintName(span, name) => span.join_span(name),
+            DomainConstraint::NotNull(span) => span.clone(),
+            DomainConstraint::Null(span) => span.clone(),
+            DomainConstraint::Check(span, expr) => span.join_span(expr),
+        }
+    }
+}
+
+/// Parse CREATE DOMAIN statement (PostgreSQL)
+pub fn parse_create_domain<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<CreateDomain<'a>, ParseError> {
+    let domain_span = parser.consume_keyword(Keyword::DOMAIN)?;
+    parser.postgres_only(&domain_span);
+
+    for option in create_options {
+        parser.err("Not supported for CREATE DOMAIN", &option.span());
+    }
+
+    let if_not_exists = if let Some(if_span) = parser.skip_keyword(Keyword::IF) {
+        Some(
+            parser
+                .consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?
+                .join_span(&if_span),
+        )
+    } else {
+        None
+    };
+
+    let name = parse_qualified_name_unreserved(parser)?;
+
+    // Optional AS
+    parser.skip_keyword(Keyword::AS);
+
+    let data_type = parse_data_type(parser, false)?;
+
+    // Optional COLLATE
+    let collate = if let Some(collate_span) = parser.skip_keyword(Keyword::COLLATE) {
+        let collate_name = parser.consume_plain_identifier_unreserved()?;
+        Some((collate_span, collate_name))
+    } else {
+        None
+    };
+
+    // Optional DEFAULT
+    let default = if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
+        let expr = parse_expression_unreserved(parser, false)?;
+        Some((default_span, expr))
+    } else {
+        None
+    };
+
+    // Parse domain constraints
+    let mut constraints = Vec::new();
+    loop {
+        match &parser.token {
+            Token::Ident(_, Keyword::CONSTRAINT) => {
+                let constraint_span = parser.consume_keyword(Keyword::CONSTRAINT)?;
+                let name = parser.consume_plain_identifier_unreserved()?;
+                constraints.push(DomainConstraint::ConstraintName(constraint_span, name));
+            }
+            Token::Ident(_, Keyword::NOT) => {
+                let not_span = parser.consume_keyword(Keyword::NOT)?;
+                let null_span = parser.consume_keyword(Keyword::NULL)?;
+                constraints.push(DomainConstraint::NotNull(not_span.join_span(&null_span)));
+            }
+            Token::Ident(_, Keyword::NULL) => {
+                let null_span = parser.consume_keyword(Keyword::NULL)?;
+                constraints.push(DomainConstraint::Null(null_span));
+            }
+            Token::Ident(_, Keyword::CHECK) => {
+                let check_span = parser.consume_keyword(Keyword::CHECK)?;
+                parser.consume_token(Token::LParen)?;
+                let expr = parse_expression_unreserved(parser, false)?;
+                parser.consume_token(Token::RParen)?;
+                constraints.push(DomainConstraint::Check(check_span, expr));
+            }
+            _ => break,
+        }
+    }
+
+    Ok(CreateDomain {
+        create_span,
+        domain_span,
+        if_not_exists,
+        name,
+        data_type,
+        collate,
+        default,
+        constraints,
     })
 }
 
@@ -821,7 +963,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
     parser.consume_keyword(Keyword::CREATE)?;
 
     let mut create_options = Vec::new();
-    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'";
+    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'DOMAIN' |'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'";
 
     parser.recovered(
         CREATABLE,
@@ -844,6 +986,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         | Keyword::SERVER
                         | Keyword::OPERATOR
                         | Keyword::EXTENSION
+                        | Keyword::DOMAIN
                 )
             )
         },
@@ -970,6 +1113,9 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
             )?)),
             Token::Ident(_, Keyword::DATABASE) => Statement::CreateDatabase(Box::new(
                 parse_create_database(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::DOMAIN) => Statement::CreateDomain(Box::new(
+                parse_create_domain(parser, create_span, create_options)?,
             )),
             Token::Ident(_, Keyword::EXTENSION) => Statement::CreateExtension(Box::new(
                 parse_create_extension(parser, create_span, create_options)?,
