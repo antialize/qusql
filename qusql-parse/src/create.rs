@@ -11,6 +11,7 @@
 // limitations under the License.
 use crate::{
     DataType, Identifier, QualifiedName, SString, Span, Spanned, Statement,
+    create_constraint_trigger::parse_create_constraint_trigger,
     create_function::parse_create_function,
     create_index::parse_create_index,
     create_option::{CreateAlgorithm, CreateOption},
@@ -963,7 +964,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
     parser.consume_keyword(Keyword::CREATE)?;
 
     let mut create_options = Vec::new();
-    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'DOMAIN' |'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR'";
+    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'DOMAIN' |'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR' | 'CONSTRAINT'";
 
     parser.recovered(
         CREATABLE,
@@ -987,6 +988,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         | Keyword::OPERATOR
                         | Keyword::EXTENSION
                         | Keyword::DOMAIN
+                        | Keyword::CONSTRAINT
                 )
             )
         },
@@ -1111,6 +1113,9 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                 create_span,
                 create_options,
             )?)),
+            Token::Ident(_, Keyword::CONSTRAINT) => Statement::CreateConstraintTrigger(Box::new(
+                parse_create_constraint_trigger(parser, create_span, create_options)?,
+            )),
             Token::Ident(_, Keyword::DATABASE) => Statement::CreateDatabase(Box::new(
                 parse_create_database(parser, create_span, create_options)?,
             )),

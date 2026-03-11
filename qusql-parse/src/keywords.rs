@@ -116,6 +116,7 @@ pub(crate) enum Keyword {
     DECIMAL,             // reserved: mariadb
     DECLARE,             // reserved: mariadb
     DEFAULT,             // reserved: mariadb, postgres, sqlite
+    DEFERRABLE,          // reserved: postgres
     DELAYED,             // reserved: mariadb
     DELETE,              // reserved: mariadb, sqlite
     DELETE_DOMAIN_ID,    // reserved: mariadb
@@ -165,6 +166,7 @@ pub(crate) enum Keyword {
     IN,                  // reserved: mariadb, postgres, sqlite
     INDEX,               // reserved: mariadb, sqlite
     INFILE,              // reserved: mariadb
+    INITIALLY,           // reserved: postgres
     INNER,               // reserved: mariadb, postgres
     INOUT,               // reserved: mariadb
     INSENSITIVE,         // reserved: mariadb
@@ -452,6 +454,7 @@ pub(crate) enum Keyword {
     DAYOFWEEK,
     DAYOFYEAR,
     DEALLOCATE,
+    DEFERRED,
     DEFINER,
     DEGREES,
     DELAY_KEY_WRITE,
