@@ -313,6 +313,9 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
                     for issue in out["issues"]:
                         print(f"  {issue.replace('\\n', '\\n  ')}")
                     failure_count += 1
+                    limit = getattr(args, "limit", None)
+                    if limit is not None and failure_count >= limit:
+                        break
                 else:
                     if not getattr(args, "failures_only", False):
                         print(f"Test passed in: '{inp}'")
@@ -320,7 +323,7 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
     # Save changes if in interactive or update-output mode
     if args.interactive or args.update_output:
         write_tests(tests_file, tests)
-    else:
+    elif not args.filter and not getattr(args, "limit", None):
         print(f"\n{dialect_name} - Total failures: {failure_count} out of {len(tests)}")
 
 
@@ -703,6 +706,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Only print failed tests and the final summary line",
     )
+    test_mysql_args.add_argument(
+        "--limit",
+        type=int,
+        help="Stop after this many failures",
+    )
 
     # PostgreSQL import command
     subparsers.add_parser(
@@ -733,6 +741,11 @@ if __name__ == "__main__":
         "--failures-only",
         action="store_true",
         help="Only print failed tests and the final summary line",
+    )
+    test_postgresql_args.add_argument(
+        "--limit",
+        type=int,
+        help="Stop after this many failures",
     )
 
     # MySQL validation command
