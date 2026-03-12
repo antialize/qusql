@@ -16,9 +16,10 @@ use crate::{
     AlterOperator, AlterOperatorClass, AlterOperatorFamily, AlterRole, AlterTable, AlterType,
     CreateConstraintTrigger, CreateDomain, CreateExtension, CreateIndex, CreateOperator,
     CreateOperatorClass, CreateOperatorFamily, CreateRole, CreateTrigger, DropOperatorClass,
-    DropOperatorFamily, Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
+    DropOperatorFamily, QualifiedName, RenameTable, Span, Spanned, WithQuery,
     alter_role::parse_alter_role,
     alter_table::parse_alter_table,
+    copy::{CopyFrom, CopyTo, parse_copy_statement},
     create::{
         CreateDatabase, CreateSchema, CreateSequence, CreateServer, CreateTypeEnum, parse_create,
     },
@@ -734,7 +735,8 @@ pub enum Statement<'a> {
     Lock(Box<Lock<'a>>),
     Union(Box<Union<'a>>),
     Case(Box<CaseStatement<'a>>),
-    Copy(Box<Copy<'a>>),
+    CopyFrom(Box<CopyFrom<'a>>),
+    CopyTo(Box<CopyTo<'a>>),
     Stdin(Box<Stdin<'a>>),
     Do(Box<Do<'a>>),
     TruncateTable(Box<TruncateTable<'a>>),
@@ -794,7 +796,8 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Lock(v) => v.span(),
             Statement::Union(v) => v.span(),
             Statement::Case(v) => v.span(),
-            Statement::Copy(v) => v.span(),
+            Statement::CopyFrom(v) => v.span(),
+            Statement::CopyTo(v) => v.span(),
             Statement::Stdin(v) => v.span(),
             Statement::Begin(v) => v.span(),
             Statement::End(v) => v.span(),
@@ -835,7 +838,7 @@ impl<'a> Spanned for Statement<'a> {
 impl Statement<'_> {
     fn reads_from_stdin(&self) -> bool {
         match self {
-            Statement::Copy(v) => v.reads_from_stdin(),
+            Statement::CopyFrom(v) => v.reads_from_stdin(),
             _ => false,
         }
     }
@@ -888,9 +891,7 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::CASE) => {
             Some(Statement::Case(Box::new(parse_case_statement(parser)?)))
         }
-        Token::Ident(_, Keyword::COPY) => {
-            Some(Statement::Copy(Box::new(parse_copy_statement(parser)?)))
-        }
+        Token::Ident(_, Keyword::COPY) => Some(parse_copy_statement(parser)?),
         Token::Ident(_, Keyword::DO) => Some(parse_do(parser)?),
         Token::Ident(_, Keyword::LOCK) => Some(Statement::Lock(Box::new(parse_lock(parser)?))),
         Token::Ident(_, Keyword::UNLOCK) => {
@@ -1026,42 +1027,6 @@ pub(crate) fn parse_case_statement<'a>(
     })
 }
 
-pub(crate) fn parse_copy_statement<'a>(
-    parser: &mut Parser<'a, '_>,
-) -> Result<Copy<'a>, ParseError> {
-    let copy_span = parser.consume_keyword(Keyword::COPY)?;
-    let table = parser.consume_plain_identifier_unreserved()?;
-    parser.consume_token(Token::LParen)?;
-    let mut columns = Vec::new();
-    if !matches!(parser.token, Token::RParen) {
-        loop {
-            parser.recovered(
-                "')' or ','",
-                &|t| matches!(t, Token::RParen | Token::Comma),
-                |parser| {
-                    columns.push(parser.consume_plain_identifier_unreserved()?);
-                    Ok(())
-                },
-            )?;
-            if matches!(parser.token, Token::RParen) {
-                break;
-            }
-            parser.consume_token(Token::Comma)?;
-        }
-    }
-    parser.consume_token(Token::RParen)?;
-    let from_span = parser.consume_keyword(Keyword::FROM)?;
-    let stdin_span = parser.consume_keyword(Keyword::STDIN)?;
-
-    Ok(Copy {
-        copy_span,
-        table,
-        columns,
-        from_span,
-        stdin_span,
-    })
-}
-
 pub(crate) fn parse_compound_query_bottom<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<Statement<'a>, ParseError> {
@@ -1135,33 +1100,6 @@ impl<'a> Spanned for Union<'a> {
             .join_span(&self.with)
             .join_span(&self.order_by)
             .join_span(&self.limit)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Copy<'a> {
-    pub copy_span: Span,
-    pub table: Identifier<'a>,
-    pub columns: Vec<Identifier<'a>>,
-    pub from_span: Span,
-    pub stdin_span: Span,
-}
-
-impl<'a> Spanned for Copy<'a> {
-    fn span(&self) -> Span {
-        self.copy_span
-            .join_span(&self.table)
-            .join_span(&self.columns)
-            .join_span(&self.from_span)
-            .join_span(&self.stdin_span)
-    }
-}
-
-impl<'a> Copy<'a> {
-    fn reads_from_stdin(&self) -> bool {
-        // There are COPY statements that don't read from STDIN,
-        // but we don't support them in this parser - we only support FROM STDIN.
-        true
     }
 }
 
