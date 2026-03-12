@@ -48,22 +48,59 @@ python3 test.py validate-postgresql --filter "INSERT INTO"
 python3 test.py validate-mysql --filter "CREATE TABLE"
 ```
 
-#### The `should_fail` Flag
+#### The `should_fail` and `failure` Fields
 
-Tests can be marked with `"should_fail": true` to indicate that the SQL should fail when executed against a real database:
+These two fields are **completely different** and are easy to confuse:
 
+| Field | Set by | Meaning |
+|-------|--------|---------|
+| `"should_fail": true` | Developer | The SQL is **invalid** in the real database. Validation passes if the DB rejects it. Controls test pass/fail in `test-postgresql` / `test-mysql`. |
+| `"failure": true` | `--update-output` automation | The parser currently **does not successfully parse** this SQL (i.e. `success: false`). This is bookkeeping only — it has **no effect** on whether a test passes or fails in the runner. |
+
+The test runner (`test-postgresql` / `test-mysql`) compares `out["success"]` against `should_fail`:
+- If `out["success"] == should_fail` → **test fails** (either the parser succeeded on SQL that should fail, or failed on SQL that should succeed)
+- If `out["success"] != should_fail` → **test passes**
+
+The `failure` field is written automatically by `--update-output` and just records the current parser state. **Never add or remove `failure` manually.**
+
+Example — SQL the parser rejects and the real DB also rejects:
 ```json
 {
-  "input": "SELECT c FROM cte WHERE c = 1",
-  "should_fail": true,
+  "input": "ALTER TABLE t ALTER COLUMN id ADD GENERATED AS IDENTITY (",
+  "output": "...",
+  "issues": ["...Expected ')' here..."],
+  "failure": true,
+  "should_fail": true
+}
+```
+
+Example — SQL the parser accepts and the real DB also accepts:
+```json
+{
+  "input": "ALTER TABLE t ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY",
   "output": "...",
   "issues": []
 }
 ```
 
-When validation runs:
-- **`should_fail: true`**: The test passes if the SQL fails in the real database
-- **`should_fail: false`** (or omitted): The test passes if the SQL succeeds in the real database
+Example of a **test failure**: SQL the parser accepts (`failure` absent) but `should_fail: true` → `true == true` → runner counts it as a failure ("Unexpected success").
+
+#### Setting and Unsetting `should_fail`
+
+Use the dedicated subcommands to modify a single test by its exact SQL input string:
+
+```bash
+# Mark a test as expected to fail in the real database
+python3 test.py set-should-fail postgresql "ALTER TABLE t ALTER COLUMN id ADD GENERATED AS IDENTITY"
+
+# Remove the should_fail flag (test is expected to succeed in the real database)
+python3 test.py unset-should-fail postgresql "ALTER TABLE t ALTER COLUMN id ADD GENERATED AS IDENTITY"
+
+# Same for MySQL
+python3 test.py set-should-fail mysql "CREATE TABLE foo (id INT NOT NULL PRIMARY KEY)"
+```
+
+These commands require the **exact** SQL string (not a substring) to avoid accidentally modifying tests that share a common prefix.
 
 #### Database Setup for Tests
 
@@ -102,7 +139,7 @@ When validation finds mismatches, it suggests fixing the `should_fail` flag:
 This means:
 1. The test currently has `should_fail: false` (or omitted)
 2. The SQL failed when executed against the real database
-3. You should add `"should_fail": true` to the test
+3. Fix it with: `python3 test.py set-should-fail postgresql "SELECT nonexistent_column FROM users"`
 
 #### Workflow for Adding Tests with Real Database Validation
 
@@ -110,7 +147,10 @@ This means:
 2. If the test needs tables, add setup SQL to `postgres-setups.json` or `mysql-setups.json`
 3. Reference the setup in your test with `"setup": "setup_name"`
 4. Run validation: `python3 test.py validate-postgresql --filter "YOUR SQL"`
-5. If validation shows a mismatch, add or remove `"should_fail": true` accordingly
+5. If validation shows a mismatch, use `set-should-fail` or `unset-should-fail` to fix it:
+   ```bash
+   python3 test.py set-should-fail postgresql "YOUR EXACT SQL HERE"
+   ```
 6. Re-run validation to confirm all tests match database behavior
 
 ## Building and Checking Code
