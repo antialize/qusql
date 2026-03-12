@@ -841,7 +841,7 @@ impl<'a> Lexer<'a> {
                 }
                 b'\'' => loop {
                     match self.chars.next() {
-                        Some((_, b'\\')) => {
+                        Some((_, b'\\')) if self.dialect.is_maria() => {
                             self.chars.next();
                         }
                         Some((i, b'\'')) => match self.chars.peek() {
@@ -856,7 +856,7 @@ impl<'a> Lexer<'a> {
                 },
                 b'"' => loop {
                     match self.chars.next() {
-                        Some((_, b'\\')) => {
+                        Some((_, b'\\')) if self.dialect.is_maria() => {
                             self.chars.next();
                         }
                         Some((i, b'"')) => match self.chars.peek() {
