@@ -641,6 +641,37 @@ def validate_mysql(args) -> None:
     )
 
 
+def set_should_fail(args) -> None:
+    """
+    Set or clear the should_fail flag on a single test matched by exact input string.
+
+    Args:
+        args: Argparse namespace with 'dialect', 'input', and 'value' fields
+    """
+    tests_file = "postgres-tests.json" if args.dialect == "postgresql" else "mysql-tests.json"
+    tests = read_tests(tests_file)
+
+    if args.input not in tests:
+        print(f"Error: no test found with input: {args.input!r}")
+        return
+
+    test = tests[args.input]
+    if args.value:
+        if not test.get("should_fail", False):
+            test["should_fail"] = True
+            print(f"Set should_fail=true:  {args.input[:80]}")
+        else:
+            print(f"Already should_fail=true: {args.input[:80]}")
+    else:
+        if test.get("should_fail", False):
+            test.pop("should_fail")
+            print(f"Set should_fail=false: {args.input[:80]}")
+        else:
+            print(f"Already should_fail=false: {args.input[:80]}")
+
+    write_tests(tests_file, tests)
+
+
 def validate_postgresql(args) -> None:
     """
     Validate PostgreSQL test cases against a real PostgreSQL database running in Podman.
@@ -769,6 +800,38 @@ if __name__ == "__main__":
         help="Automatically update should_fail flags based on MySQL behavior",
     )
 
+    # set-should-fail command
+    set_should_fail_args = subparsers.add_parser(
+        "set-should-fail",
+        help="Set should_fail=true on a specific test by exact SQL input",
+    )
+    set_should_fail_args.add_argument(
+        "dialect",
+        choices=["postgresql", "mysql"],
+        help="Which test suite to modify",
+    )
+    set_should_fail_args.add_argument(
+        "input",
+        type=str,
+        help="Exact SQL input string of the test to modify",
+    )
+
+    # unset-should-fail command
+    unset_should_fail_args = subparsers.add_parser(
+        "unset-should-fail",
+        help="Remove should_fail flag from a specific test by exact SQL input",
+    )
+    unset_should_fail_args.add_argument(
+        "dialect",
+        choices=["postgresql", "mysql"],
+        help="Which test suite to modify",
+    )
+    unset_should_fail_args.add_argument(
+        "input",
+        type=str,
+        help="Exact SQL input string of the test to modify",
+    )
+
     # PostgreSQL validation command
     validate_postgresql_args = subparsers.add_parser(
         "validate-postgresql",
@@ -792,13 +855,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    subprocess.run(
-        [
-            "cargo",
-            "build",
-            "--release",
-        ]
-    )
+    if args.command not in ("set-should-fail", "unset-should-fail"):
+        subprocess.run(
+            [
+                "cargo",
+                "build",
+                "--release",
+            ]
+        )
 
     # Route to appropriate handler based on subcommand
     if args.command == "import-mysql":
@@ -813,3 +877,9 @@ if __name__ == "__main__":
         test_postgresql(args)
     elif args.command == "validate-postgresql":
         validate_postgresql(args)
+    elif args.command == "set-should-fail":
+        args.value = True
+        set_should_fail(args)
+    elif args.command == "unset-should-fail":
+        args.value = False
+        set_should_fail(args)
