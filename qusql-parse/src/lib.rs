@@ -47,6 +47,7 @@ use parser::Parser;
 mod alter_role;
 mod alter_table;
 mod alter_type;
+mod copy;
 mod create;
 mod create_constraint_trigger;
 mod create_function;
@@ -95,6 +96,9 @@ pub use alter_table::{
     TriggerName, ValidateConstraint,
 };
 pub use alter_type::{AlterType, AlterTypeAction, AttributeAction};
+pub use copy::{
+    CopyColumnList, CopyFrom, CopyHeaderValue, CopyLocation, CopyOption, CopySource, CopyTo,
+};
 pub use create::{
     CreateDatabase, CreateDatabaseOption, CreateDomain, CreateExtension, CreateSchema,
     CreateSequence, CreateServer, CreateTypeEnum, DomainConstraint, SequenceOption,
@@ -161,9 +165,9 @@ pub use show::{
 pub use span::{OptSpanned, Span, Spanned};
 pub use sstring::SString;
 pub use statement::{
-    AlterSchema, AlterSchemaAction, Begin, Block, CaseStatement, Commit, Copy, Do, End, If,
-    IfCondition, Invalid, Return, Set, Signal, SignalConditionInformationName, StartTransaction,
-    Statement, Stdin, Union, UnionType, UnionWith, WhenStatement,
+    AlterSchema, AlterSchemaAction, Begin, Block, CaseStatement, Commit, Do, End, If, IfCondition,
+    Invalid, Return, Set, Signal, SignalConditionInformationName, StartTransaction, Statement,
+    Stdin, Union, UnionType, UnionWith, WhenStatement,
 };
 pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
