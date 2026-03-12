@@ -6,6 +6,9 @@
   "operator_family_integer_ops": [
     "CREATE OPERATOR FAMILY integer_ops USING btree"
   ],
+  "t_with_integer_id": [
+    "CREATE TABLE t (id INTEGER)"
+  ],
   "operator_family_my_ops": [
     "CREATE OPERATOR FAMILY my_ops USING btree"
   ],

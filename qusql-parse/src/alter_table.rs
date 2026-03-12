@@ -2057,6 +2057,9 @@ pub(crate) fn parse_alter_table<'a>(
                                 let sequence_options = if parser.skip_token(Token::LParen).is_some()
                                 {
                                     let options = parse_sequence_options(parser)?;
+                                    if options.is_empty() {
+                                        parser.expected_failure("sequence option")?;
+                                    }
                                     parser.consume_token(Token::RParen)?;
                                     options
                                 } else {
