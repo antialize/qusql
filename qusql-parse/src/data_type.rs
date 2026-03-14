@@ -249,9 +249,31 @@ fn parse_enum_set_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<SString<
     Ok(ans)
 }
 
+/// The context in which a data type is being parsed.
+///
+/// This controls which [`DataTypeProperty`] variants are syntactically accepted
+/// and enables future per-context validation.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DataTypeContext {
+    /// Column definition in `CREATE TABLE`, `ALTER TABLE ADD/MODIFY COLUMN`,
+    /// or composite type attributes (`ALTER TYPE … ADD/ALTER ATTRIBUTE`).
+    /// All properties are allowed, including the `AS (expr)` generated-column syntax.
+    Column,
+    /// Function or procedure parameter type (`CREATE FUNCTION f(a INT …)`).
+    /// The `AS (expr)` generated-column syntax is not accepted here.
+    FunctionParam,
+    /// Function return type (`RETURNS …`), or a `JSON_TABLE` column path type.
+    /// The `AS (expr)` generated-column syntax is not accepted here.
+    FunctionReturn,
+    /// Type reference in an expression context: `CAST(… AS type)`, `expr::type`,
+    /// `CONVERT(expr, type)`, or operator/function argument types in `DROP`.
+    /// The `AS (expr)` generated-column syntax is not accepted here.
+    TypeRef,
+}
+
 pub(crate) fn parse_data_type<'a>(
     parser: &mut Parser<'a, '_>,
-    no_as: bool,
+    ctx: DataTypeContext,
 ) -> Result<DataType<'a>, ParseError> {
     let (identifier, type_) = match &parser.token {
         Token::Ident(_, Keyword::BOOLEAN) => {
@@ -447,60 +469,98 @@ pub(crate) fn parse_data_type<'a>(
 
     let mut properties = Vec::new();
     loop {
-        match parser.token {
-            Token::Ident(_, Keyword::SIGNED) => properties.push(DataTypeProperty::Signed(
-                parser.consume_keyword(Keyword::SIGNED)?,
-            )),
-            Token::Ident(_, Keyword::AUTO_INCREMENT) => properties.push(
-                DataTypeProperty::AutoIncrement(parser.consume_keyword(Keyword::AUTO_INCREMENT)?),
-            ),
-            Token::Ident(_, Keyword::UNSIGNED) => properties.push(DataTypeProperty::Unsigned(
-                parser.consume_keyword(Keyword::UNSIGNED)?,
-            )),
-            Token::Ident(_, Keyword::ZEROFILL) => properties.push(DataTypeProperty::Zerofill(
-                parser.consume_keyword(Keyword::ZEROFILL)?,
-            )),
-            Token::Ident(_, Keyword::NULL) => properties.push(DataTypeProperty::Null(
-                parser.consume_keyword(Keyword::NULL)?,
-            )),
-            Token::Ident(_, Keyword::NOT) => {
-                let start = parser.consume_keyword(Keyword::NOT)?.start;
-                properties.push(DataTypeProperty::NotNull(
-                    start..parser.consume_keyword(Keyword::NULL)?.end,
+        // Each arm tuple is (&parser.token, ctx).  The wildcard arm stops
+        // property parsing for both "unknown token" and "property not allowed
+        // in this context", so callers never silently swallow tokens.
+        use DataTypeContext::*;
+        match (&parser.token, ctx) {
+            // ── Properties valid in column definitions and function signatures ──
+            (Token::Ident(_, Keyword::SIGNED), Column | FunctionParam | FunctionReturn) => {
+                properties.push(DataTypeProperty::Signed(
+                    parser.consume_keyword(Keyword::SIGNED)?,
                 ));
             }
-            Token::Ident(_, Keyword::CHARACTER) => {
+            (Token::Ident(_, Keyword::UNSIGNED), Column | FunctionParam | FunctionReturn) => {
+                properties.push(DataTypeProperty::Unsigned(
+                    parser.consume_keyword(Keyword::UNSIGNED)?,
+                ));
+            }
+            (Token::Ident(_, Keyword::ZEROFILL), Column | FunctionParam | FunctionReturn) => {
+                properties.push(DataTypeProperty::Zerofill(
+                    parser.consume_keyword(Keyword::ZEROFILL)?,
+                ));
+            }
+            (
+                Token::Ident(_, Keyword::CHARACTER),
+                Column | FunctionParam | FunctionReturn | TypeRef,
+            ) => {
                 parser.consume_keywords(&[Keyword::CHARACTER, Keyword::SET])?;
                 properties.push(DataTypeProperty::Charset(
                     parser.consume_plain_identifier_unreserved()?,
                 ));
             }
-            Token::Ident(_, Keyword::COLLATE) => {
-                parser.consume_keyword(Keyword::COLLATE)?;
+            (
+                Token::Ident(_, Keyword::CHARSET),
+                Column | FunctionParam | FunctionReturn | TypeRef,
+            ) => {
+                parser.consume_keyword(Keyword::CHARSET)?;
                 properties.push(DataTypeProperty::Charset(
                     parser.consume_plain_identifier_unreserved()?,
                 ));
             }
-            Token::Ident(_, Keyword::COMMENT) => {
+            (
+                Token::Ident(_, Keyword::COLLATE),
+                Column | FunctionParam | FunctionReturn | TypeRef,
+            ) => {
+                parser.consume_keyword(Keyword::COLLATE)?;
+                properties.push(DataTypeProperty::Collate(
+                    parser.consume_plain_identifier_unreserved()?,
+                ));
+            }
+
+            // ── Column-only properties ──
+            (Token::Ident(_, Keyword::NULL), Column) => {
+                properties.push(DataTypeProperty::Null(
+                    parser.consume_keyword(Keyword::NULL)?,
+                ));
+            }
+            (Token::Ident(_, Keyword::NOT), Column) => {
+                let start = parser.consume_keyword(Keyword::NOT)?.start;
+                properties.push(DataTypeProperty::NotNull(
+                    start..parser.consume_keyword(Keyword::NULL)?.end,
+                ));
+            }
+            (Token::Ident(_, Keyword::COMMENT), Column) => {
                 parser.consume_keyword(Keyword::COMMENT)?;
                 properties.push(DataTypeProperty::Comment(parser.consume_string()?));
             }
-            Token::Ident(_, Keyword::DEFAULT) => {
+            (Token::Ident(_, Keyword::DEFAULT), Column) => {
                 parser.consume_keyword(Keyword::DEFAULT)?;
                 properties.push(DataTypeProperty::Default(parse_expression_unreserved(
                     parser, true,
                 )?));
             }
-            Token::Ident(_, Keyword::VIRTUAL) => properties.push(DataTypeProperty::Virtual(
-                parser.consume_keyword(Keyword::VIRTUAL)?,
-            )),
-            Token::Ident(_, Keyword::PERSISTENT) => properties.push(DataTypeProperty::Persistent(
-                parser.consume_keyword(Keyword::PERSISTENT)?,
-            )),
-            Token::Ident(_, Keyword::STORED) => properties.push(DataTypeProperty::Stored(
-                parser.consume_keyword(Keyword::STORED)?,
-            )),
-            Token::Ident(_, Keyword::UNIQUE) => {
+            (Token::Ident(_, Keyword::AUTO_INCREMENT), Column) => {
+                properties.push(DataTypeProperty::AutoIncrement(
+                    parser.consume_keyword(Keyword::AUTO_INCREMENT)?,
+                ));
+            }
+            (Token::Ident(_, Keyword::VIRTUAL), Column) => {
+                properties.push(DataTypeProperty::Virtual(
+                    parser.consume_keyword(Keyword::VIRTUAL)?,
+                ));
+            }
+            (Token::Ident(_, Keyword::PERSISTENT), Column) => {
+                properties.push(DataTypeProperty::Persistent(
+                    parser.consume_keyword(Keyword::PERSISTENT)?,
+                ));
+            }
+            (Token::Ident(_, Keyword::STORED), Column) => {
+                properties.push(DataTypeProperty::Stored(
+                    parser.consume_keyword(Keyword::STORED)?,
+                ));
+            }
+            (Token::Ident(_, Keyword::UNIQUE), Column) => {
                 let span = parser.consume_keyword(Keyword::UNIQUE)?;
                 if let Some(s2) = parser.skip_keyword(Keyword::KEY) {
                     properties.push(DataTypeProperty::UniqueKey(s2.join_span(&span)));
@@ -508,7 +568,7 @@ pub(crate) fn parse_data_type<'a>(
                     properties.push(DataTypeProperty::Unique(span));
                 }
             }
-            Token::Ident(_, Keyword::GENERATED) => {
+            (Token::Ident(_, Keyword::GENERATED), Column) => {
                 if parser.options.dialect.is_postgresql() {
                     properties.push(DataTypeProperty::GeneratedAlways(parser.consume_keywords(
                         &[
@@ -517,14 +577,14 @@ pub(crate) fn parse_data_type<'a>(
                             Keyword::AS,
                             Keyword::IDENTITY,
                         ],
-                    )?))
+                    )?));
                 } else {
                     properties.push(DataTypeProperty::GeneratedAlways(
                         parser.consume_keywords(&[Keyword::GENERATED, Keyword::ALWAYS])?,
-                    ))
+                    ));
                 }
             }
-            Token::Ident(_, Keyword::AS) if !no_as => {
+            (Token::Ident(_, Keyword::AS), Column) => {
                 let span = parser.consume_keyword(Keyword::AS)?;
                 let s1 = parser.consume_token(Token::LParen)?;
                 let e = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
@@ -538,10 +598,12 @@ pub(crate) fn parse_data_type<'a>(
                 });
                 properties.push(DataTypeProperty::As((span, e)));
             }
-            Token::Ident(_, Keyword::PRIMARY) => properties.push(DataTypeProperty::PrimaryKey(
-                parser.consume_keywords(&[Keyword::PRIMARY, Keyword::KEY])?,
-            )),
-            Token::Ident(_, Keyword::CHECK) => {
+            (Token::Ident(_, Keyword::PRIMARY), Column) => {
+                properties.push(DataTypeProperty::PrimaryKey(
+                    parser.consume_keywords(&[Keyword::PRIMARY, Keyword::KEY])?,
+                ));
+            }
+            (Token::Ident(_, Keyword::CHECK), Column) => {
                 let span = parser.consume_keyword(Keyword::CHECK)?;
                 let s1 = parser.consume_token(Token::LParen)?;
                 let e = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
@@ -555,16 +617,16 @@ pub(crate) fn parse_data_type<'a>(
                 });
                 properties.push(DataTypeProperty::Check((span, e)));
             }
-            Token::Ident(_, Keyword::ON) => {
+            (Token::Ident(_, Keyword::ON), Column) => {
                 let span = parser.consume_keywords(&[Keyword::ON, Keyword::UPDATE])?;
                 let expr = parse_expression_unreserved(parser, true)?;
                 properties.push(DataTypeProperty::OnUpdate((span, expr)));
             }
+
+            // End of properties (or property not valid in this context)
             _ => break,
         }
     }
-    // TODO validate properties order
-    // TODO validate allowed properties
     Ok(DataType {
         identifier,
         type_,

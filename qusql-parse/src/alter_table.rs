@@ -14,7 +14,7 @@ use crate::create::parse_sequence_options;
 use crate::qualified_name::parse_qualified_name_unreserved;
 use crate::{
     DataType, Expression, Identifier, QualifiedName, SString, SequenceOption, Span, Spanned,
-    data_type::parse_data_type,
+    data_type::{DataTypeContext, parse_data_type},
     expression::parse_expression_unreserved,
     keywords::{Keyword, Restrict},
     lexer::{StringType, Token},
@@ -346,7 +346,7 @@ fn parse_add_column<'a>(
     parser.postgres_only(&if_not_exists_span);
 
     let identifier = parser.consume_plain_identifier_unreserved()?;
-    let data_type = parse_data_type(parser, false)?;
+    let data_type = parse_data_type(parser, DataTypeContext::Column)?;
 
     let mut first = None;
     let mut after = None;
@@ -651,7 +651,7 @@ fn parse_modify_column<'a>(
         None
     };
     let col = parser.consume_plain_identifier_unreserved()?;
-    let definition = parse_data_type(parser, false)?;
+    let definition = parse_data_type(parser, DataTypeContext::Column)?;
 
     let mut first = None;
     let mut after = None;
@@ -1120,7 +1120,7 @@ fn parse_change<'a>(
 
     let column = parser.consume_plain_identifier_unreserved()?;
     let new_column = parser.consume_plain_identifier_unreserved()?;
-    let definition = parse_data_type(parser, false)?;
+    let definition = parse_data_type(parser, DataTypeContext::Column)?;
 
     let mut first = None;
     let mut after = None;
@@ -1983,7 +1983,8 @@ pub(crate) fn parse_alter_table<'a>(
                                         parser.consume_keyword(Keyword::DATA)?;
                                         let type_span = parser.consume_keyword(Keyword::TYPE)?;
                                         let type_span = set_span.join_span(&type_span);
-                                        let type_ = parse_data_type(parser, false)?;
+                                        let type_ =
+                                            parse_data_type(parser, DataTypeContext::Column)?;
                                         let using = if let Some(using_span) =
                                             parser.skip_keyword(Keyword::USING)
                                         {
@@ -2023,7 +2024,7 @@ pub(crate) fn parse_alter_table<'a>(
                             }
                             Token::Ident(_, Keyword::TYPE) => {
                                 let type_span = parser.consume();
-                                let type_ = parse_data_type(parser, false)?;
+                                let type_ = parse_data_type(parser, DataTypeContext::Column)?;
                                 let using =
                                     if let Some(using_span) = parser.skip_keyword(Keyword::USING) {
                                         let expr = parse_expression_unreserved(parser, false)?;

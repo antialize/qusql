@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 use crate::{
     Identifier, OptSpanned, QualifiedName, SString, Span, Spanned,
     alter_table::AlterTableOwner,
-    data_type::{DataType, parse_data_type},
+    data_type::{DataType, DataTypeContext, parse_data_type},
     drop::{CascadeOrRestrict, parse_cascade_or_restrict},
     expression::{Expression, parse_expression_unreserved},
     keywords::Keyword,
@@ -408,7 +408,7 @@ fn parse_attribute_action<'a>(
             let add_attribute_span =
                 parser.consume_keywords(&[Keyword::ADD, Keyword::ATTRIBUTE])?;
             let attribute_name = parser.consume_plain_identifier_unreserved()?;
-            let data_type = parse_data_type(parser, false)?;
+            let data_type = parse_data_type(parser, DataTypeContext::Column)?;
             let collate = if let Some(collate_span) = parser.skip_keyword(Keyword::COLLATE) {
                 let collation = parse_qualified_name_unreserved(parser)?;
                 Some((collate_span, collation))
@@ -453,7 +453,7 @@ fn parse_attribute_action<'a>(
                 None
             };
             let type_span = parser.consume_keyword(Keyword::TYPE)?;
-            let data_type = parse_data_type(parser, false)?;
+            let data_type = parse_data_type(parser, DataTypeContext::Column)?;
             let collate = if let Some(collate_span) = parser.skip_keyword(Keyword::COLLATE) {
                 let collation = parse_qualified_name_unreserved(parser)?;
                 Some((collate_span, collation))

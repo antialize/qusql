@@ -12,7 +12,7 @@
 
 use crate::{
     DataType, Identifier, SString, Span, Spanned, Statement,
-    data_type::parse_data_type,
+    data_type::{DataTypeContext, parse_data_type},
     function_expression::{
         Function, FunctionCallExpression, WindowFunctionCallExpression, parse_function,
     },
@@ -1153,7 +1153,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                     _ => parser.err_here("Expected expression before '::'")?,
                 };
                 let doublecolon_span = parser.consume_token(Token::DoubleColon)?;
-                let type_ = parse_data_type(parser, false)?;
+                let type_ = parse_data_type(parser, DataTypeContext::TypeRef)?;
                 r.shift_expr(Expression::TypeCast(Box::new(TypeCastExpression {
                     expr,
                     doublecolon_span,
@@ -1408,7 +1408,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                 let cast = parser.recovered("')'", &|t| matches!(t, Token::RParen), |parser| {
                     let expr = parse_expression_outer(parser)?;
                     let as_span = parser.consume_keyword(Keyword::AS)?;
-                    let type_ = parse_data_type(parser, false)?;
+                    let type_ = parse_data_type(parser, DataTypeContext::TypeRef)?;
                     Ok(Some((expr, as_span, type_)))
                 })?;
                 parser.consume_token(Token::RParen)?;
@@ -1439,7 +1439,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                         } else {
                             // CONVERT(expr, type)
                             parser.consume_token(Token::Comma)?;
-                            let type_ = parse_data_type(parser, false)?;
+                            let type_ = parse_data_type(parser, DataTypeContext::TypeRef)?;
                             Ok(Some((expr, Some(type_), None)))
                         }
                     })?;

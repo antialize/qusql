@@ -15,7 +15,7 @@ use crate::QualifiedName;
 use crate::qualified_name::parse_qualified_name_unreserved;
 use crate::{
     DataType, Identifier, SString, Span, Spanned, Statement,
-    data_type::parse_data_type,
+    data_type::{DataTypeContext, parse_data_type},
     expression::{Expression, parse_expression_unreserved},
     keywords::{Keyword, Restrict},
     lexer::Token,
@@ -606,7 +606,7 @@ fn parse_json_table_columns<'a>(
                 });
             } else {
                 // Parse data type
-                let data_type = parse_data_type(parser, true)?;
+                let data_type = parse_data_type(parser, DataTypeContext::FunctionReturn)?;
 
                 // Check for EXISTS before PATH
                 let _ = parser.skip_keyword(Keyword::EXISTS);
