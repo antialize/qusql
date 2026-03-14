@@ -14,7 +14,7 @@ use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     Identifier, QualifiedName, Span, Spanned, Statement,
-    data_type::DataType,
+    data_type::{DataType, DataTypeContext},
     keywords::Keyword,
     lexer::Token,
     operator::parse_operator_name,
@@ -448,7 +448,8 @@ fn parse_drop_function<'a>(
                         _ => None,
                     };
                     // Parse data type
-                    let data_type = crate::data_type::parse_data_type(parser, false)?;
+                    let data_type =
+                        crate::data_type::parse_data_type(parser, DataTypeContext::FunctionParam)?;
                     // Parse default value (optional)
                     let default = if parser.skip_token(Token::Eq).is_some() {
                         // Just record the span for now
@@ -1073,10 +1074,16 @@ fn parse_drop_operator<'a>(
             let mut right = None;
             parser.recovered(")", &|t| t == &Token::RParen, |parser| {
                 if parser.token != Token::Comma && parser.token != Token::RParen {
-                    left = Some(crate::data_type::parse_data_type(parser, false)?);
+                    left = Some(crate::data_type::parse_data_type(
+                        parser,
+                        DataTypeContext::TypeRef,
+                    )?);
                 }
                 if parser.skip_token(Token::Comma).is_some() && parser.token != Token::RParen {
-                    right = Some(crate::data_type::parse_data_type(parser, false)?);
+                    right = Some(crate::data_type::parse_data_type(
+                        parser,
+                        DataTypeContext::TypeRef,
+                    )?);
                 }
                 Ok(())
             })?;

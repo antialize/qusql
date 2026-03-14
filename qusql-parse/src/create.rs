@@ -19,7 +19,7 @@ use crate::{
     create_table::parse_create_table_or_partition_of,
     create_trigger::parse_create_trigger,
     create_view::parse_create_view,
-    data_type::parse_data_type,
+    data_type::{DataTypeContext, parse_data_type},
     expression::{Expression, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
@@ -338,7 +338,7 @@ pub fn parse_create_domain<'a>(
     // Optional AS
     parser.skip_keyword(Keyword::AS);
 
-    let data_type = parse_data_type(parser, false)?;
+    let data_type = parse_data_type(parser, DataTypeContext::Column)?;
 
     // Optional COLLATE
     let collate = if let Some(collate_span) = parser.skip_keyword(Keyword::COLLATE) {
@@ -540,7 +540,7 @@ pub(crate) fn parse_sequence_options<'a>(
         match &parser.token {
             Token::Ident(_, Keyword::AS) => {
                 let as_span = parser.consume_keyword(Keyword::AS)?;
-                let data_type = parse_data_type(parser, false)?;
+                let data_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
                 options.push(SequenceOption::As { as_span, data_type });
             }
             Token::Ident(_, Keyword::INCREMENT) => {

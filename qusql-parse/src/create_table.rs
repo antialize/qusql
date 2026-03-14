@@ -17,7 +17,7 @@ use crate::{
         parse_index_cols, parse_index_options, parse_index_type,
     },
     create_option::CreateOption,
-    data_type::parse_data_type,
+    data_type::{DataTypeContext, parse_data_type},
     expression::parse_expression_unreserved,
     keywords::{Keyword, Restrict},
     lexer::{StringType, Token},
@@ -804,7 +804,7 @@ pub(crate) fn parse_create_definition<'a>(
             }
             return Ok(CreateDefinition::ColumnDefinition {
                 identifier: parser.consume_plain_identifier_unreserved()?,
-                data_type: parse_data_type(parser, false)?,
+                data_type: parse_data_type(parser, DataTypeContext::Column)?,
             });
         }
         Token::Ident(_, _) => {
@@ -816,7 +816,7 @@ pub(crate) fn parse_create_definition<'a>(
             }
             return Ok(CreateDefinition::ColumnDefinition {
                 identifier: parser.consume_plain_identifier_unreserved()?,
-                data_type: parse_data_type(parser, false)?,
+                data_type: parse_data_type(parser, DataTypeContext::Column)?,
             });
         }
         _ => return parser.expected_failure("identifier"),

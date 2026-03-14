@@ -12,7 +12,7 @@
 use crate::{
     DataType, Identifier, SString, Span, Spanned, Statement,
     create_option::CreateOption,
-    data_type::parse_data_type,
+    data_type::{DataTypeContext, parse_data_type},
     keywords::Keyword,
     lexer::{StringType, Token},
     parser::{ParseError, Parser},
@@ -265,7 +265,7 @@ pub(crate) fn parse_create_function<'a>(
             } else {
                 Some(parser.consume_plain_identifier_unreserved()?)
             };
-            let type_ = parse_data_type(parser, false)?;
+            let type_ = parse_data_type(parser, DataTypeContext::FunctionParam)?;
             params.push((direction, name, type_));
             if parser.skip_token(Token::Comma).is_none() {
                 break;
@@ -275,7 +275,7 @@ pub(crate) fn parse_create_function<'a>(
     })?;
     parser.consume_token(Token::RParen)?;
     let returns_span = parser.consume_keyword(Keyword::RETURNS)?;
-    let return_type = parse_data_type(parser, true)?;
+    let return_type = parse_data_type(parser, DataTypeContext::FunctionReturn)?;
     if parser.options.dialect.is_postgresql() && parser.skip_keyword(Keyword::AS).is_some() {
         if matches!(parser.token, Token::String(_, StringType::DollarQuoted)) {
             // PostgreSQL: function body is a dollar-quoted string literal

@@ -17,7 +17,7 @@ use crate::alter_table::parse_alter_owner;
 use crate::qualified_name::parse_qualified_name_unreserved;
 use crate::{
     CreateOption, DataType, QualifiedName, Span, Spanned, UsingIndexMethod,
-    data_type::parse_data_type,
+    data_type::{DataTypeContext, parse_data_type},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -128,10 +128,10 @@ pub(crate) fn parse_alter_operator<'a>(
     let left_type = if let Some(none_span) = parser.skip_keyword(Keyword::NONE) {
         LeftOperatorType::None(none_span)
     } else {
-        LeftOperatorType::DataType(parse_data_type(parser, false)?)
+        LeftOperatorType::DataType(parse_data_type(parser, DataTypeContext::TypeRef)?)
     };
     let comma_span = parser.consume_token(Token::Comma)?;
-    let right_type = parse_data_type(parser, false)?;
+    let right_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
     let rparen_span = parser.consume_token(Token::RParen)?;
     let action = match &parser.token {
         Token::Ident(_, Keyword::OWNER) => {
@@ -614,7 +614,7 @@ pub(crate) fn parse_create_operator<'a>(
             Token::Ident(_, Keyword::LEFTARG) => {
                 let keyword_span = parser.consume_keyword(Keyword::LEFTARG)?;
                 let eq_span = parser.consume_token(Token::Eq)?;
-                let arg_type = parse_data_type(parser, false)?;
+                let arg_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
                 OperatorOption::LeftArg {
                     leftarg_span: keyword_span,
                     eq_span,
@@ -624,7 +624,7 @@ pub(crate) fn parse_create_operator<'a>(
             Token::Ident(_, Keyword::RIGHTARG) => {
                 let keyword_span = parser.consume_keyword(Keyword::RIGHTARG)?;
                 let eq_span = parser.consume_token(Token::Eq)?;
-                let arg_type = parse_data_type(parser, false)?;
+                let arg_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
                 OperatorOption::RightArg {
                     rightarg_span: keyword_span,
                     eq_span,
@@ -912,7 +912,7 @@ pub(crate) fn parse_create_operator_class<'a>(
 
     // FOR TYPE
     let for_type_span = parser.consume_keywords(&[Keyword::FOR, Keyword::TYPE])?;
-    let data_type = parse_data_type(parser, false)?;
+    let data_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
 
     // USING index_method
     let using_span = parser.consume_keyword(Keyword::USING)?;
@@ -967,7 +967,7 @@ pub(crate) fn parse_create_operator_class<'a>(
                 let mut arg_types = Vec::new();
                 if parser.skip_token(Token::LParen).is_some() {
                     loop {
-                        arg_types.push(parse_data_type(parser, false)?);
+                        arg_types.push(parse_data_type(parser, DataTypeContext::TypeRef)?);
                         if parser.skip_token(Token::Comma).is_none() {
                             break;
                         }
@@ -984,7 +984,7 @@ pub(crate) fn parse_create_operator_class<'a>(
             }
             Token::Ident(_, Keyword::STORAGE) => {
                 let storage_span = parser.consume_keyword(Keyword::STORAGE)?;
-                let data_type = parse_data_type(parser, false)?;
+                let data_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
                 items.push(OperatorClassItem::Storage {
                     storage_span,
                     data_type,
@@ -1359,9 +1359,9 @@ fn parse_operator_family_item<'a>(
             let (num, num_span) = parser.consume_int()?;
             let operator = parse_operator_name(parser)?;
             let lparen_span = parser.consume_token(Token::LParen)?;
-            let left_type = parse_data_type(parser, false)?;
+            let left_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
             let comma_span = parser.consume_token(Token::Comma)?;
-            let right_type = parse_data_type(parser, false)?;
+            let right_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
             let rparen_span = parser.consume_token(Token::RParen)?;
             let mut for_search = None;
             let mut for_order_by = None;
@@ -1394,10 +1394,10 @@ fn parse_operator_family_item<'a>(
             let (num, num_span) = parser.consume_int()?;
             let (lparen_span, left_type, comma_span, right_type, rparen_span) =
                 if let Ok(lparen_span) = parser.consume_token(Token::LParen) {
-                    let left_type = Some(parse_data_type(parser, false)?);
+                    let left_type = Some(parse_data_type(parser, DataTypeContext::TypeRef)?);
                     let comma_span = parser.consume_token(Token::Comma).ok();
                     let right_type = if comma_span.is_some() {
-                        Some(parse_data_type(parser, false)?)
+                        Some(parse_data_type(parser, DataTypeContext::TypeRef)?)
                     } else {
                         None
                     };
@@ -1418,7 +1418,7 @@ fn parse_operator_family_item<'a>(
                 if let Ok(arg_lparen_span) = parser.consume_token(Token::LParen) {
                     let mut arg_types = Vec::new();
                     loop {
-                        arg_types.push(parse_data_type(parser, false)?);
+                        arg_types.push(parse_data_type(parser, DataTypeContext::TypeRef)?);
                         if parser.skip_token(Token::Comma).is_none() {
                             break;
                         }
@@ -1454,10 +1454,10 @@ fn parse_operator_family_drop_item<'a>(
             let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
             let (num, num_span) = parser.consume_int()?;
             let lparen_span = parser.consume_token(Token::LParen)?;
-            let left_type = parse_data_type(parser, false)?;
+            let left_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
             let comma_span = parser.consume_token(Token::Comma).ok();
             let right_type = if comma_span.is_some() {
-                Some(parse_data_type(parser, false)?)
+                Some(parse_data_type(parser, DataTypeContext::TypeRef)?)
             } else {
                 None
             };
@@ -1476,10 +1476,10 @@ fn parse_operator_family_drop_item<'a>(
             let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
             let (num, num_span) = parser.consume_int()?;
             let lparen_span = parser.consume_token(Token::LParen)?;
-            let left_type = Some(parse_data_type(parser, false)?);
+            let left_type = Some(parse_data_type(parser, DataTypeContext::TypeRef)?);
             let comma_span = parser.consume_token(Token::Comma).ok();
             let right_type = if comma_span.is_some() {
-                Some(parse_data_type(parser, false)?)
+                Some(parse_data_type(parser, DataTypeContext::TypeRef)?)
             } else {
                 None
             };
