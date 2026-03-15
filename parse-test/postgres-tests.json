@@ -2285,11 +2285,8 @@
   },
   {
     "input": "CREATE TYPE public.my_type AS ENUM ('label1', 'label2', 'label3', 'label4')",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'AS' here\",\n    span: 18..19,\n    sql_segment: \".\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateTypeEnum(\n    CreateTypeEnum {\n        create_span: 0..6,\n        create_options: [],\n        type_span: 7..11,\n        name: QualifiedName {\n            prefix: [\n                (\n                    Identifier {\n                        value: \"public\",\n                        span: 12..18,\n                    },\n                    18..19,\n                ),\n            ],\n            identifier: Identifier {\n                value: \"my_type\",\n                span: 19..26,\n            },\n        },\n        as_enum_span: 27..34,\n        values: [\n            SString {\n                value: \"label1\",\n                span: 36..44,\n            },\n            SString {\n                value: \"label2\",\n                span: 46..54,\n            },\n            SString {\n                value: \"label3\",\n                span: 56..64,\n            },\n            SString {\n                value: \"label4\",\n                span: 66..74,\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATEDB",
