@@ -14,6 +14,7 @@ use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     Identifier, InvalidExpression, SString, Span, Spanned,
+    alter_table::{ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType},
     expression::{Expression, parse_expression_unreserved},
     keywords::Keyword,
     lexer::{StringType, Token},
@@ -44,6 +45,16 @@ pub enum DataTypeProperty<'a> {
     As((Span, Expression<'a>)),
     Check((Span, Expression<'a>)),
     OnUpdate((Span, Expression<'a>)),
+    References {
+        /// Span of the `REFERENCES` keyword
+        span: Span,
+        /// Referenced table
+        table: Identifier<'a>,
+        /// Referenced columns (may be empty if omitted)
+        columns: Vec<Identifier<'a>>,
+        /// Optional ON DELETE / ON UPDATE actions
+        ons: Vec<ForeignKeyOn>,
+    },
 }
 
 impl<'a> Spanned for DataTypeProperty<'a> {
@@ -69,6 +80,12 @@ impl<'a> Spanned for DataTypeProperty<'a> {
             DataTypeProperty::Check((s, v)) => s.join_span(v),
             DataTypeProperty::PrimaryKey(v) => v.span(),
             DataTypeProperty::OnUpdate((s, v)) => s.join_span(v),
+            DataTypeProperty::References {
+                span,
+                table,
+                columns,
+                ons,
+            } => span.join_span(table).join_span(columns).join_span(ons),
         }
     }
 }
@@ -85,92 +102,181 @@ impl OptSpanned for Timestamp {
     }
 }
 
+/// Subtype for a built-in PostgreSQL range or multirange type.
+#[derive(Debug, Clone)]
+pub enum RangeSubtype {
+    Int4,
+    Int8,
+    Num,
+    Ts,
+    Tstz,
+    Date,
+}
+
+/// A single field qualifier for an `INTERVAL` type.
+#[derive(Debug, Clone)]
+pub enum IntervalField {
+    Year,
+    Month,
+    Day,
+    Hour,
+    Minute,
+    Second,
+}
+
+/// Interior of `Type::Interval`.
+#[derive(Debug, Clone)]
+pub struct Interval {
+    /// The first (or only) field qualifier, e.g. `YEAR` in `INTERVAL YEAR TO MONTH`.
+    pub start_field: Option<(IntervalField, Span)>,
+    /// The upper-bound field, e.g. `MONTH` in `INTERVAL YEAR TO MONTH`.
+    pub end_field: Option<(IntervalField, Span)>,
+    /// Fractional-seconds precision; only meaningful when the rightmost unit is `SECOND`.
+    pub precision: Option<(usize, Span)>,
+}
+
+impl OptSpanned for Interval {
+    fn opt_span(&self) -> Option<Span> {
+        let s = self.start_field.as_ref().map(|(_, s)| s.clone());
+        let e = self.end_field.as_ref().map(|(_, s)| s.clone());
+        s.opt_join_span(&e).opt_join_span(&self.precision)
+    }
+}
+
 /// Type of datatype
 #[derive(Debug, Clone)]
 pub enum Type<'a> {
-    Boolean,
-    TinyInt(Option<(usize, Span)>),
-    SmallInt(Option<(usize, Span)>),
-    MediumInt(Option<(usize, Span)>),
-    Integer(Option<(usize, Span)>),
-    Int(Option<(usize, Span)>),
+    Array(Box<Type<'a>>, Span),
     BigInt(Option<(usize, Span)>),
-    Char(Option<(usize, Span)>),
-    VarChar(Option<(usize, Span)>),
-    TinyText(Option<(usize, Span)>),
-    MediumText(Option<(usize, Span)>),
-    Text(Option<(usize, Span)>),
-    LongText(Option<(usize, Span)>),
-    Enum(Vec<SString<'a>>),
-    Set(Vec<SString<'a>>),
-    Float8,
-    Float(Option<(usize, usize, Span)>),
-    Double(Option<(usize, usize, Span)>),
-    Numeric(Option<(usize, usize, Span)>),
-    Decimal(Option<(usize, usize, Span)>),
-    DateTime(Option<(usize, Span)>),
-    Timestamp(Timestamp),
-    Timestamptz,
-    Time(Option<(usize, Span)>),
-    TinyBlob(Option<(usize, Span)>),
-    MediumBlob(Option<(usize, Span)>),
-    Date,
-    Blob(Option<(usize, Span)>),
-    LongBlob(Option<(usize, Span)>),
-    VarBinary((usize, Span)),
+    BigSerial,
     Binary(Option<(usize, Span)>),
-    Named(Span),
-    Json,
     Bit(usize, Span),
-    VarBit(Option<(usize, Span)>),
+    Blob(Option<(usize, Span)>),
+    Boolean,
+    Box,
     Bytea,
+    Char(Option<(usize, Span)>),
+    Cidr,
+    Circle,
+    Date,
+    DateTime(Option<(usize, Span)>),
+    Decimal(Option<(usize, usize, Span)>),
+    Double(Option<(usize, usize, Span)>),
+    Enum(Vec<SString<'a>>),
+    Float(Option<(usize, usize, Span)>),
+    Float8,
     Inet4,
     Inet6,
-    Array(Box<Type<'a>>, Span),
+    InetAddr,
+    Int(Option<(usize, Span)>),
+    Integer(Option<(usize, Span)>),
+    Interval(Interval),
+    Json,
+    Jsonb,
+    Line,
+    LongBlob(Option<(usize, Span)>),
+    LongText(Option<(usize, Span)>),
+    Lseg,
+    Macaddr,
+    Macaddr8,
+    MediumBlob(Option<(usize, Span)>),
+    MediumInt(Option<(usize, Span)>),
+    MediumText(Option<(usize, Span)>),
+    Money,
+    Named(Span),
+    Path,
+    Numeric(Option<(usize, usize, Span)>),
+    Range(RangeSubtype),
+    MultiRange(RangeSubtype),
+    Serial,
+    Set(Vec<SString<'a>>),
+    Point,
+    Polygon,
+    SmallInt(Option<(usize, Span)>),
+    SmallSerial,
+    Text(Option<(usize, Span)>),
+    Time(Option<(usize, Span)>),
+    Timestamp(Timestamp),
+    Timestamptz,
+    Timetz(Option<(usize, Span)>),
+    TsQuery,
+    TsVector,
+    TinyBlob(Option<(usize, Span)>),
+    TinyInt(Option<(usize, Span)>),
+    TinyText(Option<(usize, Span)>),
+    VarBinary((usize, Span)),
+    VarBit(Option<(usize, Span)>),
+    VarChar(Option<(usize, Span)>),
+    Uuid,
+    Xml,
 }
 
 impl<'a> OptSpanned for Type<'a> {
     fn opt_span(&self) -> Option<Span> {
         match &self {
-            Type::Boolean => None,
-            Type::TinyInt(v) => v.opt_span(),
-            Type::SmallInt(v) => v.opt_span(),
-            Type::MediumInt(v) => v.opt_span(),
-            Type::Integer(v) => v.opt_span(),
-            Type::Int(v) => v.opt_span(),
+            Type::Array(inner, span) => Some(span.join_span(inner.as_ref())),
             Type::BigInt(v) => v.opt_span(),
-            Type::Char(v) => v.opt_span(),
-            Type::VarChar(v) => v.opt_span(),
-            Type::TinyText(v) => v.opt_span(),
-            Type::MediumText(v) => v.opt_span(),
-            Type::Text(v) => v.opt_span(),
-            Type::LongText(v) => v.opt_span(),
-            Type::Enum(v) => v.opt_span(),
-            Type::Set(v) => v.opt_span(),
-            Type::Float8 => None,
-            Type::Float(v) => v.opt_span(),
-            Type::Double(v) => v.opt_span(),
-            Type::Numeric(v) => v.opt_span(),
-            Type::Decimal(v) => v.opt_span(),
-            Type::DateTime(v) => v.opt_span(),
-            Type::Timestamp(v) => v.opt_span(),
-            Type::Time(v) => v.opt_span(),
-            Type::TinyBlob(v) => v.opt_span(),
-            Type::MediumBlob(v) => v.opt_span(),
-            Type::Date => None,
-            Type::Blob(v) => v.opt_span(),
-            Type::LongBlob(v) => v.opt_span(),
-            Type::VarBinary(v) => v.opt_span(),
+            Type::BigSerial => None,
             Type::Binary(v) => v.opt_span(),
-            Type::Timestamptz => None,
-            Type::Named(v) => v.opt_span(),
-            Type::Json => None,
             Type::Bit(_, b) => b.opt_span(),
-            Type::VarBit(v) => v.opt_span(),
+            Type::Blob(v) => v.opt_span(),
+            Type::Boolean => None,
+            Type::Box => None,
             Type::Bytea => None,
+            Type::Char(v) => v.opt_span(),
+            Type::Cidr => None,
+            Type::Circle => None,
+            Type::Date => None,
+            Type::DateTime(v) => v.opt_span(),
+            Type::Decimal(v) => v.opt_span(),
+            Type::Double(v) => v.opt_span(),
+            Type::Enum(v) => v.opt_span(),
+            Type::Float(v) => v.opt_span(),
+            Type::Float8 => None,
             Type::Inet4 => None,
             Type::Inet6 => None,
-            Type::Array(inner, span) => Some(span.join_span(inner.as_ref())),
+            Type::InetAddr => None,
+            Type::Int(v) => v.opt_span(),
+            Type::Integer(v) => v.opt_span(),
+            Type::Interval(v) => v.opt_span(),
+            Type::Json => None,
+            Type::Jsonb => None,
+            Type::Line => None,
+            Type::LongBlob(v) => v.opt_span(),
+            Type::LongText(v) => v.opt_span(),
+            Type::Lseg => None,
+            Type::Macaddr => None,
+            Type::Macaddr8 => None,
+            Type::MediumBlob(v) => v.opt_span(),
+            Type::MediumInt(v) => v.opt_span(),
+            Type::MediumText(v) => v.opt_span(),
+            Type::Money => None,
+            Type::Named(v) => v.opt_span(),
+            Type::Path => None,
+            Type::Numeric(v) => v.opt_span(),
+            Type::Range(_) => None,
+            Type::MultiRange(_) => None,
+            Type::Serial => None,
+            Type::Set(v) => v.opt_span(),
+            Type::Point => None,
+            Type::Polygon => None,
+            Type::SmallInt(v) => v.opt_span(),
+            Type::SmallSerial => None,
+            Type::Text(v) => v.opt_span(),
+            Type::Time(v) => v.opt_span(),
+            Type::Timestamp(v) => v.opt_span(),
+            Type::Timestamptz => None,
+            Type::Timetz(v) => v.opt_span(),
+            Type::TsQuery => None,
+            Type::TsVector => None,
+            Type::TinyBlob(v) => v.opt_span(),
+            Type::TinyInt(v) => v.opt_span(),
+            Type::TinyText(v) => v.opt_span(),
+            Type::VarBinary(v) => v.opt_span(),
+            Type::VarBit(v) => v.opt_span(),
+            Type::VarChar(v) => v.opt_span(),
+            Type::Uuid => None,
+            Type::Xml => None,
         }
     }
 }
@@ -249,6 +355,22 @@ fn parse_enum_set_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<SString<
     Ok(ans)
 }
 
+fn parse_interval_field(
+    parser: &mut Parser<'_, '_>,
+) -> Result<Option<(IntervalField, Span)>, ParseError> {
+    let (field, kw) = match &parser.token {
+        Token::Ident(_, Keyword::YEAR) => (IntervalField::Year, Keyword::YEAR),
+        Token::Ident(_, Keyword::MONTH) => (IntervalField::Month, Keyword::MONTH),
+        Token::Ident(_, Keyword::DAY) => (IntervalField::Day, Keyword::DAY),
+        Token::Ident(_, Keyword::HOUR) => (IntervalField::Hour, Keyword::HOUR),
+        Token::Ident(_, Keyword::MINUTE) => (IntervalField::Minute, Keyword::MINUTE),
+        Token::Ident(_, Keyword::SECOND) => (IntervalField::Second, Keyword::SECOND),
+        _ => return Ok(None),
+    };
+    let span = parser.consume_keyword(kw)?;
+    Ok(Some((field, span)))
+}
+
 /// The context in which a data type is being parsed.
 ///
 /// This controls which [`DataTypeProperty`] variants are syntactically accepted
@@ -279,6 +401,7 @@ pub(crate) fn parse_data_type<'a>(
         Token::Ident(_, Keyword::BOOLEAN) => {
             (parser.consume_keyword(Keyword::BOOLEAN)?, Type::Boolean)
         }
+        Token::Ident(_, Keyword::BOOL) => (parser.consume_keyword(Keyword::BOOL)?, Type::Boolean),
         Token::Ident(_, Keyword::TINYINT) => (
             parser.consume_keyword(Keyword::TINYINT)?,
             Type::TinyInt(parse_width(parser)?),
@@ -305,12 +428,66 @@ pub(crate) fn parse_data_type<'a>(
         ),
         Token::Ident(_, Keyword::INET4) => (parser.consume_keyword(Keyword::INET4)?, Type::Inet4),
         Token::Ident(_, Keyword::INET6) => (parser.consume_keyword(Keyword::INET6)?, Type::Inet6),
+        Token::Ident(_, Keyword::INET) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::INET)?, Type::InetAddr)
+        }
+        Token::Ident(_, Keyword::CIDR) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::CIDR)?, Type::Cidr)
+        }
+        Token::Ident(_, Keyword::MACADDR) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::MACADDR)?, Type::Macaddr)
+        }
+        Token::Ident(_, Keyword::MACADDR8) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::MACADDR8)?, Type::Macaddr8)
+        }
+        Token::Ident(_, Keyword::INT2) => {
+            (parser.consume_keyword(Keyword::INT2)?, Type::SmallInt(None))
+        }
+        Token::Ident(_, Keyword::INT4) => (parser.consume_keyword(Keyword::INT4)?, Type::Int(None)),
+        Token::Ident(_, Keyword::INT8) => {
+            (parser.consume_keyword(Keyword::INT8)?, Type::BigInt(None))
+        }
+        Token::Ident(_, Keyword::FLOAT4) => {
+            (parser.consume_keyword(Keyword::FLOAT4)?, Type::Float(None))
+        }
+        Token::Ident(_, Keyword::SERIAL) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::SERIAL)?, Type::Serial)
+        }
+        Token::Ident(_, Keyword::SMALLSERIAL) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::SMALLSERIAL)?,
+            Type::SmallSerial,
+        ),
+        Token::Ident(_, Keyword::BIGSERIAL) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::BIGSERIAL)?, Type::BigSerial)
+        }
+        Token::Ident(_, Keyword::MONEY) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::MONEY)?, Type::Money)
+        }
         Token::Ident(_, Keyword::TINYTEXT) => (
             parser.consume_keyword(Keyword::TINYTEXT)?,
             Type::TinyText(parse_width(parser)?),
         ),
         Token::Ident(_, Keyword::CHAR) => (
             parser.consume_keyword(Keyword::CHAR)?,
+            Type::Char(parse_width(parser)?),
+        ),
+        Token::Ident(_, Keyword::CHARACTER) => {
+            let char_span = parser.consume_keyword(Keyword::CHARACTER)?;
+            if let Some(varying_span) = parser.skip_keyword(Keyword::VARYING) {
+                (
+                    char_span.join_span(&varying_span),
+                    Type::VarChar(parse_width(parser)?),
+                )
+            } else {
+                (char_span, Type::Char(parse_width(parser)?))
+            }
+        }
+        Token::Ident(_, Keyword::BPCHAR) => (
+            parser.consume_keyword(Keyword::BPCHAR)?,
+            Type::Char(parse_width(parser)?),
+        ),
+        Token::Ident(_, Keyword::NCHAR) => (
+            parser.consume_keyword(Keyword::NCHAR)?,
             Type::Char(parse_width(parser)?),
         ),
         Token::Ident(_, Keyword::TEXT) => (
@@ -327,6 +504,14 @@ pub(crate) fn parse_data_type<'a>(
         ),
         Token::Ident(_, Keyword::VARCHAR) => (
             parser.consume_keyword(Keyword::VARCHAR)?,
+            Type::VarChar(parse_width(parser)?),
+        ),
+        Token::Ident(_, Keyword::VARCHARACTER) => (
+            parser.consume_keyword(Keyword::VARCHARACTER)?,
+            Type::VarChar(parse_width(parser)?),
+        ),
+        Token::Ident(_, Keyword::NVARCHAR) => (
+            parser.consume_keyword(Keyword::NVARCHAR)?,
             Type::VarChar(parse_width(parser)?),
         ),
         Token::Ident(_, Keyword::TINYBLOB) => (
@@ -398,10 +583,26 @@ pub(crate) fn parse_data_type<'a>(
             parser.consume_keyword(Keyword::DATETIME)?,
             Type::DateTime(parse_width(parser)?),
         ),
-        Token::Ident(_, Keyword::TIME) => (
-            parser.consume_keyword(Keyword::TIME)?,
-            Type::Time(parse_width(parser)?),
-        ),
+        Token::Ident(_, Keyword::TIMETZ) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::TIMETZ)?, Type::Timetz(None))
+        }
+        Token::Ident(_, Keyword::TIME) => {
+            let time_span = parser.consume_keyword(Keyword::TIME)?;
+            let width = parse_width(parser)?;
+            if parser.options.dialect.is_postgresql() {
+                if parser.skip_keyword(Keyword::WITH).is_some() {
+                    parser.consume_keywords(&[Keyword::TIME, Keyword::ZONE])?;
+                    (time_span, Type::Timetz(width))
+                } else if parser.skip_keyword(Keyword::WITHOUT).is_some() {
+                    parser.consume_keywords(&[Keyword::TIME, Keyword::ZONE])?;
+                    (time_span, Type::Time(width))
+                } else {
+                    (time_span, Type::Time(width))
+                }
+            } else {
+                (time_span, Type::Time(width))
+            }
+        }
         Token::Ident(_, Keyword::TIMESTAMPTZ) => (
             parser.consume_keyword(Keyword::TIMESTAMPTZ)?,
             Type::Timestamptz,
@@ -409,11 +610,15 @@ pub(crate) fn parse_data_type<'a>(
         Token::Ident(_, Keyword::TIMESTAMP) => {
             let timestamp_span = parser.consume_keyword(Keyword::TIMESTAMP)?;
             let width = parse_width(parser)?;
-            let with_time_zone = match parser.skip_keyword(Keyword::WITH) {
-                Some(with_span) => Some(
+            let with_time_zone = if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+                Some(
                     with_span.join_span(&parser.consume_keywords(&[Keyword::TIME, Keyword::ZONE])?),
-                ),
-                None => None,
+                )
+            } else {
+                if parser.skip_keyword(Keyword::WITHOUT).is_some() {
+                    parser.consume_keywords(&[Keyword::TIME, Keyword::ZONE])?;
+                }
+                None
             };
             let timestamp = Timestamp {
                 width,
@@ -422,6 +627,45 @@ pub(crate) fn parse_data_type<'a>(
             (timestamp_span, Type::Timestamp(timestamp))
         }
         Token::Ident(_, Keyword::DATE) => (parser.consume_keyword(Keyword::DATE)?, Type::Date),
+        Token::Ident(_, Keyword::BOX) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::BOX)?, Type::Box)
+        }
+        Token::Ident(_, Keyword::CIRCLE) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::CIRCLE)?, Type::Circle)
+        }
+        Token::Ident(_, Keyword::LINE) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::LINE)?, Type::Line)
+        }
+        Token::Ident(_, Keyword::LSEG) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::LSEG)?, Type::Lseg)
+        }
+        Token::Ident(_, Keyword::PATH) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::PATH)?, Type::Path)
+        }
+        Token::Ident(_, Keyword::POINT) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::POINT)?, Type::Point)
+        }
+        Token::Ident(_, Keyword::POLYGON) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::POLYGON)?, Type::Polygon)
+        }
+        Token::Ident(_, Keyword::INTERVAL) if parser.options.dialect.is_postgresql() => {
+            let interval_span = parser.consume_keyword(Keyword::INTERVAL)?;
+            let start_field = parse_interval_field(parser)?;
+            let end_field = if start_field.is_some() && parser.skip_keyword(Keyword::TO).is_some() {
+                parse_interval_field(parser)?
+            } else {
+                None
+            };
+            let precision = parse_width(parser)?;
+            (
+                interval_span,
+                Type::Interval(Interval {
+                    start_field,
+                    end_field,
+                    precision,
+                }),
+            )
+        }
         Token::Ident(_, Keyword::ENUM) => (
             parser.consume_keyword(Keyword::ENUM)?,
             Type::Enum(parse_enum_set_values(parser)?),
@@ -431,11 +675,84 @@ pub(crate) fn parse_data_type<'a>(
             Type::Set(parse_enum_set_values(parser)?),
         ),
         Token::Ident(_, Keyword::JSON) => (parser.consume_keyword(Keyword::JSON)?, Type::Json),
+        Token::Ident(_, Keyword::JSONB) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::JSONB)?, Type::Jsonb)
+        }
         Token::Ident(_, Keyword::BYTEA) => (parser.consume_keyword(Keyword::BYTEA)?, Type::Bytea),
+        Token::Ident(_, Keyword::INT4RANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::INT4RANGE)?,
+            Type::Range(RangeSubtype::Int4),
+        ),
+        Token::Ident(_, Keyword::INT8RANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::INT8RANGE)?,
+            Type::Range(RangeSubtype::Int8),
+        ),
+        Token::Ident(_, Keyword::NUMRANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::NUMRANGE)?,
+            Type::Range(RangeSubtype::Num),
+        ),
+        Token::Ident(_, Keyword::TSRANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::TSRANGE)?,
+            Type::Range(RangeSubtype::Ts),
+        ),
+        Token::Ident(_, Keyword::TSTZRANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::TSTZRANGE)?,
+            Type::Range(RangeSubtype::Tstz),
+        ),
+        Token::Ident(_, Keyword::DATERANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::DATERANGE)?,
+            Type::Range(RangeSubtype::Date),
+        ),
+        Token::Ident(_, Keyword::INT4MULTIRANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::INT4MULTIRANGE)?,
+            Type::MultiRange(RangeSubtype::Int4),
+        ),
+        Token::Ident(_, Keyword::INT8MULTIRANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::INT8MULTIRANGE)?,
+            Type::MultiRange(RangeSubtype::Int8),
+        ),
+        Token::Ident(_, Keyword::NUMMULTIRANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::NUMMULTIRANGE)?,
+            Type::MultiRange(RangeSubtype::Num),
+        ),
+        Token::Ident(_, Keyword::TSMULTIRANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::TSMULTIRANGE)?,
+            Type::MultiRange(RangeSubtype::Ts),
+        ),
+        Token::Ident(_, Keyword::TSTZMULTIRANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::TSTZMULTIRANGE)?,
+            Type::MultiRange(RangeSubtype::Tstz),
+        ),
+        Token::Ident(_, Keyword::DATEMULTIRANGE) if parser.options.dialect.is_postgresql() => (
+            parser.consume_keyword(Keyword::DATEMULTIRANGE)?,
+            Type::MultiRange(RangeSubtype::Date),
+        ),
+        Token::Ident(_, Keyword::UUID) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::UUID)?, Type::Uuid)
+        }
+        Token::Ident(_, Keyword::XML) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::XML)?, Type::Xml)
+        }
+        Token::Ident(_, Keyword::TSQUERY) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::TSQUERY)?, Type::TsQuery)
+        }
+        Token::Ident(_, Keyword::TSVECTOR) if parser.options.dialect.is_postgresql() => {
+            (parser.consume_keyword(Keyword::TSVECTOR)?, Type::TsVector)
+        }
         Token::Ident(_, Keyword::BIT) => {
             let t = parser.consume_keyword(Keyword::BIT)?;
-            let (w, ws) = parse_width_req(parser)?;
-            (t, Type::Bit(w, ws))
+            if parser.options.dialect.is_postgresql() {
+                if parser.skip_keyword(Keyword::VARYING).is_some() {
+                    (t, Type::VarBit(parse_width(parser)?))
+                } else {
+                    let width = parse_width(parser)?;
+                    let (w, ws) = width.unwrap_or((1, t.clone()));
+                    (t, Type::Bit(w, ws))
+                }
+            } else {
+                let (w, ws) = parse_width_req(parser)?;
+                (t, Type::Bit(w, ws))
+            }
         }
         Token::Ident(_, Keyword::VARBIT) => {
             let t = parser.consume_keyword(Keyword::VARBIT)?;
@@ -621,6 +938,69 @@ pub(crate) fn parse_data_type<'a>(
                 let span = parser.consume_keywords(&[Keyword::ON, Keyword::UPDATE])?;
                 let expr = parse_expression_unreserved(parser, true)?;
                 properties.push(DataTypeProperty::OnUpdate((span, expr)));
+            }
+            (Token::Ident(_, Keyword::REFERENCES), Column) => {
+                let span = parser.consume_keyword(Keyword::REFERENCES)?;
+                let table = parser.consume_plain_identifier_unreserved()?;
+                let mut columns = Vec::new();
+                if matches!(parser.token, Token::LParen) {
+                    parser.consume_token(Token::LParen)?;
+                    loop {
+                        columns.push(parser.consume_plain_identifier_unreserved()?);
+                        if parser.skip_token(Token::Comma).is_none() {
+                            break;
+                        }
+                    }
+                    parser.consume_token(Token::RParen)?;
+                }
+                let mut ons = Vec::new();
+                while parser.skip_keyword(Keyword::ON).is_some() {
+                    let on_type = match &parser.token {
+                        Token::Ident(_, Keyword::UPDATE) => {
+                            ForeignKeyOnType::Update(parser.consume_keyword(Keyword::UPDATE)?)
+                        }
+                        Token::Ident(_, Keyword::DELETE) => {
+                            ForeignKeyOnType::Delete(parser.consume_keyword(Keyword::DELETE)?)
+                        }
+                        _ => parser.expected_failure("UPDATE or DELETE")?,
+                    };
+                    let on_action = match &parser.token {
+                        Token::Ident(_, Keyword::CASCADE) => {
+                            ForeignKeyOnAction::Cascade(parser.consume_keyword(Keyword::CASCADE)?)
+                        }
+                        Token::Ident(_, Keyword::RESTRICT) => {
+                            ForeignKeyOnAction::Restrict(parser.consume_keyword(Keyword::RESTRICT)?)
+                        }
+                        Token::Ident(_, Keyword::SET) => {
+                            let set_span = parser.consume_keyword(Keyword::SET)?;
+                            if parser.skip_keyword(Keyword::NULL).is_some() {
+                                ForeignKeyOnAction::SetNull(set_span)
+                            } else if parser.skip_keyword(Keyword::DEFAULT).is_some() {
+                                ForeignKeyOnAction::SetDefault(set_span)
+                            } else {
+                                parser.expected_failure("NULL or DEFAULT after SET")?
+                            }
+                        }
+                        Token::Ident(_, Keyword::NO) => {
+                            let no_span = parser.consume_keyword(Keyword::NO)?;
+                            parser.consume_keyword(Keyword::ACTION)?;
+                            ForeignKeyOnAction::NoAction(no_span)
+                        }
+                        _ => parser.expected_failure(
+                            "CASCADE, RESTRICT, SET NULL, SET DEFAULT, or NO ACTION",
+                        )?,
+                    };
+                    ons.push(ForeignKeyOn {
+                        type_: on_type,
+                        action: on_action,
+                    });
+                }
+                properties.push(DataTypeProperty::References {
+                    span,
+                    table,
+                    columns,
+                    ons,
+                });
             }
 
             // End of properties (or property not valid in this context)

@@ -117,7 +117,9 @@ pub use create_table::{
 };
 pub use create_trigger::{CreateTrigger, TriggerEvent, TriggerTime};
 pub use create_view::CreateView;
-pub use data_type::{DataType, DataTypeProperty, Timestamp, Type};
+pub use data_type::{
+    DataType, DataTypeProperty, Interval, IntervalField, RangeSubtype, Timestamp, Type,
+};
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
     CascadeOrRestrict, DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction,

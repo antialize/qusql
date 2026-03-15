@@ -368,6 +368,16 @@ pub(crate) fn type_expression<'a>(
                             | qusql_parse::Type::Date
                             | qusql_parse::Type::Inet4
                             | qusql_parse::Type::Inet6
+                            | qusql_parse::Type::InetAddr
+                            | qusql_parse::Type::Cidr
+                            | qusql_parse::Type::Macaddr
+                            | qusql_parse::Type::Macaddr8
+                            | qusql_parse::Type::TsQuery
+                            | qusql_parse::Type::TsVector
+                            | qusql_parse::Type::Uuid
+                            | qusql_parse::Type::Xml
+                            | qusql_parse::Type::Range(_)
+                            | qusql_parse::Type::MultiRange(_)
                             | qusql_parse::Type::DateTime(_)
                             | qusql_parse::Type::Double(_)
                             | qusql_parse::Type::Float8
@@ -397,12 +407,26 @@ pub(crate) fn type_expression<'a>(
                             | qusql_parse::Type::Blob(_)
                             | qusql_parse::Type::LongBlob(_)
                             | qusql_parse::Type::Json
+                            | qusql_parse::Type::Jsonb
                             | qusql_parse::Type::Bit(_, _)
                             | qusql_parse::Type::VarBit(_)
                             | qusql_parse::Type::Bytea
                             | qusql_parse::Type::Named(_) // TODO lookup name
                             | qusql_parse::Type::Array(_, _)
-                            | qusql_parse::Type::VarBinary(_) => {
+                            | qusql_parse::Type::VarBinary(_)
+                            | qusql_parse::Type::BigSerial
+                            | qusql_parse::Type::Serial
+                            | qusql_parse::Type::SmallSerial
+                            | qusql_parse::Type::Money
+                            | qusql_parse::Type::Timetz(_)
+                            | qusql_parse::Type::Interval(_)
+                            | qusql_parse::Type::Point
+                            | qusql_parse::Type::Line
+                            | qusql_parse::Type::Lseg
+                            | qusql_parse::Type::Box
+                            | qusql_parse::Type::Path
+                            | qusql_parse::Type::Polygon
+                            | qusql_parse::Type::Circle => {
                                 typer
                                     .err("Type not allow in cast", &e.type_);
                             }
