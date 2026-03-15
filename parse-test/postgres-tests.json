@@ -3863,9 +3863,9 @@
   },
   {
     "input": "SHOW search_path; SELECT 1",
-    "output": null,
+    "output": "ShowVariables(\n    ShowVariables {\n        show_span: 0..4,\n        variables_span: 5..16,\n        global_span: None,\n        session_span: None,\n        like: None,\n        where_expr: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TABLES' | 'DATABASES' | 'PROCESS' | 'PROCESSLIST' | 'VARIABLES' | 'STATUS' | 'COLUMNS' | 'FIELDS' | 'CHARSET' | 'CHARACTER' | 'COLLATION' | 'ENGINES'' here\",\n    span: 5..16,\n    sql_segment: \"search_path\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 16..17,\n    sql_segment: \";\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
