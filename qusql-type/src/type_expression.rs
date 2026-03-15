@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::{format, string::ToString, sync::Arc, vec};
-use qusql_parse::{Expression, Identifier, Span, UnaryOperator, Variable, issue_todo};
+use qusql_parse::{Expression, Identifier, Spanned, UnaryOperator, Variable, issue_todo};
 
 use crate::{
     Type,
@@ -58,12 +58,12 @@ impl ExpressionFlags {
 fn type_unary_expression<'a>(
     typer: &mut Typer<'a, '_>,
     op: &UnaryOperator,
-    op_span: &Span,
     operand: &Expression<'a>,
     flags: ExpressionFlags,
 ) -> FullType<'a> {
+    let op_span = op.span();
     match op {
-        UnaryOperator::Binary | UnaryOperator::LogicalNot | UnaryOperator::Minus => {
+        UnaryOperator::Binary(_) | UnaryOperator::LogicalNot(_) | UnaryOperator::Minus(_) => {
             let op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Any);
             let t = match &op_type.t {
                 Type::F32
@@ -77,7 +77,7 @@ fn type_unary_expression<'a>(
                 | Type::Base(BaseType::Integer)
                 | Type::Base(BaseType::Float) => op_type.t,
                 Type::Args(..) | Type::Base(..) | Type::Enum(..) | Type::JSON | Type::Set(..) => {
-                    typer.err(format!("Expected numeric type got {}", op_type.t), op_span);
+                    typer.err(format!("Expected numeric type got {}", op_type.t), &op_span);
                     Type::Invalid
                 }
                 Type::U16 => Type::I16,
@@ -89,7 +89,7 @@ fn type_unary_expression<'a>(
             };
             FullType::new(t, op_type.not_null)
         }
-        UnaryOperator::Not => {
+        UnaryOperator::Not(_) => {
             let op_type = type_expression(typer, operand, flags.with_true(false), BaseType::Bool);
             typer.ensure_base(operand, &op_type, BaseType::Bool);
             op_type
@@ -104,10 +104,8 @@ pub(crate) fn type_expression<'a>(
     _context: BaseType,
 ) -> FullType<'a> {
     match expression {
-        Expression::Binary(e) => {
-            type_binary_expression(typer, &e.op, &e.op_span, &e.lhs, &e.rhs, flags)
-        }
-        Expression::Unary(e) => type_unary_expression(typer, &e.op, &e.op_span, &e.operand, flags),
+        Expression::Binary(e) => type_binary_expression(typer, &e.op, &e.lhs, &e.rhs, flags),
+        Expression::Unary(e) => type_unary_expression(typer, &e.op, &e.operand, flags),
         Expression::Subquery(e) => {
             let select_type = type_union_select(typer, &e.expression, false);
             if let [v] = select_type.columns.as_slice() {
