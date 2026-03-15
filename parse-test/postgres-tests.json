@@ -2217,8 +2217,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 109..109,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
-    "failure": true,
-    "should_fail": true
+    "should_fail": true,
+    "failure": true
   },
   {
     "input": "CREATE TRIGGER check_insert BEFORE INSERT ON accounts FOR EACH ROW EXECUTE FUNCTION check_account_insert",
@@ -2226,6 +2226,7 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 104..104,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
+    "should_fail": true,
     "failure": true
   },
   {
@@ -2234,14 +2235,16 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected 'FOR' here\",\n    span: 59..70,\n    sql_segment: \"REFERENCING\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE TRIGGER check_update AFTER UPDATE ON accounts FOR EACH ROW WHEN (NEW.balance > 10000) EXECUTE FUNCTION check_account_update",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'statement' here\",\n    span: 66..70,\n    sql_segment: \"WHEN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected ''('' here\",\n    span: 130..130,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
+    "should_fail": true,
     "failure": true
   },
   {
@@ -2250,7 +2253,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected ''UPDATE' or 'INSERT' or 'DELETE'' here\",\n    span: 35..39,\n    sql_segment: \"SAVE\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE TRIGGER check_update BEFORE UPDATE ON accounts FUNCTION check_account_update",
@@ -2266,7 +2270,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected ''BEFORE', 'AFTER', or 'INSTEAD OF'' here\",\n    span: 28..36,\n    sql_segment: \"TOMORROW\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE TRIGGER emp_stamp BEFORE INSERT OR UPDATE ON emp\n        FOR EACH ROW EXECUTE FUNCTION emp_stamp();",

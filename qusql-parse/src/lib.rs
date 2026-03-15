@@ -118,7 +118,9 @@ pub use create_table::{
     PartitionBoundExpr, PartitionBoundSpec, PartitionBy, PartitionMethod, PartitionOfBound,
     TableOption,
 };
-pub use create_trigger::{CreateTrigger, TriggerEvent, TriggerTime};
+pub use create_trigger::{
+    CreateTrigger, TriggerEvent, TriggerReference, TriggerReferenceDirection, TriggerTime,
+};
 pub use create_view::CreateView;
 pub use data_type::{
     DataType, DataTypeProperty, Interval, IntervalField, RangeSubtype, Timestamp, Type,
