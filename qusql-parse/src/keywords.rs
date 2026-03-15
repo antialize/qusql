@@ -580,6 +580,7 @@ pub(crate) enum Keyword {
     INSERT_METHOD,
     INSTALL,
     INSTANT,
+    INSTEAD,
     INSTR,
     INT2_OPS,
     INT4_OPS,
