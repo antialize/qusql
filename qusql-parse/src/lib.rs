@@ -90,10 +90,10 @@ pub use alter_table::{
     AlterColumnAction, AlterLock, AlterSpecification, AlterTable, AlterTableOwner, AutoIncrement,
     Change, DisableRowLevelSecurity, DisableRule, DisableTrigger, DropColumn, DropForeignKey,
     DropPrimaryKey, EnableRowLevelSecurity, EnableRule, EnableTrigger, ForceRowLevelSecurity,
-    ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption,
-    IndexType, ModifyColumn, NoForceRowLevelSecurity, OwnerTo, RenameColumn, RenameConstraint,
-    RenameIndex, RenameTo, ReplicaIdentity, ReplicaIdentityOption, TableConstraintType,
-    TriggerName, ValidateConstraint,
+    ForeignKeyMatch, ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr,
+    IndexOption, IndexType, ModifyColumn, NoForceRowLevelSecurity, OwnerTo, RenameColumn,
+    RenameConstraint, RenameIndex, RenameTo, ReplicaIdentity, ReplicaIdentityOption,
+    TableConstraintType, TriggerName, ValidateConstraint,
 };
 pub use alter_type::{AlterType, AlterTypeAction, AttributeAction};
 pub use copy::{

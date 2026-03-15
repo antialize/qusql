@@ -13,8 +13,8 @@
 use crate::{
     DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
     alter_table::{
-        ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexOption, IndexType,
-        parse_index_cols, parse_index_options, parse_index_type,
+        ForeignKeyMatch, ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexOption,
+        IndexType, parse_index_cols, parse_index_options, parse_index_type,
     },
     create_option::CreateOption,
     data_type::{DataTypeContext, parse_data_type},
@@ -272,6 +272,8 @@ pub enum CreateDefinition<'a> {
         references_table: Identifier<'a>,
         /// Referenced columns
         references_cols: Vec<Identifier<'a>>,
+        /// Optional MATCH FULL / MATCH SIMPLE / MATCH PARTIAL
+        match_type: Option<ForeignKeyMatch>,
         /// ON UPDATE/DELETE actions
         ons: Vec<ForeignKeyOn>,
     },
@@ -320,6 +322,7 @@ impl<'a> Spanned for CreateDefinition<'a> {
                 references_span,
                 references_table,
                 references_cols,
+                match_type,
                 ons,
             } => foreign_key_span
                 .span()
@@ -330,6 +333,7 @@ impl<'a> Spanned for CreateDefinition<'a> {
                 .join_span(references_span)
                 .join_span(references_table)
                 .join_span(references_cols)
+                .join_span(match_type)
                 .join_span(ons),
             CreateDefinition::CheckConstraintDefinition {
                 constraint_span,
@@ -633,6 +637,17 @@ fn parse_foreign_key_definition<'a>(
     }
     parser.consume_token(Token::RParen)?;
 
+    let match_type = if parser.skip_keyword(Keyword::MATCH).is_some() {
+        match &parser.token {
+            Token::Ident(_, Keyword::FULL) => Some(ForeignKeyMatch::Full(parser.consume())),
+            Token::Ident(_, Keyword::SIMPLE) => Some(ForeignKeyMatch::Simple(parser.consume())),
+            Token::Ident(_, Keyword::PARTIAL) => Some(ForeignKeyMatch::Partial(parser.consume())),
+            _ => None,
+        }
+    } else {
+        None
+    };
+
     // Parse ON UPDATE/DELETE actions
     let mut ons = Vec::new();
     while parser.skip_keyword(Keyword::ON).is_some() {
@@ -688,6 +703,7 @@ fn parse_foreign_key_definition<'a>(
         references_span,
         references_table,
         references_cols,
+        match_type,
         ons,
     })
 }
