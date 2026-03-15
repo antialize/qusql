@@ -501,6 +501,18 @@ impl<'a, 'b> Parser<'a, 'b> {
         span
     }
 
+    /// Try to consume a SQL boolean literal: `TRUE`/`ON`/`1` → `Some((true, span))`,
+    /// `FALSE`/`OFF`/`0` → `Some((false, span))`, anything else → `None`.
+    pub(crate) fn try_parse_bool(&mut self) -> Option<(bool, Span)> {
+        match &self.token {
+            Token::Ident(_, Keyword::TRUE | Keyword::ON) => Some((true, self.consume())),
+            Token::Ident(_, Keyword::FALSE | Keyword::OFF) => Some((false, self.consume())),
+            Token::Integer(v) if *v == "1" => Some((true, self.consume())),
+            Token::Integer(v) if *v == "0" => Some((false, self.consume())),
+            _ => None,
+        }
+    }
+
     pub(crate) fn consume_string(&mut self) -> Result<SString<'a>, ParseError> {
         let (mut a, mut b) = match &self.token {
             Token::String(v, kind) => {

@@ -746,6 +746,14 @@ pub enum Statement<'a> {
     Flush(Box<Flush<'a>>),
     /// PostgreSQL VALUES statement
     Values(Box<crate::values::Values<'a>>),
+    /// PostgreSQL EXPLAIN statement
+    Explain(Box<Explain<'a>>),
+    /// PostgreSQL DECLARE cursor statement
+    DeclareCursor(Box<DeclareCursor<'a>>),
+    /// PostgreSQL REFRESH MATERIALIZED VIEW statement
+    RefreshMaterializedView(Box<RefreshMaterializedView<'a>>),
+    /// PostgreSQL PREPARE statement
+    Prepare(Box<Prepare<'a>>),
 }
 
 impl<'a> Spanned for Statement<'a> {
@@ -831,6 +839,10 @@ impl<'a> Spanned for Statement<'a> {
             Statement::CreateDomain(v) => v.span(),
             Statement::CreateConstraintTrigger(v) => v.span(),
             Statement::CreateTablePartitionOf(v) => v.span(),
+            Statement::Explain(v) => v.span(),
+            Statement::DeclareCursor(v) => v.span(),
+            Statement::RefreshMaterializedView(v) => v.span(),
+            Statement::Prepare(v) => v.span(),
         }
     }
 }
@@ -907,6 +919,18 @@ pub(crate) fn parse_statement<'a>(
             Some(Statement::WithQuery(Box::new(parse_with_query(parser)?)))
         }
         Token::Ident(_, Keyword::FLUSH) => Some(Statement::Flush(Box::new(parse_flush(parser)?))),
+        Token::Ident(_, Keyword::EXPLAIN) => {
+            Some(Statement::Explain(Box::new(parse_explain(parser)?)))
+        }
+        Token::Ident(_, Keyword::DECLARE) => Some(Statement::DeclareCursor(Box::new(
+            parse_declare_cursor(parser)?,
+        ))),
+        Token::Ident(_, Keyword::PREPARE) => {
+            Some(Statement::Prepare(Box::new(parse_prepare(parser)?)))
+        }
+        Token::Ident(_, Keyword::REFRESH) => Some(Statement::RefreshMaterializedView(Box::new(
+            parse_refresh_materialized_view(parser)?,
+        ))),
         _ => None,
     })
 }
@@ -928,6 +952,382 @@ pub(crate) fn parse_do<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>,
         do_span,
         statements: block.statements,
     })))
+}
+
+/// PostgreSQL EXPLAIN output format
+#[derive(Clone, Debug)]
+pub enum ExplainFormat {
+    Text(Span),
+    Xml(Span),
+    Json(Span),
+    Yaml(Span),
+}
+
+impl Spanned for ExplainFormat {
+    fn span(&self) -> Span {
+        match self {
+            ExplainFormat::Text(s)
+            | ExplainFormat::Xml(s)
+            | ExplainFormat::Json(s)
+            | ExplainFormat::Yaml(s) => s.clone(),
+        }
+    }
+}
+
+/// A single option in a parenthesized EXPLAIN (...) list
+#[derive(Clone, Debug)]
+pub enum ExplainOption {
+    Analyze(Span, Option<(bool, Span)>),
+    Verbose(Span, Option<(bool, Span)>),
+    Costs(Span, Option<(bool, Span)>),
+    Settings(Span, Option<(bool, Span)>),
+    GenericPlan(Span, Option<(bool, Span)>),
+    Buffers(Span, Option<(bool, Span)>),
+    Wal(Span, Option<(bool, Span)>),
+    Timing(Span, Option<(bool, Span)>),
+    Summary(Span, Option<(bool, Span)>),
+    Memory(Span, Option<(bool, Span)>),
+    Format(Span, ExplainFormat),
+}
+
+impl Spanned for ExplainOption {
+    fn span(&self) -> Span {
+        match self {
+            ExplainOption::Analyze(s, b)
+            | ExplainOption::Verbose(s, b)
+            | ExplainOption::Costs(s, b)
+            | ExplainOption::Settings(s, b)
+            | ExplainOption::GenericPlan(s, b)
+            | ExplainOption::Buffers(s, b)
+            | ExplainOption::Wal(s, b)
+            | ExplainOption::Timing(s, b)
+            | ExplainOption::Summary(s, b)
+            | ExplainOption::Memory(s, b) => s.join_span(&b.as_ref().map(|(_, vs)| vs.clone())),
+            ExplainOption::Format(s, fmt) => s.join_span(fmt),
+        }
+    }
+}
+
+/// PostgreSQL EXPLAIN statement
+#[derive(Clone, Debug)]
+pub struct Explain<'a> {
+    pub explain_span: Span,
+    pub options: Vec<ExplainOption>,
+    pub statement: Box<Statement<'a>>,
+}
+
+impl<'a> Spanned for Explain<'a> {
+    fn span(&self) -> Span {
+        self.explain_span.join_span(&self.statement)
+    }
+}
+
+fn parse_explain<'a>(parser: &mut Parser<'a, '_>) -> Result<Explain<'a>, ParseError> {
+    let explain_span = parser.consume_keyword(Keyword::EXPLAIN)?;
+    parser.postgres_only(&explain_span);
+    let mut options = Vec::new();
+    if matches!(parser.token, Token::LParen) {
+        // Parenthesized option list: EXPLAIN (ANALYZE, BUFFERS, ...)
+        parser.consume_token(Token::LParen)?;
+        loop {
+            let opt = match &parser.token {
+                Token::Ident(_, Keyword::ANALYZE) => {
+                    let s = parser.consume_keyword(Keyword::ANALYZE)?;
+                    ExplainOption::Analyze(s, parser.try_parse_bool())
+                }
+                Token::Ident(_, Keyword::VERBOSE) => {
+                    let s = parser.consume_keyword(Keyword::VERBOSE)?;
+                    ExplainOption::Verbose(s, parser.try_parse_bool())
+                }
+                Token::Ident(_, Keyword::COSTS) => {
+                    let s = parser.consume_keyword(Keyword::COSTS)?;
+                    ExplainOption::Costs(s, parser.try_parse_bool())
+                }
+                Token::Ident(_, Keyword::SETTINGS) => {
+                    let s = parser.consume_keyword(Keyword::SETTINGS)?;
+                    ExplainOption::Settings(s, parser.try_parse_bool())
+                }
+                Token::Ident(_, Keyword::GENERIC_PLAN) => {
+                    let s = parser.consume_keyword(Keyword::GENERIC_PLAN)?;
+                    ExplainOption::GenericPlan(s, parser.try_parse_bool())
+                }
+                Token::Ident(_, Keyword::BUFFERS) => {
+                    let s = parser.consume_keyword(Keyword::BUFFERS)?;
+                    ExplainOption::Buffers(s, parser.try_parse_bool())
+                }
+                Token::Ident(_, Keyword::WAL) => {
+                    let s = parser.consume_keyword(Keyword::WAL)?;
+                    ExplainOption::Wal(s, parser.try_parse_bool())
+                }
+                Token::Ident(_, Keyword::TIMING) => {
+                    let s = parser.consume_keyword(Keyword::TIMING)?;
+                    ExplainOption::Timing(s, parser.try_parse_bool())
+                }
+                Token::Ident(_, Keyword::SUMMARY) => {
+                    let s = parser.consume_keyword(Keyword::SUMMARY)?;
+                    ExplainOption::Summary(s, parser.try_parse_bool())
+                }
+                Token::Ident(_, Keyword::MEMORY) => {
+                    let s = parser.consume_keyword(Keyword::MEMORY)?;
+                    ExplainOption::Memory(s, parser.try_parse_bool())
+                }
+                Token::Ident(_, Keyword::FORMAT) => {
+                    let fmt_kw = parser.consume_keyword(Keyword::FORMAT)?;
+                    let fmt = match &parser.token {
+                        Token::Ident(_, Keyword::TEXT) => ExplainFormat::Text(parser.consume()),
+                        Token::Ident(_, Keyword::XML) => ExplainFormat::Xml(parser.consume()),
+                        Token::Ident(_, Keyword::JSON) => ExplainFormat::Json(parser.consume()),
+                        Token::Ident(_, Keyword::YAML) => ExplainFormat::Yaml(parser.consume()),
+                        _ => parser.expected_failure("TEXT, XML, JSON, or YAML")?,
+                    };
+                    ExplainOption::Format(fmt_kw, fmt)
+                }
+                _ => parser.expected_failure("EXPLAIN option")?,
+            };
+            options.push(opt);
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        parser.consume_token(Token::RParen)?;
+    } else {
+        // Legacy: EXPLAIN [ANALYZE] [VERBOSE]
+        if let Some(s) = parser.skip_keyword(Keyword::ANALYZE) {
+            options.push(ExplainOption::Analyze(s.clone(), Some((true, s))));
+        }
+        if let Some(s) = parser.skip_keyword(Keyword::VERBOSE) {
+            options.push(ExplainOption::Verbose(s.clone(), Some((true, s))));
+        }
+    }
+    let inner = match parse_statement(parser)? {
+        Some(s) => s,
+        None => parser.expected_failure("Statement after EXPLAIN")?,
+    };
+    Ok(Explain {
+        explain_span,
+        options,
+        statement: Box::new(inner),
+    })
+}
+
+/// Sensitivity of a declared cursor
+#[derive(Clone, Debug)]
+pub enum CursorSensitivity {
+    Asensitive(Span),
+    Insensitive(Span),
+}
+
+impl Spanned for CursorSensitivity {
+    fn span(&self) -> Span {
+        match self {
+            CursorSensitivity::Asensitive(s) | CursorSensitivity::Insensitive(s) => s.clone(),
+        }
+    }
+}
+
+/// Scroll behaviour of a declared cursor
+#[derive(Clone, Debug)]
+pub enum CursorScroll {
+    Scroll(Span),
+    NoScroll(Span),
+}
+
+impl Spanned for CursorScroll {
+    fn span(&self) -> Span {
+        match self {
+            CursorScroll::Scroll(s) | CursorScroll::NoScroll(s) => s.clone(),
+        }
+    }
+}
+
+/// Hold behaviour of a declared cursor
+#[derive(Clone, Debug)]
+pub enum CursorHold {
+    WithHold(Span),
+    WithoutHold(Span),
+}
+
+impl Spanned for CursorHold {
+    fn span(&self) -> Span {
+        match self {
+            CursorHold::WithHold(s) | CursorHold::WithoutHold(s) => s.clone(),
+        }
+    }
+}
+
+/// PostgreSQL DECLARE cursor statement
+#[derive(Clone, Debug)]
+pub struct DeclareCursor<'a> {
+    pub declare_span: Span,
+    pub name: crate::Identifier<'a>,
+    pub binary: Option<Span>,
+    pub sensitivity: Option<CursorSensitivity>,
+    pub scroll: Option<CursorScroll>,
+    pub cursor_span: Span,
+    pub hold: Option<CursorHold>,
+    pub for_span: Span,
+    pub query: Box<Statement<'a>>,
+}
+
+impl<'a> Spanned for DeclareCursor<'a> {
+    fn span(&self) -> Span {
+        self.declare_span.join_span(&self.query)
+    }
+}
+
+fn parse_declare_cursor<'a>(parser: &mut Parser<'a, '_>) -> Result<DeclareCursor<'a>, ParseError> {
+    let declare_span = parser.consume_keyword(Keyword::DECLARE)?;
+    parser.postgres_only(&declare_span);
+    let name = parser.consume_plain_identifier_unreserved()?;
+    // Optional BINARY
+    let binary = parser.skip_keyword(Keyword::BINARY);
+    // Optional ASENSITIVE | INSENSITIVE
+    let sensitivity = match &parser.token {
+        Token::Ident(_, Keyword::ASENSITIVE) => {
+            Some(CursorSensitivity::Asensitive(parser.consume()))
+        }
+        Token::Ident(_, Keyword::INSENSITIVE) => {
+            Some(CursorSensitivity::Insensitive(parser.consume()))
+        }
+        _ => None,
+    };
+    // Optional [NO] SCROLL
+    let scroll = if let Some(no_span) = parser.skip_keyword(Keyword::NO) {
+        let scroll_span = parser.consume_keyword(Keyword::SCROLL)?;
+        Some(CursorScroll::NoScroll(no_span.join_span(&scroll_span)))
+    } else {
+        parser
+            .skip_keyword(Keyword::SCROLL)
+            .map(CursorScroll::Scroll)
+    };
+    let cursor_span = parser.consume_keyword(Keyword::CURSOR)?;
+    // Optional WITH HOLD | WITHOUT HOLD
+    let hold = if let Some(without_span) = parser.skip_keyword(Keyword::WITHOUT) {
+        let hold_span = parser.consume_keyword(Keyword::HOLD)?;
+        Some(CursorHold::WithoutHold(without_span.join_span(&hold_span)))
+    } else if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+        let hold_span = parser.consume_keyword(Keyword::HOLD)?;
+        Some(CursorHold::WithHold(with_span.join_span(&hold_span)))
+    } else {
+        None
+    };
+    let for_span = parser.consume_keyword(Keyword::FOR)?;
+    let query = match parse_statement(parser)? {
+        Some(s) => s,
+        None => parser.expected_failure("Query after FOR")?,
+    };
+    Ok(DeclareCursor {
+        declare_span,
+        name,
+        binary,
+        sensitivity,
+        scroll,
+        cursor_span,
+        hold,
+        for_span,
+        query: Box::new(query),
+    })
+}
+
+/// PostgreSQL REFRESH MATERIALIZED VIEW statement
+#[derive(Clone, Debug)]
+pub struct RefreshMaterializedView<'a> {
+    pub refresh_span: Span,
+    pub concurrently: Option<Span>,
+    pub view_name: crate::QualifiedName<'a>,
+    /// WITH [ NO ] DATA: Some(true) = WITH DATA, Some(false) = WITH NO DATA, None = not specified
+    pub with_data: Option<(Span, bool)>,
+}
+
+impl<'a> Spanned for RefreshMaterializedView<'a> {
+    fn span(&self) -> Span {
+        self.refresh_span
+            .join_span(&self.view_name)
+            .join_span(&self.with_data.as_ref().map(|(s, _)| s.clone()))
+    }
+}
+
+fn parse_refresh_materialized_view<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<RefreshMaterializedView<'a>, ParseError> {
+    let refresh_span = parser.consume_keyword(Keyword::REFRESH)?;
+    parser.postgres_only(&refresh_span);
+    parser.consume_keyword(Keyword::MATERIALIZED)?;
+    parser.consume_keyword(Keyword::VIEW)?;
+    let concurrently = parser.skip_keyword(Keyword::CONCURRENTLY);
+    let view_name = parse_qualified_name_unreserved(parser)?;
+    // Optional WITH [ NO ] DATA
+    let with_data = if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+        if let Some(no_span) = parser.skip_keyword(Keyword::NO) {
+            let data_span = parser.consume_keyword(Keyword::DATA)?;
+            Some((with_span.join_span(&no_span).join_span(&data_span), false))
+        } else {
+            let data_span = parser.consume_keyword(Keyword::DATA)?;
+            Some((with_span.join_span(&data_span), true))
+        }
+    } else {
+        None
+    };
+    Ok(RefreshMaterializedView {
+        refresh_span,
+        concurrently,
+        view_name,
+        with_data,
+    })
+}
+
+/// PostgreSQL PREPARE statement
+#[derive(Clone, Debug)]
+pub struct Prepare<'a> {
+    pub prepare_span: Span,
+    pub name: crate::Identifier<'a>,
+    pub param_types: Vec<crate::DataType<'a>>,
+    pub as_span: Span,
+    pub statement: Box<Statement<'a>>,
+}
+
+impl<'a> Spanned for Prepare<'a> {
+    fn span(&self) -> Span {
+        self.prepare_span.join_span(&self.statement)
+    }
+}
+
+fn parse_prepare<'a>(parser: &mut Parser<'a, '_>) -> Result<Prepare<'a>, ParseError> {
+    use crate::data_type::{DataTypeContext, parse_data_type};
+    let prepare_span = parser.consume_keyword(Keyword::PREPARE)?;
+    parser.postgres_only(&prepare_span);
+    let name = parser.consume_plain_identifier_unreserved()?;
+    // Optional (type, ...) parameter type list
+    let mut param_types = Vec::new();
+    if matches!(parser.token, Token::LParen) {
+        parser.consume_token(Token::LParen)?;
+        loop {
+            parser.recovered(
+                "')' or ','",
+                &|t| matches!(t, Token::RParen | Token::Comma),
+                |parser| {
+                    param_types.push(parse_data_type(parser, DataTypeContext::TypeRef)?);
+                    Ok(())
+                },
+            )?;
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        parser.consume_token(Token::RParen)?;
+    }
+    let as_span = parser.consume_keyword(Keyword::AS)?;
+    let statement = match parse_statement(parser)? {
+        Some(s) => s,
+        None => parser.expected_failure("Statement after AS")?,
+    };
+    Ok(Prepare {
+        prepare_span,
+        name,
+        param_types,
+        as_span,
+        statement: Box::new(statement),
+    })
 }
 
 /// When part of case statement
