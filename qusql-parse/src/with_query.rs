@@ -8,12 +8,30 @@ use crate::{
     statement::parse_statement,
 };
 
+/// PostgreSQL CTE materialization hint
+#[derive(Clone, Debug)]
+pub enum MaterializedHint {
+    Materialized(Span),
+    NotMaterialized(Span),
+}
+
+impl Spanned for MaterializedHint {
+    fn span(&self) -> Span {
+        match self {
+            MaterializedHint::Materialized(s) => s.span(),
+            MaterializedHint::NotMaterialized(s) => s.span(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct WithBlock<'a> {
     /// Identifier for the with block
     pub identifier: Identifier<'a>,
     /// Span of AS
     pub as_span: Span,
+    /// Optional PostgreSQL MATERIALIZED / NOT MATERIALIZED hint
+    pub materialized: Option<MaterializedHint>,
     /// Span of (
     pub lparen_span: Span,
     /// The statement within the with block, will be one of select, update, insert or delete
@@ -27,6 +45,7 @@ impl<'a> Spanned for WithBlock<'a> {
         self.identifier
             .span()
             .join_span(&self.as_span)
+            .join_span(&self.materialized)
             .join_span(&self.lparen_span)
             .join_span(&self.statement)
             .join_span(&self.rparen_span)
@@ -55,6 +74,8 @@ impl<'a> Spanned for WithBlock<'a> {
 pub struct WithQuery<'a> {
     /// Span of WITH
     pub with_span: Span,
+    /// Optional span of RECURSIVE (PostgreSQL)
+    pub recursive_span: Option<Span>,
     /// The comma seperated with blocks
     pub with_blocks: Vec<WithBlock<'a>>,
     /// The final statement of the with query, will be one of select, update, insert, delete or merge
@@ -64,6 +85,7 @@ pub struct WithQuery<'a> {
 impl<'a> Spanned for WithQuery<'a> {
     fn span(&self) -> Span {
         self.with_span
+            .join_span(&self.recursive_span)
             .join_span(&self.with_blocks)
             .join_span(&self.statement)
     }
@@ -73,10 +95,29 @@ pub(crate) fn parse_with_query<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<WithQuery<'a>, ParseError> {
     let with_span = parser.consume_keyword(Keyword::WITH)?;
+    let recursive_span = if let Some(s) = parser.skip_keyword(Keyword::RECURSIVE) {
+        parser.postgres_only(&s);
+        Some(s)
+    } else {
+        None
+    };
     let mut with_blocks = Vec::new();
     loop {
         let identifier = parser.consume_plain_identifier_unreserved()?;
         let as_span = parser.consume_keyword(Keyword::AS)?;
+        // Optional PostgreSQL [NOT] MATERIALIZED hint
+        let materialized = if let Some(not_span) = parser.skip_keyword(Keyword::NOT) {
+            let mat_span = parser.consume_keyword(Keyword::MATERIALIZED)?;
+            parser.postgres_only(&mat_span);
+            Some(MaterializedHint::NotMaterialized(
+                not_span.join_span(&mat_span),
+            ))
+        } else if let Some(mat_span) = parser.skip_keyword(Keyword::MATERIALIZED) {
+            parser.postgres_only(&mat_span);
+            Some(MaterializedHint::Materialized(mat_span))
+        } else {
+            None
+        };
         let lparen_span = parser.consume_token(Token::LParen)?;
         let statement =
             parser.recovered(
@@ -114,6 +155,7 @@ pub(crate) fn parse_with_query<'a>(
         with_blocks.push(WithBlock {
             identifier,
             as_span,
+            materialized,
             lparen_span,
             statement,
             rparen_span,
@@ -143,6 +185,7 @@ pub(crate) fn parse_with_query<'a>(
     };
     let res = WithQuery {
         with_span,
+        recursive_span,
         with_blocks,
         statement,
     };

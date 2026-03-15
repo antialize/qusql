@@ -182,7 +182,7 @@ pub use statement::{
 pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
 pub use values::{Fetch, FetchDirection, Values};
-pub use with_query::{WithBlock, WithQuery};
+pub use with_query::{MaterializedHint, WithBlock, WithQuery};
 
 /// What sql diarect to parse as
 #[derive(Clone, Debug)]
