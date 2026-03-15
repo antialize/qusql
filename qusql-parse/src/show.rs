@@ -740,6 +740,18 @@ pub(crate) fn parse_show<'a>(
         }
             Token::Ident(_, Keyword::COLLATION) => Statement::ShowCollation(Box::new(parse_show_collation(parser, show_span)?)),
             Token::Ident(_, Keyword::ENGINES) => Statement::ShowEngines(Box::new(parse_show_engines(parser, show_span)?)),
+        _ if parser.options.dialect.is_postgresql() => {
+            // PostgreSQL: SHOW <parameter_name> — consume the parameter name as-is
+            let var_span = parser.consume_plain_identifier_unreserved()?;
+            Statement::ShowVariables(Box::new(ShowVariables {
+                show_span: show_span.clone(),
+                variables_span: var_span.span(),
+                global_span: global.clone(),
+                session_span: session.clone(),
+                like: None,
+                where_expr: None,
+            }))
+        }
         _ => return parser.expected_failure("'TABLES' | 'DATABASES' | 'PROCESS' | 'PROCESSLIST' | 'VARIABLES' | 'STATUS' | 'COLUMNS' | 'FIELDS' | 'CHARSET' | 'CHARACTER' | 'COLLATION' | 'ENGINES'"),
     };
 
