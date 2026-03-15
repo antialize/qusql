@@ -25,6 +25,7 @@ use alloc::{boxed::Box, vec::Vec};
 pub enum TriggerTime {
     Before(Span),
     After(Span),
+    InsteadOf(Span),
 }
 
 impl Spanned for TriggerTime {
@@ -32,6 +33,7 @@ impl Spanned for TriggerTime {
         match &self {
             TriggerTime::Before(v) => v.span(),
             TriggerTime::After(v) => v.span(),
+            TriggerTime::InsteadOf(v) => v.span(),
         }
     }
 }
@@ -153,7 +155,10 @@ pub(crate) fn parse_create_trigger<'a>(
         Token::Ident(_, Keyword::BEFORE) => {
             TriggerTime::Before(parser.consume_keyword(Keyword::BEFORE)?)
         }
-        _ => parser.expected_failure("'BEFORE' or 'AFTER'")?,
+        Token::Ident(_, Keyword::INSTEAD) => {
+            TriggerTime::InsteadOf(parser.consume_keywords(&[Keyword::INSTEAD, Keyword::OF])?)
+        }
+        _ => parser.expected_failure("'BEFORE', 'AFTER', or 'INSTEAD OF'")?,
     };
 
     let trigger_event = match &parser.token {
