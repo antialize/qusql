@@ -2262,7 +2262,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected 'FOR' here\",\n    span: 54..62,\n    sql_segment: \"FUNCTION\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "should_fail": true
   },
   {
     "input": "CREATE TRIGGER check_update TOMORROW UPDATE ON accounts EXECUTE FUNCTION check_account_update",
