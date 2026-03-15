@@ -343,6 +343,7 @@ pub(crate) enum Keyword {
     AGGREGATE,
     ALGORITHM,
     ALWAYS,
+    ARRAY,
     ASCII,
     ASIN,
     AT,

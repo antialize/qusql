@@ -419,6 +419,42 @@ impl Spanned for TypeCastExpression<'_> {
     }
 }
 
+/// PostgreSQL ARRAY[...] literal expression
+#[derive(Debug, Clone)]
+pub struct ArrayExpression<'a> {
+    /// Span of the "ARRAY" keyword
+    pub array_span: Span,
+    /// Span of the bracket region "[...]"
+    pub bracket_span: Span,
+    /// The element expressions
+    pub elements: Vec<Expression<'a>>,
+}
+
+impl Spanned for ArrayExpression<'_> {
+    fn span(&self) -> Span {
+        self.array_span.join_span(&self.bracket_span)
+    }
+}
+
+/// Array subscript or slice expression: expr[idx] or expr[lower:upper]
+#[derive(Debug, Clone)]
+pub struct ArraySubscriptExpression<'a> {
+    /// The array expression being subscripted
+    pub expr: Expression<'a>,
+    /// Span of the "[...]" bracket region
+    pub bracket_span: Span,
+    /// The lower bound / index
+    pub lower: Expression<'a>,
+    /// The upper bound for slice notation (expr[lower:upper])
+    pub upper: Option<Expression<'a>>,
+}
+
+impl Spanned for ArraySubscriptExpression<'_> {
+    fn span(&self) -> Span {
+        self.expr.span().join_span(&self.bracket_span)
+    }
+}
+
 /// Count expression
 #[derive(Debug, Clone)]
 pub struct CountExpression<'a> {
@@ -810,6 +846,10 @@ pub enum Expression<'a> {
     TypeCast(Box<TypeCastExpression<'a>>),
     /// Full-text MATCH ... AGAINST expression
     MatchAgainst(Box<MatchAgainstExpression<'a>>),
+    /// PostgreSQL ARRAY[...] literal expression
+    Array(Box<ArrayExpression<'a>>),
+    /// Array subscript / slice expression: expr[idx] or expr[lower:upper]
+    ArraySubscript(Box<ArraySubscriptExpression<'a>>),
 }
 
 impl<'a> Spanned for Expression<'a> {
@@ -847,6 +887,8 @@ impl<'a> Spanned for Expression<'a> {
             Expression::TimestampAdd(e) => e.span(),
             Expression::TimestampDiff(e) => e.span(),
             Expression::MatchAgainst(e) => e.span(),
+            Expression::Array(e) => e.span(),
+            Expression::ArraySubscript(e) => e.span(),
         }
     }
 }
@@ -1166,6 +1208,37 @@ pub(crate) fn parse_expression_restricted<'a>(
                     doublecolon_span,
                     type_,
                 })))
+            }
+            Token::LBracket
+                if parser.options.dialect.is_postgresql()
+                    && !inner
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                // Array subscript / slice: expr[idx] or expr[lower:upper]
+                if let Err(e) = r.reduce(TYPECAST_PRIORITY) {
+                    parser.err_here(e)?;
+                }
+                let expr = match r.stack.pop() {
+                    Some(ReduceMember::Expression(e)) => e,
+                    _ => parser.err_here("Expected expression before '['")?,
+                };
+                let lbracket = parser.consume_token(Token::LBracket)?;
+                let lower = parse_expression_unreserved(parser, true)?;
+                let upper = if parser.skip_token(Token::Colon).is_some() {
+                    Some(parse_expression_unreserved(parser, true)?)
+                } else {
+                    None
+                };
+                let rbracket = parser.consume_token(Token::RBracket)?;
+                let bracket_span = lbracket.join_span(&rbracket);
+                r.shift_expr(Expression::ArraySubscript(Box::new(
+                    ArraySubscriptExpression {
+                        expr,
+                        bracket_span,
+                        lower,
+                        upper,
+                    },
+                )))
             }
             Token::Ident(_, Keyword::NOT)
                 if !matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
@@ -1665,6 +1738,35 @@ pub(crate) fn parse_expression_restricted<'a>(
                 parser.consume();
                 // Parse the string literal
                 r.shift_expr(Expression::String(Box::new(parser.consume_string()?)))
+            }
+            // PostgreSQL ARRAY[...] literal
+            Token::Ident(_, Keyword::ARRAY) if matches!(parser.peek(), Token::LBracket) => {
+                let array_span = parser.consume_keyword(Keyword::ARRAY)?;
+                parser.postgres_only(&array_span);
+                let lbracket = parser.consume_token(Token::LBracket)?;
+                let mut elements = Vec::new();
+                if !matches!(parser.token, Token::RBracket) {
+                    loop {
+                        parser.recovered(
+                            "']' or ','",
+                            &|t| matches!(t, Token::RBracket | Token::Comma),
+                            |parser| {
+                                elements.push(parse_expression_unreserved(parser, true)?);
+                                Ok(())
+                            },
+                        )?;
+                        if parser.skip_token(Token::Comma).is_none() {
+                            break;
+                        }
+                    }
+                }
+                let rbracket = parser.consume_token(Token::RBracket)?;
+                let bracket_span = lbracket.join_span(&rbracket);
+                r.shift_expr(Expression::Array(Box::new(ArrayExpression {
+                    array_span,
+                    bracket_span,
+                    elements,
+                })))
             }
             Token::Ident(_, k) if k.expr_ident() || !k.restricted(restrict) => {
                 let i = parser.token.clone();

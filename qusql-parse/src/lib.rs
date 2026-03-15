@@ -133,14 +133,14 @@ pub use drop::{
     DropTrigger, DropView,
 };
 pub use expression::{
-    ArgExpression, BinaryExpression, BinaryOperator, BoolExpression, CaseExpression,
-    CastExpression, ConvertExpression, CountExpression, DefaultExpression, ExistsExpression,
-    Expression, ExtractExpression, FloatExpression, GroupConcatExpression, IdentifierExpression,
-    IdentifierPart, InExpression, IntegerExpression, IntervalExpression, InvalidExpression, Is,
-    IsExpression, ListHackExpression, MatchAgainstExpression, MatchMode, MemberOfExpression,
-    NullExpression, SubqueryExpression, TimeUnit, TimestampAddExpression, TimestampDiffExpression,
-    TypeCastExpression, UnaryExpression, UnaryOperator, UserVariableExpression, Variable,
-    VariableExpression, When,
+    ArgExpression, ArrayExpression, ArraySubscriptExpression, BinaryExpression, BinaryOperator,
+    BoolExpression, CaseExpression, CastExpression, ConvertExpression, CountExpression,
+    DefaultExpression, ExistsExpression, Expression, ExtractExpression, FloatExpression,
+    GroupConcatExpression, IdentifierExpression, IdentifierPart, InExpression, IntegerExpression,
+    IntervalExpression, InvalidExpression, Is, IsExpression, ListHackExpression,
+    MatchAgainstExpression, MatchMode, MemberOfExpression, NullExpression, SubqueryExpression,
+    TimeUnit, TimestampAddExpression, TimestampDiffExpression, TypeCastExpression, UnaryExpression,
+    UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
 };
 pub use flush::{Flush, FlushOption};
 pub use function_expression::{
