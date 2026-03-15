@@ -106,7 +106,7 @@ pub use create::{
 pub use create_constraint_trigger::{AfterEvent, CreateConstraintTrigger, Deferrable, Initially};
 pub use create_function::{
     CreateFunction, FunctionBody, FunctionCharacteristic, FunctionLanguage, FunctionParallel,
-    FunctionParamDirection,
+    FunctionParam, FunctionParamDirection,
 };
 pub use create_index::{
     CreateIndex, CreateIndexOption, IncludeClause, UsingIndexMethod, WithOption,

@@ -10,9 +10,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-    DataType, Identifier, SString, Span, Spanned, Statement,
+    DataType, Expression, Identifier, SString, Span, Spanned, Statement,
     create_option::CreateOption,
     data_type::{DataTypeContext, parse_data_type},
+    expression::parse_expression_unreserved,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -64,6 +65,8 @@ pub enum FunctionCharacteristic<'a> {
     Stable(Span),
     Volatile(Span),
     Strict(Span),
+    CalledOnNullInput(Span),
+    ReturnsNullOnNullInput(Span),
     Parallel(Span, FunctionParallel),
     NotDeterministic(Span),
     Deterministic(Span),
@@ -93,6 +96,8 @@ impl<'a> Spanned for FunctionCharacteristic<'a> {
             FunctionCharacteristic::Stable(v) => v.span(),
             FunctionCharacteristic::Volatile(v) => v.span(),
             FunctionCharacteristic::Strict(v) => v.span(),
+            FunctionCharacteristic::CalledOnNullInput(v) => v.span(),
+            FunctionCharacteristic::ReturnsNullOnNullInput(v) => v.span(),
             FunctionCharacteristic::Parallel(s, v) => s.join_span(v),
         }
     }
@@ -116,9 +121,25 @@ impl Spanned for FunctionParamDirection {
     }
 }
 
-impl<'a> Spanned for FunctionBody<'a> {
+/// A single function parameter
+#[derive(Clone, Debug)]
+pub struct FunctionParam<'a> {
+    /// Optional direction modifier (IN, OUT, INOUT)
+    pub direction: Option<FunctionParamDirection>,
+    /// Optional parameter name
+    pub name: Option<Identifier<'a>>,
+    /// Parameter type
+    pub type_: DataType<'a>,
+    /// Optional default value: (= or DEFAULT span, expression)
+    pub default: Option<(Span, Expression<'a>)>,
+}
+
+impl<'a> Spanned for FunctionParam<'a> {
     fn span(&self) -> Span {
-        self.as_span.join_span(&self.strings)
+        self.type_
+            .join_span(&self.direction)
+            .join_span(&self.name)
+            .join_span(&self.default.as_ref().map(|(s, e)| s.join_span(e)))
     }
 }
 
@@ -129,6 +150,12 @@ pub struct FunctionBody<'a> {
     pub as_span: Span,
     /// The body string(s) — typically one dollar-quoted string, or two strings for C functions
     pub strings: Vec<SString<'a>>,
+}
+
+impl<'a> Spanned for FunctionBody<'a> {
+    fn span(&self) -> Span {
+        self.as_span.join_span(&self.strings)
+    }
 }
 
 /// Representation of Create Function Statement
@@ -173,11 +200,7 @@ pub struct CreateFunction<'a> {
     /// Name o created function
     pub name: Identifier<'a>,
     /// Names and types of function arguments
-    pub params: Vec<(
-        Option<FunctionParamDirection>,
-        Option<Identifier<'a>>,
-        DataType<'a>,
-    )>,
+    pub params: Vec<FunctionParam<'a>>,
     /// Span of "RETURNS"
     pub returns_span: Span,
     /// Type of return value
@@ -197,6 +220,8 @@ impl<'a> Spanned for CreateFunction<'a> {
             .join_span(&self.function_span)
             .join_span(&self.if_not_exists)
             .join_span(&self.name)
+            .join_span(&self.params)
+            .join_span(&self.returns_span)
             .join_span(&self.return_type)
             .join_span(&self.characteristics)
             .join_span(&self.body)
@@ -266,7 +291,20 @@ pub(crate) fn parse_create_function<'a>(
                 Some(parser.consume_plain_identifier_unreserved()?)
             };
             let type_ = parse_data_type(parser, DataTypeContext::FunctionParam)?;
-            params.push((direction, name, type_));
+            // Optional default value: '= expr' or 'DEFAULT expr'
+            let default = if let Some(eq_span) = parser.skip_token(Token::Eq) {
+                Some((eq_span, parse_expression_unreserved(parser, false)?))
+            } else if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
+                Some((default_span, parse_expression_unreserved(parser, false)?))
+            } else {
+                None
+            };
+            params.push(FunctionParam {
+                direction,
+                name,
+                type_,
+                default,
+            });
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -355,6 +393,23 @@ pub(crate) fn parse_create_function<'a>(
             }
             Token::Ident(_, Keyword::STRICT) => {
                 FunctionCharacteristic::Strict(parser.consume_keyword(Keyword::STRICT)?)
+            }
+            Token::Ident(_, Keyword::CALLED) if parser.options.dialect.is_postgresql() => {
+                FunctionCharacteristic::CalledOnNullInput(parser.consume_keywords(&[
+                    Keyword::CALLED,
+                    Keyword::ON,
+                    Keyword::NULL,
+                    Keyword::INPUT,
+                ])?)
+            }
+            Token::Ident(_, Keyword::RETURNS) if parser.options.dialect.is_postgresql() => {
+                FunctionCharacteristic::ReturnsNullOnNullInput(parser.consume_keywords(&[
+                    Keyword::RETURNS,
+                    Keyword::NULL,
+                    Keyword::ON,
+                    Keyword::NULL,
+                    Keyword::INPUT,
+                ])?)
             }
             Token::Ident(_, Keyword::PARALLEL) => {
                 let parallel_span = parser.consume_keyword(Keyword::PARALLEL)?;

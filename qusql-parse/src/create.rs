@@ -1165,9 +1165,10 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                     }
                     Token::Ident(_, Keyword::CLASS) => {
                         // CREATE OPERATOR CLASS
+                        let class_span = parser.consume_keyword(Keyword::CLASS)?;
                         Statement::CreateOperatorClass(Box::new(parse_create_operator_class(
                             parser,
-                            create_span.join_span(&operator_span),
+                            create_span.join_span(&operator_span).join_span(&class_span),
                             create_options,
                         )?))
                     }
