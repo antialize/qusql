@@ -10,8 +10,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-    Identifier, Span, Spanned, Statement,
+    Expression, Identifier, Span, Spanned, Statement,
     create_option::CreateOption,
+    expression::parse_expression_unreserved,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -21,7 +22,6 @@ use alloc::{boxed::Box, vec::Vec};
 
 /// When to fire the trigger
 #[derive(Clone, Debug)]
-
 pub enum TriggerTime {
     Before(Span),
     After(Span),
@@ -53,6 +53,36 @@ impl Spanned for TriggerEvent {
             TriggerEvent::Insert(v) => v.span(),
             TriggerEvent::Delete(v) => v.span(),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum TriggerReferenceDirection {
+    New(Span),
+    Old(Span),
+}
+
+impl Spanned for TriggerReferenceDirection {
+    fn span(&self) -> Span {
+        match &self {
+            TriggerReferenceDirection::New(v) => v.span(),
+            TriggerReferenceDirection::Old(v) => v.span(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TriggerReference<'a> {
+    direction: TriggerReferenceDirection,
+    table_as_span: Span,
+    alias: Identifier<'a>,
+}
+
+impl Spanned for TriggerReference<'_> {
+    fn span(&self) -> Span {
+        self.direction
+            .join_span(&self.table_as_span)
+            .join_span(&self.alias)
     }
 }
 
@@ -109,6 +139,10 @@ pub struct CreateTrigger<'a> {
     pub table: Identifier<'a>,
     /// Span of "FOR EACH ROW"
     pub for_each_row_span: Span,
+    /// Optional REFERENCING NEW TABLE AS alias / OLD TABLE AS alias clauses
+    pub referencing: Vec<TriggerReference<'a>>,
+    /// Optional WHEN (condition)
+    pub when_condition: Option<(Span, Expression<'a>)>,
     /// Statement to execute
     pub statement: Statement<'a>,
 }
@@ -125,6 +159,8 @@ impl<'a> Spanned for CreateTrigger<'a> {
             .join_span(&self.on_span)
             .join_span(&self.table)
             .join_span(&self.for_each_row_span)
+            .join_span(&self.referencing)
+            .join_span(&self.when_condition.as_ref().map(|(s, e)| s.join_span(e)))
             .join_span(&self.statement)
     }
 }
@@ -181,6 +217,42 @@ pub(crate) fn parse_create_trigger<'a>(
     let for_each_row_span =
         parser.consume_keywords(&[Keyword::FOR, Keyword::EACH, Keyword::ROW])?;
 
+    // Parse optional REFERENCING clause (PostgreSQL transition table aliases)
+    let mut referencing = Vec::new();
+    if parser.skip_keyword(Keyword::REFERENCING).is_some() {
+        // Each REFERENCING item: { NEW | OLD } TABLE AS alias
+        loop {
+            let direction = match &parser.token {
+                Token::Ident(_, Keyword::NEW) => {
+                    TriggerReferenceDirection::New(parser.consume_keyword(Keyword::NEW)?)
+                }
+                Token::Ident(_, Keyword::OLD) => {
+                    TriggerReferenceDirection::Old(parser.consume_keyword(Keyword::OLD)?)
+                }
+                _ => break,
+            };
+            let table_as_span = parser.consume_keywords(&[Keyword::TABLE, Keyword::AS])?;
+            let alias = parser.consume_plain_identifier_unreserved()?;
+            referencing.push(TriggerReference {
+                direction,
+                table_as_span,
+                alias,
+            });
+        }
+    }
+
+    // Parse optional WHEN (condition)
+    let when_condition = if let Some(when_span) = parser.skip_keyword(Keyword::WHEN) {
+        parser.consume_token(Token::LParen)?;
+        let expr = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+            Ok(Some(parse_expression_unreserved(parser, false)?))
+        })?;
+        parser.consume_token(Token::RParen)?;
+        expr.map(|e| (when_span, e))
+    } else {
+        None
+    };
+
     // TODO [{ FOLLOWS | PRECEDES } other_trigger_name ]
 
     // PostgreSQL allows EXECUTE FUNCTION func_name() instead of a statement block
@@ -220,6 +292,8 @@ pub(crate) fn parse_create_trigger<'a>(
         on_span,
         table,
         for_each_row_span,
+        referencing,
+        when_condition,
         statement,
     })
 }
