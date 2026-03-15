@@ -35,39 +35,123 @@ pub enum Variable<'a> {
 }
 
 /// Binary operator to apply
-#[derive(Debug, Clone, Copy)]
-pub enum BinaryOperator {
-    Or,
-    Xor,
-    And,
-    Eq,
-    NullSafeEq,
-    GtEq,
-    Gt,
-    LtEq,
-    Lt,
-    Neq,
-    ShiftLeft,
-    ShiftRight,
-    BitAnd,
-    BitOr,
-    BitXor,
-    Add,
-    Subtract,
-    Divide,
-    Div,
-    Mod,
-    Mult,
-    Like,
-    NotLike,
-    Regexp,
-    NotRegexp,
-    Rlike,
-    NotRlike,
-    Collate,
-    JsonExtract,
-    JsonExtractUnquote,
-    Assignment,
+#[derive(Debug, Clone)]
+pub enum BinaryOperator<'a> {
+    Or(Span),
+    Xor(Span),
+    And(Span),
+    Eq(Span),
+    NullSafeEq(Span),
+    GtEq(Span),
+    Gt(Span),
+    LtEq(Span),
+    Lt(Span),
+    Neq(Span),
+    ShiftLeft(Span),
+    ShiftRight(Span),
+    BitAnd(Span),
+    BitOr(Span),
+    BitXor(Span),
+    Add(Span),
+    Subtract(Span),
+    Divide(Span),
+    Div(Span),
+    Mod(Span),
+    Mult(Span),
+    Like(Span),
+    NotLike(Span),
+    Regexp(Span),
+    NotRegexp(Span),
+    Rlike(Span),
+    NotRlike(Span),
+    Collate(Span),
+    JsonExtract(Span),
+    JsonExtractUnquote(Span),
+    Assignment(Span),
+    // PostgreSQL-specific binary operators
+    /// @>
+    Contains(Span),
+    /// <@
+    ContainedBy(Span),
+    /// @@ (full-text / jsonpath match)
+    JsonPathMatch(Span),
+    /// @?
+    JsonPathExists(Span),
+    /// ? (jsonb key exists)
+    JsonbKeyExists(Span),
+    /// ?|
+    JsonbAnyKeyExists(Span),
+    /// ?&
+    JsonbAllKeyExists(Span),
+    /// #>
+    JsonGetPath(Span),
+    /// #>>
+    JsonGetPathText(Span),
+    /// #-
+    JsonDeletePath(Span),
+    /// ~ (regex match)
+    RegexMatch(Span),
+    /// ~* (case-insensitive regex match)
+    RegexIMatch(Span),
+    /// !~ (regex not match)
+    NotRegexMatch(Span),
+    /// !~* (case-insensitive regex not match)
+    NotRegexIMatch(Span),
+    /// User-defined / unrecognised PostgreSQL operator
+    User(&'a str, Span),
+}
+
+impl<'a> Spanned for BinaryOperator<'a> {
+    fn span(&self) -> Span {
+        match self {
+            BinaryOperator::Or(s)
+            | BinaryOperator::Xor(s)
+            | BinaryOperator::And(s)
+            | BinaryOperator::Eq(s)
+            | BinaryOperator::NullSafeEq(s)
+            | BinaryOperator::GtEq(s)
+            | BinaryOperator::Gt(s)
+            | BinaryOperator::LtEq(s)
+            | BinaryOperator::Lt(s)
+            | BinaryOperator::Neq(s)
+            | BinaryOperator::ShiftLeft(s)
+            | BinaryOperator::ShiftRight(s)
+            | BinaryOperator::BitAnd(s)
+            | BinaryOperator::BitOr(s)
+            | BinaryOperator::BitXor(s)
+            | BinaryOperator::Add(s)
+            | BinaryOperator::Subtract(s)
+            | BinaryOperator::Divide(s)
+            | BinaryOperator::Div(s)
+            | BinaryOperator::Mod(s)
+            | BinaryOperator::Mult(s)
+            | BinaryOperator::Like(s)
+            | BinaryOperator::NotLike(s)
+            | BinaryOperator::Regexp(s)
+            | BinaryOperator::NotRegexp(s)
+            | BinaryOperator::Rlike(s)
+            | BinaryOperator::NotRlike(s)
+            | BinaryOperator::Collate(s)
+            | BinaryOperator::JsonExtract(s)
+            | BinaryOperator::JsonExtractUnquote(s)
+            | BinaryOperator::Assignment(s)
+            | BinaryOperator::Contains(s)
+            | BinaryOperator::ContainedBy(s)
+            | BinaryOperator::JsonPathMatch(s)
+            | BinaryOperator::JsonPathExists(s)
+            | BinaryOperator::JsonbKeyExists(s)
+            | BinaryOperator::JsonbAnyKeyExists(s)
+            | BinaryOperator::JsonbAllKeyExists(s)
+            | BinaryOperator::JsonGetPath(s)
+            | BinaryOperator::JsonGetPathText(s)
+            | BinaryOperator::JsonDeletePath(s)
+            | BinaryOperator::RegexMatch(s)
+            | BinaryOperator::RegexIMatch(s)
+            | BinaryOperator::NotRegexMatch(s)
+            | BinaryOperator::NotRegexIMatch(s) => s.clone(),
+            BinaryOperator::User(_, s) => s.clone(),
+        }
+    }
 }
 
 /// Mode for MATCH ... AGAINST
@@ -106,12 +190,23 @@ pub enum Is<'a> {
 }
 
 /// Unary operator to apply
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum UnaryOperator {
-    Binary,
-    LogicalNot,
-    Minus,
-    Not,
+    Binary(Span),
+    LogicalNot(Span),
+    Minus(Span),
+    Not(Span),
+}
+
+impl Spanned for UnaryOperator {
+    fn span(&self) -> Span {
+        match self {
+            UnaryOperator::Binary(s)
+            | UnaryOperator::LogicalNot(s)
+            | UnaryOperator::Minus(s)
+            | UnaryOperator::Not(s) => s.clone(),
+        }
+    }
 }
 
 /// Part of a full identifier
@@ -226,15 +321,14 @@ fn parse_time_unit(t: &Token<'_>) -> Option<TimeUnit> {
 /// Expression with binary operator
 #[derive(Debug, Clone)]
 pub struct BinaryExpression<'a> {
-    pub op: BinaryOperator,
-    pub op_span: Span,
+    pub op: BinaryOperator<'a>,
     pub lhs: Expression<'a>,
     pub rhs: Expression<'a>,
 }
 
 impl Spanned for BinaryExpression<'_> {
     fn span(&self) -> Span {
-        self.op_span.join_span(&self.lhs).join_span(&self.rhs)
+        self.op.span().join_span(&self.lhs).join_span(&self.rhs)
     }
 }
 
@@ -242,13 +336,12 @@ impl Spanned for BinaryExpression<'_> {
 #[derive(Debug, Clone)]
 pub struct UnaryExpression<'a> {
     pub op: UnaryOperator,
-    pub op_span: Span,
     pub operand: Expression<'a>,
 }
 
 impl Spanned for UnaryExpression<'_> {
     fn span(&self) -> Span {
-        self.op_span.join_span(&self.operand)
+        self.op.span().join_span(&self.operand)
     }
 }
 /// Time Interval
@@ -901,40 +994,56 @@ trait Priority {
     fn priority(&self) -> usize;
 }
 
-impl Priority for BinaryOperator {
+impl<'a> Priority for BinaryOperator<'a> {
     fn priority(&self) -> usize {
         match self {
-            BinaryOperator::Assignment => 200,
-            BinaryOperator::Or => 140,
-            BinaryOperator::Xor => 150,
-            BinaryOperator::And => 160,
-            BinaryOperator::Eq => 110,
-            BinaryOperator::NullSafeEq => 110,
-            BinaryOperator::GtEq => 110,
-            BinaryOperator::Gt => 110,
-            BinaryOperator::LtEq => 110,
-            BinaryOperator::Lt => 110,
-            BinaryOperator::Neq => 110,
-            BinaryOperator::Like => 110,
-            BinaryOperator::NotLike => 110,
-            BinaryOperator::Regexp => 110,
-            BinaryOperator::NotRegexp => 110,
-            BinaryOperator::Rlike => 110,
-            BinaryOperator::NotRlike => 110,
-            BinaryOperator::ShiftLeft => 80,
-            BinaryOperator::ShiftRight => 80,
-            BinaryOperator::BitAnd => 90,
-            BinaryOperator::BitOr => 100,
-            BinaryOperator::BitXor => 50,
-            BinaryOperator::Add => 70,
-            BinaryOperator::Subtract => 70,
-            BinaryOperator::Divide => 60,
-            BinaryOperator::Div => 60,
-            BinaryOperator::Mod => 60,
-            BinaryOperator::Mult => 60,
-            BinaryOperator::Collate => 20,
-            BinaryOperator::JsonExtract => 30,
-            BinaryOperator::JsonExtractUnquote => 30,
+            BinaryOperator::Assignment(_) => 200,
+            BinaryOperator::Or(_) => 140,
+            BinaryOperator::Xor(_) => 150,
+            BinaryOperator::And(_) => 160,
+            BinaryOperator::Eq(_) => 110,
+            BinaryOperator::NullSafeEq(_) => 110,
+            BinaryOperator::GtEq(_) => 110,
+            BinaryOperator::Gt(_) => 110,
+            BinaryOperator::LtEq(_) => 110,
+            BinaryOperator::Lt(_) => 110,
+            BinaryOperator::Neq(_) => 110,
+            BinaryOperator::Like(_) => 110,
+            BinaryOperator::NotLike(_) => 110,
+            BinaryOperator::Regexp(_) => 110,
+            BinaryOperator::NotRegexp(_) => 110,
+            BinaryOperator::Rlike(_) => 110,
+            BinaryOperator::NotRlike(_) => 110,
+            BinaryOperator::ShiftLeft(_) => 80,
+            BinaryOperator::ShiftRight(_) => 80,
+            BinaryOperator::BitAnd(_) => 90,
+            BinaryOperator::BitOr(_) => 100,
+            BinaryOperator::BitXor(_) => 50,
+            BinaryOperator::Add(_) => 70,
+            BinaryOperator::Subtract(_) => 70,
+            BinaryOperator::Divide(_) => 60,
+            BinaryOperator::Div(_) => 60,
+            BinaryOperator::Mod(_) => 60,
+            BinaryOperator::Mult(_) => 60,
+            BinaryOperator::Collate(_) => 20,
+            BinaryOperator::JsonExtract(_) => 30,
+            BinaryOperator::JsonExtractUnquote(_) => 30,
+            // PostgreSQL operators: between Add(70) and comparisons(110)
+            BinaryOperator::Contains(_)
+            | BinaryOperator::ContainedBy(_)
+            | BinaryOperator::JsonPathMatch(_)
+            | BinaryOperator::JsonPathExists(_)
+            | BinaryOperator::JsonbKeyExists(_)
+            | BinaryOperator::JsonbAnyKeyExists(_)
+            | BinaryOperator::JsonbAllKeyExists(_)
+            | BinaryOperator::JsonGetPath(_)
+            | BinaryOperator::JsonGetPathText(_)
+            | BinaryOperator::JsonDeletePath(_)
+            | BinaryOperator::RegexMatch(_)
+            | BinaryOperator::RegexIMatch(_)
+            | BinaryOperator::NotRegexMatch(_)
+            | BinaryOperator::NotRegexIMatch(_)
+            | BinaryOperator::User(_, _) => 75,
         }
     }
 }
@@ -942,10 +1051,10 @@ impl Priority for BinaryOperator {
 impl Priority for UnaryOperator {
     fn priority(&self) -> usize {
         match self {
-            UnaryOperator::Binary => 20,
-            UnaryOperator::LogicalNot => 30,
-            UnaryOperator::Minus => 40,
-            UnaryOperator::Not => 130,
+            UnaryOperator::Binary(_) => 20,
+            UnaryOperator::LogicalNot(_) => 30,
+            UnaryOperator::Minus(_) => 40,
+            UnaryOperator::Not(_) => 130,
         }
     }
 }
@@ -953,8 +1062,8 @@ impl Priority for UnaryOperator {
 #[derive(Debug)]
 enum ReduceMember<'a> {
     Expression(Expression<'a>),
-    Binary(BinaryOperator, Span),
-    Unary(UnaryOperator, Span),
+    Binary(BinaryOperator<'a>),
+    Unary(UnaryOperator),
 }
 
 struct Reducer<'a> {
@@ -974,32 +1083,23 @@ impl<'a> Reducer<'a> {
             match v {
                 None => break,
                 Some(ReduceMember::Expression(_)) => return Err("ICE Reduce stack error 1"),
-                Some(ReduceMember::Unary(op, span)) if op.priority() > priority => {
-                    self.stack.push(ReduceMember::Unary(op, span));
+                Some(ReduceMember::Unary(op)) if op.priority() > priority => {
+                    self.stack.push(ReduceMember::Unary(op));
                     break;
                 }
-                Some(ReduceMember::Binary(op, span)) if op.priority() > priority => {
-                    self.stack.push(ReduceMember::Binary(op, span));
+                Some(ReduceMember::Binary(op)) if op.priority() > priority => {
+                    self.stack.push(ReduceMember::Binary(op));
                     break;
                 }
-                Some(ReduceMember::Unary(op, op_span)) => {
-                    e = Expression::Unary(Box::new(UnaryExpression {
-                        op,
-                        op_span,
-                        operand: e,
-                    }));
+                Some(ReduceMember::Unary(op)) => {
+                    e = Expression::Unary(Box::new(UnaryExpression { op, operand: e }));
                 }
-                Some(ReduceMember::Binary(op, op_span)) => {
+                Some(ReduceMember::Binary(op)) => {
                     let lhs = match self.stack.pop() {
                         Some(ReduceMember::Expression(e)) => e,
                         _ => return Err("ICE Reduce stack error 2"),
                     };
-                    e = Expression::Binary(Box::new(BinaryExpression {
-                        op,
-                        op_span,
-                        lhs,
-                        rhs: e,
-                    }));
+                    e = Expression::Binary(Box::new(BinaryExpression { op, lhs, rhs: e }));
                 }
             }
         }
@@ -1007,17 +1107,17 @@ impl<'a> Reducer<'a> {
         Ok(())
     }
 
-    fn shift_binop(&mut self, span: Span, op: BinaryOperator) -> Result<(), &'static str> {
+    fn shift_binop(&mut self, op: BinaryOperator<'a>) -> Result<(), &'static str> {
         self.reduce(op.priority())?;
-        self.stack.push(ReduceMember::Binary(op, span));
+        self.stack.push(ReduceMember::Binary(op));
         Ok(())
     }
 
-    fn shift_unary(&mut self, span: Span, op: UnaryOperator) -> Result<(), &'static str> {
+    fn shift_unary(&mut self, op: UnaryOperator) -> Result<(), &'static str> {
         if matches!(self.stack.last(), Some(ReduceMember::Expression(_))) {
             return Err("Unary operator cannot come before expression");
         }
-        self.stack.push(ReduceMember::Unary(op, span));
+        self.stack.push(ReduceMember::Unary(op));
         Ok(())
     }
 
@@ -1039,35 +1139,35 @@ pub(crate) fn parse_expression_restricted<'a>(
     let mut r = Reducer { stack: Vec::new() };
     loop {
         let e = match parser.token.clone() {
-            Token::ColonEq if !inner => r.shift_binop(parser.consume(), BinaryOperator::Assignment),
+            Token::ColonEq if !inner => r.shift_binop(BinaryOperator::Assignment(parser.consume())),
             Token::Ident(_, Keyword::OR) | Token::DoublePipe if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::Or)
+                r.shift_binop(BinaryOperator::Or(parser.consume()))
             }
             Token::Ident(_, Keyword::XOR) if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::Xor)
+                r.shift_binop(BinaryOperator::Xor(parser.consume()))
             }
             Token::Ident(_, Keyword::AND) | Token::DoubleAmpersand if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::And)
+                r.shift_binop(BinaryOperator::And(parser.consume()))
             }
-            Token::Eq if !inner => r.shift_binop(parser.consume(), BinaryOperator::Eq),
+            Token::Eq if !inner => r.shift_binop(BinaryOperator::Eq(parser.consume())),
             Token::Spaceship if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::NullSafeEq)
+                r.shift_binop(BinaryOperator::NullSafeEq(parser.consume()))
             }
-            Token::GtEq if !inner => r.shift_binop(parser.consume(), BinaryOperator::GtEq),
-            Token::Gt if !inner => r.shift_binop(parser.consume(), BinaryOperator::Gt),
-            Token::LtEq if !inner => r.shift_binop(parser.consume(), BinaryOperator::LtEq),
-            Token::Lt if !inner => r.shift_binop(parser.consume(), BinaryOperator::Lt),
-            Token::Neq if !inner => r.shift_binop(parser.consume(), BinaryOperator::Neq),
+            Token::GtEq if !inner => r.shift_binop(BinaryOperator::GtEq(parser.consume())),
+            Token::Gt if !inner => r.shift_binop(BinaryOperator::Gt(parser.consume())),
+            Token::LtEq if !inner => r.shift_binop(BinaryOperator::LtEq(parser.consume())),
+            Token::Lt if !inner => r.shift_binop(BinaryOperator::Lt(parser.consume())),
+            Token::Neq if !inner => r.shift_binop(BinaryOperator::Neq(parser.consume())),
             Token::ShiftLeft if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::ShiftLeft)
+                r.shift_binop(BinaryOperator::ShiftLeft(parser.consume()))
             }
             Token::ShiftRight if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::ShiftRight)
+                r.shift_binop(BinaryOperator::ShiftRight(parser.consume()))
             }
-            Token::Ampersand => r.shift_binop(parser.consume(), BinaryOperator::BitAnd),
-            Token::Pipe if !inner => r.shift_binop(parser.consume(), BinaryOperator::BitOr),
+            Token::Ampersand => r.shift_binop(BinaryOperator::BitAnd(parser.consume())),
+            Token::Pipe if !inner => r.shift_binop(BinaryOperator::BitOr(parser.consume())),
             Token::Ident(_, Keyword::BINARY) if !inner => {
-                r.shift_unary(parser.consume(), UnaryOperator::Binary)
+                r.shift_unary(UnaryOperator::Binary(parser.consume()))
             }
             Token::Ident(_, Keyword::COLLATE)
                 if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
@@ -1075,7 +1175,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                 // COLLATE is a binary operator: expr COLLATE collation_name
                 let collate_span = parser.consume_keyword(Keyword::COLLATE)?;
                 let collation = parser.consume_plain_identifier_unreserved()?;
-                if let Err(e) = r.shift_binop(collate_span, BinaryOperator::Collate) {
+                if let Err(e) = r.shift_binop(BinaryOperator::Collate(collate_span)) {
                     parser.err_here(e)?;
                 }
                 r.shift_expr(Expression::Identifier(Box::new(IdentifierExpression {
@@ -1083,15 +1183,15 @@ pub(crate) fn parse_expression_restricted<'a>(
                 })))
             }
             Token::ExclamationMark if !inner => {
-                r.shift_unary(parser.consume(), UnaryOperator::LogicalNot)
+                r.shift_unary(UnaryOperator::LogicalNot(parser.consume()))
             }
             Token::Minus if !matches!(r.stack.last(), Some(ReduceMember::Expression(_))) => {
-                r.shift_unary(parser.consume(), UnaryOperator::Minus)
+                r.shift_unary(UnaryOperator::Minus(parser.consume()))
             }
             Token::Minus
                 if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
-                r.shift_binop(parser.consume(), BinaryOperator::Subtract)
+                r.shift_binop(BinaryOperator::Subtract(parser.consume()))
             }
             Token::Ident(_, Keyword::IN) if !inner => {
                 if let Err(e) = r.reduce(IN_PRIORITY) {
@@ -1243,7 +1343,7 @@ pub(crate) fn parse_expression_restricted<'a>(
             Token::Ident(_, Keyword::NOT)
                 if !matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
-                r.shift_unary(parser.consume(), UnaryOperator::Not)
+                r.shift_unary(UnaryOperator::Not(parser.consume()))
             }
             Token::Ident(_, Keyword::NOT)
                 if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
@@ -1284,21 +1384,21 @@ pub(crate) fn parse_expression_restricted<'a>(
                     }
                     Token::Ident(_, Keyword::LIKE) => {
                         r.stack.push(ReduceMember::Expression(lhs));
-                        r.shift_binop(parser.consume().join_span(&op), BinaryOperator::NotLike)
+                        r.shift_binop(BinaryOperator::NotLike(parser.consume().join_span(&op)))
                     }
                     Token::Ident(_, Keyword::REGEXP) => {
                         r.stack.push(ReduceMember::Expression(lhs));
-                        r.shift_binop(parser.consume().join_span(&op), BinaryOperator::NotRegexp)
+                        r.shift_binop(BinaryOperator::NotRegexp(parser.consume().join_span(&op)))
                     }
                     Token::Ident(_, Keyword::RLIKE) => {
                         r.stack.push(ReduceMember::Expression(lhs));
-                        r.shift_binop(parser.consume().join_span(&op), BinaryOperator::NotRlike)
+                        r.shift_binop(BinaryOperator::NotRlike(parser.consume().join_span(&op)))
                     }
                     _ => parser.expected_failure("'IN', 'LIKE', 'REGEXP' or 'RLIKE'")?,
                 }
             }
             Token::Ident(_, Keyword::LIKE) if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::Like)
+                r.shift_binop(BinaryOperator::Like(parser.consume()))
             }
             Token::Ident(_, Keyword::SIMILAR)
                 if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
@@ -1314,19 +1414,88 @@ pub(crate) fn parse_expression_restricted<'a>(
                 let op_span = parser.consume_keywords(&[Keyword::SIMILAR, Keyword::TO])?;
                 parser.postgres_only(&op_span);
                 r.stack.push(ReduceMember::Expression(lhs));
-                r.shift_binop(op_span, BinaryOperator::Like)
+                r.shift_binop(BinaryOperator::Like(op_span))
             }
             Token::Ident(_, Keyword::REGEXP) if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::Regexp)
+                r.shift_binop(BinaryOperator::Regexp(parser.consume()))
             }
             Token::Ident(_, Keyword::RLIKE) if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::Rlike)
+                r.shift_binop(BinaryOperator::Rlike(parser.consume()))
             }
             Token::RArrowJson if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::JsonExtract)
+                r.shift_binop(BinaryOperator::JsonExtract(parser.consume()))
             }
             Token::RDoubleArrowJson if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::JsonExtractUnquote)
+                r.shift_binop(BinaryOperator::JsonExtractUnquote(parser.consume()))
+            }
+            // PostgreSQL built-in operator tokens
+            Token::Contains if !inner => r.shift_binop(BinaryOperator::Contains(parser.consume())),
+            Token::ContainedBy if !inner => {
+                r.shift_binop(BinaryOperator::ContainedBy(parser.consume()))
+            }
+            Token::AtQuestion if !inner => {
+                r.shift_binop(BinaryOperator::JsonPathExists(parser.consume()))
+            }
+            Token::QuestionPipe if !inner => {
+                r.shift_binop(BinaryOperator::JsonbAnyKeyExists(parser.consume()))
+            }
+            Token::QuestionAmpersand if !inner => {
+                r.shift_binop(BinaryOperator::JsonbAllKeyExists(parser.consume()))
+            }
+            Token::HashArrow if !inner => {
+                r.shift_binop(BinaryOperator::JsonGetPath(parser.consume()))
+            }
+            Token::HashDoubleArrow if !inner => {
+                r.shift_binop(BinaryOperator::JsonGetPathText(parser.consume()))
+            }
+            Token::HashMinus if !inner => {
+                r.shift_binop(BinaryOperator::JsonDeletePath(parser.consume()))
+            }
+            Token::TildeStar if !inner => {
+                r.shift_binop(BinaryOperator::RegexIMatch(parser.consume()))
+            }
+            Token::NotTilde if !inner => {
+                r.shift_binop(BinaryOperator::NotRegexMatch(parser.consume()))
+            }
+            Token::NotTildeStar if !inner => {
+                r.shift_binop(BinaryOperator::NotRegexIMatch(parser.consume()))
+            }
+            Token::LikeTilde if !inner => r.shift_binop(BinaryOperator::Like(parser.consume())),
+            Token::NotLikeTilde if !inner => {
+                r.shift_binop(BinaryOperator::NotLike(parser.consume()))
+            }
+            // @@ as binary (full-text / jsonpath match)
+            Token::AtAt
+                if !inner
+                    && parser.options.dialect.is_postgresql()
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                r.shift_binop(BinaryOperator::JsonPathMatch(parser.consume()))
+            }
+            // ~ as binary regex match (only when expression already on left)
+            Token::Tilde
+                if !inner
+                    && parser.options.dialect.is_postgresql()
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                r.shift_binop(BinaryOperator::RegexMatch(parser.consume()))
+            }
+            // ? as jsonb key-exists binary operator (PG, non-argument mode)
+            Token::QuestionMark
+                if !inner
+                    && parser.options.dialect.is_postgresql()
+                    && !matches!(parser.options.arguments, crate::SQLArguments::QuestionMark)
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                r.shift_binop(BinaryOperator::JsonbKeyExists(parser.consume()))
+            }
+            // Remaining user-defined PostgreSQL operators
+            Token::PostgresOperator(op)
+                if !inner
+                    && parser.options.dialect.is_postgresql()
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                r.shift_binop(BinaryOperator::User(op, parser.consume()))
             }
             Token::Ident(_, Keyword::MEMBER)
                 if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
@@ -1439,25 +1608,25 @@ pub(crate) fn parse_expression_restricted<'a>(
                     })))
                 }
             }
-            Token::Plus if !inner => r.shift_binop(parser.consume(), BinaryOperator::Add),
-            Token::Div if !inner => r.shift_binop(parser.consume(), BinaryOperator::Divide),
+            Token::Plus if !inner => r.shift_binop(BinaryOperator::Add(parser.consume())),
+            Token::Div if !inner => r.shift_binop(BinaryOperator::Divide(parser.consume())),
             Token::Ident(_, Keyword::DIV) if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::Div)
+                r.shift_binop(BinaryOperator::Div(parser.consume()))
             }
-            Token::Minus if !inner => r.shift_binop(parser.consume(), BinaryOperator::Subtract),
+            Token::Minus if !inner => r.shift_binop(BinaryOperator::Subtract(parser.consume())),
             Token::Ident(_, Keyword::LIKE) if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::Like)
+                r.shift_binop(BinaryOperator::Like(parser.consume()))
             }
             Token::Mul if !matches!(r.stack.last(), Some(ReduceMember::Expression(_))) => r
                 .shift_expr(Expression::Identifier(Box::new(IdentifierExpression {
                     parts: vec![IdentifierPart::Star(parser.consume_token(Token::Mul)?)],
                 }))),
             Token::Mul if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) => {
-                r.shift_binop(parser.consume(), BinaryOperator::Mult)
+                r.shift_binop(BinaryOperator::Mult(parser.consume()))
             }
-            Token::Mod if !inner => r.shift_binop(parser.consume(), BinaryOperator::Mod),
+            Token::Mod if !inner => r.shift_binop(BinaryOperator::Mod(parser.consume())),
             Token::Ident(_, Keyword::MOD) if !inner => {
-                r.shift_binop(parser.consume(), BinaryOperator::Mod)
+                r.shift_binop(BinaryOperator::Mod(parser.consume()))
             }
             Token::Ident(_, Keyword::TRUE) => {
                 r.shift_expr(Expression::Bool(Box::new(BoolExpression {
@@ -2046,7 +2215,7 @@ mod tests {
             match e {
                 Expression::Binary(b) => {
                     let BinaryExpression {
-                        op: BinaryOperator::Add,
+                        op: BinaryOperator::Add(_),
                         lhs,
                         rhs,
                         ..
@@ -2057,7 +2226,7 @@ mod tests {
                     match lhs {
                         Expression::Binary(b) => {
                             let BinaryExpression {
-                                op: BinaryOperator::Add,
+                                op: BinaryOperator::Add(_),
                                 lhs,
                                 rhs,
                                 ..
@@ -2069,7 +2238,7 @@ mod tests {
                             match rhs {
                                 Expression::Binary(b) => {
                                     let BinaryExpression {
-                                        op: BinaryOperator::Mult,
+                                        op: BinaryOperator::Mult(_),
                                         lhs,
                                         rhs,
                                         ..

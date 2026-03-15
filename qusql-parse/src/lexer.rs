@@ -87,6 +87,20 @@ pub(crate) enum Token<'a> {
     AtAtGlobal,
     AtAtSession,
     PostgresOperator(&'a str),
+    // PostgreSQL built-in operator tokens
+    Contains,          // @>
+    ContainedBy,       // <@
+    AtQuestion,        // @?
+    QuestionPipe,      // ?|
+    QuestionAmpersand, // ?&
+    HashArrow,         // #>
+    HashDoubleArrow,   // #>>
+    HashMinus,         // #-
+    TildeStar,         // ~*
+    NotTilde,          // !~
+    NotTildeStar,      // !~*
+    LikeTilde,         // ~~
+    NotLikeTilde,      // !~~
     Eof,
 }
 
@@ -160,6 +174,19 @@ impl<'a> Token<'a> {
             Token::AtAtGlobal => "@@GLOBAL",
             Token::AtAtSession => "@@SESSION",
             Token::PostgresOperator(_) => "pg operator",
+            Token::Contains => "'@>'",
+            Token::ContainedBy => "'<@'",
+            Token::AtQuestion => "'@?'",
+            Token::QuestionPipe => "'?|'",
+            Token::QuestionAmpersand => "'?&'",
+            Token::HashArrow => "'#>'",
+            Token::HashDoubleArrow => "'#>>'",
+            Token::HashMinus => "'#-'",
+            Token::TildeStar => "'~*'",
+            Token::NotTilde => "'!~'",
+            Token::NotTildeStar => "'!~*'",
+            Token::LikeTilde => "'~~'",
+            Token::NotLikeTilde => "'!~~'",
             Token::Eof => "EndOfFile",
             Token::Delimiter => "Delimiter",
         }
@@ -479,7 +506,17 @@ impl<'a> Lexer<'a> {
             };
             let t = match c {
                 b' ' | b'\t' | b'\n' | b'\r' => continue,
-                b'?' => self.next_operator(start, (start, c), Token::QuestionMark),
+                b'?' => match self.chars.peek() {
+                    Some((_, b'|')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::QuestionPipe)
+                    }
+                    Some((_, b'&')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::QuestionAmpersand)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::QuestionMark),
+                },
                 b';' if self.delimiter.is_none() => Token::Delimiter,
                 b';' => Token::SemiColon,
                 b'\\' => Token::Backslash,
@@ -507,7 +544,22 @@ impl<'a> Lexer<'a> {
                     }
                     _ => self.next_operator(start, (start, c), Token::Mod),
                 },
-                b'#' => self.next_operator(start, (start, c), Token::Sharp),
+                b'#' => match self.chars.peek() {
+                    Some((_, b'>')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        if matches!(self.chars.peek(), Some((_, b'>'))) {
+                            let next2 = self.chars.next().unwrap();
+                            self.next_operator(start, next2, Token::HashDoubleArrow)
+                        } else {
+                            self.next_operator(start, next, Token::HashArrow)
+                        }
+                    }
+                    Some((_, b'-')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::HashMinus)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::Sharp),
+                },
                 b'@' => match self.chars.peek() {
                     Some((_, b'@')) => {
                         let next = self.chars.next().unwrap();
@@ -568,9 +620,27 @@ impl<'a> Lexer<'a> {
                             _ => self.next_operator(start, next, Token::AtAt),
                         }
                     }
+                    Some((_, b'>')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::Contains)
+                    }
+                    Some((_, b'?')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::AtQuestion)
+                    }
                     _ => self.next_operator(start, (start, c), Token::At),
                 },
-                b'~' => self.next_operator(start, (start, c), Token::Tilde),
+                b'~' => match self.chars.peek() {
+                    Some((_, b'*')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::TildeStar)
+                    }
+                    Some((_, b'~')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::LikeTilde)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::Tilde),
+                },
                 b':' => match self.chars.peek() {
                     Some((_, b':')) => {
                         let next = self.chars.next().unwrap();
@@ -712,6 +782,20 @@ impl<'a> Lexer<'a> {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::DoubleExclamationMark)
                     }
+                    Some((_, b'~')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        match self.chars.peek() {
+                            Some((_, b'*')) => {
+                                let next2 = self.chars.next().unwrap();
+                                self.next_operator(start, next2, Token::NotTildeStar)
+                            }
+                            Some((_, b'~')) => {
+                                let next2 = self.chars.next().unwrap();
+                                self.next_operator(start, next2, Token::NotLikeTilde)
+                            }
+                            _ => self.next_operator(start, next, Token::NotTilde),
+                        }
+                    }
                     _ => self.next_operator(start, (start, c), Token::ExclamationMark),
                 },
                 b'<' => match self.chars.peek() {
@@ -732,6 +816,10 @@ impl<'a> Lexer<'a> {
                     Some((_, b'<')) => {
                         let next = self.chars.next().unwrap();
                         self.next_operator(start, next, Token::ShiftLeft)
+                    }
+                    Some((_, b'@')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::ContainedBy)
                     }
                     _ => self.next_operator(start, (start, c), Token::Lt),
                 },
@@ -2004,12 +2092,12 @@ mod tests {
         assert_eq!(lex_single("||", &dialect), Token::DoublePipe);
         // The following are not standard tokens, but may be handled as PostgresOperator
         assert_eq!(lex_single("!!=", &dialect), Token::PostgresOperator("!!="));
-        assert_eq!(lex_single("~~", &dialect), Token::PostgresOperator("~~"));
-        assert_eq!(lex_single("!~~", &dialect), Token::PostgresOperator("!~~"));
+        assert_eq!(lex_single("~~", &dialect), Token::LikeTilde);
+        assert_eq!(lex_single("!~~", &dialect), Token::NotLikeTilde);
         assert_eq!(lex_single("~", &dialect), Token::Tilde);
-        assert_eq!(lex_single("~*", &dialect), Token::PostgresOperator("~*"));
-        assert_eq!(lex_single("!~", &dialect), Token::PostgresOperator("!~"));
-        assert_eq!(lex_single("!~*", &dialect), Token::PostgresOperator("!~*"));
+        assert_eq!(lex_single("~*", &dialect), Token::TildeStar);
+        assert_eq!(lex_single("!~", &dialect), Token::NotTilde);
+        assert_eq!(lex_single("!~*", &dialect), Token::NotTildeStar);
 
         // Table 9-2: Numerical operators
         assert_eq!(lex_single("!", &dialect), Token::ExclamationMark);
@@ -2041,7 +2129,7 @@ mod tests {
         assert_eq!(lex_single("?-", &dialect), Token::PostgresOperator("?-"));
         assert_eq!(lex_single("?-|", &dialect), Token::PostgresOperator("?-|"));
         assert_eq!(lex_single("@-@", &dialect), Token::PostgresOperator("@-@"));
-        assert_eq!(lex_single("?|", &dialect), Token::PostgresOperator("?|"));
+        assert_eq!(lex_single("?|", &dialect), Token::QuestionPipe);
         assert_eq!(lex_single("?||", &dialect), Token::PostgresOperator("?||"));
         assert_eq!(lex_single("@", &dialect), Token::At);
         assert_eq!(lex_single("@@", &dialect), Token::AtAt);
@@ -2052,7 +2140,7 @@ mod tests {
         assert_eq!(lex_single("#<=", &dialect), Token::PostgresOperator("#<="));
         assert_eq!(lex_single("#<>", &dialect), Token::PostgresOperator("#<>"));
         assert_eq!(lex_single("#=", &dialect), Token::PostgresOperator("#="));
-        assert_eq!(lex_single("#>", &dialect), Token::PostgresOperator("#>"));
+        assert_eq!(lex_single("#>", &dialect), Token::HashArrow);
         assert_eq!(lex_single("#>=", &dialect), Token::PostgresOperator("#>="));
         assert_eq!(lex_single("<#>", &dialect), Token::PostgresOperator("<#>"));
         assert_eq!(lex_single("<?>", &dialect), Token::PostgresOperator("<?>"));

@@ -18,7 +18,7 @@ use crate::{
     data_type::{DataTypeContext, parse_data_type},
     expression::{Expression, parse_expression_unreserved},
     keywords::{Keyword, Restrict},
-    lexer::Token,
+    lexer::{StringType, Token},
     parser::{ParseError, Parser},
     span::OptSpanned,
     statement::parse_compound_query,
@@ -43,10 +43,20 @@ pub(crate) fn parse_select_expr<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<SelectExpr<'a>, ParseError> {
     let expr = parse_expression_unreserved(parser, false)?;
+    let reserved = parser.reserved();
     let as_ = if parser.skip_keyword(Keyword::AS).is_some() {
         Some(parser.consume_plain_identifier_unreserved()?)
     } else {
-        None
+        let is_implicit_alias = match &parser.token {
+            Token::Ident(_, kw) => !kw.restricted(reserved),
+            Token::String(_, StringType::DoubleQuoted) => parser.options.dialect.is_postgresql(),
+            _ => false,
+        };
+        if is_implicit_alias {
+            Some(parser.consume_plain_identifier_unreserved()?)
+        } else {
+            None
+        }
     };
     Ok(SelectExpr { expr, as_ })
 }

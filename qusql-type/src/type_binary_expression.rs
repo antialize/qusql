@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use alloc::format;
-use qusql_parse::{BinaryOperator, Expression, Span};
+use qusql_parse::{BinaryOperator, Expression, Spanned};
 
 use crate::{
     Type,
@@ -22,58 +22,58 @@ use crate::{
 
 pub(crate) fn type_binary_expression<'a>(
     typer: &mut Typer<'a, '_>,
-    op: &BinaryOperator,
-    op_span: &Span,
+    op: &BinaryOperator<'a>,
     lhs: &Expression<'a>,
     rhs: &Expression<'a>,
     flags: ExpressionFlags,
 ) -> FullType<'a> {
+    let op_span = op.span();
     let (flags, context) = match op {
-        BinaryOperator::Assignment => (flags, BaseType::Any),
-        BinaryOperator::And => {
+        BinaryOperator::Assignment(_) => (flags, BaseType::Any),
+        BinaryOperator::And(_) => {
             if flags.true_ {
                 (flags.with_not_null(true), BaseType::Bool)
             } else {
                 (flags, BaseType::Bool)
             }
         }
-        BinaryOperator::Or | BinaryOperator::Xor => (flags.without_values(), BaseType::Bool),
-        BinaryOperator::NullSafeEq => (flags.without_values(), BaseType::Any),
-        BinaryOperator::Eq
-        | BinaryOperator::GtEq
-        | BinaryOperator::Gt
-        | BinaryOperator::LtEq
-        | BinaryOperator::Lt
-        | BinaryOperator::Neq
-        | BinaryOperator::Add
-        | BinaryOperator::Subtract
-        | BinaryOperator::Divide
-        | BinaryOperator::Div
-        | BinaryOperator::Mod
-        | BinaryOperator::Mult => {
+        BinaryOperator::Or(_) | BinaryOperator::Xor(_) => (flags.without_values(), BaseType::Bool),
+        BinaryOperator::NullSafeEq(_) => (flags.without_values(), BaseType::Any),
+        BinaryOperator::Eq(_)
+        | BinaryOperator::GtEq(_)
+        | BinaryOperator::Gt(_)
+        | BinaryOperator::LtEq(_)
+        | BinaryOperator::Lt(_)
+        | BinaryOperator::Neq(_)
+        | BinaryOperator::Add(_)
+        | BinaryOperator::Subtract(_)
+        | BinaryOperator::Divide(_)
+        | BinaryOperator::Div(_)
+        | BinaryOperator::Mod(_)
+        | BinaryOperator::Mult(_) => {
             if flags.true_ {
                 (flags.with_not_null(true).with_true(false), BaseType::Any)
             } else {
                 (flags, BaseType::Any)
             }
         }
-        BinaryOperator::Like
-        | BinaryOperator::NotLike
-        | BinaryOperator::Regexp
-        | BinaryOperator::NotRegexp
-        | BinaryOperator::Rlike
-        | BinaryOperator::NotRlike => {
+        BinaryOperator::Like(_)
+        | BinaryOperator::NotLike(_)
+        | BinaryOperator::Regexp(_)
+        | BinaryOperator::NotRegexp(_)
+        | BinaryOperator::Rlike(_)
+        | BinaryOperator::NotRlike(_) => {
             if flags.true_ {
                 (flags.with_not_null(true).with_true(false), BaseType::String)
             } else {
                 (flags, BaseType::String)
             }
         }
-        BinaryOperator::ShiftLeft
-        | BinaryOperator::ShiftRight
-        | BinaryOperator::BitAnd
-        | BinaryOperator::BitOr
-        | BinaryOperator::BitXor => {
+        BinaryOperator::ShiftLeft(_)
+        | BinaryOperator::ShiftRight(_)
+        | BinaryOperator::BitAnd(_)
+        | BinaryOperator::BitOr(_)
+        | BinaryOperator::BitXor(_) => {
             if flags.true_ {
                 (
                     flags.with_not_null(true).with_true(false),
@@ -83,25 +83,40 @@ pub(crate) fn type_binary_expression<'a>(
                 (flags, BaseType::Integer)
             }
         }
-        BinaryOperator::Collate => (flags, BaseType::String),
-        BinaryOperator::JsonExtract => (flags, BaseType::String), // JSON value returned
-        BinaryOperator::JsonExtractUnquote => (flags, BaseType::String), // Unquoted string
+        BinaryOperator::Collate(_) => (flags, BaseType::String),
+        BinaryOperator::JsonExtract(_) => (flags, BaseType::String), // JSON value returned
+        BinaryOperator::JsonExtractUnquote(_) => (flags, BaseType::String), // Unquoted string
+        BinaryOperator::User(_, _) => (flags, BaseType::Any),
+        BinaryOperator::Contains(_)
+        | BinaryOperator::ContainedBy(_)
+        | BinaryOperator::JsonPathMatch(_)
+        | BinaryOperator::JsonPathExists(_)
+        | BinaryOperator::JsonbKeyExists(_)
+        | BinaryOperator::JsonbAnyKeyExists(_)
+        | BinaryOperator::JsonbAllKeyExists(_) => (flags.without_values(), BaseType::Any),
+        BinaryOperator::JsonGetPath(_)
+        | BinaryOperator::JsonGetPathText(_)
+        | BinaryOperator::JsonDeletePath(_) => (flags, BaseType::Any),
+        BinaryOperator::RegexMatch(_)
+        | BinaryOperator::RegexIMatch(_)
+        | BinaryOperator::NotRegexMatch(_)
+        | BinaryOperator::NotRegexIMatch(_) => (flags.without_values(), BaseType::String),
     };
 
     let lhs_type = type_expression(typer, lhs, flags, context);
     let rhs_type = type_expression(typer, rhs, flags, context);
     match op {
-        BinaryOperator::Or | BinaryOperator::Xor | BinaryOperator::And => {
+        BinaryOperator::Or(_) | BinaryOperator::Xor(_) | BinaryOperator::And(_) => {
             typer.ensure_base(lhs, &lhs_type, BaseType::Bool);
             typer.ensure_base(rhs, &rhs_type, BaseType::Bool);
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
         }
-        BinaryOperator::Eq
-        | BinaryOperator::Neq
-        | BinaryOperator::GtEq
-        | BinaryOperator::Gt
-        | BinaryOperator::LtEq
-        | BinaryOperator::Lt => {
+        BinaryOperator::Eq(_)
+        | BinaryOperator::Neq(_)
+        | BinaryOperator::GtEq(_)
+        | BinaryOperator::Gt(_)
+        | BinaryOperator::LtEq(_)
+        | BinaryOperator::Lt(_) => {
             if lhs_type.t == Type::Null {
                 typer.warn("Comparison with null", lhs);
             }
@@ -110,36 +125,38 @@ pub(crate) fn type_binary_expression<'a>(
             }
             if typer.matched_type(&lhs_type, &rhs_type).is_none() {
                 typer
-                    .err("Type error in comparison", op_span)
+                    .err("Type error in comparison", &op_span)
                     .frag(format!("Of type {}", lhs_type.t), lhs)
                     .frag(format!("Of type {}", rhs_type.t), rhs);
             }
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
         }
-        BinaryOperator::NullSafeEq => {
+        BinaryOperator::NullSafeEq(_) => {
             if typer.matched_type(&lhs_type, &rhs_type).is_none() {
                 typer
-                    .err("Type error in comparison", op_span)
+                    .err("Type error in comparison", &op_span)
                     .frag(format!("Of type {}", lhs_type.t), lhs)
                     .frag(format!("Of type {}", rhs_type.t), rhs);
             }
             FullType::new(BaseType::Bool, true)
         }
-        BinaryOperator::ShiftLeft
-        | BinaryOperator::ShiftRight
-        | BinaryOperator::BitAnd
-        | BinaryOperator::BitOr
-        | BinaryOperator::BitXor => {
+        BinaryOperator::ShiftLeft(_)
+        | BinaryOperator::ShiftRight(_)
+        | BinaryOperator::BitAnd(_)
+        | BinaryOperator::BitOr(_)
+        | BinaryOperator::BitXor(_) => {
             typer.ensure_base(lhs, &lhs_type, BaseType::Integer);
             typer.ensure_base(rhs, &rhs_type, BaseType::Integer);
             FullType::new(BaseType::Integer, lhs_type.not_null && rhs_type.not_null)
         }
-        BinaryOperator::Add | BinaryOperator::Subtract => {
+        BinaryOperator::Add(_) | BinaryOperator::Subtract(_) => {
             if matches!(lhs_type.base(), BaseType::TimeInterval) {
-                let t = typer.ensure_datetime(op_span, &rhs_type, Restrict::Allow, Restrict::Allow);
+                let t =
+                    typer.ensure_datetime(&op_span, &rhs_type, Restrict::Allow, Restrict::Allow);
                 FullType::new(t, lhs_type.not_null && rhs_type.not_null)
             } else if matches!(rhs_type.base(), BaseType::TimeInterval) {
-                let t = typer.ensure_datetime(op_span, &lhs_type, Restrict::Allow, Restrict::Allow);
+                let t =
+                    typer.ensure_datetime(&op_span, &lhs_type, Restrict::Allow, Restrict::Allow);
                 FullType::new(t, lhs_type.not_null && rhs_type.not_null)
             } else if let Some(t) = typer.matched_type(&lhs_type, &rhs_type) {
                 match t.base() {
@@ -148,7 +165,7 @@ pub(crate) fn type_binary_expression<'a>(
                     }
                     _ => {
                         typer
-                            .err("Type error in addition/subtraction", op_span)
+                            .err("Type error in addition/subtraction", &op_span)
                             .frag(format!("type {}", lhs_type.t), lhs)
                             .frag(format!("type {}", rhs_type.t), rhs);
                         FullType::invalid()
@@ -156,16 +173,16 @@ pub(crate) fn type_binary_expression<'a>(
                 }
             } else {
                 typer
-                    .err("Type error in addition/subtraction", op_span)
+                    .err("Type error in addition/subtraction", &op_span)
                     .frag(format!("type {}", lhs_type.t), lhs)
                     .frag(format!("type {}", rhs_type.t), rhs);
                 FullType::invalid()
             }
         }
-        BinaryOperator::Divide
-        | BinaryOperator::Div
-        | BinaryOperator::Mod
-        | BinaryOperator::Mult => {
+        BinaryOperator::Divide(_)
+        | BinaryOperator::Div(_)
+        | BinaryOperator::Mod(_)
+        | BinaryOperator::Mult(_) => {
             if let Some(t) = typer.matched_type(&lhs_type, &rhs_type) {
                 match t.base() {
                     BaseType::Any | BaseType::Float | BaseType::Integer => {
@@ -173,7 +190,7 @@ pub(crate) fn type_binary_expression<'a>(
                     }
                     _ => {
                         typer
-                            .err("Type error in multiplication/division", op_span)
+                            .err("Type error in multiplication/division", &op_span)
                             .frag(format!("type {}", lhs_type.t), lhs)
                             .frag(format!("type {}", rhs_type.t), rhs);
                         FullType::invalid()
@@ -181,38 +198,65 @@ pub(crate) fn type_binary_expression<'a>(
                 }
             } else {
                 typer
-                    .err("Type error in multiplication/division", op_span)
+                    .err("Type error in multiplication/division", &op_span)
                     .frag(format!("type {}", lhs_type.t), lhs)
                     .frag(format!("type {}", rhs_type.t), rhs);
                 FullType::invalid()
             }
         }
-        BinaryOperator::Like
-        | BinaryOperator::NotLike
-        | BinaryOperator::Regexp
-        | BinaryOperator::NotRegexp
-        | BinaryOperator::Rlike
-        | BinaryOperator::NotRlike => {
+        BinaryOperator::Like(_)
+        | BinaryOperator::NotLike(_)
+        | BinaryOperator::Regexp(_)
+        | BinaryOperator::NotRegexp(_)
+        | BinaryOperator::Rlike(_)
+        | BinaryOperator::NotRlike(_) => {
             typer.ensure_base(lhs, &lhs_type, BaseType::String);
             typer.ensure_base(rhs, &rhs_type, BaseType::String);
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
         }
-        BinaryOperator::Collate => {
+        BinaryOperator::Collate(_) => {
             // COLLATE: LHS is the expression, RHS is the collation name (identifier)
             // Just return the LHS type as the collation doesn't change the type
             typer.ensure_base(lhs, &lhs_type, BaseType::String);
             lhs_type
         }
-        BinaryOperator::JsonExtract | BinaryOperator::JsonExtractUnquote => {
+        BinaryOperator::JsonExtract(_) | BinaryOperator::JsonExtractUnquote(_) => {
             // JSON operators: -> returns JSON, ->> returns unquoted string
             // LHS is the JSON document, RHS is the path (string)
             typer.ensure_base(rhs, &rhs_type, BaseType::String);
             FullType::new(BaseType::String, lhs_type.not_null && rhs_type.not_null)
         }
-        BinaryOperator::Assignment => {
+        BinaryOperator::Contains(_)
+        | BinaryOperator::ContainedBy(_)
+        | BinaryOperator::JsonPathMatch(_)
+        | BinaryOperator::JsonPathExists(_)
+        | BinaryOperator::JsonbKeyExists(_)
+        | BinaryOperator::JsonbAnyKeyExists(_)
+        | BinaryOperator::JsonbAllKeyExists(_) => {
+            FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::JsonGetPath(_) | BinaryOperator::JsonGetPathText(_) => {
+            FullType::new(BaseType::String, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::JsonDeletePath(_) => {
+            // Returns the modified jsonb value
+            FullType::new(BaseType::Any, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::RegexMatch(_)
+        | BinaryOperator::RegexIMatch(_)
+        | BinaryOperator::NotRegexMatch(_)
+        | BinaryOperator::NotRegexIMatch(_) => {
+            typer.ensure_base(lhs, &lhs_type, BaseType::String);
+            typer.ensure_base(rhs, &rhs_type, BaseType::String);
+            FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::Assignment(_) => {
             // Assignment: @var := value
             // Returns the type of the value being assigned (rhs)
             rhs_type
+        }
+        BinaryOperator::User(_, _) => {
+            FullType::new(BaseType::Any, lhs_type.not_null && rhs_type.not_null)
         }
     }
 }
