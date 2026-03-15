@@ -332,32 +332,6 @@ impl<'a> Spanned for CopyTo<'a> {
     }
 }
 
-/// Attempt to parse a boolean literal used in COPY options.
-///
-/// Returns `Some(true)` for `TRUE`, `ON`, `1`; `Some(false)` for `FALSE`, `OFF`, `0`.
-/// Returns `None` if the current token is not a boolean literal.
-fn try_parse_copy_bool(parser: &mut Parser<'_, '_>) -> Option<(bool, Span)> {
-    match &parser.token {
-        Token::Ident(_, Keyword::TRUE | Keyword::ON) => {
-            let span = parser.consume();
-            Some((true, span))
-        }
-        Token::Ident(_, Keyword::FALSE | Keyword::OFF) => {
-            let span = parser.consume();
-            Some((false, span))
-        }
-        Token::Integer(v) if *v == "1" => {
-            let span = parser.consume();
-            Some((true, span))
-        }
-        Token::Integer(v) if *v == "0" => {
-            let span = parser.consume();
-            Some((false, span))
-        }
-        _ => None,
-    }
-}
-
 /// Parse the location (`'file'`, `PROGRAM 'cmd'`, `STDIN`, or `STDOUT`)
 /// that follows `FROM` or `TO`.
 fn parse_copy_location<'a>(parser: &mut Parser<'a, '_>) -> Result<CopyLocation<'a>, ParseError> {
@@ -391,7 +365,7 @@ fn parse_copy_option_modern<'a>(parser: &mut Parser<'a, '_>) -> Result<CopyOptio
         }
         Token::Ident(_, Keyword::FREEZE) => {
             let span = parser.consume_keyword(Keyword::FREEZE)?;
-            let value = try_parse_copy_bool(parser).map(|(b, _)| b);
+            let value = parser.try_parse_bool().map(|(b, _)| b);
             Ok(CopyOption::Freeze { span, value })
         }
         Token::Ident(_, Keyword::DELIMITER) => {
@@ -415,7 +389,7 @@ fn parse_copy_option_modern<'a>(parser: &mut Parser<'a, '_>) -> Result<CopyOptio
                 Token::Ident(_, Keyword::MATCH) => Some(CopyHeaderValue::Match(
                     parser.consume_keyword(Keyword::MATCH)?,
                 )),
-                _ => try_parse_copy_bool(parser).map(|(b, s)| {
+                _ => parser.try_parse_bool().map(|(b, s)| {
                     if b {
                         CopyHeaderValue::True(s)
                     } else {
