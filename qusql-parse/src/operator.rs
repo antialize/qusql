@@ -577,8 +577,12 @@ pub(crate) fn parse_create_operator<'a>(
 
     let mut options = Vec::new();
 
-    // Handle empty operator definition (should fail but we parse it)
+    // Handle empty operator definition (requires at least FUNCTION or PROCEDURE)
     if let Some(rparen_span) = parser.skip_token(Token::RParen) {
+        parser.err(
+            "CREATE OPERATOR requires at least a FUNCTION or PROCEDURE option",
+            &lparen_span.join_span(&rparen_span),
+        );
         return Ok(CreateOperator {
             create_operator_span,
             name,
@@ -832,6 +836,7 @@ pub enum OperatorClassItem<'a> {
         operator_span: Span,
         number: (usize, Span),
         operator: QualifiedName<'a>,
+        op_types: Vec<DataType<'a>>,
         rest: Vec<OperatorClassOperatorOption<'a>>,
     },
     Function {
@@ -839,6 +844,7 @@ pub enum OperatorClassItem<'a> {
         number: (usize, Span),
         function: QualifiedName<'a>,
         arg_types: Vec<DataType<'a>>,
+        fn_arg_types: Vec<DataType<'a>>,
     },
     Storage {
         storage_span: Span,
@@ -853,20 +859,24 @@ impl<'a> Spanned for OperatorClassItem<'a> {
                 operator_span,
                 number: (_, nspan),
                 operator,
+                op_types,
                 rest,
             } => operator_span
                 .join_span(nspan)
                 .join_span(operator)
+                .join_span(op_types)
                 .join_span(rest),
             OperatorClassItem::Function {
                 function_span,
                 number: (_, nspan),
                 function,
                 arg_types,
+                fn_arg_types,
             } => function_span
                 .join_span(nspan)
+                .join_span(arg_types)
                 .join_span(function)
-                .join_span(arg_types),
+                .join_span(fn_arg_types),
             OperatorClassItem::Storage {
                 storage_span,
                 data_type,
@@ -937,6 +947,17 @@ pub(crate) fn parse_create_operator_class<'a>(
                 let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
                 let (num, num_span) = parser.consume_int()?;
                 let operator = parse_operator_name(parser)?;
+                // Optional (op_type, op_type)
+                let mut op_types = Vec::new();
+                if parser.skip_token(Token::LParen).is_some() {
+                    loop {
+                        op_types.push(parse_data_type(parser, DataTypeContext::TypeRef)?);
+                        if parser.skip_token(Token::Comma).is_none() {
+                            break;
+                        }
+                    }
+                    parser.consume_token(Token::RParen)?;
+                }
                 let mut rest = Vec::new();
                 // Optional FOR SEARCH / FOR ORDER BY
                 if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
@@ -957,13 +978,14 @@ pub(crate) fn parse_create_operator_class<'a>(
                     operator_span,
                     number: (num, num_span),
                     operator,
+                    op_types,
                     rest,
                 });
             }
             Token::Ident(_, Keyword::FUNCTION) => {
                 let function_span = parser.consume_keyword(Keyword::FUNCTION)?;
                 let (num, num_span) = parser.consume_int()?;
-                // Optional arg types in parens
+                // Optional (op_type, op_type) before function name
                 let mut arg_types = Vec::new();
                 if parser.skip_token(Token::LParen).is_some() {
                     loop {
@@ -975,11 +997,23 @@ pub(crate) fn parse_create_operator_class<'a>(
                     parser.consume_token(Token::RParen)?;
                 }
                 let function = parse_qualified_name_unreserved(parser)?;
+                // Optional (argument_type, ...) after function name
+                let mut fn_arg_types = Vec::new();
+                if parser.skip_token(Token::LParen).is_some() {
+                    loop {
+                        fn_arg_types.push(parse_data_type(parser, DataTypeContext::TypeRef)?);
+                        if parser.skip_token(Token::Comma).is_none() {
+                            break;
+                        }
+                    }
+                    parser.consume_token(Token::RParen)?;
+                }
                 items.push(OperatorClassItem::Function {
                     function_span,
                     number: (num, num_span),
                     function,
                     arg_types,
+                    fn_arg_types,
                 });
             }
             Token::Ident(_, Keyword::STORAGE) => {
