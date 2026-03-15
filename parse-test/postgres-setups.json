@@ -24,5 +24,8 @@
   "tbloom_table": [
     "CREATE EXTENSION bloom",
     "CREATE TABLE tbloom (i1 INTEGER, i2 INTEGER, i3 INTEGER)"
+  ],
+  "test_table": [
+    "CREATE TABLE test (id INTEGER, name TEXT, value TEXT, \"where\" TEXT, \"create\" TEXT, is_default BOOLEAN, classification TEXT, sort INTEGER)"
   ]
 }

@@ -1131,6 +1131,40 @@ impl<'a> Reducer<'a> {
     }
 }
 
+/// Parse a single element inside an ARRAY[...] literal.
+/// If the current token is `[`, parses a nested sub-array `[elem, ...]` recursively.
+/// Otherwise delegates to `parse_expression_unreserved`.
+fn parse_array_element<'a>(parser: &mut Parser<'a, '_>) -> Result<Expression<'a>, ParseError> {
+    if matches!(parser.token, Token::LBracket) {
+        let lbracket = parser.consume_token(Token::LBracket)?;
+        let mut elements = Vec::new();
+        if !matches!(parser.token, Token::RBracket) {
+            loop {
+                parser.recovered(
+                    "']' or ','",
+                    &|t| matches!(t, Token::RBracket | Token::Comma),
+                    |parser| {
+                        elements.push(parse_array_element(parser)?);
+                        Ok(())
+                    },
+                )?;
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+        }
+        let rbracket = parser.consume_token(Token::RBracket)?;
+        let bracket_span = lbracket.join_span(&rbracket);
+        Ok(Expression::Array(Box::new(ArrayExpression {
+            array_span: bracket_span.clone(),
+            bracket_span,
+            elements,
+        })))
+    } else {
+        parse_expression_unreserved(parser, true)
+    }
+}
+
 pub(crate) fn parse_expression_restricted<'a>(
     parser: &mut Parser<'a, '_>,
     inner: bool,
@@ -1920,7 +1954,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                             "']' or ','",
                             &|t| matches!(t, Token::RBracket | Token::Comma),
                             |parser| {
-                                elements.push(parse_expression_unreserved(parser, true)?);
+                                elements.push(parse_array_element(parser)?);
                                 Ok(())
                             },
                         )?;
