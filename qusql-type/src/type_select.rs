@@ -210,7 +210,9 @@ pub(crate) fn type_select<'a>(
     for flag in &select.flags {
         match &flag {
             qusql_parse::SelectFlag::All(_) => issue_todo!(typer.issues, flag),
-            qusql_parse::SelectFlag::Distinct(_) | qusql_parse::SelectFlag::DistinctRow(_) => (),
+            qusql_parse::SelectFlag::Distinct(_)
+            | qusql_parse::SelectFlag::DistinctOn(_)
+            | qusql_parse::SelectFlag::DistinctRow(_) => (),
             qusql_parse::SelectFlag::StraightJoin(_) => issue_todo!(typer.issues, flag),
             qusql_parse::SelectFlag::HighPriority(_)
             | qusql_parse::SelectFlag::SqlSmallResult(_)

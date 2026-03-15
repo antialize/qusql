@@ -368,6 +368,31 @@ pub(crate) fn parse_table_reference_inner<'a>(
     // }
 
     match &parser.token {
+        Token::Ident(_, Keyword::LATERAL) => {
+            // LATERAL subquery/function
+            let lateral_span = parser.consume_keyword(Keyword::LATERAL)?;
+            parser.postgres_only(&lateral_span);
+            let query = parse_compound_query(parser)?;
+            let as_span = parser.skip_keyword(Keyword::AS);
+            let as_ = if as_span.is_some()
+                || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
+            {
+                Some(
+                    parser.consume_plain_identifier_restrict(
+                        parser.reserved() | additional_restrict,
+                    )?,
+                )
+            } else {
+                None
+            };
+            Ok(TableReference::Query {
+                query: Box::new(query),
+                as_span: as_span
+                    .map(|s| lateral_span.join_span(&s))
+                    .or(Some(lateral_span)),
+                as_,
+            })
+        }
         Token::Ident(_, Keyword::SELECT) | Token::LParen => {
             let query = parse_compound_query(parser)?;
             let as_span = parser.skip_keyword(Keyword::AS);
@@ -453,23 +478,58 @@ pub(crate) fn parse_table_reference_inner<'a>(
                         as_,
                     });
                 } else {
-                    // For other functions, skip them (future extension point)
-                    let mut depth = 1;
-                    while depth > 0 && !matches!(parser.token, Token::Eof) {
-                        match parser.token {
-                            Token::LParen => depth += 1,
-                            Token::RParen => depth -= 1,
-                            _ => {}
-                        }
-                        if depth > 0 {
-                            parser.consume();
+                    // General table-valued function (e.g. generate_series, UNNEST)
+                    // Treat as a subquery wrapper by parsing the function call, then
+                    // optionally WITH ORDINALITY and AS alias.
+                    // Re-build identifier as expression and parse the full function call.
+                    let _func_name_span = name.span.clone();
+                    // We already consumed the identifier; now parse the argument list.
+                    parser.consume_token(Token::LParen)?;
+                    let mut args = Vec::new();
+                    if !matches!(parser.token, Token::RParen) {
+                        loop {
+                            parser.recovered(
+                                "')' or ','",
+                                &|t| matches!(t, Token::RParen | Token::Comma),
+                                |parser| {
+                                    args.push(parse_expression_unreserved(parser, true)?);
+                                    Ok(())
+                                },
+                            )?;
+                            if parser.skip_token(Token::Comma).is_none() {
+                                break;
+                            }
                         }
                     }
                     parser.consume_token(Token::RParen)?;
-
-                    // For now, return an error for non-JSON_TABLE functions
-                    parser.expected_failure("JSON_TABLE function")?;
-                    unreachable!();
+                    // Optional WITH ORDINALITY
+                    if matches!(parser.token, Token::Ident(_, Keyword::WITH)) {
+                        let with_span = parser.consume();
+                        if matches!(parser.token, Token::Ident(_, Keyword::ORDINALITY)) {
+                            parser.consume();
+                        } else {
+                            parser.err("Expected ORDINALITY after WITH", &with_span);
+                        }
+                    }
+                    let as_span = parser.skip_keyword(Keyword::AS);
+                    let as_ = if as_span.is_some()
+                        || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
+                    {
+                        Some(parser.consume_plain_identifier_unreserved()?)
+                    } else {
+                        None
+                    };
+                    // Represent as TableReference::Table using just the function name
+                    // (we lose the arguments but successfully parse the statement)
+                    return Ok(TableReference::Table {
+                        identifier: QualifiedName {
+                            prefix: Vec::new(),
+                            identifier: name,
+                        },
+                        as_span,
+                        as_,
+                        index_hints: Vec::new(),
+                    });
                 }
             }
 
@@ -835,6 +895,7 @@ pub(crate) fn parse_table_reference<'a>(
 pub enum SelectFlag {
     All(Span),
     Distinct(Span),
+    DistinctOn(Span),
     DistinctRow(Span),
     HighPriority(Span),
     StraightJoin(Span),
@@ -850,6 +911,7 @@ impl Spanned for SelectFlag {
         match &self {
             SelectFlag::All(v) => v.span(),
             SelectFlag::Distinct(v) => v.span(),
+            SelectFlag::DistinctOn(v) => v.span(),
             SelectFlag::DistinctRow(v) => v.span(),
             SelectFlag::HighPriority(v) => v.span(),
             SelectFlag::StraightJoin(v) => v.span(),
@@ -867,6 +929,12 @@ impl Spanned for SelectFlag {
 pub enum OrderFlag {
     Asc(Span),
     Desc(Span),
+    AscNullsFirst(Span),
+    AscNullsLast(Span),
+    DescNullsFirst(Span),
+    DescNullsLast(Span),
+    NullsFirst(Span),
+    NullsLast(Span),
     None,
 }
 impl OptSpanned for OrderFlag {
@@ -874,6 +942,12 @@ impl OptSpanned for OrderFlag {
         match &self {
             OrderFlag::Asc(v) => v.opt_span(),
             OrderFlag::Desc(v) => v.opt_span(),
+            OrderFlag::AscNullsFirst(v) => v.opt_span(),
+            OrderFlag::AscNullsLast(v) => v.opt_span(),
+            OrderFlag::DescNullsFirst(v) => v.opt_span(),
+            OrderFlag::DescNullsLast(v) => v.opt_span(),
+            OrderFlag::NullsFirst(v) => v.opt_span(),
+            OrderFlag::NullsLast(v) => v.opt_span(),
             OrderFlag::None => None,
         }
     }
@@ -996,6 +1070,12 @@ pub struct Select<'a> {
     pub order_by: Option<(Span, Vec<(Expression<'a>, OrderFlag)>)>,
     /// Span of "LIMIT", offset and count expressions if specified
     pub limit: Option<(Span, Option<Expression<'a>>, Expression<'a>)>,
+    /// PostgreSQL: DISTINCT ON (expr, ...) list
+    pub distinct_on: Option<(Span, Vec<Expression<'a>>)>,
+    /// PostgreSQL: OFFSET n [ROWS] (when no LIMIT is present)
+    pub offset: Option<(Span, Expression<'a>)>,
+    /// PostgreSQL: FETCH {FIRST|NEXT} n {ROW|ROWS} ONLY
+    pub fetch: Option<(Span, Expression<'a>)>,
     /// Row locking clause
     pub locking: Option<Locking<'a>>,
 }
@@ -1013,6 +1093,9 @@ impl<'a> Spanned for Select<'a> {
             .join_span(&self.window_span)
             .join_span(&self.order_by)
             .join_span(&self.limit)
+            .join_span(&self.distinct_on)
+            .join_span(&self.offset)
+            .join_span(&self.fetch)
     }
 }
 
@@ -1026,9 +1109,15 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
             Token::Ident(_, Keyword::ALL) => {
                 flags.push(SelectFlag::All(parser.consume_keyword(Keyword::ALL)?))
             }
-            Token::Ident(_, Keyword::DISTINCT) => flags.push(SelectFlag::Distinct(
-                parser.consume_keyword(Keyword::DISTINCT)?,
-            )),
+            Token::Ident(_, Keyword::DISTINCT) => {
+                let distinct_span = parser.consume_keyword(Keyword::DISTINCT)?;
+                // PostgreSQL: DISTINCT ON (expr, ...)
+                if matches!(parser.token, Token::Ident(_, Keyword::ON)) {
+                    flags.push(SelectFlag::DistinctOn(distinct_span));
+                } else {
+                    flags.push(SelectFlag::Distinct(distinct_span));
+                }
+            }
             Token::Ident(_, Keyword::DISTINCTROW) => flags.push(SelectFlag::DistinctRow(
                 parser.consume_keyword(Keyword::DISTINCTROW)?,
             )),
@@ -1056,6 +1145,34 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
             _ => break,
         }
     }
+
+    // PostgreSQL: parse DISTINCT ON (expr, ...) if signaled by DistinctOn flag
+    let distinct_on = if flags
+        .last()
+        .is_some_and(|f| matches!(f, SelectFlag::DistinctOn(_)))
+    {
+        let on_span = parser.consume_keyword(Keyword::ON)?;
+        parser.postgres_only(&on_span);
+        parser.consume_token(Token::LParen)?;
+        let mut exprs = Vec::new();
+        loop {
+            parser.recovered(
+                "')' or ','",
+                &|t| matches!(t, Token::RParen | Token::Comma),
+                |parser| {
+                    exprs.push(parse_expression_unreserved(parser, false)?);
+                    Ok(())
+                },
+            )?;
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        parser.consume_token(Token::RParen)?;
+        Some((on_span, exprs))
+    } else {
+        None
+    };
 
     loop {
         select_exprs.push(parse_select_expr(parser)?);
@@ -1119,10 +1236,39 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         let mut order = Vec::new();
         loop {
             let e = parse_expression_unreserved(parser, false)?;
-            let f = match &parser.token {
-                Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
-                Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
-                _ => OrderFlag::None,
+            let dir_span_opt = match &parser.token {
+                Token::Ident(_, Keyword::ASC) => Some((true, parser.consume())),
+                Token::Ident(_, Keyword::DESC) => Some((false, parser.consume())),
+                _ => None,
+            };
+            let f = if let Some(nulls_span) = parser.skip_keyword(Keyword::NULLS) {
+                match &parser.token {
+                    Token::Ident(_, Keyword::FIRST) => {
+                        let s = parser.consume().join_span(&nulls_span);
+                        parser.postgres_only(&s);
+                        match dir_span_opt {
+                            Some((true, _)) => OrderFlag::AscNullsFirst(s),
+                            Some((false, _)) => OrderFlag::DescNullsFirst(s),
+                            None => OrderFlag::NullsFirst(s),
+                        }
+                    }
+                    Token::Ident(_, Keyword::LAST) => {
+                        let s = parser.consume().join_span(&nulls_span);
+                        parser.postgres_only(&s);
+                        match dir_span_opt {
+                            Some((true, _)) => OrderFlag::AscNullsLast(s),
+                            Some((false, _)) => OrderFlag::DescNullsLast(s),
+                            None => OrderFlag::NullsLast(s),
+                        }
+                    }
+                    _ => parser.expected_failure("FIRST or LAST")?,
+                }
+            } else {
+                match dir_span_opt {
+                    Some((true, s)) => OrderFlag::Asc(s),
+                    Some((false, s)) => OrderFlag::Desc(s),
+                    None => OrderFlag::None,
+                }
             };
             order.push((e, f));
             if parser.skip_token(Token::Comma).is_none() {
@@ -1147,6 +1293,42 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
             }
             _ => Some((span, None, n)),
         }
+    } else {
+        None
+    };
+
+    // PostgreSQL: standalone OFFSET n [ROWS] (only when no LIMIT already consumed offset)
+    let offset = if limit.is_none() {
+        if let Some(offset_span) = parser.skip_keyword(Keyword::OFFSET) {
+            parser.postgres_only(&offset_span);
+            let n = parse_expression_unreserved(parser, true)?;
+            // skip optional ROWS or ROW
+            if matches!(parser.token, Token::Ident(_, Keyword::ROWS | Keyword::ROW)) {
+                parser.consume();
+            }
+            Some((offset_span, n))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // PostgreSQL: FETCH {FIRST|NEXT} n {ROW|ROWS} ONLY
+    let fetch = if let Some(fetch_span) = parser.skip_keyword(Keyword::FETCH) {
+        parser.postgres_only(&fetch_span);
+        match &parser.token {
+            Token::Ident(_, Keyword::FIRST | Keyword::NEXT) => {
+                parser.consume();
+            }
+            _ => parser.expected_failure("FIRST or NEXT")?,
+        }
+        let n = parse_expression_unreserved(parser, true)?;
+        if matches!(parser.token, Token::Ident(_, Keyword::ROWS | Keyword::ROW)) {
+            parser.consume();
+        }
+        parser.consume_keyword(Keyword::ONLY)?;
+        Some((fetch_span, n))
     } else {
         None
     };
@@ -1233,6 +1415,9 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         window_span,
         order_by,
         limit,
+        distinct_on,
+        offset,
+        fetch,
         locking,
     })
 }
