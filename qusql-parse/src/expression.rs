@@ -91,8 +91,8 @@ impl Spanned for MatchMode {
 }
 
 /// Type of is expression
-#[derive(Debug, Clone, Copy)]
-pub enum Is {
+#[derive(Debug, Clone)]
+pub enum Is<'a> {
     Null,
     NotNull,
     True,
@@ -101,8 +101,8 @@ pub enum Is {
     NotFalse,
     Unknown,
     NotUnknown,
-    DistinctFrom,
-    NotDistinctFrom,
+    DistinctFrom(Expression<'a>),
+    NotDistinctFrom(Expression<'a>),
 }
 
 /// Unary operator to apply
@@ -571,14 +571,19 @@ pub struct IsExpression<'a> {
     /// Left hand side expression
     pub lhs: Expression<'a>,
     /// Type of is expression
-    pub is: Is,
+    pub is: Is<'a>,
     /// Span of "IS" and "NOT"
     pub is_span: Span,
 }
 
 impl<'a> Spanned for IsExpression<'a> {
     fn span(&self) -> Span {
-        self.lhs.span().join_span(&self.is_span)
+        match &self.is {
+            Is::DistinctFrom(rhs) | Is::NotDistinctFrom(rhs) => {
+                self.lhs.span().join_span(&self.is_span).join_span(rhs)
+            }
+            _ => self.lhs.span().join_span(&self.is_span),
+        }
     }
 }
 
@@ -1103,13 +1108,14 @@ pub(crate) fn parse_expression_restricted<'a>(
                             Token::Ident(_, Keyword::UNKNOWN) => {
                                 (Is::NotUnknown, parser.consume().join_span(&op))
                             }
-                            Token::Ident(_, Keyword::DISTINCT) => (
-                                Is::NotDistinctFrom,
-                                parser
-                                    .consume()
-                                    .join_span(&op)
-                                    .join_span(&parser.consume_keyword(Keyword::FROM)?),
-                            ),
+                            Token::Ident(_, Keyword::DISTINCT) => {
+                                let op_span = parser
+                                    .consume_keywords(&[Keyword::DISTINCT, Keyword::FROM])?
+                                    .join_span(&op);
+                                parser.postgres_only(&op_span);
+                                let rhs = parse_expression_unreserved(parser, true)?;
+                                (Is::NotDistinctFrom(rhs), op_span)
+                            }
                             _ => parser.expected_failure(
                                 "'TRUE', 'FALSE', 'UNKNOWN', 'NULL' or 'DISTINCT'",
                             )?,
@@ -1118,13 +1124,14 @@ pub(crate) fn parse_expression_restricted<'a>(
                     Token::Ident(_, Keyword::TRUE) => (Is::True, parser.consume().join_span(&op)),
                     Token::Ident(_, Keyword::FALSE) => (Is::False, parser.consume().join_span(&op)),
                     Token::Ident(_, Keyword::NULL) => (Is::Null, parser.consume().join_span(&op)),
-                    Token::Ident(_, Keyword::DISTINCT) => (
-                        Is::DistinctFrom,
-                        parser
-                            .consume()
-                            .join_span(&op)
-                            .join_span(&parser.consume_keyword(Keyword::FROM)?),
-                    ),
+                    Token::Ident(_, Keyword::DISTINCT) => {
+                        let op_span = parser
+                            .consume_keywords(&[Keyword::DISTINCT, Keyword::FROM])?
+                            .join_span(&op);
+                        parser.postgres_only(&op_span);
+                        let rhs = parse_expression_unreserved(parser, true)?;
+                        (Is::DistinctFrom(rhs), op_span)
+                    }
                     Token::Ident(_, Keyword::UNKNOWN) => {
                         (Is::Unknown, parser.consume().join_span(&op))
                     }
@@ -1219,6 +1226,22 @@ pub(crate) fn parse_expression_restricted<'a>(
             }
             Token::Ident(_, Keyword::LIKE) if !inner => {
                 r.shift_binop(parser.consume(), BinaryOperator::Like)
+            }
+            Token::Ident(_, Keyword::SIMILAR)
+                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                // SIMILAR TO expr (PostgreSQL)
+                if let Err(e) = r.reduce(IN_PRIORITY) {
+                    parser.err_here(e)?;
+                }
+                let lhs = match r.stack.pop() {
+                    Some(ReduceMember::Expression(e)) => e,
+                    _ => parser.err_here("Expected expression before SIMILAR")?,
+                };
+                let op_span = parser.consume_keywords(&[Keyword::SIMILAR, Keyword::TO])?;
+                parser.postgres_only(&op_span);
+                r.stack.push(ReduceMember::Expression(lhs));
+                r.shift_binop(op_span, BinaryOperator::Like)
             }
             Token::Ident(_, Keyword::REGEXP) if !inner => {
                 r.shift_binop(parser.consume(), BinaryOperator::Regexp)
