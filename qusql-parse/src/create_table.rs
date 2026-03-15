@@ -28,6 +28,24 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
+/// Action for ON COMMIT clause on temporary tables
+#[derive(Clone, Debug)]
+pub enum OnCommitAction {
+    PreserveRows(Span),
+    DeleteRows(Span),
+    Drop(Span),
+}
+
+impl Spanned for OnCommitAction {
+    fn span(&self) -> Span {
+        match self {
+            OnCommitAction::PreserveRows(s) => s.span(),
+            OnCommitAction::DeleteRows(s) => s.span(),
+            OnCommitAction::Drop(s) => s.span(),
+        }
+    }
+}
+
 /// Options on created table
 #[derive(Clone, Debug)]
 pub enum TableOption<'a> {
@@ -170,6 +188,11 @@ pub enum TableOption<'a> {
         identifier: Span,
         options: Vec<(Identifier<'a>, Expression<'a>)>,
     },
+    /// PostgreSQL ON COMMIT { PRESERVE ROWS | DELETE ROWS | DROP }
+    OnCommit {
+        identifier: Span,
+        action: OnCommitAction,
+    },
 }
 
 impl<'a> Spanned for TableOption<'a> {
@@ -241,6 +264,7 @@ impl<'a> Spanned for TableOption<'a> {
                     identifier.span()
                 }
             }
+            TableOption::OnCommit { identifier, action } => identifier.span().join_span(action),
         }
     }
 }
@@ -1403,6 +1427,24 @@ pub(crate) fn parse_create_table<'a>(
                             identifier,
                             options: params,
                         });
+                    }
+                    Token::Ident(_, Keyword::ON) => {
+                        let identifier =
+                            parser.consume_keywords(&[Keyword::ON, Keyword::COMMIT])?;
+                        parser.postgres_only(&identifier);
+                        let action = match &parser.token {
+                            Token::Ident(_, Keyword::PRESERVE) => OnCommitAction::PreserveRows(
+                                parser.consume_keywords(&[Keyword::PRESERVE, Keyword::ROWS])?,
+                            ),
+                            Token::Ident(_, Keyword::DELETE) => OnCommitAction::DeleteRows(
+                                parser.consume_keywords(&[Keyword::DELETE, Keyword::ROWS])?,
+                            ),
+                            Token::Ident(_, Keyword::DROP) => {
+                                OnCommitAction::Drop(parser.consume_keyword(Keyword::DROP)?)
+                            }
+                            _ => parser.expected_failure("PRESERVE ROWS, DELETE ROWS, or DROP")?,
+                        };
+                        options.push(TableOption::OnCommit { identifier, action });
                     }
                     Token::Ident(_, Keyword::PARTITION) => {
                         partition_by = Some(parse_partition_by(parser)?);
