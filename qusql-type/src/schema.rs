@@ -260,13 +260,37 @@ pub(crate) fn parse_column<'a>(
         qusql_parse::Type::Decimal(_) => todo!("Decimal"),
         qusql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
         qusql_parse::Type::Json => BaseType::String.into(),
+        qusql_parse::Type::Jsonb => BaseType::String.into(),
         qusql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
         qusql_parse::Type::VarBit(_) => BaseType::Bytes.into(),
         qusql_parse::Type::Bytea => BaseType::Bytes.into(),
         qusql_parse::Type::Named(_) => BaseType::String.into(), // TODO lookup name??
         qusql_parse::Type::Inet4 => BaseType::String.into(),
         qusql_parse::Type::Inet6 => BaseType::String.into(),
+        qusql_parse::Type::InetAddr => BaseType::String.into(),
+        qusql_parse::Type::Cidr => BaseType::String.into(),
+        qusql_parse::Type::Macaddr => BaseType::String.into(),
+        qusql_parse::Type::Macaddr8 => BaseType::String.into(),
         qusql_parse::Type::Array(_, _) => todo!("Array type not yet implemented"),
+        qusql_parse::Type::Serial
+        | qusql_parse::Type::SmallSerial
+        | qusql_parse::Type::BigSerial => BaseType::Integer.into(),
+        qusql_parse::Type::Money => BaseType::Float.into(),
+        qusql_parse::Type::Timetz(_) => BaseType::Time.into(),
+        qusql_parse::Type::Interval(_) => BaseType::TimeInterval.into(),
+        qusql_parse::Type::TsQuery => BaseType::String.into(),
+        qusql_parse::Type::TsVector => BaseType::String.into(),
+        qusql_parse::Type::Uuid => BaseType::String.into(),
+        qusql_parse::Type::Xml => BaseType::String.into(),
+        qusql_parse::Type::Range(_) => BaseType::Bytes.into(),
+        qusql_parse::Type::MultiRange(_) => BaseType::Bytes.into(),
+        qusql_parse::Type::Point
+        | qusql_parse::Type::Line
+        | qusql_parse::Type::Lseg
+        | qusql_parse::Type::Box
+        | qusql_parse::Type::Path
+        | qusql_parse::Type::Polygon
+        | qusql_parse::Type::Circle => BaseType::Bytes.into(),
     };
 
     Column {
