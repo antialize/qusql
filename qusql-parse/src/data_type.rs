@@ -14,7 +14,7 @@ use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     Identifier, InvalidExpression, SString, Span, Spanned,
-    alter_table::{ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType},
+    alter_table::{ForeignKeyMatch, ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType},
     expression::{Expression, parse_expression_unreserved},
     keywords::Keyword,
     lexer::{StringType, Token},
@@ -52,6 +52,8 @@ pub enum DataTypeProperty<'a> {
         table: Identifier<'a>,
         /// Referenced columns (may be empty if omitted)
         columns: Vec<Identifier<'a>>,
+        /// Optional MATCH FULL / MATCH SIMPLE / MATCH PARTIAL
+        match_type: Option<ForeignKeyMatch>,
         /// Optional ON DELETE / ON UPDATE actions
         ons: Vec<ForeignKeyOn>,
     },
@@ -84,8 +86,13 @@ impl<'a> Spanned for DataTypeProperty<'a> {
                 span,
                 table,
                 columns,
+                match_type,
                 ons,
-            } => span.join_span(table).join_span(columns).join_span(ons),
+            } => span
+                .join_span(table)
+                .join_span(columns)
+                .join_span(match_type)
+                .join_span(ons),
         }
     }
 }
@@ -976,6 +983,22 @@ pub(crate) fn parse_data_type<'a>(
                     }
                     parser.consume_token(Token::RParen)?;
                 }
+                let match_type = if parser.skip_keyword(Keyword::MATCH).is_some() {
+                    match &parser.token {
+                        Token::Ident(_, Keyword::FULL) => {
+                            Some(ForeignKeyMatch::Full(parser.consume()))
+                        }
+                        Token::Ident(_, Keyword::SIMPLE) => {
+                            Some(ForeignKeyMatch::Simple(parser.consume()))
+                        }
+                        Token::Ident(_, Keyword::PARTIAL) => {
+                            Some(ForeignKeyMatch::Partial(parser.consume()))
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
+                };
                 let mut ons = Vec::new();
                 while parser.skip_keyword(Keyword::ON).is_some() {
                     let on_type = match &parser.token {
@@ -1022,6 +1045,7 @@ pub(crate) fn parse_data_type<'a>(
                     span,
                     table,
                     columns,
+                    match_type,
                     ons,
                 });
             }

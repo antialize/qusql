@@ -127,6 +127,24 @@ impl Spanned for ForeignKeyOnAction {
     }
 }
 
+/// MATCH type for a foreign key reference
+#[derive(Clone, Debug)]
+pub enum ForeignKeyMatch {
+    Full(Span),
+    Simple(Span),
+    Partial(Span),
+}
+
+impl Spanned for ForeignKeyMatch {
+    fn span(&self) -> Span {
+        match self {
+            ForeignKeyMatch::Full(v) => v.span(),
+            ForeignKeyMatch::Simple(v) => v.span(),
+            ForeignKeyMatch::Partial(v) => v.span(),
+        }
+    }
+}
+
 /// Action to perform on events on foreign keys
 #[derive(Clone, Debug)]
 pub struct ForeignKeyOn {
