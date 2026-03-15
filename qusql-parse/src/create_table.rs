@@ -165,6 +165,11 @@ pub enum TableOption<'a> {
         identifier: Span,
         value: Vec<QualifiedName<'a>>,
     },
+    /// PostgreSQL WITH (storage_parameter = value, ...) table options
+    WithOptions {
+        identifier: Span,
+        options: Vec<(Identifier<'a>, Expression<'a>)>,
+    },
 }
 
 impl<'a> Spanned for TableOption<'a> {
@@ -221,6 +226,16 @@ impl<'a> Spanned for TableOption<'a> {
             }
             TableOption::Inherits { identifier, value } => {
                 if let Some(last) = value.last() {
+                    identifier.span().join_span(last)
+                } else {
+                    identifier.span()
+                }
+            }
+            TableOption::WithOptions {
+                identifier,
+                options,
+            } => {
+                if let Some((_, last)) = options.last() {
                     identifier.span().join_span(last)
                 } else {
                     identifier.span()
@@ -1364,6 +1379,29 @@ pub(crate) fn parse_create_table<'a>(
                         options.push(TableOption::Inherits {
                             identifier,
                             value: tables,
+                        });
+                    }
+                    Token::Ident(_, Keyword::WITH) => {
+                        let identifier = parser.consume_keyword(Keyword::WITH)?;
+                        parser.postgres_only(&identifier);
+                        parser.consume_token(Token::LParen)?;
+                        let mut params = Vec::new();
+                        parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
+                            loop {
+                                let key = parser.consume_plain_identifier_unreserved()?;
+                                parser.consume_token(Token::Eq)?;
+                                let val = parse_expression_unreserved(parser, false)?;
+                                params.push((key, val));
+                                if parser.skip_token(Token::Comma).is_none() {
+                                    break;
+                                }
+                            }
+                            Ok(())
+                        })?;
+                        parser.consume_token(Token::RParen)?;
+                        options.push(TableOption::WithOptions {
+                            identifier,
+                            options: params,
                         });
                     }
                     Token::Ident(_, Keyword::PARTITION) => {
