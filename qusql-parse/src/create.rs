@@ -38,7 +38,7 @@ pub struct CreateTypeEnum<'a> {
     /// Span of "TYPE"
     pub type_span: Span,
     /// Name of the created type
-    pub name: Identifier<'a>,
+    pub name: QualifiedName<'a>,
     /// Span of "AS ENUM"
     pub as_enum_span: Span,
     /// Enum values
@@ -63,7 +63,7 @@ fn parse_create_type<'a>(
 ) -> Result<CreateTypeEnum<'a>, ParseError> {
     let type_span = parser.consume_keyword(Keyword::TYPE)?;
     parser.postgres_only(&type_span);
-    let name = parser.consume_plain_identifier_unreserved()?;
+    let name = parse_qualified_name_unreserved(parser)?;
     let as_enum_span = parser.consume_keywords(&[Keyword::AS, Keyword::ENUM])?;
     parser.consume_token(Token::LParen)?;
     let mut values = Vec::new();
