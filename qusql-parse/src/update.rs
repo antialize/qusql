@@ -71,6 +71,8 @@ pub struct Update<'a> {
     pub set: Vec<(Vec<Identifier<'a>>, Expression<'a>)>,
     /// Where expression and span of "WHERE" if specified
     pub where_: Option<(Expression<'a>, Span)>,
+    /// PostgreSQL: FROM clause (additional tables)
+    pub from: Option<(Span, Vec<TableReference<'a>>)>,
     /// Span of "RETURNING" and select expressions after "RETURNING", if "RETURNING" is present
     pub returning: Option<(Span, Vec<SelectExpr<'a>>)>,
 }
@@ -87,6 +89,7 @@ impl<'a> Spanned for Update<'a> {
             .join_span(&self.tables)
             .join_span(&self.set_span)
             .join_span(&set_span)
+            .join_span(&self.from)
             .join_span(&self.where_)
             .join_span(&self.returning)
     }
@@ -140,6 +143,36 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
         None
     };
 
+    // PostgreSQL: FROM clause after SET (before WHERE)
+    let from = if where_.is_none() {
+        if let Some(from_span) = parser.skip_keyword(Keyword::FROM) {
+            parser.postgres_only(&from_span);
+            let mut from_tables = Vec::new();
+            loop {
+                from_tables.push(parse_table_reference(parser, Restrict::EMPTY)?);
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+            let where_inner = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
+                Some((parse_expression_unreserved(parser, false)?, span))
+            } else {
+                None
+            };
+            // Re-assign where_ by returning it from the block — handled below
+            Some((from_span, from_tables, where_inner))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let (from, where_) = if let Some((from_span, from_tables, where_inner)) = from {
+        (Some((from_span, from_tables)), where_inner)
+    } else {
+        (None, where_)
+    };
+
     let returning = if let Some(returning_span) = parser.skip_keyword(Keyword::RETURNING) {
         let mut returning_exprs = Vec::new();
         loop {
@@ -160,6 +193,7 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
         tables,
         set_span,
         set,
+        from,
         where_,
         returning,
     })
