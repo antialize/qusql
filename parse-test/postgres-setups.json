@@ -20,5 +20,9 @@
   ],
   "test_tables": [
     "CREATE TABLE test_tables (id INTEGER, a INTEGER, b INTEGER, c INTEGER)"
+  ],
+  "tbloom_table": [
+    "CREATE EXTENSION bloom",
+    "CREATE TABLE tbloom (i1 INTEGER, i2 INTEGER, i3 INTEGER)"
   ]
 }

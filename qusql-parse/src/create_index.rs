@@ -19,6 +19,20 @@ use crate::{
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name_unreserved,
 };
+
+/// A single `key = value` option inside a `WITH (...)` clause on `CREATE INDEX`.
+#[derive(Clone, Debug)]
+pub struct WithOption<'a> {
+    pub name: Identifier<'a>,
+    pub eq_span: Span,
+    pub value: Expression<'a>,
+}
+
+impl<'a> Spanned for WithOption<'a> {
+    fn span(&self) -> Span {
+        self.name.join_span(&self.value)
+    }
+}
 use alloc::vec::Vec;
 
 #[derive(Clone, Debug)]
@@ -146,6 +160,7 @@ pub struct CreateIndex<'a> {
     pub column_names: Vec<IndexCol<'a>>,
     pub r_paren_span: Span,
     pub include_clause: Option<IncludeClause<'a>>,
+    pub with_options: Option<(Span, Vec<WithOption<'a>>)>,
     pub where_: Option<(Span, Expression<'a>)>,
     pub nulls_distinct: Option<(Span, Option<Span>)>,
 }
@@ -163,6 +178,7 @@ impl<'a> Spanned for CreateIndex<'a> {
             .join_span(&self.column_names)
             .join_span(&self.r_paren_span)
             .join_span(&self.include_clause)
+            .join_span(&self.with_options.as_ref().map(|(s, c)| s.join_span(c)))
             .join_span(&self.where_)
             .join_span(&self.nulls_distinct)
     }
@@ -285,7 +301,32 @@ pub(crate) fn parse_create_index<'a>(
         None
     };
 
-    // Parse index options after column list (MySQL/MariaDB)
+    // PostgreSQL: WITH (storage_parameters)
+    let with_options = if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+        parser.postgres_only(&with_span);
+        parser.consume_token(Token::LParen)?;
+        let mut opts = Vec::new();
+        parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
+            loop {
+                let name = parser.consume_plain_identifier_unreserved()?;
+                let eq_span = parser.consume_token(Token::Eq)?;
+                let value = parse_expression_unreserved(parser, false)?;
+                opts.push(WithOption {
+                    name,
+                    eq_span,
+                    value,
+                });
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+            Ok(())
+        })?;
+        parser.consume_token(Token::RParen)?;
+        Some((with_span, opts))
+    } else {
+        None
+    };
 
     // Parse index options after column list (MySQL/MariaDB)
     loop {
@@ -357,6 +398,7 @@ pub(crate) fn parse_create_index<'a>(
         column_names,
         r_paren_span,
         include_clause,
+        with_options,
         where_,
         nulls_distinct,
     })

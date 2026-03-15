@@ -108,7 +108,9 @@ pub use create_function::{
     CreateFunction, FunctionBody, FunctionCharacteristic, FunctionLanguage, FunctionParallel,
     FunctionParamDirection,
 };
-pub use create_index::{CreateIndex, CreateIndexOption, IncludeClause, UsingIndexMethod};
+pub use create_index::{
+    CreateIndex, CreateIndexOption, IncludeClause, UsingIndexMethod, WithOption,
+};
 pub use create_option::{CreateAlgorithm, CreateOption};
 pub use create_role::{CreateRole, RoleMembership, RoleMembershipType, RoleOption};
 pub use create_table::{
