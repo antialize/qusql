@@ -194,6 +194,7 @@ pub enum Type<'a> {
     Polygon,
     SmallInt(Option<(usize, Span)>),
     SmallSerial,
+    Table(Span, Vec<(Identifier<'a>, DataType<'a>)>),
     Text(Option<(usize, Span)>),
     Time(Option<(usize, Span)>),
     Timestamp(Timestamp),
@@ -262,6 +263,7 @@ impl<'a> OptSpanned for Type<'a> {
             Type::Polygon => None,
             Type::SmallInt(v) => v.opt_span(),
             Type::SmallSerial => None,
+            Type::Table(span, _) => Some(span.clone()),
             Type::Text(v) => v.opt_span(),
             Type::Time(v) => v.opt_span(),
             Type::Timestamp(v) => v.opt_span(),
@@ -758,6 +760,27 @@ pub(crate) fn parse_data_type<'a>(
             let t = parser.consume_keyword(Keyword::VARBIT)?;
             parser.postgres_only(&t);
             (t, Type::VarBit(parse_width(parser)?))
+        }
+        Token::Ident(_, Keyword::TABLE)
+            if parser.options.dialect.is_postgresql() && ctx == DataTypeContext::FunctionReturn =>
+        {
+            let table_span = parser.consume_keyword(Keyword::TABLE)?;
+            let lparen = parser.consume_token(Token::LParen)?;
+            let mut columns = Vec::new();
+            parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+                loop {
+                    let name = parser.consume_plain_identifier_unreserved()?;
+                    let col_type = parse_data_type(parser, DataTypeContext::FunctionParam)?;
+                    columns.push((name, col_type));
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                Ok(())
+            })?;
+            let rparen = parser.consume_token(Token::RParen)?;
+            let paren_span = lparen.join_span(&rparen);
+            (table_span, Type::Table(paren_span, columns))
         }
         Token::String(_, StringType::DoubleQuoted) if parser.options.dialect.is_postgresql() => {
             let name = parser.consume();

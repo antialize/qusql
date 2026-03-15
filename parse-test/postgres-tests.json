@@ -1712,11 +1712,8 @@
   },
   {
     "input": "CREATE OR REPLACE FUNCTION return_table(i INTEGER) RETURNS TABLE(id UUID, is_active BOOLEAN) LANGUAGE plpgsql AS $$ BEGIN RETURN QUERY SELECT NULL::UUID, NULL::BOOLEAN; END; $$",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'LANGUAGE' here\",\n    span: 64..65,\n    sql_segment: \"(\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateFunction(\n    CreateFunction {\n        create_span: 0..6,\n        create_options: [\n            OrReplace(\n                7..17,\n            ),\n        ],\n        function_span: 18..26,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"return_table\",\n            span: 27..39,\n        },\n        params: [\n            FunctionParam {\n                direction: None,\n                name: Some(\n                    Identifier {\n                        value: \"i\",\n                        span: 40..41,\n                    },\n                ),\n                type_: DataType {\n                    identifier: 42..49,\n                    type_: Integer(\n                        None,\n                    ),\n                    properties: [],\n                },\n                default: None,\n            },\n        ],\n        returns_span: 51..58,\n        return_type: DataType {\n            identifier: 59..64,\n            type_: Table(\n                64..92,\n                [\n                    (\n                        Identifier {\n                            value: \"id\",\n                            span: 65..67,\n                        },\n                        DataType {\n                            identifier: 68..72,\n                            type_: Uuid,\n                            properties: [],\n                        },\n                    ),\n                    (\n                        Identifier {\n                            value: \"is_active\",\n                            span: 74..83,\n                        },\n                        DataType {\n                            identifier: 84..91,\n                            type_: Boolean,\n                            properties: [],\n                        },\n                    ),\n                ],\n            ),\n            properties: [],\n        },\n        characteristics: [\n            Language(\n                93..101,\n                Plpgsql(\n                    102..109,\n                ),\n            ),\n        ],\n        return_: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE ROLE IF NOT EXISTS mysql_a, mysql_b",

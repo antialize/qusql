@@ -272,6 +272,7 @@ pub(crate) fn parse_column<'a>(
         qusql_parse::Type::Macaddr => BaseType::String.into(),
         qusql_parse::Type::Macaddr8 => BaseType::String.into(),
         qusql_parse::Type::Array(_, _) => todo!("Array type not yet implemented"),
+        qusql_parse::Type::Table(_, _) => todo!("Table type not yet implemented"),
         qusql_parse::Type::Serial
         | qusql_parse::Type::SmallSerial
         | qusql_parse::Type::BigSerial => BaseType::Integer.into(),

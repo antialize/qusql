@@ -426,7 +426,8 @@ pub(crate) fn type_expression<'a>(
                             | qusql_parse::Type::Box
                             | qusql_parse::Type::Path
                             | qusql_parse::Type::Polygon
-                            | qusql_parse::Type::Circle => {
+                            | qusql_parse::Type::Circle
+                            | qusql_parse::Type::Table(_, _) => {
                                 typer
                                     .err("Type not allow in cast", &e.type_);
                             }
