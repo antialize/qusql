@@ -1507,6 +1507,28 @@ pub(crate) fn parse_create_table_or_partition_of<'a>(
                 identifier,
             )?,
         )))
+    } else if matches!(parser.token, Token::Ident(_, Keyword::AS))
+        && !matches!(parser.peek(), Token::LParen)
+    {
+        // CREATE TABLE foo AS SELECT ... (CTAS — no column list)
+        let as_span = parser.consume_keyword(Keyword::AS)?;
+        let query = parse_compound_query(parser)?;
+        Ok(Statement::CreateTable(Box::new(CreateTable {
+            create_span,
+            create_options,
+            table_span,
+            identifier,
+            if_not_exists,
+            options: alloc::vec![],
+            create_definitions: alloc::vec![],
+            table_as: Some(CreateTableAs {
+                as_span,
+                replace_span: None,
+                ignore_span: None,
+                query,
+            }),
+            partition_by: None,
+        })))
     } else {
         Ok(Statement::CreateTable(Box::new(parse_create_table(
             parser,
