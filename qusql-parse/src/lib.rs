@@ -114,8 +114,9 @@ pub use create_index::{
 pub use create_option::{CreateAlgorithm, CreateOption};
 pub use create_role::{CreateRole, RoleMembership, RoleMembershipType, RoleOption};
 pub use create_table::{
-    CreateDefinition, CreateTable, CreateTableAs, CreateTablePartitionOf, PartitionBoundExpr,
-    PartitionBoundSpec, PartitionBy, PartitionMethod, PartitionOfBound, TableOption,
+    CreateDefinition, CreateTable, CreateTableAs, CreateTablePartitionOf, OnCommitAction,
+    PartitionBoundExpr, PartitionBoundSpec, PartitionBy, PartitionMethod, PartitionOfBound,
+    TableOption,
 };
 pub use create_trigger::{CreateTrigger, TriggerEvent, TriggerTime};
 pub use create_view::CreateView;
