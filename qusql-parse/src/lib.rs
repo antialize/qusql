@@ -175,11 +175,11 @@ pub use show::{
 pub use span::{OptSpanned, Span, Spanned};
 pub use sstring::SString;
 pub use statement::{
-    AlterSchema, AlterSchemaAction, Begin, Block, CaseStatement, Commit, CursorHold, CursorScroll,
+    AlterSchema, AlterSchemaAction, Begin, Block, CaseStatement, Commit, CompoundOperator,
+    CompoundQuantifier, CompoundQuery, CompoundQueryBranch, CursorHold, CursorScroll,
     CursorSensitivity, DeclareCursor, Do, End, Explain, ExplainFormat, ExplainOption, If,
     IfCondition, Invalid, Prepare, RefreshMaterializedView, Return, Set, Signal,
-    SignalConditionInformationName, StartTransaction, Statement, Stdin, Union, UnionType,
-    UnionWith, WhenStatement,
+    SignalConditionInformationName, StartTransaction, Statement, Stdin, WhenStatement,
 };
 pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};

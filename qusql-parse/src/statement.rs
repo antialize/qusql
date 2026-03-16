@@ -149,12 +149,7 @@ fn parse_block<'a>(parser: &mut Parser<'a, '_>) -> Result<Block<'a>, ParseError>
     let mut statements = Vec::new();
     parser.recovered(
         "'END' | 'EXCEPTION'",
-        &|e| {
-            matches!(
-                e,
-                Token::Ident(_, Keyword::END) | Token::Ident(_, Keyword::EXCEPTION)
-            )
-        },
+        &|e| matches!(e, Token::Ident(_, Keyword::END | Keyword::EXCEPTION)),
         |parser| parse_statement_list(parser, &mut statements),
     )?;
     if let Some(_exception_span) = parser.skip_keyword(Keyword::EXCEPTION) {
@@ -733,7 +728,7 @@ pub enum Statement<'a> {
     /// Invalid statement produced after recovering from parse error
     Invalid(Box<Invalid>),
     Lock(Box<Lock<'a>>),
-    Union(Box<Union<'a>>),
+    CompoundQuery(Box<CompoundQuery<'a>>),
     Case(Box<CaseStatement<'a>>),
     CopyFrom(Box<CopyFrom<'a>>),
     CopyTo(Box<CopyTo<'a>>),
@@ -802,7 +797,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::If(v) => v.span(),
             Statement::Invalid(v) => v.span(),
             Statement::Lock(v) => v.span(),
-            Statement::Union(v) => v.span(),
+            Statement::CompoundQuery(v) => v.span(),
             Statement::Case(v) => v.span(),
             Statement::CopyFrom(v) => v.span(),
             Statement::CopyTo(v) => v.span(),
@@ -1444,57 +1439,67 @@ pub(crate) fn parse_compound_query_bottom<'a>(
     }
 }
 
-/// Type of union to perform
+/// Quantifier for a compound-query operator
 #[derive(Clone, Debug)]
-pub enum UnionType {
+pub enum CompoundQuantifier {
     All(Span),
     Distinct(Span),
     Default,
 }
 
-impl OptSpanned for UnionType {
+impl OptSpanned for CompoundQuantifier {
     fn opt_span(&self) -> Option<Span> {
         match &self {
-            UnionType::All(v) => v.opt_span(),
-            UnionType::Distinct(v) => v.opt_span(),
-            UnionType::Default => None,
+            CompoundQuantifier::All(v) => v.opt_span(),
+            CompoundQuantifier::Distinct(v) => v.opt_span(),
+            CompoundQuantifier::Default => None,
         }
     }
 }
 
-/// Right hand side of a union expression
-#[derive(Clone, Debug)]
-pub struct UnionWith<'a> {
-    /// Span of "UNION"
-    pub union_span: Span,
-    /// Type of union to perform
-    pub union_type: UnionType,
-    /// Statement to union
-    pub union_statement: Box<Statement<'a>>,
+/// Set operator used between compound query branches
+#[derive(Clone, Debug, Copy, PartialEq, Eq)]
+pub enum CompoundOperator {
+    Union,
+    Intersect,
+    Except,
 }
 
-impl<'a> Spanned for UnionWith<'a> {
+/// Right hand side branch of a compound query
+#[derive(Clone, Debug)]
+pub struct CompoundQueryBranch<'a> {
+    /// Operator used to combine this branch with the left side
+    pub operator: CompoundOperator,
+    /// Span of operator keyword (UNION/INTERSECT/EXCEPT)
+    pub operator_span: Span,
+    /// Optional quantifier (ALL / DISTINCT)
+    pub quantifier: CompoundQuantifier,
+    /// Statement for this branch
+    pub statement: Box<Statement<'a>>,
+}
+
+impl<'a> Spanned for CompoundQueryBranch<'a> {
     fn span(&self) -> Span {
-        self.union_span
-            .join_span(&self.union_type)
-            .join_span(&self.union_statement)
+        self.operator_span
+            .join_span(&self.quantifier)
+            .join_span(&self.statement)
     }
 }
 
-/// Union statement
+/// Compound query statement
 #[derive(Clone, Debug)]
-pub struct Union<'a> {
-    /// Left side of union
+pub struct CompoundQuery<'a> {
+    /// Left side of compound query
     pub left: Box<Statement<'a>>,
-    /// List of things to union
-    pub with: Vec<UnionWith<'a>>,
+    /// Branches combined with the left side
+    pub with: Vec<CompoundQueryBranch<'a>>,
     /// Span of "ORDER BY", and list of ordering expressions and directions if specified
     pub order_by: Option<(Span, Vec<(Expression<'a>, OrderFlag)>)>,
     /// Span of "LIMIT", offset and count expressions if specified
     pub limit: Option<(Span, Option<Expression<'a>>, Expression<'a>)>,
 }
 
-impl<'a> Spanned for Union<'a> {
+impl<'a> Spanned for CompoundQuery<'a> {
     fn span(&self) -> Span {
         self.left
             .join_span(&self.with)
@@ -1507,26 +1512,49 @@ pub(crate) fn parse_compound_query<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<Statement<'a>, ParseError> {
     let q = parse_compound_query_bottom(parser)?;
-    if !matches!(parser.token, Token::Ident(_, Keyword::UNION)) {
+    if !matches!(
+        parser.token,
+        Token::Ident(_, Keyword::UNION | Keyword::INTERSECT | Keyword::EXCEPT)
+    ) {
         return Ok(q);
     };
     let mut with = Vec::new();
     loop {
-        let union_span = parser.consume_keyword(Keyword::UNION)?;
-        let union_type = match &parser.token {
-            Token::Ident(_, Keyword::ALL) => UnionType::All(parser.consume_keyword(Keyword::ALL)?),
-            Token::Ident(_, Keyword::DISTINCT) => {
-                UnionType::Distinct(parser.consume_keyword(Keyword::DISTINCT)?)
-            }
-            _ => UnionType::Default,
+        let (operator, operator_span) = match &parser.token {
+            Token::Ident(_, Keyword::UNION) => (
+                CompoundOperator::Union,
+                parser.consume_keyword(Keyword::UNION)?,
+            ),
+            Token::Ident(_, Keyword::INTERSECT) => (
+                CompoundOperator::Intersect,
+                parser.consume_keyword(Keyword::INTERSECT)?,
+            ),
+            Token::Ident(_, Keyword::EXCEPT) => (
+                CompoundOperator::Except,
+                parser.consume_keyword(Keyword::EXCEPT)?,
+            ),
+            _ => parser.expected_failure("'UNION' | 'INTERSECT' | 'EXCEPT'")?,
         };
-        let union_statement = Box::new(parse_compound_query_bottom(parser)?);
-        with.push(UnionWith {
-            union_span,
-            union_type,
-            union_statement,
+        let quantifier = match &parser.token {
+            Token::Ident(_, Keyword::ALL) => {
+                CompoundQuantifier::All(parser.consume_keyword(Keyword::ALL)?)
+            }
+            Token::Ident(_, Keyword::DISTINCT) => {
+                CompoundQuantifier::Distinct(parser.consume_keyword(Keyword::DISTINCT)?)
+            }
+            _ => CompoundQuantifier::Default,
+        };
+        let statement = Box::new(parse_compound_query_bottom(parser)?);
+        with.push(CompoundQueryBranch {
+            operator,
+            operator_span,
+            quantifier,
+            statement,
         });
-        if !matches!(parser.token, Token::Ident(_, Keyword::UNION)) {
+        if !matches!(
+            parser.token,
+            Token::Ident(_, Keyword::UNION | Keyword::INTERSECT | Keyword::EXCEPT)
+        ) {
             break;
         }
     }
@@ -1568,7 +1596,7 @@ pub(crate) fn parse_compound_query<'a>(
         None
     };
 
-    Ok(Statement::Union(Box::new(Union {
+    Ok(Statement::CompoundQuery(Box::new(CompoundQuery {
         left: Box::new(q),
         with,
         order_by,

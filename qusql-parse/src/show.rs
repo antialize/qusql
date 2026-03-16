@@ -727,15 +727,15 @@ pub(crate) fn parse_show<'a>(
         Token::Ident(_, Keyword::TABLES) => Statement::ShowTables(Box::new(parse_show_tables(parser, show_span, extended.clone(), full.clone())?)),
         Token::Ident(_, Keyword::CREATE) => parse_show_create(parser, show_span)?,
         Token::Ident(_, Keyword::DATABASES) => Statement::ShowDatabases(Box::new(parse_show_databases(parser, show_span)?)),
-        Token::Ident(_, Keyword::PROCESSLIST) | Token::Ident(_, Keyword::PROCESS) => {
+        Token::Ident(_, Keyword::PROCESSLIST | Keyword::PROCESS) => {
             Statement::ShowProcessList(Box::new(parse_show_processlist(parser, show_span, full.clone())?))
         }
         Token::Ident(_, Keyword::VARIABLES) => Statement::ShowVariables(Box::new(parse_show_variables(parser, show_span, global.clone(), session.clone())?)),
         Token::Ident(_, Keyword::STATUS) => Statement::ShowStatus(Box::new(parse_show_status(parser, show_span, global.clone(), session.clone())?)),
-        Token::Ident(_, Keyword::COLUMNS) | Token::Ident(_, Keyword::FIELDS) => {
+        Token::Ident(_, Keyword::COLUMNS | Keyword::FIELDS) => {
             Statement::ShowColumns(Box::new(parse_show_columns(parser, show_span, extended.clone(), full.clone())?))
         }
-        Token::Ident(_, Keyword::CHARSET) | Token::Ident(_, Keyword::CHARACTER) => {
+        Token::Ident(_, Keyword::CHARSET | Keyword::CHARACTER) => {
             Statement::ShowCharacterSet(Box::new(parse_show_character_set(parser, show_span)?))
         }
             Token::Ident(_, Keyword::COLLATION) => Statement::ShowCollation(Box::new(parse_show_collation(parser, show_span)?)),
