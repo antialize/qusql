@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use crate::{
-    Expression, Span, Spanned,
+    Expression, OptSpanned, Span, Spanned,
     expression::{parse_expression_outer, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
@@ -232,12 +232,12 @@ impl Spanned for FunctionCallExpression<'_> {
 #[derive(Debug, Clone)]
 pub struct WindowSpec<'a> {
     /// Span of "ORDER BY" and list of order expression and directions, if specified
-    pub order_by: (Span, Vec<(Expression<'a>, OrderFlag)>),
+    pub order_by: Option<(Span, Vec<(Expression<'a>, OrderFlag)>)>,
 }
 
 impl<'a> Spanned for WindowSpec<'a> {
     fn span(&self) -> Span {
-        self.order_by.span()
+        self.order_by.opt_span().unwrap_or(0..0)
     }
 }
 
@@ -504,20 +504,36 @@ pub(crate) fn parse_function<'a>(
 
     if let Some(over_span) = parser.skip_keyword(Keyword::OVER) {
         parser.consume_token(Token::LParen)?;
-        let order_span = parser.consume_keywords(&[Keyword::ORDER, Keyword::BY])?;
-        let mut order = Vec::new();
-        loop {
-            let e = parse_expression_unreserved(parser, false)?;
-            let f = match &parser.token {
-                Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
-                Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
-                _ => OrderFlag::None,
-            };
-            order.push((e, f));
-            if parser.skip_token(Token::Comma).is_none() {
-                break;
+
+        if parser.skip_keyword(Keyword::PARTITION).is_some() {
+            parser.consume_keyword(Keyword::BY)?;
+            loop {
+                parse_expression_unreserved(parser, false)?;
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
             }
         }
+
+        let order_by = if let Some(span) = parser.skip_keyword(Keyword::ORDER) {
+            let order_span = span.join_span(&parser.consume_keyword(Keyword::BY)?);
+            let mut order = Vec::new();
+            loop {
+                let e = parse_expression_unreserved(parser, false)?;
+                let f = match &parser.token {
+                    Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
+                    Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
+                    _ => OrderFlag::None,
+                };
+                order.push((e, f));
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+            Some((order_span, order))
+        } else {
+            None
+        };
         parser.consume_token(Token::RParen)?;
         Ok(Expression::WindowFunction(Box::new(
             WindowFunctionCallExpression {
@@ -525,9 +541,7 @@ pub(crate) fn parse_function<'a>(
                 args,
                 function_span: span,
                 over_span,
-                window_spec: WindowSpec {
-                    order_by: (order_span, order),
-                },
+                window_spec: WindowSpec { order_by },
             },
         )))
     } else {

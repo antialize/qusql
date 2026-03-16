@@ -130,8 +130,10 @@ pub(crate) fn type_expression<'a>(
             type_function(typer, &e.function, &e.args, &e.function_span, flags)
         }
         Expression::WindowFunction(e) => {
-            for (e, _) in &e.window_spec.order_by.1 {
-                type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
+            if let Some((_, order_by)) = &e.window_spec.order_by {
+                for (e, _) in order_by {
+                    type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
+                }
             }
             type_function(typer, &e.function, &e.args, &e.function_span, flags)
         }
