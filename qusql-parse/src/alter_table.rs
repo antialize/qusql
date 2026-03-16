@@ -1827,9 +1827,9 @@ fn parse_rename_alter_specification<'a>(
         Token::Ident(_, Keyword::CONSTRAINT) => Ok(AlterSpecification::RenameConstraint(
             parse_rename_constraint(parser, rename_span)?,
         )),
-        Token::Ident(_, Keyword::TO) | Token::Ident(_, Keyword::AS) => Ok(
-            AlterSpecification::RenameTo(parse_rename_to(parser, rename_span)?),
-        ),
+        Token::Ident(_, Keyword::TO | Keyword::AS) => Ok(AlterSpecification::RenameTo(
+            parse_rename_to(parser, rename_span)?,
+        )),
         _ => parser.expected_failure("'COLUMN', 'INDEX', 'CONSTRAINT' or 'TO'")?,
     }
 }
