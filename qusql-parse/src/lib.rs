@@ -166,7 +166,7 @@ pub use rename::{RenameTable, TableToTable};
 pub use select::{
     IndexHint, IndexHintFor, IndexHintType, IndexHintUse, JoinSpecification, JoinType,
     JsonTableColumn, JsonTableOnErrorEmpty, LockStrength, LockWait, Locking, OrderFlag, Select,
-    SelectExpr, SelectFlag, TableReference,
+    SelectExpr, SelectFlag, TableFunctionName, TableReference,
 };
 pub use show::{
     ShowCharacterSet, ShowCollation, ShowColumns, ShowCreateDatabase, ShowCreateTable,
