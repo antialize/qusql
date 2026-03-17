@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use crate::{
-    DataType, Identifier, SString, Span, Spanned, Statement,
+    DataType, Identifier, QualifiedName, SString, Span, Spanned, Statement,
     data_type::{DataTypeContext, parse_data_type},
     function_expression::{
         AggregateFunctionCallExpression, Function, FunctionCallExpression,
@@ -20,6 +20,7 @@ use crate::{
     },
     keywords::{Keyword, Restrict},
     lexer::Token,
+    operator::parse_operator_name,
     parser::{ParseError, Parser},
     select::parse_select,
     span::OptSpanned,
@@ -101,6 +102,8 @@ pub enum BinaryOperator<'a> {
     NotRegexIMatch(Span),
     /// User-defined / unrecognised PostgreSQL operator
     User(&'a str, Span),
+    /// PostgreSQL OPERATOR(schema.op) expression
+    Operator(QualifiedName<'a>, Span),
 }
 
 impl<'a> Spanned for BinaryOperator<'a> {
@@ -152,6 +155,7 @@ impl<'a> Spanned for BinaryOperator<'a> {
             | BinaryOperator::NotRegexMatch(s)
             | BinaryOperator::NotRegexIMatch(s) => s.clone(),
             BinaryOperator::User(_, s) => s.clone(),
+            BinaryOperator::Operator(_, s) => s.clone(),
         }
     }
 }
@@ -1026,7 +1030,8 @@ impl<'a> Priority for BinaryOperator<'a> {
             | BinaryOperator::RegexIMatch(_)
             | BinaryOperator::NotRegexMatch(_)
             | BinaryOperator::NotRegexIMatch(_)
-            | BinaryOperator::User(_, _) => 75,
+            | BinaryOperator::User(_, _)
+            | BinaryOperator::Operator(_, _) => 75,
         }
     }
 }
@@ -1530,6 +1535,18 @@ pub(crate) fn parse_expression_restricted<'a>(
                     && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
                 r.shift_binop(BinaryOperator::User(op, parser.consume()))
+            }
+            Token::Ident(_, Keyword::OPERATOR)
+                if !inner
+                    && parser.options.dialect.is_postgresql()
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
+                parser.consume_token(Token::LParen)?;
+                let op_name = parse_operator_name(parser)?;
+                let rparen_span = parser.consume_token(Token::RParen)?;
+                let full_span = operator_span.join_span(&rparen_span);
+                r.shift_binop(BinaryOperator::Operator(op_name, full_span))
             }
             Token::Ident(_, Keyword::MEMBER)
                 if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>

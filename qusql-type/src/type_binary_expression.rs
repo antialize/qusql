@@ -101,6 +101,7 @@ pub(crate) fn type_binary_expression<'a>(
         | BinaryOperator::RegexIMatch(_)
         | BinaryOperator::NotRegexMatch(_)
         | BinaryOperator::NotRegexIMatch(_) => (flags.without_values(), BaseType::String),
+        BinaryOperator::Operator(_, _) => (flags, BaseType::Any),
     };
 
     let lhs_type = type_expression(typer, lhs, flags, context);
@@ -257,6 +258,10 @@ pub(crate) fn type_binary_expression<'a>(
         }
         BinaryOperator::User(_, _) => {
             FullType::new(BaseType::Any, lhs_type.not_null && rhs_type.not_null)
+        }
+        o @ BinaryOperator::Operator(_, _) => {
+            typer.err("Not supported", o);
+            FullType::invalid()
         }
     }
 }
