@@ -118,6 +118,8 @@ pub enum Function<'a> {
     JsonValue,
     Lag,
     LastDay,
+    Avg,
+    Count,
     LCase,
     Lead,
     Least,
@@ -231,13 +233,29 @@ impl Spanned for FunctionCallExpression<'_> {
 /// When part of CASE
 #[derive(Debug, Clone)]
 pub struct WindowSpec<'a> {
+    /// Span of "PARTITION BY" and list of partition expressions, if specified
+    pub partition_by: Option<(Span, Vec<Expression<'a>>)>,
     /// Span of "ORDER BY" and list of order expression and directions, if specified
     pub order_by: Option<(Span, Vec<(Expression<'a>, OrderFlag)>)>,
 }
 
 impl<'a> Spanned for WindowSpec<'a> {
     fn span(&self) -> Span {
-        self.order_by.opt_span().unwrap_or(0..0)
+        self.partition_by
+            .opt_join_span(&self.order_by)
+            .expect("Either partition_by or order_by must be specified")
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WindowClause<'a> {
+    pub over_span: Span,
+    pub window_spec: WindowSpec<'a>,
+}
+
+impl Spanned for WindowClause<'_> {
+    fn span(&self) -> Span {
+        self.over_span.join_span(&self.window_spec)
     }
 }
 
@@ -247,17 +265,243 @@ pub struct WindowFunctionCallExpression<'a> {
     pub function: Function<'a>,
     pub args: Vec<Expression<'a>>,
     pub function_span: Span,
-    pub over_span: Span,
-    pub window_spec: WindowSpec<'a>,
+    pub over: WindowClause<'a>,
 }
 
 impl Spanned for WindowFunctionCallExpression<'_> {
     fn span(&self) -> Span {
         self.function_span
             .join_span(&self.args)
-            .join_span(&self.over_span)
-            .join_span(&self.window_spec)
+            .join_span(&self.over)
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct AggregateFunctionCallExpression<'a> {
+    pub function: Function<'a>,
+    pub args: Vec<Expression<'a>>,
+    pub function_span: Span,
+    pub distinct_span: Option<Span>,
+    pub within_group: Option<(Span, Vec<(Expression<'a>, OrderFlag)>)>,
+    pub filter: Option<(Span, Expression<'a>)>,
+    pub over: Option<WindowClause<'a>>,
+}
+
+impl Spanned for AggregateFunctionCallExpression<'_> {
+    fn span(&self) -> Span {
+        self.function_span
+            .join_span(&self.args)
+            .join_span(&self.distinct_span)
+            .join_span(&self.within_group)
+            .join_span(&self.filter)
+            .join_span(&self.over)
+    }
+}
+
+pub(crate) fn is_aggregate_function_name(name: &str) -> bool {
+    name.eq_ignore_ascii_case("avg")
+        || name.eq_ignore_ascii_case("bit_and")
+        || name.eq_ignore_ascii_case("bit_or")
+        || name.eq_ignore_ascii_case("bit_xor")
+        || name.eq_ignore_ascii_case("bool_and")
+        || name.eq_ignore_ascii_case("bool_or")
+        || name.eq_ignore_ascii_case("count")
+        || name.eq_ignore_ascii_case("every")
+        || name.eq_ignore_ascii_case("json_agg")
+        || name.eq_ignore_ascii_case("jsonb_agg")
+        || name.eq_ignore_ascii_case("json_object_agg")
+        || name.eq_ignore_ascii_case("jsonb_object_agg")
+        || name.eq_ignore_ascii_case("json_arrayagg")
+        || name.eq_ignore_ascii_case("json_objectagg")
+        || name.eq_ignore_ascii_case("max")
+        || name.eq_ignore_ascii_case("min")
+        || name.eq_ignore_ascii_case("std")
+        || name.eq_ignore_ascii_case("stddev")
+        || name.eq_ignore_ascii_case("stddev_pop")
+        || name.eq_ignore_ascii_case("stddev_samp")
+        || name.eq_ignore_ascii_case("sum")
+        || name.eq_ignore_ascii_case("variance")
+        || name.eq_ignore_ascii_case("var_pop")
+        || name.eq_ignore_ascii_case("var_samp")
+        || name.eq_ignore_ascii_case("array_agg")
+        || name.eq_ignore_ascii_case("string_agg")
+        || name.eq_ignore_ascii_case("xmlagg")
+        || name.eq_ignore_ascii_case("corr")
+        || name.eq_ignore_ascii_case("covar_pop")
+        || name.eq_ignore_ascii_case("covar_samp")
+        || name.eq_ignore_ascii_case("regr_avgx")
+        || name.eq_ignore_ascii_case("regr_avgy")
+        || name.eq_ignore_ascii_case("regr_count")
+        || name.eq_ignore_ascii_case("regr_intercept")
+        || name.eq_ignore_ascii_case("regr_r2")
+        || name.eq_ignore_ascii_case("regr_slope")
+        || name.eq_ignore_ascii_case("regr_sxx")
+        || name.eq_ignore_ascii_case("regr_sxy")
+        || name.eq_ignore_ascii_case("regr_syy")
+        || name.eq_ignore_ascii_case("mode")
+        || name.eq_ignore_ascii_case("percentile_cont")
+        || name.eq_ignore_ascii_case("percentile_disc")
+        || name.eq_ignore_ascii_case("rank")
+        || name.eq_ignore_ascii_case("dense_rank")
+        || name.eq_ignore_ascii_case("percent_rank")
+        || name.eq_ignore_ascii_case("cume_dist")
+}
+
+pub(crate) fn is_aggregate_function_ident(name: &str, keyword: &Keyword) -> bool {
+    matches!(
+        keyword,
+        Keyword::COUNT
+            | Keyword::AVG
+            | Keyword::SUM
+            | Keyword::MIN
+            | Keyword::MAX
+            | Keyword::JSON_ARRAYAGG
+            | Keyword::JSON_OBJECTAGG
+    ) || is_aggregate_function_name(name)
+}
+
+fn parse_over_clause<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Option<WindowClause<'a>>, ParseError> {
+    let Some(over_span) = parser.skip_keyword(Keyword::OVER) else {
+        return Ok(None);
+    };
+
+    parser.consume_token(Token::LParen)?;
+
+    let partition_by = if let Some(partition_span) = parser.skip_keyword(Keyword::PARTITION) {
+        let partition_by_span = partition_span.join_span(&parser.consume_keyword(Keyword::BY)?);
+        let mut partition_exprs = Vec::new();
+        loop {
+            partition_exprs.push(parse_expression_unreserved(parser, false)?);
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        Some((partition_by_span, partition_exprs))
+    } else {
+        None
+    };
+
+    let order_by = if let Some(span) = parser.skip_keyword(Keyword::ORDER) {
+        let order_span = span.join_span(&parser.consume_keyword(Keyword::BY)?);
+        let mut order = Vec::new();
+        loop {
+            let e = parse_expression_unreserved(parser, false)?;
+            let f = match &parser.token {
+                Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
+                Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
+                _ => OrderFlag::None,
+            };
+            order.push((e, f));
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        Some((order_span, order))
+    } else {
+        None
+    };
+
+    parser.consume_token(Token::RParen)?;
+
+    Ok(Some(WindowClause {
+        over_span,
+        window_spec: WindowSpec {
+            partition_by,
+            order_by,
+        },
+    }))
+}
+
+pub(crate) fn parse_aggregate_function<'a>(
+    parser: &mut Parser<'a, '_>,
+    t: Token<'a>,
+    span: Span,
+) -> Result<Expression<'a>, ParseError> {
+    parser.consume_token(Token::LParen)?;
+    let func = match &t {
+        Token::Ident(_, Keyword::COUNT) => Function::Count,
+        Token::Ident(_, Keyword::AVG) => Function::Avg,
+        Token::Ident(_, Keyword::SUM) => Function::Sum,
+        Token::Ident(_, Keyword::MIN) => Function::Min,
+        Token::Ident(_, Keyword::MAX) => Function::Max,
+        Token::Ident(_, Keyword::JSON_ARRAYAGG) => Function::JsonArrayAgg,
+        Token::Ident(_, Keyword::JSON_OBJECTAGG) => Function::JsonObjectAgg,
+        Token::Ident(name, _) if is_aggregate_function_name(name) => Function::Other(name),
+        _ => {
+            parser.err("Unknown aggregate function", &span);
+            Function::Unknown
+        }
+    };
+
+    let distinct_span = parser.skip_keyword(Keyword::DISTINCT);
+    let mut args = Vec::new();
+    if !matches!(parser.token, Token::RParen) {
+        loop {
+            parser.recovered(
+                "')' or ','",
+                &|t| matches!(t, Token::RParen | Token::Comma),
+                |parser| {
+                    args.push(parse_expression_outer(parser)?);
+                    Ok(())
+                },
+            )?;
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+    }
+    parser.consume_token(Token::RParen)?;
+
+    let within_group = if let Some(within_span) = parser.skip_keyword(Keyword::WITHIN) {
+        let within_group_span = within_span.join_span(&parser.consume_keyword(Keyword::GROUP)?);
+        parser.consume_token(Token::LParen)?;
+        let order_span = parser.consume_keyword(Keyword::ORDER)?;
+        let order_by_span = order_span.join_span(&parser.consume_keyword(Keyword::BY)?);
+        let mut order = Vec::new();
+        loop {
+            let e = parse_expression_unreserved(parser, false)?;
+            let f = match &parser.token {
+                Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
+                Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
+                _ => OrderFlag::None,
+            };
+            order.push((e, f));
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        parser.consume_token(Token::RParen)?;
+        Some((within_group_span.join_span(&order_by_span), order))
+    } else {
+        None
+    };
+
+    let filter = if let Some(filter_span) = parser.skip_keyword(Keyword::FILTER) {
+        parser.postgres_only(&filter_span);
+        parser.consume_token(Token::LParen)?;
+        parser.consume_keyword(Keyword::WHERE)?;
+        let condition = parse_expression_unreserved(parser, false)?;
+        parser.consume_token(Token::RParen)?;
+        Some((filter_span, condition))
+    } else {
+        None
+    };
+
+    let over = parse_over_clause(parser)?;
+
+    Ok(Expression::AggregateFunction(Box::new(
+        AggregateFunctionCallExpression {
+            function: func,
+            args,
+            function_span: span,
+            distinct_span,
+            within_group,
+            filter,
+            over,
+        },
+    )))
 }
 
 pub(crate) fn parse_function<'a>(
@@ -326,6 +570,8 @@ pub(crate) fn parse_function<'a>(
 
         // TODO uncat
         Token::Ident(_, Keyword::EXISTS) => Function::Exists,
+        Token::Ident(_, Keyword::COUNT) => Function::Count,
+        Token::Ident(_, Keyword::AVG) => Function::Avg,
         Token::Ident(_, Keyword::MIN) => Function::Min,
         Token::Ident(_, Keyword::MAX) => Function::Max,
         Token::Ident(_, Keyword::SUM) => Function::Sum,
@@ -502,46 +748,13 @@ pub(crate) fn parse_function<'a>(
     }
     parser.consume_token(Token::RParen)?;
 
-    if let Some(over_span) = parser.skip_keyword(Keyword::OVER) {
-        parser.consume_token(Token::LParen)?;
-
-        if parser.skip_keyword(Keyword::PARTITION).is_some() {
-            parser.consume_keyword(Keyword::BY)?;
-            loop {
-                parse_expression_unreserved(parser, false)?;
-                if parser.skip_token(Token::Comma).is_none() {
-                    break;
-                }
-            }
-        }
-
-        let order_by = if let Some(span) = parser.skip_keyword(Keyword::ORDER) {
-            let order_span = span.join_span(&parser.consume_keyword(Keyword::BY)?);
-            let mut order = Vec::new();
-            loop {
-                let e = parse_expression_unreserved(parser, false)?;
-                let f = match &parser.token {
-                    Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
-                    Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
-                    _ => OrderFlag::None,
-                };
-                order.push((e, f));
-                if parser.skip_token(Token::Comma).is_none() {
-                    break;
-                }
-            }
-            Some((order_span, order))
-        } else {
-            None
-        };
-        parser.consume_token(Token::RParen)?;
+    if let Some(over) = parse_over_clause(parser)? {
         Ok(Expression::WindowFunction(Box::new(
             WindowFunctionCallExpression {
                 function: func,
                 args,
                 function_span: span,
-                over_span,
-                window_spec: WindowSpec { order_by },
+                over,
             },
         )))
     } else {

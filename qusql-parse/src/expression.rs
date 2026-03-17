@@ -14,7 +14,9 @@ use crate::{
     DataType, Identifier, SString, Span, Spanned, Statement,
     data_type::{DataTypeContext, parse_data_type},
     function_expression::{
-        Function, FunctionCallExpression, WindowFunctionCallExpression, parse_function,
+        AggregateFunctionCallExpression, Function, FunctionCallExpression,
+        WindowFunctionCallExpression, is_aggregate_function_ident, parse_aggregate_function,
+        parse_function,
     },
     keywords::{Keyword, Restrict},
     lexer::Token,
@@ -548,25 +550,6 @@ impl Spanned for ArraySubscriptExpression<'_> {
     }
 }
 
-/// Count expression
-#[derive(Debug, Clone)]
-pub struct CountExpression<'a> {
-    /// Span of "COUNT"
-    pub count_span: Span,
-    /// Span of "DTINCT" if specified
-    pub distinct_span: Option<Span>,
-    /// Expression to count
-    pub expr: Expression<'a>,
-}
-
-impl Spanned for CountExpression<'_> {
-    fn span(&self) -> Span {
-        self.count_span
-            .join_span(&self.distinct_span)
-            .join_span(&self.expr)
-    }
-}
-
 /// Group contat expression
 #[derive(Debug, Clone)]
 pub struct GroupConcatExpression<'a> {
@@ -899,6 +882,8 @@ pub enum Expression<'a> {
     Function(Box<FunctionCallExpression<'a>>),
     /// A window function call expression
     WindowFunction(Box<WindowFunctionCallExpression<'a>>),
+    /// Aggregate function call expression with optional DISTINCT/FILTER/OVER
+    AggregateFunction(Box<AggregateFunctionCallExpression<'a>>),
     /// Identifier pointing to column
     Identifier(Box<IdentifierExpression<'a>>),
     /// Time Interval
@@ -923,8 +908,6 @@ pub enum Expression<'a> {
     Cast(Box<CastExpression<'a>>),
     /// Convert expression (CONVERT(expr, type) or CONVERT(expr USING charset))
     Convert(Box<ConvertExpression<'a>>),
-    /// Count expression
-    Count(Box<CountExpression<'a>>),
     /// Group contat expression
     GroupConcat(Box<GroupConcatExpression<'a>>),
     /// Variable expression
@@ -959,6 +942,7 @@ impl<'a> Spanned for Expression<'a> {
             Expression::Float(v) => v.span(),
             Expression::ListHack(v) => v.span(),
             Expression::Function(e) => e.span(),
+            Expression::AggregateFunction(e) => e.span(),
             Expression::Identifier(e) => e.span(),
             Expression::Arg(v) => v.span(),
             Expression::Exists(v) => v.span(),
@@ -970,7 +954,6 @@ impl<'a> Spanned for Expression<'a> {
             Expression::Cast(e) => e.span(),
             Expression::Convert(e) => e.span(),
             Expression::TypeCast(e) => e.span(),
-            Expression::Count(e) => e.span(),
             Expression::GroupConcat(e) => e.span(),
             Expression::Variable(e) => e.span(),
             Expression::UserVariable(e) => e.span(),
@@ -1172,6 +1155,23 @@ pub(crate) fn parse_expression_restricted<'a>(
 ) -> Result<Expression<'a>, ParseError> {
     let mut r = Reducer { stack: Vec::new() };
     loop {
+        if matches!(r.stack.last(), Some(ReduceMember::Expression(_)))
+            && matches!(
+                parser.token,
+                Token::Ident(
+                    _,
+                    Keyword::NULLS
+                        | Keyword::FIRST
+                        | Keyword::LAST
+                        | Keyword::ROW
+                        | Keyword::ROWS
+                        | Keyword::ONLY
+                        | Keyword::FILTER
+                )
+            )
+        {
+            break;
+        }
         let e = match parser.token.clone() {
             Token::ColonEq if !inner => r.shift_binop(BinaryOperator::Assignment(parser.consume())),
             Token::Ident(_, Keyword::OR) | Token::DoublePipe if !inner => {
@@ -1420,11 +1420,11 @@ pub(crate) fn parse_expression_restricted<'a>(
                         r.stack.push(ReduceMember::Expression(lhs));
                         r.shift_binop(BinaryOperator::NotLike(parser.consume().join_span(&op)))
                     }
-                    Token::Ident(_, Keyword::REGEXP) => {
+                    Token::Ident(_, Keyword::REGEXP) if parser.options.dialect.is_maria() => {
                         r.stack.push(ReduceMember::Expression(lhs));
                         r.shift_binop(BinaryOperator::NotRegexp(parser.consume().join_span(&op)))
                     }
-                    Token::Ident(_, Keyword::RLIKE) => {
+                    Token::Ident(_, Keyword::RLIKE) if parser.options.dialect.is_maria() => {
                         r.stack.push(ReduceMember::Expression(lhs));
                         r.shift_binop(BinaryOperator::NotRlike(parser.consume().join_span(&op)))
                     }
@@ -1450,10 +1450,10 @@ pub(crate) fn parse_expression_restricted<'a>(
                 r.stack.push(ReduceMember::Expression(lhs));
                 r.shift_binop(BinaryOperator::Like(op_span))
             }
-            Token::Ident(_, Keyword::REGEXP) if !inner => {
+            Token::Ident(_, Keyword::REGEXP) if !inner && parser.options.dialect.is_maria() => {
                 r.shift_binop(BinaryOperator::Regexp(parser.consume()))
             }
-            Token::Ident(_, Keyword::RLIKE) if !inner => {
+            Token::Ident(_, Keyword::RLIKE) if !inner && parser.options.dialect.is_maria() => {
                 r.shift_binop(BinaryOperator::Rlike(parser.consume()))
             }
             Token::RArrowJson if !inner => {
@@ -1756,27 +1756,6 @@ pub(crate) fn parse_expression_restricted<'a>(
                     })))
                 }
             }
-            Token::Ident(_, Keyword::COUNT) => {
-                let count_span = parser.consume_keyword(Keyword::COUNT)?;
-                parser.consume_token(Token::LParen)?;
-                let distinct_span = parser.skip_keyword(Keyword::DISTINCT);
-                let expr = parser.recovered("')'", &|t| matches!(t, Token::RParen), |parser| {
-                    let expr = parse_expression_outer(parser)?;
-                    Ok(Some(expr))
-                })?;
-                parser.consume_token(Token::RParen)?;
-                if let Some(expr) = expr {
-                    r.shift_expr(Expression::Count(Box::new(CountExpression {
-                        count_span,
-                        distinct_span,
-                        expr,
-                    })))
-                } else {
-                    r.shift_expr(Expression::Invalid(Box::new(InvalidExpression {
-                        span: count_span,
-                    })))
-                }
-            }
             Token::Ident(_, Keyword::GROUP_CONCAT) => {
                 let group_concat_span: core::ops::Range<usize> =
                     parser.consume_keyword(Keyword::GROUP_CONCAT)?;
@@ -1932,6 +1911,15 @@ pub(crate) fn parse_expression_restricted<'a>(
                 let s = parser.span.clone();
                 parser.consume();
                 r.shift_expr(parse_function(parser, i, s)?)
+            }
+            Token::Ident(name, keyword)
+                if matches!(parser.peek(), Token::LParen)
+                    && is_aggregate_function_ident(name, &keyword) =>
+            {
+                let i = parser.token.clone();
+                let s = parser.span.clone();
+                parser.consume();
+                r.shift_expr(parse_aggregate_function(parser, i, s)?)
             }
             // Handle charset-prefixed strings like _utf8mb4 'abc' or _binary 'data'
             Token::Ident(charset, _)

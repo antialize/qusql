@@ -18,8 +18,8 @@ use crate::{
     schema::parse_column,
     type_::{ArgType, BaseType, FullType},
     type_binary_expression::type_binary_expression,
-    type_function::type_function,
-    type_select::{resolve_kleene_identifier, type_union_select},
+    type_function::{type_aggregate_function, type_function},
+    type_select::type_union_select,
     typer::{Restrict, Typer},
 };
 
@@ -130,12 +130,47 @@ pub(crate) fn type_expression<'a>(
             type_function(typer, &e.function, &e.args, &e.function_span, flags)
         }
         Expression::WindowFunction(e) => {
-            if let Some((_, order_by)) = &e.window_spec.order_by {
+            if let Some((_, partition_by)) = &e.over.window_spec.partition_by {
+                for e in partition_by {
+                    type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
+                }
+            }
+            if let Some((_, order_by)) = &e.over.window_spec.order_by {
                 for (e, _) in order_by {
                     type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
                 }
             }
             type_function(typer, &e.function, &e.args, &e.function_span, flags)
+        }
+        Expression::AggregateFunction(e) => {
+            if let Some((_, filter)) = &e.filter {
+                type_expression(typer, filter, ExpressionFlags::default(), BaseType::Bool);
+            }
+            if let Some((_, within_group_order)) = &e.within_group {
+                for (e, _) in within_group_order {
+                    type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
+                }
+            }
+            if let Some(over) = &e.over {
+                if let Some((_, partition_by)) = &over.window_spec.partition_by {
+                    for e in partition_by {
+                        type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
+                    }
+                }
+                if let Some((_, order_by)) = &over.window_spec.order_by {
+                    for (e, _) in order_by {
+                        type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
+                    }
+                }
+            }
+            type_aggregate_function(
+                typer,
+                &e.function,
+                &e.args,
+                &e.function_span,
+                &e.distinct_span,
+                flags,
+            )
         }
         Expression::Identifier(e) => {
             let mut t = None;
@@ -438,17 +473,6 @@ pub(crate) fn type_expression<'a>(
             let e = type_expression(typer, &e.expr, flags, col.type_.base());
             //TODO check if it can possible be valid cast
             FullType::new(col.type_.t, e.not_null)
-        }
-        Expression::Count(e) => {
-            match &e.expr {
-                Expression::Identifier(parts) => {
-                    resolve_kleene_identifier(typer, &parts.parts, &None, |_, _, _, _, _| {})
-                }
-                arg => {
-                    type_expression(typer, arg, flags.without_values(), BaseType::Any);
-                }
-            }
-            FullType::new(BaseType::Integer, true)
         }
         Expression::GroupConcat(e) => {
             let e = type_expression(typer, &e.expr, flags.without_values(), BaseType::Any);
