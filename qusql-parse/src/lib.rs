@@ -134,17 +134,18 @@ pub use drop::{
 };
 pub use expression::{
     ArgExpression, ArrayExpression, ArraySubscriptExpression, BinaryExpression, BinaryOperator,
-    BoolExpression, CaseExpression, CastExpression, ConvertExpression, CountExpression,
-    DefaultExpression, ExistsExpression, Expression, ExtractExpression, FloatExpression,
-    GroupConcatExpression, IdentifierExpression, IdentifierPart, InExpression, IntegerExpression,
-    IntervalExpression, InvalidExpression, Is, IsExpression, ListHackExpression,
-    MatchAgainstExpression, MatchMode, MemberOfExpression, NullExpression, SubqueryExpression,
-    TimeUnit, TimestampAddExpression, TimestampDiffExpression, TypeCastExpression, UnaryExpression,
-    UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
+    BoolExpression, CaseExpression, CastExpression, ConvertExpression, DefaultExpression,
+    ExistsExpression, Expression, ExtractExpression, FloatExpression, GroupConcatExpression,
+    IdentifierExpression, IdentifierPart, InExpression, IntegerExpression, IntervalExpression,
+    InvalidExpression, Is, IsExpression, ListHackExpression, MatchAgainstExpression, MatchMode,
+    MemberOfExpression, NullExpression, SubqueryExpression, TimeUnit, TimestampAddExpression,
+    TimestampDiffExpression, TypeCastExpression, UnaryExpression, UnaryOperator,
+    UserVariableExpression, Variable, VariableExpression, When,
 };
 pub use flush::{Flush, FlushOption};
 pub use function_expression::{
-    Function, FunctionCallExpression, WindowFunctionCallExpression, WindowSpec,
+    AggregateFunctionCallExpression, Function, FunctionCallExpression, WindowClause,
+    WindowFunctionCallExpression, WindowSpec,
 };
 pub use identifier::Identifier;
 pub use insert_replace::{

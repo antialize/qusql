@@ -316,6 +316,35 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::invalid()
             }
         }
+        Function::Avg => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((_, t)) = typed.first() {
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                ) {
+                    typer.err(format!("Expected numeric type got {t}"), span);
+                }
+                FullType::new(BaseType::Float, false)
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Count => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                match arg {
+                    Expression::Identifier(parts)
+                        if parts.parts.len() == 1
+                            && matches!(parts.parts[0], qusql_parse::IdentifierPart::Star(_)) => {}
+                    _ => {
+                        type_expression(typer, arg, flags.without_values(), BaseType::Any);
+                    }
+                }
+            }
+            FullType::new(BaseType::Integer, true)
+        }
         Function::Now => tf(BaseType::DateTime.into(), &[], &[BaseType::Integer]),
         Function::CurDate | Function::UtcDate => tf(BaseType::Date.into(), &[], &[]),
         Function::CurTime | Function::UtcTime => tf(BaseType::Time.into(), &[], &[]),
@@ -701,6 +730,84 @@ pub(crate) fn type_function<'a, 'b>(
         Function::Sleep => tf(BaseType::Integer.into(), &[BaseType::Float], &[]),
         _ => {
             typer.err("Typing for function not implemented", span);
+            FullType::invalid()
+        }
+    }
+}
+
+pub(crate) fn type_aggregate_function<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
+    func: &Function<'a>,
+    args: &[Expression<'a>],
+    span: &Span,
+    distinct_span: &Option<Span>,
+    flags: ExpressionFlags,
+) -> FullType<'a> {
+    if distinct_span.is_some() && args.is_empty() {
+        typer.err("DISTINCT requires an argument", span);
+    }
+
+    match func {
+        Function::Count => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                match arg {
+                    Expression::Identifier(parts)
+                        if parts.parts.len() == 1
+                            && matches!(parts.parts[0], qusql_parse::IdentifierPart::Star(_)) => {}
+                    _ => {
+                        type_expression(typer, arg, flags.without_values(), BaseType::Any);
+                    }
+                }
+            }
+            FullType::new(BaseType::Integer, true)
+        }
+        Function::Avg => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                ) {
+                    typer.err(format!("Expected numeric type got {t}"), arg);
+                }
+            }
+            FullType::new(BaseType::Float, false)
+        }
+        Function::Min | Function::Max | Function::Sum => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((_, t2)) = typed.first() {
+                let mut v = t2.clone();
+                v.not_null = false;
+                v
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::JsonArrayAgg => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                type_expression(typer, arg, flags.without_values(), BaseType::Any);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonObjectAgg => {
+            arg_cnt(typer, 2..2, args, span);
+            if let Some(key) = args.first() {
+                let key_t = type_expression(typer, key, flags.without_values(), BaseType::Any);
+                if !matches!(key_t.base(), BaseType::Any | BaseType::String) {
+                    typer.err(format!("Expected string key type got {key_t}"), key);
+                }
+            }
+            if let Some(value) = args.get(1) {
+                type_expression(typer, value, flags.without_values(), BaseType::Any);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        _ => {
+            typer.err("Unsupported aggregate function", span);
             FullType::invalid()
         }
     }
