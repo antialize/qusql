@@ -1326,8 +1326,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                 })))
             }
             Token::DoubleColon
-                if !inner
-                    && parser.options.dialect.is_postgresql()
+                if parser.options.dialect.is_postgresql()
                     && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
                 // PostgreSQL typecast operator: expr::type
