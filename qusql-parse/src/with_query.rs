@@ -137,6 +137,7 @@ pub(crate) fn parse_with_query<'a>(
                 if !matches!(
                     &v,
                     Statement::Select(_)
+                        | Statement::CompoundQuery(_)
                         | Statement::InsertReplace(_)
                         | Statement::Update(_)
                         | Statement::Delete(_)
