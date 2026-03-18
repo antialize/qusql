@@ -12,7 +12,7 @@
 use crate::{
     Expression, Identifier, Span, Spanned, Statement,
     create_option::CreateOption,
-    expression::parse_expression_unreserved,
+    expression::{PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -245,7 +245,7 @@ pub(crate) fn parse_create_trigger<'a>(
     let when_condition = if let Some(when_span) = parser.skip_keyword(Keyword::WHEN) {
         parser.consume_token(Token::LParen)?;
         let expr = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
-            Ok(Some(parse_expression_unreserved(parser, false)?))
+            Ok(Some(parse_expression_unreserved(parser, PRIORITY_MAX)?))
         })?;
         parser.consume_token(Token::RParen)?;
         expr.map(|e| (when_span, e))

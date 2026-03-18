@@ -15,7 +15,9 @@ use alloc::vec::Vec;
 
 use crate::{
     Identifier, SelectExpr, Span, Spanned,
-    expression::{Expression, parse_expression_or_default, parse_expression_unreserved},
+    expression::{
+        Expression, PRIORITY_MAX, parse_expression_or_default, parse_expression_unreserved,
+    },
     keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
@@ -130,7 +132,7 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
             col.push(parser.consume_plain_identifier_unreserved()?);
         }
         parser.consume_token(Token::Eq)?;
-        let val = parse_expression_or_default(parser, false)?;
+        let val = parse_expression_or_default(parser, PRIORITY_MAX)?;
         set.push((col, val));
         if parser.skip_token(Token::Comma).is_none() {
             break;
@@ -138,7 +140,7 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
     }
 
     let where_ = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
-        Some((parse_expression_unreserved(parser, false)?, span))
+        Some((parse_expression_unreserved(parser, PRIORITY_MAX)?, span))
     } else {
         None
     };
@@ -155,7 +157,7 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
                 }
             }
             let where_inner = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
-                Some((parse_expression_unreserved(parser, false)?, span))
+                Some((parse_expression_unreserved(parser, PRIORITY_MAX)?, span))
             } else {
                 None
             };

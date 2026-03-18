@@ -12,7 +12,7 @@
 
 use crate::{
     Expression, OptSpanned, Span, Spanned,
-    expression::{parse_expression_outer, parse_expression_unreserved},
+    expression::{PRIORITY_MAX, parse_expression_outer, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -377,7 +377,7 @@ fn parse_over_clause<'a>(
         let partition_by_span = partition_span.join_span(&parser.consume_keyword(Keyword::BY)?);
         let mut partition_exprs = Vec::new();
         loop {
-            partition_exprs.push(parse_expression_unreserved(parser, false)?);
+            partition_exprs.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -391,7 +391,7 @@ fn parse_over_clause<'a>(
         let order_span = span.join_span(&parser.consume_keyword(Keyword::BY)?);
         let mut order = Vec::new();
         loop {
-            let e = parse_expression_unreserved(parser, false)?;
+            let e = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             let f = match &parser.token {
                 Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
                 Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
@@ -465,7 +465,7 @@ pub(crate) fn parse_aggregate_function<'a>(
         let order_by_span = order_span.join_span(&parser.consume_keyword(Keyword::BY)?);
         let mut order = Vec::new();
         loop {
-            let e = parse_expression_unreserved(parser, false)?;
+            let e = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             let f = match &parser.token {
                 Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
                 Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
@@ -486,7 +486,7 @@ pub(crate) fn parse_aggregate_function<'a>(
         parser.postgres_only(&filter_span);
         parser.consume_token(Token::LParen)?;
         parser.consume_keyword(Keyword::WHERE)?;
-        let condition = parse_expression_unreserved(parser, false)?;
+        let condition = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         parser.consume_token(Token::RParen)?;
         Some((filter_span, condition))
     } else {
@@ -777,8 +777,10 @@ mod tests {
     use alloc::string::{String, ToString};
 
     use crate::{
-        Function, FunctionCallExpression, ParseOptions, SQLDialect, expression::Expression,
-        issue::Issues, parser::Parser,
+        Function, FunctionCallExpression, ParseOptions, SQLDialect,
+        expression::{Expression, PRIORITY_MAX},
+        issue::Issues,
+        parser::Parser,
     };
 
     use super::parse_expression_unreserved;
@@ -787,7 +789,8 @@ mod tests {
         let mut issues = Issues::new(src);
         let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
         let mut parser = Parser::new(src, &mut issues, &options);
-        let res = parse_expression_unreserved(&mut parser, false).expect("Expression in test expr");
+        let res = parse_expression_unreserved(&mut parser, PRIORITY_MAX)
+            .expect("Expression in test expr");
         if let Err(e) = f(&res) {
             panic!("Error parsing {}: {}\nGot {:#?}", src, e, res);
         }
@@ -799,7 +802,7 @@ mod tests {
             let mut issues = Issues::new(src);
             let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
             let mut parser = Parser::new(src, &mut issues, &options);
-            let res = match parse_expression_unreserved(&mut parser, false) {
+            let res = match parse_expression_unreserved(&mut parser, PRIORITY_MAX) {
                 Ok(res) => res,
                 Err(e) => panic!("Unable to parse {}: {:?}", src, e),
             };

@@ -64,7 +64,8 @@ fn parse_fetch<'a>(parser: &mut Parser<'a, '_>, fetch_span: Span) -> Result<Fetc
         Token::Ident(_, Keyword::ROW | Keyword::ROWS | Keyword::ONLY)
     ) {
         Some(crate::expression::parse_expression_unreserved(
-            parser, true,
+            parser,
+            crate::expression::PRIORITY_INNER,
         )?)
     } else {
         None
@@ -137,7 +138,8 @@ pub(crate) fn parse_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Values<'a>
             |parser| {
                 loop {
                     row.push(crate::expression::parse_expression_unreserved(
-                        parser, true,
+                        parser,
+                        crate::expression::PRIORITY_INNER,
                     )?);
                     if parser.skip_token(Token::Comma).is_none() {
                         break;
@@ -176,7 +178,10 @@ pub(crate) fn parse_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Values<'a>
         let span = order_span.join_span(&by_span);
         let mut items = Vec::new();
         loop {
-            let expr = crate::expression::parse_expression_unreserved(parser, false)?;
+            let expr = crate::expression::parse_expression_unreserved(
+                parser,
+                crate::expression::PRIORITY_MAX,
+            )?;
             let order_flag = match &parser.token {
                 Token::Ident(_, Keyword::ASC) => crate::select::OrderFlag::Asc(parser.consume()),
                 Token::Ident(_, Keyword::DESC) => crate::select::OrderFlag::Desc(parser.consume()),
@@ -194,7 +199,10 @@ pub(crate) fn parse_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Values<'a>
 
     // Parse optional LIMIT
     let limit = if let Some(limit_span) = parser.skip_keyword(Keyword::LIMIT) {
-        let expr = crate::expression::parse_expression_unreserved(parser, true)?;
+        let expr = crate::expression::parse_expression_unreserved(
+            parser,
+            crate::expression::PRIORITY_INNER,
+        )?;
         Some((limit_span, expr))
     } else {
         None
@@ -202,7 +210,10 @@ pub(crate) fn parse_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Values<'a>
 
     // Parse optional OFFSET
     let offset = if let Some(offset_span) = parser.skip_keyword(Keyword::OFFSET) {
-        let expr = crate::expression::parse_expression_unreserved(parser, true)?;
+        let expr = crate::expression::parse_expression_unreserved(
+            parser,
+            crate::expression::PRIORITY_INNER,
+        )?;
         // Optionally consume ROW/ROWS
         if matches!(parser.token, Token::Ident(_, Keyword::ROW | Keyword::ROWS)) {
             parser.consume();

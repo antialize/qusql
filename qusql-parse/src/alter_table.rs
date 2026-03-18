@@ -15,7 +15,7 @@ use crate::qualified_name::parse_qualified_name_unreserved;
 use crate::{
     DataType, Expression, Identifier, QualifiedName, SString, SequenceOption, Span, Spanned,
     data_type::{DataTypeContext, parse_data_type},
-    expression::parse_expression_unreserved,
+    expression::{PRIORITY_MAX, parse_expression_unreserved},
     keywords::{Keyword, Restrict},
     lexer::{StringType, Token},
     parser::{ParseError, Parser},
@@ -1630,7 +1630,7 @@ pub(crate) fn parse_index_cols<'a>(
             let expr = if parser.token == Token::LParen {
                 // Functional index: parse expression
                 parser.consume_token(Token::LParen)?;
-                let expression = parse_expression_unreserved(parser, false)?;
+                let expression = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                 parser.consume_token(Token::RParen)?;
                 IndexColExpr::Expression(expression)
             } else {
@@ -1777,7 +1777,7 @@ fn parse_add_alter_specification<'a>(
             let check_span = parser.consume_keyword(Keyword::CHECK)?;
             parser.postgres_only(&check_span);
             parser.consume_token(Token::LParen)?;
-            let expr = parse_expression_unreserved(parser, false)?;
+            let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             parser.consume_token(Token::RParen)?;
             let not_valid = if let Some(span) = parser.skip_keyword(Keyword::NOT) {
                 Some(span.join_span(&parser.consume_keyword(Keyword::VALID)?))
@@ -1982,7 +1982,8 @@ pub(crate) fn parse_alter_table<'a>(
                                     Token::Ident(_, Keyword::DEFAULT) => {
                                         let set_default_span =
                                             parser.consume().join_span(&set_span);
-                                        let value = parse_expression_unreserved(parser, false)?;
+                                        let value =
+                                            parse_expression_unreserved(parser, PRIORITY_MAX)?;
                                         AlterColumnAction::SetDefault {
                                             set_default_span,
                                             value,
@@ -2006,7 +2007,8 @@ pub(crate) fn parse_alter_table<'a>(
                                         let using = if let Some(using_span) =
                                             parser.skip_keyword(Keyword::USING)
                                         {
-                                            let expr = parse_expression_unreserved(parser, false)?;
+                                            let expr =
+                                                parse_expression_unreserved(parser, PRIORITY_MAX)?;
                                             Some((using_span, expr))
                                         } else {
                                             None
@@ -2043,13 +2045,14 @@ pub(crate) fn parse_alter_table<'a>(
                             Token::Ident(_, Keyword::TYPE) => {
                                 let type_span = parser.consume();
                                 let type_ = parse_data_type(parser, DataTypeContext::Column)?;
-                                let using =
-                                    if let Some(using_span) = parser.skip_keyword(Keyword::USING) {
-                                        let expr = parse_expression_unreserved(parser, false)?;
-                                        Some((using_span, expr))
-                                    } else {
-                                        None
-                                    };
+                                let using = if let Some(using_span) =
+                                    parser.skip_keyword(Keyword::USING)
+                                {
+                                    let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+                                    Some((using_span, expr))
+                                } else {
+                                    None
+                                };
                                 AlterColumnAction::Type {
                                     type_span,
                                     type_,

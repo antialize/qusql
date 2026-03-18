@@ -20,7 +20,7 @@ use crate::{
     create_trigger::parse_create_trigger,
     create_view::parse_create_view,
     data_type::{DataTypeContext, parse_data_type},
-    expression::{Expression, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     operator::{parse_create_operator, parse_create_operator_class, parse_create_operator_family},
@@ -350,7 +350,7 @@ pub fn parse_create_domain<'a>(
 
     // Optional DEFAULT
     let default = if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
-        let expr = parse_expression_unreserved(parser, false)?;
+        let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         Some((default_span, expr))
     } else {
         None
@@ -377,7 +377,7 @@ pub fn parse_create_domain<'a>(
             Token::Ident(_, Keyword::CHECK) => {
                 let check_span = parser.consume_keyword(Keyword::CHECK)?;
                 parser.consume_token(Token::LParen)?;
-                let expr = parse_expression_unreserved(parser, false)?;
+                let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                 parser.consume_token(Token::RParen)?;
                 constraints.push(DomainConstraint::Check(check_span, expr));
             }

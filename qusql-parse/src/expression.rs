@@ -999,9 +999,29 @@ impl<'a> Spanned for Expression<'a> {
     }
 }
 
-//const INTERVAL_PRIORITY: usize = 10;
-const IN_PRIORITY: usize = 110;
-const TYPECAST_PRIORITY: usize = 10;
+// Operator parsing priority table.
+// Lower number = tighter binding (reduced later, applied first).
+// An operator is only parsed when its priority < max_priority passed to the parser.
+const PRIORITY_TYPECAST: usize = 10; // ::
+const PRIORITY_JSON_EXTRACT: usize = 30; // -> ->>
+const PRIORITY_BITXOR: usize = 50; // ^ (XOR bitwise)
+const PRIORITY_MULT: usize = 60; // * / % DIV MOD
+const PRIORITY_ADD: usize = 70; // + -
+const PRIORITY_PG_CUSTOM: usize = 75; // PostgreSQL custom / user-defined operators
+const PRIORITY_SHIFT: usize = 80; // << >>
+const PRIORITY_BITAND: usize = 90; // &
+const PRIORITY_BITOR: usize = 100; // |
+const PRIORITY_CMP: usize = 110; // = != < > <= >= IS IN LIKE BETWEEN SIMILAR TO ...
+const PRIORITY_AND: usize = 140; // AND  (tighter than OR)
+const PRIORITY_XOR: usize = 150; // XOR (keyword logical XOR)
+const PRIORITY_OR: usize = 160; // OR   (loosest binary operator)
+const PRIORITY_ASSIGN: usize = 200; // :=
+
+/// Parse all operators (no restriction).
+pub(crate) const PRIORITY_MAX: usize = usize::MAX;
+/// Parse operators up to but not including AND/XOR/OR — use for function
+/// arguments, BETWEEN bounds, LIMIT/OFFSET, and other "inner" contexts.
+pub(crate) const PRIORITY_INNER: usize = PRIORITY_AND;
 
 trait Priority {
     fn priority(&self) -> usize;
@@ -1010,38 +1030,37 @@ trait Priority {
 impl<'a> Priority for BinaryOperator<'a> {
     fn priority(&self) -> usize {
         match self {
-            BinaryOperator::Assignment(_) => 200,
-            BinaryOperator::Or(_) => 140,
-            BinaryOperator::Xor(_) => 150,
-            BinaryOperator::And(_) => 160,
-            BinaryOperator::Eq(_) => 110,
-            BinaryOperator::NullSafeEq(_) => 110,
-            BinaryOperator::GtEq(_) => 110,
-            BinaryOperator::Gt(_) => 110,
-            BinaryOperator::LtEq(_) => 110,
-            BinaryOperator::Lt(_) => 110,
-            BinaryOperator::Neq(_) => 110,
-            BinaryOperator::Like(_) => 110,
-            BinaryOperator::NotLike(_) => 110,
-            BinaryOperator::Regexp(_) => 110,
-            BinaryOperator::NotRegexp(_) => 110,
-            BinaryOperator::Rlike(_) => 110,
-            BinaryOperator::NotRlike(_) => 110,
-            BinaryOperator::ShiftLeft(_) => 80,
-            BinaryOperator::ShiftRight(_) => 80,
-            BinaryOperator::BitAnd(_) => 90,
-            BinaryOperator::BitOr(_) => 100,
-            BinaryOperator::BitXor(_) => 50,
-            BinaryOperator::Add(_) => 70,
-            BinaryOperator::Subtract(_) => 70,
-            BinaryOperator::Divide(_) => 60,
-            BinaryOperator::Div(_) => 60,
-            BinaryOperator::Mod(_) => 60,
-            BinaryOperator::Mult(_) => 60,
+            BinaryOperator::Assignment(_) => PRIORITY_ASSIGN,
+            BinaryOperator::Or(_) => PRIORITY_OR,
+            BinaryOperator::Xor(_) => PRIORITY_XOR,
+            BinaryOperator::And(_) => PRIORITY_AND,
+            BinaryOperator::Eq(_) => PRIORITY_CMP,
+            BinaryOperator::NullSafeEq(_) => PRIORITY_CMP,
+            BinaryOperator::GtEq(_) => PRIORITY_CMP,
+            BinaryOperator::Gt(_) => PRIORITY_CMP,
+            BinaryOperator::LtEq(_) => PRIORITY_CMP,
+            BinaryOperator::Lt(_) => PRIORITY_CMP,
+            BinaryOperator::Neq(_) => PRIORITY_CMP,
+            BinaryOperator::Like(_) => PRIORITY_CMP,
+            BinaryOperator::NotLike(_) => PRIORITY_CMP,
+            BinaryOperator::Regexp(_) => PRIORITY_CMP,
+            BinaryOperator::NotRegexp(_) => PRIORITY_CMP,
+            BinaryOperator::Rlike(_) => PRIORITY_CMP,
+            BinaryOperator::NotRlike(_) => PRIORITY_CMP,
+            BinaryOperator::ShiftLeft(_) => PRIORITY_SHIFT,
+            BinaryOperator::ShiftRight(_) => PRIORITY_SHIFT,
+            BinaryOperator::BitAnd(_) => PRIORITY_BITAND,
+            BinaryOperator::BitOr(_) => PRIORITY_BITOR,
+            BinaryOperator::BitXor(_) => PRIORITY_BITXOR,
+            BinaryOperator::Add(_) => PRIORITY_ADD,
+            BinaryOperator::Subtract(_) => PRIORITY_ADD,
+            BinaryOperator::Divide(_) => PRIORITY_MULT,
+            BinaryOperator::Div(_) => PRIORITY_MULT,
+            BinaryOperator::Mod(_) => PRIORITY_MULT,
+            BinaryOperator::Mult(_) => PRIORITY_MULT,
             BinaryOperator::Collate(_) => 20,
-            BinaryOperator::JsonExtract(_) => 30,
-            BinaryOperator::JsonExtractUnquote(_) => 30,
-            // PostgreSQL operators: between Add(70) and comparisons(110)
+            BinaryOperator::JsonExtract(_) => PRIORITY_JSON_EXTRACT,
+            BinaryOperator::JsonExtractUnquote(_) => PRIORITY_JSON_EXTRACT,
             BinaryOperator::Contains(_)
             | BinaryOperator::ContainedBy(_)
             | BinaryOperator::JsonPathMatch(_)
@@ -1057,7 +1076,7 @@ impl<'a> Priority for BinaryOperator<'a> {
             | BinaryOperator::NotRegexMatch(_)
             | BinaryOperator::NotRegexIMatch(_)
             | BinaryOperator::User(_, _)
-            | BinaryOperator::Operator(_, _) => 75,
+            | BinaryOperator::Operator(_, _) => PRIORITY_PG_CUSTOM,
         }
     }
 }
@@ -1175,13 +1194,13 @@ fn parse_array_element<'a>(parser: &mut Parser<'a, '_>) -> Result<Expression<'a>
             elements,
         })))
     } else {
-        parse_expression_unreserved(parser, true)
+        parse_expression_unreserved(parser, PRIORITY_INNER)
     }
 }
 
 pub(crate) fn parse_expression_restricted<'a>(
     parser: &mut Parser<'a, '_>,
-    inner: bool,
+    max_priority: usize,
     restrict: Restrict,
 ) -> Result<Expression<'a>, ParseError> {
     let mut r = Reducer { stack: Vec::new() };
@@ -1204,38 +1223,57 @@ pub(crate) fn parse_expression_restricted<'a>(
             break;
         }
         let e = match parser.token.clone() {
-            Token::ColonEq if !inner => r.shift_binop(BinaryOperator::Assignment(parser.consume())),
-            Token::Ident(_, Keyword::OR) | Token::DoublePipe if !inner => {
+            Token::ColonEq if PRIORITY_ASSIGN < max_priority => {
+                r.shift_binop(BinaryOperator::Assignment(parser.consume()))
+            }
+            Token::Ident(_, Keyword::OR) | Token::DoublePipe if PRIORITY_OR < max_priority => {
                 r.shift_binop(BinaryOperator::Or(parser.consume()))
             }
-            Token::Ident(_, Keyword::XOR) if !inner => {
+            Token::Ident(_, Keyword::XOR) if PRIORITY_XOR < max_priority => {
                 r.shift_binop(BinaryOperator::Xor(parser.consume()))
             }
-            Token::Ident(_, Keyword::AND) | Token::DoubleAmpersand if !inner => {
+            Token::Ident(_, Keyword::AND) | Token::DoubleAmpersand
+                if PRIORITY_AND < max_priority =>
+            {
                 r.shift_binop(BinaryOperator::And(parser.consume()))
             }
-            Token::Eq if !inner => r.shift_binop(BinaryOperator::Eq(parser.consume())),
-            Token::Spaceship if !inner => {
+            Token::Eq if PRIORITY_CMP < max_priority => {
+                r.shift_binop(BinaryOperator::Eq(parser.consume()))
+            }
+            Token::Spaceship if PRIORITY_CMP < max_priority => {
                 r.shift_binop(BinaryOperator::NullSafeEq(parser.consume()))
             }
-            Token::GtEq if !inner => r.shift_binop(BinaryOperator::GtEq(parser.consume())),
-            Token::Gt if !inner => r.shift_binop(BinaryOperator::Gt(parser.consume())),
-            Token::LtEq if !inner => r.shift_binop(BinaryOperator::LtEq(parser.consume())),
-            Token::Lt if !inner => r.shift_binop(BinaryOperator::Lt(parser.consume())),
-            Token::Neq if !inner => r.shift_binop(BinaryOperator::Neq(parser.consume())),
-            Token::ShiftLeft if !inner => {
+            Token::GtEq if PRIORITY_CMP < max_priority => {
+                r.shift_binop(BinaryOperator::GtEq(parser.consume()))
+            }
+            Token::Gt if PRIORITY_CMP < max_priority => {
+                r.shift_binop(BinaryOperator::Gt(parser.consume()))
+            }
+            Token::LtEq if PRIORITY_CMP < max_priority => {
+                r.shift_binop(BinaryOperator::LtEq(parser.consume()))
+            }
+            Token::Lt if PRIORITY_CMP < max_priority => {
+                r.shift_binop(BinaryOperator::Lt(parser.consume()))
+            }
+            Token::Neq if PRIORITY_CMP < max_priority => {
+                r.shift_binop(BinaryOperator::Neq(parser.consume()))
+            }
+            Token::ShiftLeft if PRIORITY_SHIFT < max_priority => {
                 r.shift_binop(BinaryOperator::ShiftLeft(parser.consume()))
             }
-            Token::ShiftRight if !inner => {
+            Token::ShiftRight if PRIORITY_SHIFT < max_priority => {
                 r.shift_binop(BinaryOperator::ShiftRight(parser.consume()))
             }
             Token::Ampersand => r.shift_binop(BinaryOperator::BitAnd(parser.consume())),
-            Token::Pipe if !inner => r.shift_binop(BinaryOperator::BitOr(parser.consume())),
-            Token::Ident(_, Keyword::BINARY) if !inner => {
+            Token::Pipe if PRIORITY_BITOR < max_priority => {
+                r.shift_binop(BinaryOperator::BitOr(parser.consume()))
+            }
+            Token::Ident(_, Keyword::BINARY) if PRIORITY_JSON_EXTRACT < max_priority => {
                 r.shift_unary(UnaryOperator::Binary(parser.consume()))
             }
             Token::Ident(_, Keyword::COLLATE)
-                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+                if 20 < max_priority
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
                 // COLLATE is a binary operator: expr COLLATE collation_name
                 let collate_span = parser.consume_keyword(Keyword::COLLATE)?;
@@ -1247,19 +1285,20 @@ pub(crate) fn parse_expression_restricted<'a>(
                     parts: vec![IdentifierPart::Name(collation)],
                 })))
             }
-            Token::ExclamationMark if !inner => {
+            Token::ExclamationMark if PRIORITY_JSON_EXTRACT < max_priority => {
                 r.shift_unary(UnaryOperator::LogicalNot(parser.consume()))
             }
             Token::Minus if !matches!(r.stack.last(), Some(ReduceMember::Expression(_))) => {
                 r.shift_unary(UnaryOperator::Minus(parser.consume()))
             }
             Token::Minus
-                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+                if PRIORITY_ADD < max_priority
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
                 r.shift_binop(BinaryOperator::Subtract(parser.consume()))
             }
-            Token::Ident(_, Keyword::IN) if !inner => {
-                if let Err(e) = r.reduce(IN_PRIORITY) {
+            Token::Ident(_, Keyword::IN) if PRIORITY_CMP < max_priority => {
+                if let Err(e) = r.reduce(PRIORITY_CMP) {
                     parser.err_here(e)?;
                 }
                 let lhs = match r.stack.pop() {
@@ -1290,8 +1329,8 @@ pub(crate) fn parse_expression_restricted<'a>(
                     not_in: false,
                 })))
             }
-            Token::Ident(_, Keyword::IS) if !inner => {
-                if let Err(e) = r.reduce(IN_PRIORITY) {
+            Token::Ident(_, Keyword::IS) if PRIORITY_CMP < max_priority => {
+                if let Err(e) = r.reduce(PRIORITY_CMP) {
                     parser.err_here(e)?;
                 }
                 let lhs = match r.stack.pop() {
@@ -1320,7 +1359,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                                     .consume_keywords(&[Keyword::DISTINCT, Keyword::FROM])?
                                     .join_span(&op);
                                 parser.postgres_only(&op_span);
-                                let rhs = parse_expression_unreserved(parser, true)?;
+                                let rhs = parse_expression_unreserved(parser, PRIORITY_INNER)?;
                                 (Is::NotDistinctFrom(rhs), op_span)
                             }
                             _ => parser.expected_failure(
@@ -1336,7 +1375,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                             .consume_keywords(&[Keyword::DISTINCT, Keyword::FROM])?
                             .join_span(&op);
                         parser.postgres_only(&op_span);
-                        let rhs = parse_expression_unreserved(parser, true)?;
+                        let rhs = parse_expression_unreserved(parser, PRIORITY_INNER)?;
                         (Is::DistinctFrom(rhs), op_span)
                     }
                     Token::Ident(_, Keyword::UNKNOWN) => {
@@ -1358,7 +1397,7 @@ pub(crate) fn parse_expression_restricted<'a>(
             {
                 // PostgreSQL typecast operator: expr::type
                 // Reduce with very high priority (binds tighter than most operators)
-                if let Err(e) = r.reduce(TYPECAST_PRIORITY) {
+                if let Err(e) = r.reduce(PRIORITY_TYPECAST) {
                     parser.err_here(e)?;
                 }
                 let expr = match r.stack.pop() {
@@ -1375,11 +1414,11 @@ pub(crate) fn parse_expression_restricted<'a>(
             }
             Token::LBracket
                 if parser.options.dialect.is_postgresql()
-                    && !inner
+                    && PRIORITY_TYPECAST < max_priority
                     && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
                 // Array subscript / slice: expr[idx] or expr[lower:upper]
-                if let Err(e) = r.reduce(TYPECAST_PRIORITY) {
+                if let Err(e) = r.reduce(PRIORITY_TYPECAST) {
                     parser.err_here(e)?;
                 }
                 let expr = match r.stack.pop() {
@@ -1387,9 +1426,9 @@ pub(crate) fn parse_expression_restricted<'a>(
                     _ => parser.err_here("Expected expression before '['")?,
                 };
                 let lbracket = parser.consume_token(Token::LBracket)?;
-                let lower = parse_expression_unreserved(parser, true)?;
+                let lower = parse_expression_unreserved(parser, PRIORITY_INNER)?;
                 let upper = if parser.skip_token(Token::Colon).is_some() {
-                    Some(parse_expression_unreserved(parser, true)?)
+                    Some(parse_expression_unreserved(parser, PRIORITY_INNER)?)
                 } else {
                     None
                 };
@@ -1410,9 +1449,10 @@ pub(crate) fn parse_expression_restricted<'a>(
                 r.shift_unary(UnaryOperator::Not(parser.consume()))
             }
             Token::Ident(_, Keyword::NOT)
-                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+                if PRIORITY_CMP < max_priority
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
-                if let Err(e) = r.reduce(IN_PRIORITY) {
+                if let Err(e) = r.reduce(PRIORITY_CMP) {
                     parser.err_here(e)?;
                 }
                 let lhs = match r.stack.pop() {
@@ -1460,9 +1500,9 @@ pub(crate) fn parse_expression_restricted<'a>(
                     }
                     Token::Ident(_, Keyword::BETWEEN) => {
                         let between_span = parser.consume_keyword(Keyword::BETWEEN)?.join_span(&op);
-                        let low = parse_expression_unreserved(parser, true)?;
+                        let low = parse_expression_unreserved(parser, PRIORITY_INNER)?;
                         let and_span = parser.consume_keyword(Keyword::AND)?;
-                        let high = parse_expression_unreserved(parser, true)?;
+                        let high = parse_expression_unreserved(parser, PRIORITY_INNER)?;
                         r.shift_expr(Expression::Between(Box::new(BetweenExpression {
                             lhs,
                             low,
@@ -1475,9 +1515,10 @@ pub(crate) fn parse_expression_restricted<'a>(
                 }
             }
             Token::Ident(_, Keyword::BETWEEN)
-                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+                if PRIORITY_CMP < max_priority
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
-                if let Err(e) = r.reduce(IN_PRIORITY) {
+                if let Err(e) = r.reduce(PRIORITY_CMP) {
                     parser.err_here(e)?;
                 }
                 let lhs = match r.stack.pop() {
@@ -1485,9 +1526,9 @@ pub(crate) fn parse_expression_restricted<'a>(
                     _ => parser.err_here("Expected expression before BETWEEN")?,
                 };
                 let between_span = parser.consume_keyword(Keyword::BETWEEN)?;
-                let low = parse_expression_unreserved(parser, true)?;
+                let low = parse_expression_unreserved(parser, PRIORITY_INNER)?;
                 let and_span = parser.consume_keyword(Keyword::AND)?;
-                let high = parse_expression_unreserved(parser, true)?;
+                let high = parse_expression_unreserved(parser, PRIORITY_INNER)?;
                 r.shift_expr(Expression::Between(Box::new(BetweenExpression {
                     lhs,
                     low,
@@ -1496,14 +1537,15 @@ pub(crate) fn parse_expression_restricted<'a>(
                     not_between: false,
                 })))
             }
-            Token::Ident(_, Keyword::LIKE) if !inner => {
+            Token::Ident(_, Keyword::LIKE) if PRIORITY_CMP < max_priority => {
                 r.shift_binop(BinaryOperator::Like(parser.consume()))
             }
             Token::Ident(_, Keyword::SIMILAR)
-                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+                if PRIORITY_CMP < max_priority
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
                 // SIMILAR TO expr (PostgreSQL)
-                if let Err(e) = r.reduce(IN_PRIORITY) {
+                if let Err(e) = r.reduce(PRIORITY_CMP) {
                     parser.err_here(e)?;
                 }
                 let lhs = match r.stack.pop() {
@@ -1515,57 +1557,65 @@ pub(crate) fn parse_expression_restricted<'a>(
                 r.stack.push(ReduceMember::Expression(lhs));
                 r.shift_binop(BinaryOperator::Like(op_span))
             }
-            Token::Ident(_, Keyword::REGEXP) if !inner && parser.options.dialect.is_maria() => {
+            Token::Ident(_, Keyword::REGEXP)
+                if PRIORITY_CMP < max_priority && parser.options.dialect.is_maria() =>
+            {
                 r.shift_binop(BinaryOperator::Regexp(parser.consume()))
             }
-            Token::Ident(_, Keyword::RLIKE) if !inner && parser.options.dialect.is_maria() => {
+            Token::Ident(_, Keyword::RLIKE)
+                if PRIORITY_CMP < max_priority && parser.options.dialect.is_maria() =>
+            {
                 r.shift_binop(BinaryOperator::Rlike(parser.consume()))
             }
-            Token::RArrowJson if !inner => {
+            Token::RArrowJson if PRIORITY_JSON_EXTRACT < max_priority => {
                 r.shift_binop(BinaryOperator::JsonExtract(parser.consume()))
             }
-            Token::RDoubleArrowJson if !inner => {
+            Token::RDoubleArrowJson if PRIORITY_JSON_EXTRACT < max_priority => {
                 r.shift_binop(BinaryOperator::JsonExtractUnquote(parser.consume()))
             }
             // PostgreSQL built-in operator tokens
-            Token::Contains if !inner => r.shift_binop(BinaryOperator::Contains(parser.consume())),
-            Token::ContainedBy if !inner => {
+            Token::Contains if PRIORITY_PG_CUSTOM < max_priority => {
+                r.shift_binop(BinaryOperator::Contains(parser.consume()))
+            }
+            Token::ContainedBy if PRIORITY_PG_CUSTOM < max_priority => {
                 r.shift_binop(BinaryOperator::ContainedBy(parser.consume()))
             }
-            Token::AtQuestion if !inner => {
+            Token::AtQuestion if PRIORITY_PG_CUSTOM < max_priority => {
                 r.shift_binop(BinaryOperator::JsonPathExists(parser.consume()))
             }
-            Token::QuestionPipe if !inner => {
+            Token::QuestionPipe if PRIORITY_PG_CUSTOM < max_priority => {
                 r.shift_binop(BinaryOperator::JsonbAnyKeyExists(parser.consume()))
             }
-            Token::QuestionAmpersand if !inner => {
+            Token::QuestionAmpersand if PRIORITY_PG_CUSTOM < max_priority => {
                 r.shift_binop(BinaryOperator::JsonbAllKeyExists(parser.consume()))
             }
-            Token::HashArrow if !inner => {
+            Token::HashArrow if PRIORITY_PG_CUSTOM < max_priority => {
                 r.shift_binop(BinaryOperator::JsonGetPath(parser.consume()))
             }
-            Token::HashDoubleArrow if !inner => {
+            Token::HashDoubleArrow if PRIORITY_PG_CUSTOM < max_priority => {
                 r.shift_binop(BinaryOperator::JsonGetPathText(parser.consume()))
             }
-            Token::HashMinus if !inner => {
+            Token::HashMinus if PRIORITY_PG_CUSTOM < max_priority => {
                 r.shift_binop(BinaryOperator::JsonDeletePath(parser.consume()))
             }
-            Token::TildeStar if !inner => {
+            Token::TildeStar if PRIORITY_PG_CUSTOM < max_priority => {
                 r.shift_binop(BinaryOperator::RegexIMatch(parser.consume()))
             }
-            Token::NotTilde if !inner => {
+            Token::NotTilde if PRIORITY_PG_CUSTOM < max_priority => {
                 r.shift_binop(BinaryOperator::NotRegexMatch(parser.consume()))
             }
-            Token::NotTildeStar if !inner => {
+            Token::NotTildeStar if PRIORITY_PG_CUSTOM < max_priority => {
                 r.shift_binop(BinaryOperator::NotRegexIMatch(parser.consume()))
             }
-            Token::LikeTilde if !inner => r.shift_binop(BinaryOperator::Like(parser.consume())),
-            Token::NotLikeTilde if !inner => {
+            Token::LikeTilde if PRIORITY_CMP < max_priority => {
+                r.shift_binop(BinaryOperator::Like(parser.consume()))
+            }
+            Token::NotLikeTilde if PRIORITY_CMP < max_priority => {
                 r.shift_binop(BinaryOperator::NotLike(parser.consume()))
             }
             // @@ as binary (full-text / jsonpath match)
             Token::AtAt
-                if !inner
+                if PRIORITY_PG_CUSTOM < max_priority
                     && parser.options.dialect.is_postgresql()
                     && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
@@ -1573,7 +1623,7 @@ pub(crate) fn parse_expression_restricted<'a>(
             }
             // ~ as binary regex match (only when expression already on left)
             Token::Tilde
-                if !inner
+                if PRIORITY_PG_CUSTOM < max_priority
                     && parser.options.dialect.is_postgresql()
                     && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
@@ -1581,7 +1631,7 @@ pub(crate) fn parse_expression_restricted<'a>(
             }
             // ? as jsonb key-exists binary operator (PG, non-argument mode)
             Token::QuestionMark
-                if !inner
+                if PRIORITY_PG_CUSTOM < max_priority
                     && parser.options.dialect.is_postgresql()
                     && !matches!(parser.options.arguments, crate::SQLArguments::QuestionMark)
                     && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
@@ -1590,14 +1640,14 @@ pub(crate) fn parse_expression_restricted<'a>(
             }
             // Remaining user-defined PostgreSQL operators
             Token::PostgresOperator(op)
-                if !inner
+                if PRIORITY_PG_CUSTOM < max_priority
                     && parser.options.dialect.is_postgresql()
                     && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
                 r.shift_binop(BinaryOperator::User(op, parser.consume()))
             }
             Token::Ident(_, Keyword::OPERATOR)
-                if !inner
+                if PRIORITY_PG_CUSTOM < max_priority
                     && parser.options.dialect.is_postgresql()
                     && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
@@ -1609,9 +1659,10 @@ pub(crate) fn parse_expression_restricted<'a>(
                 r.shift_binop(BinaryOperator::Operator(op_name, full_span))
             }
             Token::Ident(_, Keyword::MEMBER)
-                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+                if PRIORITY_CMP < max_priority
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
             {
-                if let Err(e) = r.reduce(IN_PRIORITY) {
+                if let Err(e) = r.reduce(PRIORITY_CMP) {
                     parser.err_here(e)?;
                 }
                 let lhs = match r.stack.pop() {
@@ -1719,24 +1770,35 @@ pub(crate) fn parse_expression_restricted<'a>(
                     })))
                 }
             }
-            Token::Plus if !inner => r.shift_binop(BinaryOperator::Add(parser.consume())),
-            Token::Div if !inner => r.shift_binop(BinaryOperator::Divide(parser.consume())),
-            Token::Ident(_, Keyword::DIV) if !inner => {
+            Token::Plus if PRIORITY_ADD < max_priority => {
+                r.shift_binop(BinaryOperator::Add(parser.consume()))
+            }
+            Token::Div if PRIORITY_MULT < max_priority => {
+                r.shift_binop(BinaryOperator::Divide(parser.consume()))
+            }
+            Token::Ident(_, Keyword::DIV) if PRIORITY_MULT < max_priority => {
                 r.shift_binop(BinaryOperator::Div(parser.consume()))
             }
-            Token::Minus if !inner => r.shift_binop(BinaryOperator::Subtract(parser.consume())),
-            Token::Ident(_, Keyword::LIKE) if !inner => {
+            Token::Minus if PRIORITY_ADD < max_priority => {
+                r.shift_binop(BinaryOperator::Subtract(parser.consume()))
+            }
+            Token::Ident(_, Keyword::LIKE) if PRIORITY_CMP < max_priority => {
                 r.shift_binop(BinaryOperator::Like(parser.consume()))
             }
             Token::Mul if !matches!(r.stack.last(), Some(ReduceMember::Expression(_))) => r
                 .shift_expr(Expression::Identifier(Box::new(IdentifierExpression {
                     parts: vec![IdentifierPart::Star(parser.consume_token(Token::Mul)?)],
                 }))),
-            Token::Mul if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) => {
+            Token::Mul
+                if PRIORITY_MULT < max_priority
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
                 r.shift_binop(BinaryOperator::Mult(parser.consume()))
             }
-            Token::Mod if !inner => r.shift_binop(BinaryOperator::Mod(parser.consume())),
-            Token::Ident(_, Keyword::MOD) if !inner => {
+            Token::Mod if PRIORITY_MULT < max_priority => {
+                r.shift_binop(BinaryOperator::Mod(parser.consume()))
+            }
+            Token::Ident(_, Keyword::MOD) if PRIORITY_MULT < max_priority => {
                 r.shift_binop(BinaryOperator::Mod(parser.consume()))
             }
             Token::Ident(_, Keyword::TRUE) => {
@@ -1911,7 +1973,8 @@ pub(crate) fn parse_expression_restricted<'a>(
                 // Parse the search expression but don't treat `IN`/`WITH` as binary
                 // operators here — they are MATCH modes and may appear inside the
                 // AGAINST(...) parentheses (MySQL allows both inside and outside).
-                let expr = parse_expression_unreserved(parser, true)?;
+                // PRIORITY_CMP stops before IN/WITH so they remain available as MATCH mode keywords
+                let expr = parse_expression_unreserved(parser, PRIORITY_CMP)?;
 
                 // optional mode that may appear inside the AGAINST(...) parentheses
                 let mut mode: Option<MatchMode> = None;
@@ -2137,7 +2200,7 @@ pub(crate) fn parse_expression_restricted<'a>(
             Token::Ident(_, Keyword::CASE) => {
                 let case_span = parser.consume_keyword(Keyword::CASE)?;
                 let value = if !matches!(parser.token, Token::Ident(_, Keyword::WHEN)) {
-                    Some(parse_expression_unreserved(parser, false)?)
+                    Some(parse_expression_unreserved(parser, PRIORITY_MAX)?)
                 } else {
                     None
                 };
@@ -2149,9 +2212,9 @@ pub(crate) fn parse_expression_restricted<'a>(
                     |parser| {
                         loop {
                             let when_span = parser.consume_keyword(Keyword::WHEN)?;
-                            let when = parse_expression_unreserved(parser, false)?;
+                            let when = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                             let then_span = parser.consume_keyword(Keyword::THEN)?;
-                            let then = parse_expression_unreserved(parser, false)?;
+                            let then = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                             whens.push(When {
                                 when_span,
                                 when,
@@ -2163,7 +2226,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                             }
                         }
                         if let Some(span) = parser.skip_keyword(Keyword::ELSE) {
-                            else_ = Some((span, parse_expression_unreserved(parser, false)?))
+                            else_ = Some((span, parse_expression_unreserved(parser, PRIORITY_MAX)?))
                         };
                         Ok(())
                     },
@@ -2227,22 +2290,22 @@ pub(crate) fn parse_expression_restricted<'a>(
 
 pub(crate) fn parse_expression_unreserved<'a>(
     parser: &mut Parser<'a, '_>,
-    inner: bool,
+    max_priority: usize,
 ) -> Result<Expression<'a>, ParseError> {
-    parse_expression_restricted(parser, inner, parser.reserved())
+    parse_expression_restricted(parser, max_priority, parser.reserved())
 }
 
 /// Parse an expression that may be DEFAULT (for INSERT VALUES, INSERT SET, UPDATE SET contexts)
 pub(crate) fn parse_expression_or_default<'a>(
     parser: &mut Parser<'a, '_>,
-    inner: bool,
+    max_priority: usize,
 ) -> Result<Expression<'a>, ParseError> {
     if matches!(parser.token, Token::Ident(_, Keyword::DEFAULT)) {
         Ok(Expression::Default(Box::new(DefaultExpression {
             span: parser.consume_keyword(Keyword::DEFAULT)?,
         })))
     } else {
-        parse_expression_unreserved(parser, inner)
+        parse_expression_unreserved(parser, max_priority)
     }
 }
 
@@ -2254,7 +2317,7 @@ pub(crate) fn parse_expression_outer<'a>(
             expression: parse_compound_query(parser)?,
         })))
     } else {
-        parse_expression_unreserved(parser, false)
+        parse_expression_unreserved(parser, PRIORITY_MAX)
     }
 }
 
@@ -2266,7 +2329,7 @@ pub(crate) fn parse_expression_paren<'a>(
             expression: parse_compound_query(parser)?,
         })))
     } else {
-        parse_expression_unreserved(parser, false)
+        parse_expression_unreserved(parser, PRIORITY_MAX)
     }
 }
 
@@ -2281,7 +2344,7 @@ mod tests {
 
     use crate::{
         BinaryExpression, ParseOptions, SQLDialect,
-        expression::{BinaryOperator, Expression},
+        expression::{BinaryOperator, Expression, PRIORITY_MAX},
         issue::Issues,
         parser::Parser,
     };
@@ -2307,7 +2370,8 @@ mod tests {
         let mut issues = Issues::new(src);
         let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
         let mut parser = Parser::new(src, &mut issues, &options);
-        let res = parse_expression_unreserved(&mut parser, false).expect("Expression in test expr");
+        let res = parse_expression_unreserved(&mut parser, PRIORITY_MAX)
+            .expect("Expression in test expr");
         if let Err(e) = f(&res) {
             panic!("Error parsing {}: {}\nGot {:#?}", src, e, res);
         }

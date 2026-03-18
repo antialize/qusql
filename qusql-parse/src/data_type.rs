@@ -15,7 +15,7 @@ use alloc::{boxed::Box, vec::Vec};
 use crate::{
     Identifier, InvalidExpression, SString, Span, Spanned,
     alter_table::{ForeignKeyMatch, ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType},
-    expression::{Expression, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_INNER, PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::{StringType, Token},
     parser::{ParseError, Parser},
@@ -884,7 +884,8 @@ pub(crate) fn parse_data_type<'a>(
             (Token::Ident(_, Keyword::DEFAULT), Column) => {
                 parser.consume_keyword(Keyword::DEFAULT)?;
                 properties.push(DataTypeProperty::Default(parse_expression_unreserved(
-                    parser, true,
+                    parser,
+                    PRIORITY_INNER,
                 )?));
             }
             (Token::Ident(_, Keyword::AUTO_INCREMENT), Column) => {
@@ -935,7 +936,7 @@ pub(crate) fn parse_data_type<'a>(
                 let span = parser.consume_keyword(Keyword::AS)?;
                 let s1 = parser.consume_token(Token::LParen)?;
                 let e = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
-                    Ok(Some(parse_expression_unreserved(parser, false)?))
+                    Ok(Some(parse_expression_unreserved(parser, PRIORITY_MAX)?))
                 })?;
                 let s2 = parser.consume_token(Token::RParen)?;
                 let e = e.unwrap_or_else(|| {
@@ -954,7 +955,7 @@ pub(crate) fn parse_data_type<'a>(
                 let span = parser.consume_keyword(Keyword::CHECK)?;
                 let s1 = parser.consume_token(Token::LParen)?;
                 let e = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
-                    Ok(Some(parse_expression_unreserved(parser, false)?))
+                    Ok(Some(parse_expression_unreserved(parser, PRIORITY_MAX)?))
                 })?;
                 let s2 = parser.consume_token(Token::RParen)?;
                 let e = e.unwrap_or_else(|| {
@@ -966,7 +967,7 @@ pub(crate) fn parse_data_type<'a>(
             }
             (Token::Ident(_, Keyword::ON), Column) => {
                 let span = parser.consume_keywords(&[Keyword::ON, Keyword::UPDATE])?;
-                let expr = parse_expression_unreserved(parser, true)?;
+                let expr = parse_expression_unreserved(parser, PRIORITY_INNER)?;
                 properties.push(DataTypeProperty::OnUpdate((span, expr)));
             }
             (Token::Ident(_, Keyword::REFERENCES), Column) => {
