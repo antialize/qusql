@@ -22,7 +22,6 @@ use crate::{
     lexer::Token,
     operator::parse_operator_name,
     parser::{ParseError, Parser},
-    select::parse_select,
     span::OptSpanned,
     statement::parse_compound_query,
 };
@@ -2191,7 +2190,7 @@ pub(crate) fn parse_expression_outer<'a>(
 ) -> Result<Expression<'a>, ParseError> {
     if matches!(parser.token, Token::Ident(_, Keyword::SELECT)) {
         Ok(Expression::Subquery(Box::new(SubqueryExpression {
-            expression: Statement::Select(Box::new(parse_select(parser)?)),
+            expression: parse_compound_query(parser)?,
         })))
     } else {
         parse_expression_unreserved(parser, false)
