@@ -13,7 +13,7 @@ use crate::{
     DataType, Expression, Identifier, SString, Span, Spanned, Statement,
     create_option::CreateOption,
     data_type::{DataTypeContext, parse_data_type},
-    expression::parse_expression_unreserved,
+    expression::{PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -293,9 +293,12 @@ pub(crate) fn parse_create_function<'a>(
             let type_ = parse_data_type(parser, DataTypeContext::FunctionParam)?;
             // Optional default value: '= expr' or 'DEFAULT expr'
             let default = if let Some(eq_span) = parser.skip_token(Token::Eq) {
-                Some((eq_span, parse_expression_unreserved(parser, false)?))
+                Some((eq_span, parse_expression_unreserved(parser, PRIORITY_MAX)?))
             } else if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
-                Some((default_span, parse_expression_unreserved(parser, false)?))
+                Some((
+                    default_span,
+                    parse_expression_unreserved(parser, PRIORITY_MAX)?,
+                ))
             } else {
                 None
             };

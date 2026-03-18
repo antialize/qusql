@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 
 use crate::{
     QualifiedName, SelectExpr, Span, Spanned, TableReference,
-    expression::{Expression, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_INNER, PRIORITY_MAX, parse_expression_unreserved},
     keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
@@ -165,7 +165,7 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
     }
 
     let where_ = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
-        Some((parse_expression_unreserved(parser, false)?, span))
+        Some((parse_expression_unreserved(parser, PRIORITY_MAX)?, span))
     } else {
         None
     };
@@ -174,7 +174,7 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
         let span = parser.consume_keyword(Keyword::BY)?.join_span(&span);
         let mut order = Vec::new();
         loop {
-            let e = parse_expression_unreserved(parser, false)?;
+            let e = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             let f = match &parser.token {
                 Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
                 Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
@@ -191,15 +191,23 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
     };
 
     let limit = if let Some(span) = parser.skip_keyword(Keyword::LIMIT) {
-        let n = parse_expression_unreserved(parser, true)?;
+        let n = parse_expression_unreserved(parser, PRIORITY_INNER)?;
         match parser.token {
             Token::Comma => {
                 parser.consume();
-                Some((span, Some(n), parse_expression_unreserved(parser, true)?))
+                Some((
+                    span,
+                    Some(n),
+                    parse_expression_unreserved(parser, PRIORITY_INNER)?,
+                ))
             }
             Token::Ident(_, Keyword::OFFSET) => {
                 parser.consume();
-                Some((span, Some(parse_expression_unreserved(parser, true)?), n))
+                Some((
+                    span,
+                    Some(parse_expression_unreserved(parser, PRIORITY_INNER)?),
+                    n,
+                ))
             }
             _ => Some((span, None, n)),
         }

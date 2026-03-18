@@ -13,7 +13,7 @@ use crate::{
     Expression, Identifier, QualifiedName, Span, Spanned,
     alter_table::{IndexCol, IndexColExpr, parse_operator_class},
     create_option::CreateOption,
-    expression::parse_expression_unreserved,
+    expression::{PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -234,7 +234,7 @@ pub(crate) fn parse_create_index<'a>(
         let expr = if parser.token == Token::LParen {
             // Functional index: parse expression
             parser.consume_token(Token::LParen)?;
-            let expression = parse_expression_unreserved(parser, false)?;
+            let expression = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             parser.consume_token(Token::RParen)?;
             IndexColExpr::Expression(expression)
         } else {
@@ -310,7 +310,7 @@ pub(crate) fn parse_create_index<'a>(
             loop {
                 let name = parser.consume_plain_identifier_unreserved()?;
                 let eq_span = parser.consume_token(Token::Eq)?;
-                let value = parse_expression_unreserved(parser, false)?;
+                let value = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                 opts.push(WithOption {
                     name,
                     eq_span,
@@ -365,7 +365,7 @@ pub(crate) fn parse_create_index<'a>(
 
     let mut where_ = None;
     if let Some(where_span) = parser.skip_keyword(Keyword::WHERE) {
-        let where_expr = parse_expression_unreserved(parser, false)?;
+        let where_expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         if parser.options.dialect.is_maria() {
             parser.err(
                 "Partial indexes not supported",

@@ -13,7 +13,9 @@ use alloc::vec::Vec;
 
 use crate::{
     Identifier, OptSpanned, QualifiedName, Span, Spanned,
-    expression::{Expression, parse_expression_or_default, parse_expression_unreserved},
+    expression::{
+        Expression, PRIORITY_MAX, parse_expression_or_default, parse_expression_unreserved,
+    },
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -367,7 +369,7 @@ pub(crate) fn parse_insert_replace<'a>(
                 if !matches!(parser.token, Token::RParen) {
                     parser.recovered(")", &|t| t == &Token::RParen, |parser| {
                         loop {
-                            vals.push(parse_expression_or_default(parser, false)?);
+                            vals.push(parse_expression_or_default(parser, PRIORITY_MAX)?);
                             if parser.skip_token(Token::Comma).is_none() {
                                 break;
                             }
@@ -389,7 +391,7 @@ pub(crate) fn parse_insert_replace<'a>(
             loop {
                 let column = parser.consume_plain_identifier_unreserved()?;
                 let equal_span = parser.consume_token(Token::Eq)?;
-                let value: Expression<'_> = parse_expression_or_default(parser, false)?;
+                let value: Expression<'_> = parse_expression_or_default(parser, PRIORITY_MAX)?;
                 pairs.push(InsertReplaceSetPair {
                     column,
                     equal_span,
@@ -426,7 +428,7 @@ pub(crate) fn parse_insert_replace<'a>(
                     loop {
                         let column = parser.consume_plain_identifier_unreserved()?;
                         let equal_span = parser.consume_token(Token::Eq)?;
-                        let value = parse_expression_or_default(parser, false)?;
+                        let value = parse_expression_or_default(parser, PRIORITY_MAX)?;
                         pairs.push(InsertReplaceSetPair {
                             column,
                             equal_span,
@@ -485,7 +487,7 @@ pub(crate) fn parse_insert_replace<'a>(
                             loop {
                                 let name = parser.consume_plain_identifier_unreserved()?;
                                 parser.consume_token(Token::Eq)?;
-                                let expr = parse_expression_or_default(parser, false)?;
+                                let expr = parse_expression_or_default(parser, PRIORITY_MAX)?;
                                 sets.push((name, expr));
                                 if parser.skip_token(Token::Comma).is_none() {
                                     break;
@@ -494,7 +496,7 @@ pub(crate) fn parse_insert_replace<'a>(
                             let where_ = if matches!(parser.token, Token::Ident(_, Keyword::WHERE))
                             {
                                 let where_span = parser.consume_keyword(Keyword::WHERE)?;
-                                let where_expr = parse_expression_unreserved(parser, false)?;
+                                let where_expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                                 Some((where_span, where_expr))
                             } else {
                                 None

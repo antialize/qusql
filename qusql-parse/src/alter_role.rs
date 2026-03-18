@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 use crate::{
     Expression, Identifier, RoleOption, Span, Spanned,
     create_role::parse_role_option,
-    expression::parse_expression_unreserved,
+    expression::{PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -170,13 +170,19 @@ pub(crate) fn parse_alter_role<'a>(
                         if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
                             AlterRoleValue::Default(eq_span.join_span(&default_span))
                         } else {
-                            AlterRoleValue::Value(parse_expression_unreserved(parser, false)?)
+                            AlterRoleValue::Value(parse_expression_unreserved(
+                                parser,
+                                PRIORITY_MAX,
+                            )?)
                         }
                     } else if let Some(to_span) = parser.skip_keyword(Keyword::TO) {
                         if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
                             AlterRoleValue::Default(to_span.join_span(&default_span))
                         } else {
-                            AlterRoleValue::Value(parse_expression_unreserved(parser, false)?)
+                            AlterRoleValue::Value(parse_expression_unreserved(
+                                parser,
+                                PRIORITY_MAX,
+                            )?)
                         }
                     } else {
                         parser.expected_failure("'=' or 'TO'")?
@@ -220,13 +226,13 @@ pub(crate) fn parse_alter_role<'a>(
                 if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
                     AlterRoleValue::Default(eq_span.join_span(&default_span))
                 } else {
-                    AlterRoleValue::Value(parse_expression_unreserved(parser, false)?)
+                    AlterRoleValue::Value(parse_expression_unreserved(parser, PRIORITY_MAX)?)
                 }
             } else if let Some(to_span) = parser.skip_keyword(Keyword::TO) {
                 if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
                     AlterRoleValue::Default(to_span.join_span(&default_span))
                 } else {
-                    AlterRoleValue::Value(parse_expression_unreserved(parser, false)?)
+                    AlterRoleValue::Value(parse_expression_unreserved(parser, PRIORITY_MAX)?)
                 }
             } else {
                 parser.expected_failure("'=', 'TO', or 'FROM'")?

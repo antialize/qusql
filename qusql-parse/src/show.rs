@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 
 use crate::{
     SString, Span, Spanned, Statement,
-    expression::{Expression, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -80,7 +80,7 @@ fn parse_show_tables<'a>(
         None
     };
     let where_expr = if like.is_none() && parser.skip_keyword(Keyword::WHERE).is_some() {
-        Some(parse_expression_unreserved(parser, false)?)
+        Some(parse_expression_unreserved(parser, PRIORITY_MAX)?)
     } else {
         None
     };
@@ -234,7 +234,7 @@ fn parse_show_variables<'a>(
         None
     };
     let where_expr = if parser.skip_keyword(Keyword::WHERE).is_some() {
-        Some(parse_expression_unreserved(parser, false)?)
+        Some(parse_expression_unreserved(parser, PRIORITY_MAX)?)
     } else {
         None
     };
@@ -294,7 +294,7 @@ fn parse_show_status<'a>(
         None
     };
     let where_expr = if parser.skip_keyword(Keyword::WHERE).is_some() {
-        Some(parse_expression_unreserved(parser, false)?)
+        Some(parse_expression_unreserved(parser, PRIORITY_MAX)?)
     } else {
         None
     };
@@ -386,7 +386,7 @@ fn parse_show_columns<'a>(
         None
     };
     let where_expr = if like.is_none() && parser.skip_keyword(Keyword::WHERE).is_some() {
-        Some(parse_expression_unreserved(parser, false)?)
+        Some(parse_expression_unreserved(parser, PRIORITY_MAX)?)
     } else {
         None
     };
@@ -457,7 +457,7 @@ fn parse_show_character_set<'a>(
     if parser.skip_keyword(Keyword::LIKE).is_some() {
         like = Some(parser.consume_string()?);
     } else if parser.skip_keyword(Keyword::WHERE).is_some() {
-        where_expr = Some(parse_expression_unreserved(parser, false)?);
+        where_expr = Some(parse_expression_unreserved(parser, PRIORITY_MAX)?);
     }
 
     Ok(ShowCharacterSet {
@@ -655,7 +655,7 @@ fn parse_show_collation<'a>(
     if parser.skip_keyword(Keyword::LIKE).is_some() {
         like = Some(parser.consume_string()?);
     } else if parser.skip_keyword(Keyword::WHERE).is_some() {
-        where_expr = Some(parse_expression_unreserved(parser, false)?);
+        where_expr = Some(parse_expression_unreserved(parser, PRIORITY_MAX)?);
     }
     Ok(ShowCollation {
         show_span,

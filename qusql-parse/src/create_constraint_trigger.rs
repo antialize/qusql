@@ -3,7 +3,7 @@
 use crate::{
     Identifier, Span, Spanned,
     create_option::CreateOption,
-    expression::{Expression, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -192,7 +192,7 @@ pub(crate) fn parse_create_constraint_trigger<'a>(
 
     let when_condition = if let Some(when_span) = parser.skip_keyword(Keyword::WHEN) {
         parser.consume_token(Token::LParen)?;
-        let cond = parse_expression_unreserved(parser, false)?;
+        let cond = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         parser.consume_token(Token::RParen)?;
         Some((when_span, cond))
     } else {
@@ -206,7 +206,7 @@ pub(crate) fn parse_create_constraint_trigger<'a>(
     if parser.skip_token(Token::LParen).is_some() {
         // Parse arguments as expressions
         loop {
-            function_args.push(parse_expression_unreserved(parser, false)?);
+            function_args.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }

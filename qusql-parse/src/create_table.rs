@@ -18,7 +18,7 @@ use crate::{
     },
     create_option::CreateOption,
     data_type::{DataTypeContext, parse_data_type},
-    expression::parse_expression_unreserved,
+    expression::{PRIORITY_MAX, parse_expression_unreserved},
     keywords::{Keyword, Restrict},
     lexer::{StringType, Token},
     parser::{ParseError, Parser},
@@ -757,7 +757,7 @@ fn parse_check_constraint_definition<'a>(
 
     // Parse the check expression
     parser.consume_token(Token::LParen)?;
-    let expression = parse_expression_unreserved(parser, false)?;
+    let expression = parse_expression_unreserved(parser, PRIORITY_MAX)?;
     parser.consume_token(Token::RParen)?;
 
     // Parse optional ENFORCED / NOT ENFORCED
@@ -961,11 +961,11 @@ fn parse_partition_by<'a>(parser: &mut Parser<'a, '_>) -> Result<PartitionBy<'a>
         // Key element is either a parenthesised expression or a bare column/expression
         let key = if matches!(parser.token, Token::LParen) {
             parser.consume_token(Token::LParen)?;
-            let expr = parse_expression_unreserved(parser, false)?;
+            let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             parser.consume_token(Token::RParen)?;
             expr
         } else {
-            parse_expression_unreserved(parser, false)?
+            parse_expression_unreserved(parser, PRIORITY_MAX)?
         };
         keys.push(key);
         if parser.skip_token(Token::Comma).is_none() {
@@ -993,7 +993,8 @@ fn parse_partition_bound_expr<'a>(
             parser.consume_keyword(Keyword::MAXVALUE)?,
         )),
         _ => Ok(PartitionBoundExpr::Expr(parse_expression_unreserved(
-            parser, false,
+            parser,
+            PRIORITY_MAX,
         )?)),
     }
 }
@@ -1414,7 +1415,7 @@ pub(crate) fn parse_create_table<'a>(
                             loop {
                                 let key = parser.consume_plain_identifier_unreserved()?;
                                 parser.consume_token(Token::Eq)?;
-                                let val = parse_expression_unreserved(parser, false)?;
+                                let val = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                                 params.push((key, val));
                                 if parser.skip_token(Token::Comma).is_none() {
                                     break;

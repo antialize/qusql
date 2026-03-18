@@ -35,7 +35,7 @@ use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     Identifier, QualifiedName, SString, Span, Spanned, Statement,
-    expression::{Expression, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -431,7 +431,7 @@ fn parse_copy_option_modern<'a>(parser: &mut Parser<'a, '_>) -> Result<CopyOptio
         }
         Token::Ident(_, Keyword::REJECT_LIMIT) => {
             let span = parser.consume_keyword(Keyword::REJECT_LIMIT)?;
-            let limit = parse_expression_unreserved(parser, false)?;
+            let limit = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             Ok(CopyOption::RejectLimit { span, limit })
         }
         Token::Ident(_, Keyword::ENCODING) => {
@@ -725,7 +725,7 @@ fn parse_copy_from<'a>(
     let (with_span, options) = parse_copy_options_clause(parser)?;
 
     let where_ = if let Some(where_span) = parser.skip_keyword(Keyword::WHERE) {
-        let cond = parse_expression_unreserved(parser, false)?;
+        let cond = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         Some((where_span, cond))
     } else {
         None

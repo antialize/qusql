@@ -17,7 +17,7 @@ use crate::{
     alter_table::AlterTableOwner,
     data_type::{DataType, DataTypeContext, parse_data_type},
     drop::{CascadeOrRestrict, parse_cascade_or_restrict},
-    expression::{Expression, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -301,7 +301,7 @@ pub(crate) fn parse_alter_type<'a>(
                     loop {
                         let property = parser.consume_plain_identifier_unreserved()?;
                         parser.consume_token(Token::Eq)?;
-                        let value = parse_expression_unreserved(parser, false)?;
+                        let value = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                         properties.push((property, value));
                         if parser.skip_token(Token::Comma).is_none() {
                             break;
