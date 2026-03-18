@@ -409,6 +409,30 @@ impl Spanned for InExpression<'_> {
     }
 }
 
+/// Between expression (expr BETWEEN low AND high)
+#[derive(Debug, Clone)]
+pub struct BetweenExpression<'a> {
+    /// The value being tested
+    pub lhs: Expression<'a>,
+    /// Lower bound
+    pub low: Expression<'a>,
+    /// Upper bound
+    pub high: Expression<'a>,
+    /// Span covering "BETWEEN ... AND"
+    pub between_span: Span,
+    /// True if NOT BETWEEN
+    pub not_between: bool,
+}
+
+impl Spanned for BetweenExpression<'_> {
+    fn span(&self) -> Span {
+        self.between_span
+            .join_span(&self.lhs)
+            .join_span(&self.low)
+            .join_span(&self.high)
+    }
+}
+
 /// Member of expression
 #[derive(Debug, Clone)]
 pub struct MemberOfExpression<'a> {
@@ -899,6 +923,8 @@ pub enum Expression<'a> {
     Extract(Box<ExtractExpression<'a>>),
     /// In expression
     In(Box<InExpression<'a>>),
+    /// Between expression
+    Between(Box<BetweenExpression<'a>>),
     /// Member of expression
     MemberOf(Box<MemberOfExpression<'a>>),
     /// Is expression
@@ -950,6 +976,7 @@ impl<'a> Spanned for Expression<'a> {
             Expression::Arg(v) => v.span(),
             Expression::Exists(v) => v.span(),
             Expression::In(e) => e.span(),
+            Expression::Between(e) => e.span(),
             Expression::MemberOf(e) => e.span(),
             Expression::Is(e) => e.span(),
             Expression::Invalid(s) => s.span(),
@@ -1431,8 +1458,43 @@ pub(crate) fn parse_expression_restricted<'a>(
                         r.stack.push(ReduceMember::Expression(lhs));
                         r.shift_binop(BinaryOperator::NotRlike(parser.consume().join_span(&op)))
                     }
-                    _ => parser.expected_failure("'IN', 'LIKE', 'REGEXP' or 'RLIKE'")?,
+                    Token::Ident(_, Keyword::BETWEEN) => {
+                        let between_span = parser.consume_keyword(Keyword::BETWEEN)?.join_span(&op);
+                        let low = parse_expression_unreserved(parser, true)?;
+                        let and_span = parser.consume_keyword(Keyword::AND)?;
+                        let high = parse_expression_unreserved(parser, true)?;
+                        r.shift_expr(Expression::Between(Box::new(BetweenExpression {
+                            lhs,
+                            low,
+                            high,
+                            between_span: between_span.join_span(&and_span),
+                            not_between: true,
+                        })))
+                    }
+                    _ => parser.expected_failure("'IN', 'LIKE', 'REGEXP', 'RLIKE' or 'BETWEEN'")?,
                 }
+            }
+            Token::Ident(_, Keyword::BETWEEN)
+                if !inner && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                if let Err(e) = r.reduce(IN_PRIORITY) {
+                    parser.err_here(e)?;
+                }
+                let lhs = match r.stack.pop() {
+                    Some(ReduceMember::Expression(e)) => e,
+                    _ => parser.err_here("Expected expression before BETWEEN")?,
+                };
+                let between_span = parser.consume_keyword(Keyword::BETWEEN)?;
+                let low = parse_expression_unreserved(parser, true)?;
+                let and_span = parser.consume_keyword(Keyword::AND)?;
+                let high = parse_expression_unreserved(parser, true)?;
+                r.shift_expr(Expression::Between(Box::new(BetweenExpression {
+                    lhs,
+                    low,
+                    high,
+                    between_span: between_span.join_span(&and_span),
+                    not_between: false,
+                })))
             }
             Token::Ident(_, Keyword::LIKE) if !inner => {
                 r.shift_binop(BinaryOperator::Like(parser.consume()))
