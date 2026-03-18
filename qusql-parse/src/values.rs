@@ -65,7 +65,7 @@ fn parse_fetch<'a>(parser: &mut Parser<'a, '_>, fetch_span: Span) -> Result<Fetc
     ) {
         Some(crate::expression::parse_expression_unreserved(
             parser,
-            crate::expression::PRIORITY_INNER,
+            crate::expression::PRIORITY_MAX,
         )?)
     } else {
         None
@@ -139,7 +139,7 @@ pub(crate) fn parse_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Values<'a>
                 loop {
                     row.push(crate::expression::parse_expression_unreserved(
                         parser,
-                        crate::expression::PRIORITY_INNER,
+                        crate::expression::PRIORITY_MAX,
                     )?);
                     if parser.skip_token(Token::Comma).is_none() {
                         break;
@@ -201,7 +201,7 @@ pub(crate) fn parse_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Values<'a>
     let limit = if let Some(limit_span) = parser.skip_keyword(Keyword::LIMIT) {
         let expr = crate::expression::parse_expression_unreserved(
             parser,
-            crate::expression::PRIORITY_INNER,
+            crate::expression::PRIORITY_MAX,
         )?;
         Some((limit_span, expr))
     } else {
@@ -212,7 +212,7 @@ pub(crate) fn parse_values<'a>(parser: &mut Parser<'a, '_>) -> Result<Values<'a>
     let offset = if let Some(offset_span) = parser.skip_keyword(Keyword::OFFSET) {
         let expr = crate::expression::parse_expression_unreserved(
             parser,
-            crate::expression::PRIORITY_INNER,
+            crate::expression::PRIORITY_MAX,
         )?;
         // Optionally consume ROW/ROWS
         if matches!(parser.token, Token::Ident(_, Keyword::ROW | Keyword::ROWS)) {

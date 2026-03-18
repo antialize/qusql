@@ -1002,26 +1002,23 @@ impl<'a> Spanned for Expression<'a> {
 // Operator parsing priority table.
 // Lower number = tighter binding (reduced later, applied first).
 // An operator is only parsed when its priority < max_priority passed to the parser.
-const PRIORITY_TYPECAST: usize = 10; // ::
-const PRIORITY_JSON_EXTRACT: usize = 30; // -> ->>
-const PRIORITY_BITXOR: usize = 50; // ^ (XOR bitwise)
-const PRIORITY_MULT: usize = 60; // * / % DIV MOD
-const PRIORITY_ADD: usize = 70; // + -
-const PRIORITY_PG_CUSTOM: usize = 75; // PostgreSQL custom / user-defined operators
-const PRIORITY_SHIFT: usize = 80; // << >>
-const PRIORITY_BITAND: usize = 90; // &
-const PRIORITY_BITOR: usize = 100; // |
-const PRIORITY_CMP: usize = 110; // = != < > <= >= IS IN LIKE BETWEEN SIMILAR TO ...
-const PRIORITY_AND: usize = 140; // AND  (tighter than OR)
-const PRIORITY_XOR: usize = 150; // XOR (keyword logical XOR)
-const PRIORITY_OR: usize = 160; // OR   (loosest binary operator)
-const PRIORITY_ASSIGN: usize = 200; // :=
+pub(crate) const PRIORITY_TYPECAST: usize = 10; // ::
+pub(crate) const PRIORITY_JSON_EXTRACT: usize = 30; // -> ->>
+pub(crate) const PRIORITY_BITXOR: usize = 50; // ^ (XOR bitwise)
+pub(crate) const PRIORITY_MULT: usize = 60; // * / % DIV MOD
+pub(crate) const PRIORITY_ADD: usize = 70; // + -
+pub(crate) const PRIORITY_PG_CUSTOM: usize = 75; // PostgreSQL custom / user-defined operators
+pub(crate) const PRIORITY_SHIFT: usize = 80; // << >>
+pub(crate) const PRIORITY_BITAND: usize = 90; // &
+pub(crate) const PRIORITY_BITOR: usize = 100; // |
+pub(crate) const PRIORITY_CMP: usize = 110; // = != < > <= >= IS IN LIKE BETWEEN SIMILAR TO ...
+pub(crate) const PRIORITY_AND: usize = 140; // AND  (tighter than OR)
+pub(crate) const PRIORITY_XOR: usize = 150; // XOR (keyword logical XOR)
+pub(crate) const PRIORITY_OR: usize = 160; // OR   (loosest binary operator)
+pub(crate) const PRIORITY_ASSIGN: usize = 200; // :=
 
 /// Parse all operators (no restriction).
 pub(crate) const PRIORITY_MAX: usize = usize::MAX;
-/// Parse operators up to but not including AND/XOR/OR — use for function
-/// arguments, BETWEEN bounds, LIMIT/OFFSET, and other "inner" contexts.
-pub(crate) const PRIORITY_INNER: usize = PRIORITY_AND;
 
 trait Priority {
     fn priority(&self) -> usize;
@@ -1194,7 +1191,7 @@ fn parse_array_element<'a>(parser: &mut Parser<'a, '_>) -> Result<Expression<'a>
             elements,
         })))
     } else {
-        parse_expression_unreserved(parser, PRIORITY_INNER)
+        parse_expression_unreserved(parser, PRIORITY_MAX)
     }
 }
 
@@ -1359,7 +1356,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                                     .consume_keywords(&[Keyword::DISTINCT, Keyword::FROM])?
                                     .join_span(&op);
                                 parser.postgres_only(&op_span);
-                                let rhs = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+                                let rhs = parse_expression_unreserved(parser, PRIORITY_AND)?;
                                 (Is::NotDistinctFrom(rhs), op_span)
                             }
                             _ => parser.expected_failure(
@@ -1375,7 +1372,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                             .consume_keywords(&[Keyword::DISTINCT, Keyword::FROM])?
                             .join_span(&op);
                         parser.postgres_only(&op_span);
-                        let rhs = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+                        let rhs = parse_expression_unreserved(parser, PRIORITY_AND)?;
                         (Is::DistinctFrom(rhs), op_span)
                     }
                     Token::Ident(_, Keyword::UNKNOWN) => {
@@ -1426,9 +1423,9 @@ pub(crate) fn parse_expression_restricted<'a>(
                     _ => parser.err_here("Expected expression before '['")?,
                 };
                 let lbracket = parser.consume_token(Token::LBracket)?;
-                let lower = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+                let lower = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                 let upper = if parser.skip_token(Token::Colon).is_some() {
-                    Some(parse_expression_unreserved(parser, PRIORITY_INNER)?)
+                    Some(parse_expression_unreserved(parser, PRIORITY_MAX)?)
                 } else {
                     None
                 };
@@ -1500,9 +1497,9 @@ pub(crate) fn parse_expression_restricted<'a>(
                     }
                     Token::Ident(_, Keyword::BETWEEN) => {
                         let between_span = parser.consume_keyword(Keyword::BETWEEN)?.join_span(&op);
-                        let low = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+                        let low = parse_expression_unreserved(parser, PRIORITY_AND)?;
                         let and_span = parser.consume_keyword(Keyword::AND)?;
-                        let high = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+                        let high = parse_expression_unreserved(parser, PRIORITY_AND)?;
                         r.shift_expr(Expression::Between(Box::new(BetweenExpression {
                             lhs,
                             low,
@@ -1526,9 +1523,9 @@ pub(crate) fn parse_expression_restricted<'a>(
                     _ => parser.err_here("Expected expression before BETWEEN")?,
                 };
                 let between_span = parser.consume_keyword(Keyword::BETWEEN)?;
-                let low = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+                let low = parse_expression_unreserved(parser, PRIORITY_AND)?;
                 let and_span = parser.consume_keyword(Keyword::AND)?;
-                let high = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+                let high = parse_expression_unreserved(parser, PRIORITY_AND)?;
                 r.shift_expr(Expression::Between(Box::new(BetweenExpression {
                     lhs,
                     low,

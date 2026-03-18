@@ -16,7 +16,7 @@ use crate::qualified_name::parse_qualified_name_unreserved;
 use crate::{
     DataType, Identifier, SString, Span, Spanned, Statement,
     data_type::{DataTypeContext, parse_data_type},
-    expression::{Expression, PRIORITY_INNER, PRIORITY_MAX, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     keywords::{Keyword, Restrict},
     lexer::{StringType, Token},
     parser::{ParseError, Parser},
@@ -494,7 +494,7 @@ fn parse_table_reference_named<'a>(
         parser.consume_token(Token::LParen)?;
 
         // Parse JSON data expression (first argument)
-        let json_expr = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+        let json_expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
 
         // Expect comma
         parser.consume_token(Token::Comma)?;
@@ -508,7 +508,7 @@ fn parse_table_reference_named<'a>(
             }
             _ => {
                 // Fall back to expression parsing
-                parse_expression_unreserved(parser, PRIORITY_INNER)?
+                parse_expression_unreserved(parser, PRIORITY_MAX)?
             }
         };
 
@@ -580,7 +580,7 @@ fn parse_table_reference_named<'a>(
                     "')' or ','",
                     &|t| matches!(t, Token::RParen | Token::Comma),
                     |parser| {
-                        args.push(parse_expression_unreserved(parser, PRIORITY_INNER)?);
+                        args.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
                         Ok(())
                     },
                 )?;
@@ -709,7 +709,7 @@ fn parse_json_table_columns<'a>(
                     let span = parser.consume();
                     Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                 }
-                _ => parse_expression_unreserved(parser, PRIORITY_INNER)?,
+                _ => parse_expression_unreserved(parser, PRIORITY_MAX)?,
             };
             let columns_span = parser.consume_keyword(Keyword::COLUMNS)?;
             parser.consume_token(Token::LParen)?;
@@ -753,7 +753,7 @@ fn parse_json_table_columns<'a>(
                         let span = parser.consume();
                         Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                     }
-                    _ => parse_expression_unreserved(parser, PRIORITY_INNER)?,
+                    _ => parse_expression_unreserved(parser, PRIORITY_MAX)?,
                 };
 
                 // Parse ON EMPTY and ON ERROR clauses
@@ -767,7 +767,7 @@ fn parse_json_table_columns<'a>(
                         Token::Ident(_, Keyword::DEFAULT) => {
                             parser.consume();
                             // Parse the default value
-                            let default_val = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+                            let default_val = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                             Some(JsonTableOnErrorEmpty::Default(default_val))
                         }
                         Token::Ident(_, Keyword::ERROR) => {
@@ -1355,21 +1355,21 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
     };
 
     let limit = if let Some(span) = parser.skip_keyword(Keyword::LIMIT) {
-        let n = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+        let n = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         match parser.token {
             Token::Comma => {
                 parser.consume();
                 Some((
                     span,
                     Some(n),
-                    parse_expression_unreserved(parser, PRIORITY_INNER)?,
+                    parse_expression_unreserved(parser, PRIORITY_MAX)?,
                 ))
             }
             Token::Ident(_, Keyword::OFFSET) => {
                 parser.consume();
                 Some((
                     span,
-                    Some(parse_expression_unreserved(parser, PRIORITY_INNER)?),
+                    Some(parse_expression_unreserved(parser, PRIORITY_MAX)?),
                     n,
                 ))
             }
@@ -1383,7 +1383,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
     let offset = if limit.is_none() {
         if let Some(offset_span) = parser.skip_keyword(Keyword::OFFSET) {
             parser.postgres_only(&offset_span);
-            let n = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+            let n = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             // skip optional ROWS or ROW
             if matches!(parser.token, Token::Ident(_, Keyword::ROWS | Keyword::ROW)) {
                 parser.consume();
@@ -1405,7 +1405,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
             }
             _ => parser.expected_failure("FIRST or NEXT")?,
         }
-        let n = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+        let n = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         if matches!(parser.token, Token::Ident(_, Keyword::ROWS | Keyword::ROW)) {
             parser.consume();
         }
