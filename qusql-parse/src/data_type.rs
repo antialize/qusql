@@ -15,7 +15,7 @@ use alloc::{boxed::Box, vec::Vec};
 use crate::{
     Identifier, InvalidExpression, SString, Span, Spanned,
     alter_table::{ForeignKeyMatch, ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType},
-    expression::{Expression, PRIORITY_INNER, PRIORITY_MAX, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::{StringType, Token},
     parser::{ParseError, Parser},
@@ -885,7 +885,7 @@ pub(crate) fn parse_data_type<'a>(
                 parser.consume_keyword(Keyword::DEFAULT)?;
                 properties.push(DataTypeProperty::Default(parse_expression_unreserved(
                     parser,
-                    PRIORITY_INNER,
+                    PRIORITY_MAX,
                 )?));
             }
             (Token::Ident(_, Keyword::AUTO_INCREMENT), Column) => {
@@ -967,7 +967,7 @@ pub(crate) fn parse_data_type<'a>(
             }
             (Token::Ident(_, Keyword::ON), Column) => {
                 let span = parser.consume_keywords(&[Keyword::ON, Keyword::UPDATE])?;
-                let expr = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+                let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                 properties.push(DataTypeProperty::OnUpdate((span, expr)));
             }
             (Token::Ident(_, Keyword::REFERENCES), Column) => {

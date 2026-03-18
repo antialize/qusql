@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 
 use crate::{
     QualifiedName, SelectExpr, Span, Spanned, TableReference,
-    expression::{Expression, PRIORITY_INNER, PRIORITY_MAX, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
@@ -191,21 +191,21 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
     };
 
     let limit = if let Some(span) = parser.skip_keyword(Keyword::LIMIT) {
-        let n = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+        let n = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         match parser.token {
             Token::Comma => {
                 parser.consume();
                 Some((
                     span,
                     Some(n),
-                    parse_expression_unreserved(parser, PRIORITY_INNER)?,
+                    parse_expression_unreserved(parser, PRIORITY_MAX)?,
                 ))
             }
             Token::Ident(_, Keyword::OFFSET) => {
                 parser.consume();
                 Some((
                     span,
-                    Some(parse_expression_unreserved(parser, PRIORITY_INNER)?),
+                    Some(parse_expression_unreserved(parser, PRIORITY_MAX)?),
                     n,
                 ))
             }

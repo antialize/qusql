@@ -31,7 +31,7 @@ use crate::{
         DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
         DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView, parse_drop,
     },
-    expression::{Expression, PRIORITY_INNER, PRIORITY_MAX, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     flush::{Flush, parse_flush},
     insert_replace::{InsertReplace, parse_insert_replace},
     keywords::Keyword,
@@ -156,7 +156,7 @@ fn parse_block<'a>(parser: &mut Parser<'a, '_>) -> Result<Block<'a>, ParseError>
         while let Some(_when_span) = parser.skip_keyword(Keyword::WHEN) {
             parser.consume_plain_identifier_unreserved()?;
             parser.consume_keyword(Keyword::THEN)?;
-            parse_expression_unreserved(parser, PRIORITY_INNER)?;
+            parse_expression_unreserved(parser, PRIORITY_MAX)?;
             parser.consume_token(Token::SemiColon)?;
         }
     }
@@ -1580,21 +1580,21 @@ pub(crate) fn parse_compound_query<'a>(
     };
 
     let limit = if let Some(span) = parser.skip_keyword(Keyword::LIMIT) {
-        let n = parse_expression_unreserved(parser, PRIORITY_INNER)?;
+        let n = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         match parser.token {
             Token::Comma => {
                 parser.consume();
                 Some((
                     span,
                     Some(n),
-                    parse_expression_unreserved(parser, PRIORITY_INNER)?,
+                    parse_expression_unreserved(parser, PRIORITY_MAX)?,
                 ))
             }
             Token::Ident(_, Keyword::OFFSET) => {
                 parser.consume();
                 Some((
                     span,
-                    Some(parse_expression_unreserved(parser, PRIORITY_INNER)?),
+                    Some(parse_expression_unreserved(parser, PRIORITY_MAX)?),
                     n,
                 ))
             }
