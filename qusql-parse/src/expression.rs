@@ -1259,6 +1259,15 @@ pub(crate) fn parse_expression_restricted<'a>(
         {
             break;
         }
+        // `NOT NULL` is a column constraint, not an expression operator
+        // (e.g. `DEFAULT (foo())::TEXT NOT NULL`).  Break before consuming
+        // the NOT so the caller can handle NOT NULL as a constraint.
+        if matches!(r.stack.last(), Some(ReduceMember::Expression(_)))
+            && matches!(parser.token, Token::Ident(_, Keyword::NOT))
+            && matches!(parser.peek(), Token::Ident(_, Keyword::NULL))
+        {
+            break;
+        }
         let e = match parser.token.clone() {
             Token::ColonEq if PRIORITY_ASSIGN < max_priority => {
                 r.shift_binop(BinaryOperator::Assignment(parser.consume()))
