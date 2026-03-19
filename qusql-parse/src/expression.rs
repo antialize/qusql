@@ -881,6 +881,43 @@ impl Spanned for ExistsExpression<'_> {
     }
 }
 
+/// Which row quantifier keyword was used
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Quantifier {
+    /// ANY(subquery_or_array)
+    Any(Span),
+    /// SOME(subquery_or_array) — synonym for ANY in PostgreSQL
+    Some(Span),
+    /// ALL(subquery_or_array)
+    All(Span),
+}
+
+impl Spanned for Quantifier {
+    fn span(&self) -> Span {
+        match self {
+            Quantifier::Any(s) | Quantifier::Some(s) | Quantifier::All(s) => s.clone(),
+        }
+    }
+}
+
+/// PostgreSQL ANY / SOME / ALL quantifier expression.
+///
+/// Appears as the right-hand operand of a comparison:
+/// `expr op ANY (subquery_or_array)`
+#[derive(Debug, Clone)]
+pub struct QuantifierExpression<'a> {
+    /// Which quantifier keyword was written
+    pub quantifier: Quantifier,
+    /// The operand — either a subquery expression or an array expression
+    pub operand: Expression<'a>,
+}
+
+impl Spanned for QuantifierExpression<'_> {
+    fn span(&self) -> Span {
+        self.quantifier.join_span(&self.operand)
+    }
+}
+
 /// Representation of an expression
 #[derive(Debug, Clone)]
 pub enum Expression<'a> {
@@ -955,6 +992,8 @@ pub enum Expression<'a> {
     Array(Box<ArrayExpression<'a>>),
     /// Array subscript / slice expression: expr[idx] or expr[lower:upper]
     ArraySubscript(Box<ArraySubscriptExpression<'a>>),
+    /// PostgreSQL ANY / SOME / ALL quantifier: ANY(subquery_or_array)
+    Quantifier(Box<QuantifierExpression<'a>>),
 }
 
 impl<'a> Spanned for Expression<'a> {
@@ -995,6 +1034,7 @@ impl<'a> Spanned for Expression<'a> {
             Expression::MatchAgainst(e) => e.span(),
             Expression::Array(e) => e.span(),
             Expression::ArraySubscript(e) => e.span(),
+            Expression::Quantifier(e) => e.span(),
         }
     }
 }
@@ -2194,6 +2234,27 @@ pub(crate) fn parse_expression_restricted<'a>(
                 }));
                 r.shift_expr(ans)
             }
+            Token::Ident(_, Keyword::ANY | Keyword::SOME | Keyword::ALL)
+                if parser.options.dialect.is_postgresql()
+                    && !matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                let quantifier = match &parser.token {
+                    Token::Ident(_, Keyword::ANY) => {
+                        Quantifier::Any(parser.consume_keyword(Keyword::ANY)?)
+                    }
+                    Token::Ident(_, Keyword::SOME) => {
+                        Quantifier::Some(parser.consume_keyword(Keyword::SOME)?)
+                    }
+                    _ => Quantifier::All(parser.consume_keyword(Keyword::ALL)?),
+                };
+                parser.consume_token(Token::LParen)?;
+                let operand = parse_expression_paren(parser)?;
+                parser.consume_token(Token::RParen)?;
+                r.shift_expr(Expression::Quantifier(Box::new(QuantifierExpression {
+                    quantifier,
+                    operand,
+                })))
+            }
             Token::Ident(_, Keyword::CASE) => {
                 let case_span = parser.consume_keyword(Keyword::CASE)?;
                 let value = if !matches!(parser.token, Token::Ident(_, Keyword::WHEN)) {
@@ -2341,7 +2402,7 @@ mod tests {
 
     use crate::{
         BinaryExpression, ParseOptions, SQLDialect,
-        expression::{BinaryOperator, Expression, PRIORITY_MAX},
+        expression::{BinaryOperator, Expression, PRIORITY_MAX, Quantifier},
         issue::Issues,
         parser::Parser,
     };
@@ -2424,6 +2485,62 @@ mod tests {
                 _ => return Err("Outer".to_string()),
             }
             Ok(())
+        });
+    }
+
+    fn test_expr_pg(src: &'static str, f: impl FnOnce(&Expression<'_>) -> Result<(), String>) {
+        let mut issues = Issues::new(src);
+        let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+        let mut parser = Parser::new(src, &mut issues, &options);
+        let res = parse_expression_unreserved(&mut parser, PRIORITY_MAX)
+            .expect("Expression in test_expr_pg");
+        if let Err(e) = f(&res) {
+            panic!("Error parsing {}: {}\nGot {:#?}", src, e, res);
+        }
+    }
+
+    #[test]
+    fn quantifier_any() {
+        test_expr_pg(
+            "salary > ANY (SELECT max_salary FROM departments)",
+            |e| match e {
+                Expression::Binary(b) => match &b.rhs {
+                    Expression::Quantifier(q) => {
+                        assert!(matches!(q.quantifier, Quantifier::Any(_)));
+                        Ok(())
+                    }
+                    _ => Err(format!("Expected Quantifier RHS, got {:?}", b.rhs)),
+                },
+                _ => Err(format!("Expected Binary expression, got {:?}", e)),
+            },
+        );
+    }
+
+    #[test]
+    fn quantifier_some() {
+        test_expr_pg("x = SOME (ARRAY[1, 2, 3])", |e| match e {
+            Expression::Binary(b) => match &b.rhs {
+                Expression::Quantifier(q) => {
+                    assert!(matches!(q.quantifier, Quantifier::Some(_)));
+                    Ok(())
+                }
+                _ => Err(format!("Expected Quantifier RHS, got {:?}", b.rhs)),
+            },
+            _ => Err(format!("Expected Binary expression, got {:?}", e)),
+        });
+    }
+
+    #[test]
+    fn quantifier_all() {
+        test_expr_pg("price <= ALL (SELECT price FROM products)", |e| match e {
+            Expression::Binary(b) => match &b.rhs {
+                Expression::Quantifier(q) => {
+                    assert!(matches!(q.quantifier, Quantifier::All(_)));
+                    Ok(())
+                }
+                _ => Err(format!("Expected Quantifier RHS, got {:?}", b.rhs)),
+            },
+            _ => Err(format!("Expected Binary expression, got {:?}", e)),
         });
     }
 }

@@ -2048,7 +2048,8 @@
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected ''IN', 'LIKE', 'REGEXP', 'RLIKE' or 'BETWEEN'' here\",\n    span: 49..53,\n    sql_segment: \"NULL\",\n    fragments: [],\n}"
     ],
-    "failure": true
+    "failure": true,
+    "setup": "empty_setup"
   },
   {
     "input": "CREATE TABLE t (c TEXT DEFAULT (foo())::TEXT)",
@@ -3067,11 +3068,8 @@
   },
   {
     "input": "SELECT * FROM arr_test WHERE 'tag1' = ANY(tags)",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 38..41,\n    sql_segment: \"ANY\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Identifier(\n                    IdentifierExpression {\n                        parts: [\n                            Star(\n                                7..8,\n                            ),\n                        ],\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: Some(\n            9..13,\n        ),\n        table_references: Some(\n            [\n                Table {\n                    identifier: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"arr_test\",\n                            span: 14..22,\n                        },\n                    },\n                    as_span: None,\n                    as_: None,\n                    index_hints: [],\n                },\n            ],\n        ),\n        where_: Some(\n            (\n                Binary(\n                    BinaryExpression {\n                        op: Eq(\n                            36..37,\n                        ),\n                        lhs: String(\n                            SString {\n                                value: \"tag1\",\n                                span: 29..35,\n                            },\n                        ),\n                        rhs: Quantifier(\n                            QuantifierExpression {\n                                quantifier: Any(\n                                    38..41,\n                                ),\n                                operand: Identifier(\n                                    IdentifierExpression {\n                                        parts: [\n                                            Name(\n                                                Identifier {\n                                                    value: \"tags\",\n                                                    span: 42..46,\n                                                },\n                                            ),\n                                        ],\n                                    },\n                                ),\n                            },\n                        ),\n                    },\n                ),\n                23..28,\n            ),\n        ),\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        distinct_on: None,\n        offset: None,\n        fetch: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT * FROM arr_test WHERE tags && ARRAY['tag1', 'tag5']",
