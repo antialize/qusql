@@ -234,6 +234,73 @@ impl Spanned for FunctionCallExpression<'_> {
     }
 }
 
+/// Window frame mode: ROWS, RANGE, or GROUPS
+#[derive(Debug, Clone)]
+pub enum WindowFrameMode {
+    Rows(Span),
+    Range(Span),
+    Groups(Span),
+}
+
+impl Spanned for WindowFrameMode {
+    fn span(&self) -> Span {
+        match self {
+            WindowFrameMode::Rows(s) | WindowFrameMode::Range(s) | WindowFrameMode::Groups(s) => {
+                s.clone()
+            }
+        }
+    }
+}
+
+/// One bound in a window frame clause
+#[derive(Debug, Clone)]
+pub enum WindowFrameBound<'a> {
+    /// UNBOUNDED PRECEDING
+    UnboundedPreceding(Span),
+    /// <expr> PRECEDING
+    Preceding(Expression<'a>, Span),
+    /// CURRENT ROW
+    CurrentRow(Span),
+    /// <expr> FOLLOWING
+    Following(Expression<'a>, Span),
+    /// UNBOUNDED FOLLOWING
+    UnboundedFollowing(Span),
+}
+
+impl<'a> Spanned for WindowFrameBound<'a> {
+    fn span(&self) -> Span {
+        match self {
+            WindowFrameBound::UnboundedPreceding(s) => s.clone(),
+            WindowFrameBound::Preceding(e, s) => e.span().join_span(s),
+            WindowFrameBound::CurrentRow(s) => s.clone(),
+            WindowFrameBound::Following(e, s) => e.span().join_span(s),
+            WindowFrameBound::UnboundedFollowing(s) => s.clone(),
+        }
+    }
+}
+
+/// Window frame clause: ROWS/RANGE/GROUPS { frame_start | BETWEEN frame_start AND frame_end }
+#[derive(Debug, Clone)]
+pub struct WindowFrame<'a> {
+    /// ROWS, RANGE, or GROUPS
+    pub mode: WindowFrameMode,
+    /// The start bound (or sole bound when no BETWEEN)
+    pub start: WindowFrameBound<'a>,
+    /// When BETWEEN was used: span covering "BETWEEN ... AND" and the end bound
+    pub between: Option<(Span, WindowFrameBound<'a>)>,
+}
+
+impl<'a> Spanned for WindowFrame<'a> {
+    fn span(&self) -> Span {
+        let s = self.mode.span().join_span(&self.start);
+        if let Some((and_span, end)) = &self.between {
+            s.join_span(and_span).join_span(end)
+        } else {
+            s
+        }
+    }
+}
+
 /// When part of CASE
 #[derive(Debug, Clone)]
 pub struct WindowSpec<'a> {
@@ -241,13 +308,16 @@ pub struct WindowSpec<'a> {
     pub partition_by: Option<(Span, Vec<Expression<'a>>)>,
     /// Span of "ORDER BY" and list of order expression and directions, if specified
     pub order_by: Option<(Span, Vec<(Expression<'a>, OrderFlag)>)>,
+    /// Window frame clause (ROWS/RANGE BETWEEN ... AND ...), if specified
+    pub frame: Option<WindowFrame<'a>>,
 }
 
 impl<'a> Spanned for WindowSpec<'a> {
     fn span(&self) -> Span {
         self.partition_by
             .opt_join_span(&self.order_by)
-            .expect("Either partition_by or order_by must be specified")
+            .opt_join_span(&self.frame)
+            .expect("Either partition_by, order_by, or frame must be specified")
     }
 }
 
@@ -364,6 +434,63 @@ pub(crate) fn is_aggregate_function_ident(name: &str, keyword: &Keyword) -> bool
     ) || is_aggregate_function_name(name)
 }
 
+fn parse_window_frame_bound<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<WindowFrameBound<'a>, ParseError> {
+    match &parser.token {
+        Token::Ident(_, Keyword::UNBOUNDED) => {
+            let kw_span = parser.consume_keyword(Keyword::UNBOUNDED)?;
+            if let Some(span) = parser.skip_keyword(Keyword::PRECEDING) {
+                Ok(WindowFrameBound::UnboundedPreceding(
+                    kw_span.join_span(&span),
+                ))
+            } else {
+                Ok(WindowFrameBound::UnboundedFollowing(
+                    parser
+                        .consume_keyword(Keyword::FOLLOWING)?
+                        .join_span(&kw_span),
+                ))
+            }
+        }
+        Token::Ident(_, Keyword::CURRENT) => {
+            let current_row_span = parser.consume_keywords(&[Keyword::CURRENT, Keyword::ROW])?;
+            Ok(WindowFrameBound::CurrentRow(current_row_span))
+        }
+        _ => {
+            let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            if let Some(s) = parser.skip_keyword(Keyword::PRECEDING) {
+                Ok(WindowFrameBound::Preceding(expr, s))
+            } else {
+                let s = parser.consume_keyword(Keyword::FOLLOWING)?;
+                Ok(WindowFrameBound::Following(expr, s))
+            }
+        }
+    }
+}
+
+fn parse_window_frame<'a>(
+    parser: &mut Parser<'a, '_>,
+    mode: WindowFrameMode,
+) -> Result<WindowFrame<'a>, ParseError> {
+    if let Some(between_span) = parser.skip_keyword(Keyword::BETWEEN) {
+        let start = parse_window_frame_bound(parser)?;
+        let and_span = parser.consume_keyword(Keyword::AND)?;
+        let end = parse_window_frame_bound(parser)?;
+        Ok(WindowFrame {
+            mode,
+            start,
+            between: Some((between_span.join_span(&and_span), end)),
+        })
+    } else {
+        let start = parse_window_frame_bound(parser)?;
+        Ok(WindowFrame {
+            mode,
+            start,
+            between: None,
+        })
+    }
+}
+
 fn parse_over_clause<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<Option<WindowClause<'a>>, ParseError> {
@@ -407,6 +534,15 @@ fn parse_over_clause<'a>(
         None
     };
 
+    // Window frame clause: ROWS/RANGE { frame_start | BETWEEN frame_start AND frame_end }
+    let frame = if let Some(s) = parser.skip_keyword(Keyword::ROWS) {
+        Some(parse_window_frame(parser, WindowFrameMode::Rows(s))?)
+    } else if let Some(s) = parser.skip_keyword(Keyword::RANGE) {
+        Some(parse_window_frame(parser, WindowFrameMode::Range(s))?)
+    } else {
+        None
+    };
+
     parser.consume_token(Token::RParen)?;
 
     Ok(Some(WindowClause {
@@ -414,6 +550,7 @@ fn parse_over_clause<'a>(
         window_spec: WindowSpec {
             partition_by,
             order_by,
+            frame,
         },
     }))
 }
