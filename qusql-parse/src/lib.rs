@@ -145,8 +145,8 @@ pub use expression::{
 };
 pub use flush::{Flush, FlushOption};
 pub use function_expression::{
-    AggregateFunctionCallExpression, Function, FunctionCallExpression, WindowClause,
-    WindowFunctionCallExpression, WindowSpec,
+    AggregateFunctionCallExpression, Function, FunctionCallExpression, WindowClause, WindowFrame,
+    WindowFrameBound, WindowFrameMode, WindowFunctionCallExpression, WindowSpec,
 };
 pub use identifier::Identifier;
 pub use insert_replace::{

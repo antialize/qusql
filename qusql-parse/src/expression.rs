@@ -1252,8 +1252,11 @@ pub(crate) fn parse_expression_restricted<'a>(
                         | Keyword::LAST
                         | Keyword::ROW
                         | Keyword::ROWS
+                        | Keyword::RANGE
                         | Keyword::ONLY
                         | Keyword::FILTER
+                        | Keyword::PRECEDING
+                        | Keyword::FOLLOWING
                 )
             )
         {
