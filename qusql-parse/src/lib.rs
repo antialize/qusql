@@ -138,9 +138,10 @@ pub use expression::{
     DefaultExpression, ExistsExpression, Expression, ExtractExpression, FloatExpression,
     GroupConcatExpression, IdentifierExpression, IdentifierPart, InExpression, IntegerExpression,
     IntervalExpression, InvalidExpression, Is, IsExpression, ListHackExpression,
-    MatchAgainstExpression, MatchMode, MemberOfExpression, NullExpression, SubqueryExpression,
-    TimeUnit, TimestampAddExpression, TimestampDiffExpression, TypeCastExpression, UnaryExpression,
-    UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
+    MatchAgainstExpression, MatchMode, MemberOfExpression, NullExpression, Quantifier,
+    QuantifierExpression, SubqueryExpression, TimeUnit, TimestampAddExpression,
+    TimestampDiffExpression, TypeCastExpression, UnaryExpression, UnaryOperator,
+    UserVariableExpression, Variable, VariableExpression, When,
 };
 pub use flush::{Flush, FlushOption};
 pub use function_expression::{
