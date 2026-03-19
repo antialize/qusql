@@ -800,19 +800,19 @@ pub(crate) fn parse_data_type<'a>(
         _ => parser.expected_failure("type")?,
     };
 
-    // Check for PostgreSQL array type syntax: TYPE[]
-    let (identifier, type_) =
-        if parser.options.dialect.is_postgresql() && matches!(parser.token, Token::LBracket) {
+    // Check for PostgreSQL array type syntax: TYPE[] or TYPE[][] etc.
+    let (identifier, type_) = {
+        let mut identifier = identifier;
+        let mut type_ = type_;
+        while parser.options.dialect.is_postgresql() && matches!(parser.token, Token::LBracket) {
             let lbracket = parser.consume_token(Token::LBracket)?;
             let rbracket = parser.consume_token(Token::RBracket)?;
             let array_span = lbracket.join_span(&rbracket);
-            (
-                identifier.join_span(&array_span),
-                Type::Array(Box::new(type_), array_span),
-            )
-        } else {
-            (identifier, type_)
-        };
+            identifier = identifier.join_span(&array_span);
+            type_ = Type::Array(Box::new(type_), array_span);
+        }
+        (identifier, type_)
+    };
 
     let mut properties = Vec::new();
     loop {
