@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use crate::{
-    Expression, OptSpanned, Span, Spanned,
+    Expression, Identifier, OptSpanned, Span, Spanned,
     expression::{PRIORITY_MAX, parse_expression_outer, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
@@ -217,7 +217,7 @@ pub enum Function<'a> {
     WeekOfYear,
     Year,
     YearWeek,
-    Other(&'a str),
+    Other(Vec<Identifier<'a>>),
 }
 
 /// Function call expression,
@@ -569,7 +569,12 @@ pub(crate) fn parse_aggregate_function<'a>(
         Token::Ident(_, Keyword::MAX) => Function::Max,
         Token::Ident(_, Keyword::JSON_ARRAYAGG) => Function::JsonArrayAgg,
         Token::Ident(_, Keyword::JSON_OBJECTAGG) => Function::JsonObjectAgg,
-        Token::Ident(name, _) if is_aggregate_function_name(name) => Function::Other(name),
+        Token::Ident(name, _) if is_aggregate_function_name(name) => {
+            Function::Other(alloc::vec![Identifier {
+                value: name,
+                span: span.clone()
+            }])
+        }
         _ => {
             parser.err("Unknown aggregate function", &span);
             Function::Unknown
@@ -864,7 +869,12 @@ pub(crate) fn parse_function<'a>(
         // Sqlite
         Token::Ident(_, Keyword::STRFTIME) => Function::Strftime,
         Token::Ident(_, Keyword::DATETIME) => Function::Datetime,
-        Token::Ident(v, k) if !k.restricted(parser.reserved()) => Function::Other(v),
+        Token::Ident(v, k) if !k.restricted(parser.reserved()) => {
+            Function::Other(alloc::vec![Identifier {
+                value: v,
+                span: span.clone()
+            }])
+        }
         _ => {
             parser.err("Unknown function", &span);
             Function::Unknown
@@ -903,6 +913,50 @@ pub(crate) fn parse_function<'a>(
             function: func,
             args,
             function_span: span,
+        })))
+    }
+}
+
+/// Parse the argument list and optional OVER clause for a schema-qualified function call.
+/// The caller has already resolved `func = Function::Other(qualified_parts)` and
+/// computed `function_span` covering the full qualified name.
+pub(crate) fn parse_function_call<'a>(
+    parser: &mut Parser<'a, '_>,
+    func: Function<'a>,
+    function_span: Span,
+) -> Result<Expression<'a>, ParseError> {
+    parser.consume_token(Token::LParen)?;
+    let mut args = Vec::new();
+    if !matches!(parser.token, Token::RParen) {
+        loop {
+            parser.recovered(
+                "')' or ','",
+                &|t| matches!(t, Token::RParen | Token::Comma),
+                |parser| {
+                    args.push(parse_expression_outer(parser)?);
+                    Ok(())
+                },
+            )?;
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+    }
+    parser.consume_token(Token::RParen)?;
+    if let Some(over) = parse_over_clause(parser)? {
+        Ok(Expression::WindowFunction(Box::new(
+            WindowFunctionCallExpression {
+                function: func,
+                args,
+                function_span,
+                over,
+            },
+        )))
+    } else {
+        Ok(Expression::Function(Box::new(FunctionCallExpression {
+            function: func,
+            args,
+            function_span,
         })))
     }
 }
