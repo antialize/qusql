@@ -217,6 +217,44 @@ pub enum Function<'a> {
     WeekOfYear,
     Year,
     YearWeek,
+    // Aggregate / statistical functions
+    ArrayAgg,
+    BitAnd,
+    BitOr,
+    BitXor,
+    BoolAnd,
+    BoolOr,
+    Corr,
+    CovarPop,
+    CovarSamp,
+    CumeDist,
+    DenseRank,
+    JsonAgg,
+    JsonbAgg,
+    JsonbObjectAgg,
+    PercentRank,
+    PercentileCont,
+    PercentileDisc,
+    Rank,
+    RegrAvgx,
+    RegrAvgy,
+    RegrCount,
+    RegrIntercept,
+    RegrR2,
+    RegrSlope,
+    RegrSxx,
+    RegrSxy,
+    RegrSyy,
+    Mode,
+    Std,
+    Stddev,
+    StddevPop,
+    StddevSamp,
+    StringAgg,
+    Variance,
+    VarPop,
+    VarSamp,
+    Xmlagg,
     Other(Vec<Identifier<'a>>),
 }
 
@@ -372,56 +410,7 @@ impl Spanned for AggregateFunctionCallExpression<'_> {
     }
 }
 
-pub(crate) fn is_aggregate_function_name(name: &str) -> bool {
-    name.eq_ignore_ascii_case("avg")
-        || name.eq_ignore_ascii_case("bit_and")
-        || name.eq_ignore_ascii_case("bit_or")
-        || name.eq_ignore_ascii_case("bit_xor")
-        || name.eq_ignore_ascii_case("bool_and")
-        || name.eq_ignore_ascii_case("bool_or")
-        || name.eq_ignore_ascii_case("count")
-        || name.eq_ignore_ascii_case("every")
-        || name.eq_ignore_ascii_case("json_agg")
-        || name.eq_ignore_ascii_case("jsonb_agg")
-        || name.eq_ignore_ascii_case("json_object_agg")
-        || name.eq_ignore_ascii_case("jsonb_object_agg")
-        || name.eq_ignore_ascii_case("json_arrayagg")
-        || name.eq_ignore_ascii_case("json_objectagg")
-        || name.eq_ignore_ascii_case("max")
-        || name.eq_ignore_ascii_case("min")
-        || name.eq_ignore_ascii_case("std")
-        || name.eq_ignore_ascii_case("stddev")
-        || name.eq_ignore_ascii_case("stddev_pop")
-        || name.eq_ignore_ascii_case("stddev_samp")
-        || name.eq_ignore_ascii_case("sum")
-        || name.eq_ignore_ascii_case("variance")
-        || name.eq_ignore_ascii_case("var_pop")
-        || name.eq_ignore_ascii_case("var_samp")
-        || name.eq_ignore_ascii_case("array_agg")
-        || name.eq_ignore_ascii_case("string_agg")
-        || name.eq_ignore_ascii_case("xmlagg")
-        || name.eq_ignore_ascii_case("corr")
-        || name.eq_ignore_ascii_case("covar_pop")
-        || name.eq_ignore_ascii_case("covar_samp")
-        || name.eq_ignore_ascii_case("regr_avgx")
-        || name.eq_ignore_ascii_case("regr_avgy")
-        || name.eq_ignore_ascii_case("regr_count")
-        || name.eq_ignore_ascii_case("regr_intercept")
-        || name.eq_ignore_ascii_case("regr_r2")
-        || name.eq_ignore_ascii_case("regr_slope")
-        || name.eq_ignore_ascii_case("regr_sxx")
-        || name.eq_ignore_ascii_case("regr_sxy")
-        || name.eq_ignore_ascii_case("regr_syy")
-        || name.eq_ignore_ascii_case("mode")
-        || name.eq_ignore_ascii_case("percentile_cont")
-        || name.eq_ignore_ascii_case("percentile_disc")
-        || name.eq_ignore_ascii_case("rank")
-        || name.eq_ignore_ascii_case("dense_rank")
-        || name.eq_ignore_ascii_case("percent_rank")
-        || name.eq_ignore_ascii_case("cume_dist")
-}
-
-pub(crate) fn is_aggregate_function_ident(name: &str, keyword: &Keyword) -> bool {
+pub(crate) fn is_aggregate_function_ident(keyword: &Keyword) -> bool {
     matches!(
         keyword,
         Keyword::COUNT
@@ -431,7 +420,45 @@ pub(crate) fn is_aggregate_function_ident(name: &str, keyword: &Keyword) -> bool
             | Keyword::MAX
             | Keyword::JSON_ARRAYAGG
             | Keyword::JSON_OBJECTAGG
-    ) || is_aggregate_function_name(name)
+            | Keyword::ARRAY_AGG
+            | Keyword::BIT_AND
+            | Keyword::BIT_OR
+            | Keyword::BIT_XOR
+            | Keyword::BOOL_AND
+            | Keyword::BOOL_OR
+            | Keyword::CORR
+            | Keyword::COVAR_POP
+            | Keyword::COVAR_SAMP
+            | Keyword::CUME_DIST
+            | Keyword::DENSE_RANK
+            | Keyword::EVERY
+            | Keyword::JSON_AGG
+            | Keyword::JSONB_AGG
+            | Keyword::JSONB_OBJECT_AGG
+            | Keyword::PERCENT_RANK
+            | Keyword::PERCENTILE_CONT
+            | Keyword::PERCENTILE_DISC
+            | Keyword::RANK
+            | Keyword::REGR_AVGX
+            | Keyword::REGR_AVGY
+            | Keyword::REGR_COUNT
+            | Keyword::REGR_INTERCEPT
+            | Keyword::REGR_R2
+            | Keyword::REGR_SLOPE
+            | Keyword::REGR_SXX
+            | Keyword::REGR_SXY
+            | Keyword::REGR_SYY
+            | Keyword::STD
+            | Keyword::STDDEV
+            | Keyword::STDDEV_POP
+            | Keyword::STDDEV_SAMP
+            | Keyword::STRING_AGG
+            | Keyword::VARIANCE
+            | Keyword::VAR_POP
+            | Keyword::VAR_SAMP
+            | Keyword::XMLAGG
+            | Keyword::MODE
+    )
 }
 
 fn parse_window_frame_bound<'a>(
@@ -569,12 +596,44 @@ pub(crate) fn parse_aggregate_function<'a>(
         Token::Ident(_, Keyword::MAX) => Function::Max,
         Token::Ident(_, Keyword::JSON_ARRAYAGG) => Function::JsonArrayAgg,
         Token::Ident(_, Keyword::JSON_OBJECTAGG) => Function::JsonObjectAgg,
-        Token::Ident(name, _) if is_aggregate_function_name(name) => {
-            Function::Other(alloc::vec![Identifier {
-                value: name,
-                span: span.clone()
-            }])
-        }
+        Token::Ident(_, Keyword::ARRAY_AGG) => Function::ArrayAgg,
+        Token::Ident(_, Keyword::BIT_AND) => Function::BitAnd,
+        Token::Ident(_, Keyword::BIT_OR) => Function::BitOr,
+        Token::Ident(_, Keyword::BIT_XOR) => Function::BitXor,
+        Token::Ident(_, Keyword::BOOL_AND) => Function::BoolAnd,
+        Token::Ident(_, Keyword::BOOL_OR) => Function::BoolOr,
+        Token::Ident(_, Keyword::CORR) => Function::Corr,
+        Token::Ident(_, Keyword::COVAR_POP) => Function::CovarPop,
+        Token::Ident(_, Keyword::COVAR_SAMP) => Function::CovarSamp,
+        Token::Ident(_, Keyword::CUME_DIST) => Function::CumeDist,
+        Token::Ident(_, Keyword::DENSE_RANK) => Function::DenseRank,
+        Token::Ident(_, Keyword::EVERY) => Function::BoolAnd,
+        Token::Ident(_, Keyword::JSON_AGG) => Function::JsonAgg,
+        Token::Ident(_, Keyword::JSONB_AGG) => Function::JsonbAgg,
+        Token::Ident(_, Keyword::JSONB_OBJECT_AGG) => Function::JsonbObjectAgg,
+        Token::Ident(_, Keyword::PERCENT_RANK) => Function::PercentRank,
+        Token::Ident(_, Keyword::PERCENTILE_CONT) => Function::PercentileCont,
+        Token::Ident(_, Keyword::PERCENTILE_DISC) => Function::PercentileDisc,
+        Token::Ident(_, Keyword::RANK) => Function::Rank,
+        Token::Ident(_, Keyword::REGR_AVGX) => Function::RegrAvgx,
+        Token::Ident(_, Keyword::REGR_AVGY) => Function::RegrAvgy,
+        Token::Ident(_, Keyword::REGR_COUNT) => Function::RegrCount,
+        Token::Ident(_, Keyword::REGR_INTERCEPT) => Function::RegrIntercept,
+        Token::Ident(_, Keyword::REGR_R2) => Function::RegrR2,
+        Token::Ident(_, Keyword::REGR_SLOPE) => Function::RegrSlope,
+        Token::Ident(_, Keyword::REGR_SXX) => Function::RegrSxx,
+        Token::Ident(_, Keyword::REGR_SXY) => Function::RegrSxy,
+        Token::Ident(_, Keyword::REGR_SYY) => Function::RegrSyy,
+        Token::Ident(_, Keyword::STD) => Function::Std,
+        Token::Ident(_, Keyword::STDDEV) => Function::Stddev,
+        Token::Ident(_, Keyword::STDDEV_POP) => Function::StddevPop,
+        Token::Ident(_, Keyword::STDDEV_SAMP) => Function::StddevSamp,
+        Token::Ident(_, Keyword::STRING_AGG) => Function::StringAgg,
+        Token::Ident(_, Keyword::VARIANCE) => Function::Variance,
+        Token::Ident(_, Keyword::VAR_POP) => Function::VarPop,
+        Token::Ident(_, Keyword::VAR_SAMP) => Function::VarSamp,
+        Token::Ident(_, Keyword::XMLAGG) => Function::Xmlagg,
+        Token::Ident(_, Keyword::MODE) => Function::Mode,
         _ => {
             parser.err("Unknown aggregate function", &span);
             Function::Unknown

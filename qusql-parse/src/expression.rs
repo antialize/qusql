@@ -2145,9 +2145,9 @@ pub(crate) fn parse_expression_restricted<'a>(
                 parser.consume();
                 r.shift_expr(parse_function(parser, i, s)?)
             }
-            Token::Ident(name, keyword)
+            Token::Ident(_, keyword)
                 if matches!(parser.peek(), Token::LParen)
-                    && is_aggregate_function_ident(name, &keyword) =>
+                    && is_aggregate_function_ident(&keyword) =>
             {
                 let i = parser.token.clone();
                 let s = parser.span.clone();
