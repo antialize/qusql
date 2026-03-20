@@ -482,7 +482,8 @@ pub(crate) fn parse_table_reference_inner<'a>(
                         "')' or ','",
                         &|t| matches!(t, Token::RParen | Token::Comma),
                         |parser| {
-                            col_list.push(parser.consume_plain_identifier_restrict(Restrict::EMPTY)?);
+                            col_list
+                                .push(parser.consume_plain_identifier_restrict(Restrict::EMPTY)?);
                             Ok(())
                         },
                     )?;

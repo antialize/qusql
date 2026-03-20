@@ -1430,9 +1430,9 @@
   },
   {
     "input": "SELECT 'I\\\\'m not fine'",
-    "output": null,
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"I\\\\\\\\\",\n                        span: 7..12,\n                    },\n                ),\n                as_: Some(\n                    Identifier {\n                        value: \"m\",\n                        span: 12..13,\n                    },\n                ),\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        distinct_on: None,\n        offset: None,\n        fetch: None,\n        locking: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 14..17,\n    sql_segment: \"not\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 14..17,\n    sql_segment: \"not\",\n    fragments: [],\n}"
     ],
     "should_fail": true,
     "failure": true,
@@ -1452,9 +1452,9 @@
   },
   {
     "input": "SELECT 'a%c' LIKE 'a$%c' ESCAPE '$'",
-    "output": null,
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Binary(\n                    BinaryExpression {\n                        op: Like(\n                            13..17,\n                        ),\n                        lhs: String(\n                            SString {\n                                value: \"a%c\",\n                                span: 7..12,\n                            },\n                        ),\n                        rhs: String(\n                            SString {\n                                value: \"a$%c\",\n                                span: 18..24,\n                            },\n                        ),\n                    },\n                ),\n                as_: Some(\n                    Identifier {\n                        value: \"ESCAPE\",\n                        span: 25..31,\n                    },\n                ),\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        distinct_on: None,\n        offset: None,\n        fetch: None,\n        locking: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 32..35,\n    sql_segment: \"'$'\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 32..35,\n    sql_segment: \"'$'\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true,
@@ -1474,9 +1474,9 @@
   },
   {
     "input": "SELECT 'a_c' LIKE 'a#_c' ESCAPE '#'",
-    "output": null,
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Binary(\n                    BinaryExpression {\n                        op: Like(\n                            13..17,\n                        ),\n                        lhs: String(\n                            SString {\n                                value: \"a_c\",\n                                span: 7..12,\n                            },\n                        ),\n                        rhs: String(\n                            SString {\n                                value: \"a#_c\",\n                                span: 18..24,\n                            },\n                        ),\n                    },\n                ),\n                as_: Some(\n                    Identifier {\n                        value: \"ESCAPE\",\n                        span: 25..31,\n                    },\n                ),\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        distinct_on: None,\n        offset: None,\n        fetch: None,\n        locking: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 32..35,\n    sql_segment: \"'#'\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 32..35,\n    sql_segment: \"'#'\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true,

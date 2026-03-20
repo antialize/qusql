@@ -2192,7 +2192,10 @@ pub(crate) fn parse_expression_restricted<'a>(
                     elements,
                 })))
             }
-            Token::Ident(_, k) if k.expr_ident() || !k.restricted(restrict) => {
+            Token::Ident(_, k)
+                if (k.expr_ident() || !k.restricted(restrict))
+                    && !matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
                 let i = parser.token.clone();
                 let s = parser.span.clone();
                 parser.consume();
