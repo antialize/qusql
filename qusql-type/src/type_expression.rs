@@ -575,5 +575,9 @@ pub(crate) fn type_expression<'a>(
             issue_todo!(typer.issues, e);
             FullType::invalid()
         }
+        Expression::FieldAccess(e) => {
+            issue_todo!(typer.issues, e);
+            FullType::invalid()
+        }
     }
 }

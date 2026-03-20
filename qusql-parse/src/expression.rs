@@ -16,7 +16,7 @@ use crate::{
     function_expression::{
         AggregateFunctionCallExpression, Function, FunctionCallExpression,
         WindowFunctionCallExpression, is_aggregate_function_ident, parse_aggregate_function,
-        parse_function,
+        parse_function, parse_function_call,
     },
     keywords::{Keyword, Restrict},
     lexer::Token,
@@ -577,6 +577,26 @@ impl Spanned for ArraySubscriptExpression<'_> {
     }
 }
 
+/// PostgreSQL composite type field access: (expr).field
+#[derive(Debug, Clone)]
+pub struct FieldAccessExpression<'a> {
+    /// The expression whose field is accessed
+    pub expr: Expression<'a>,
+    /// Span of the "."
+    pub dot_span: Span,
+    /// The field name
+    pub field: Identifier<'a>,
+}
+
+impl Spanned for FieldAccessExpression<'_> {
+    fn span(&self) -> Span {
+        self.expr
+            .span()
+            .join_span(&self.dot_span)
+            .join_span(&self.field)
+    }
+}
+
 /// Group contat expression
 #[derive(Debug, Clone)]
 pub struct GroupConcatExpression<'a> {
@@ -994,6 +1014,8 @@ pub enum Expression<'a> {
     ArraySubscript(Box<ArraySubscriptExpression<'a>>),
     /// PostgreSQL ANY / SOME / ALL quantifier: ANY(subquery_or_array)
     Quantifier(Box<QuantifierExpression<'a>>),
+    /// PostgreSQL composite type field access: (expr).field
+    FieldAccess(Box<FieldAccessExpression<'a>>),
 }
 
 impl<'a> Spanned for Expression<'a> {
@@ -1035,6 +1057,7 @@ impl<'a> Spanned for Expression<'a> {
             Expression::Array(e) => e.span(),
             Expression::ArraySubscript(e) => e.span(),
             Expression::Quantifier(e) => e.span(),
+            Expression::FieldAccess(e) => e.span(),
         }
     }
 }
@@ -1491,6 +1514,27 @@ pub(crate) fn parse_expression_restricted<'a>(
                         upper,
                     },
                 )))
+            }
+            Token::Period
+                if parser.options.dialect.is_postgresql()
+                    && PRIORITY_TYPECAST < max_priority
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                // PostgreSQL composite type field access: (expr).field
+                if let Err(e) = r.reduce(PRIORITY_TYPECAST) {
+                    parser.err_here(e)?;
+                }
+                let expr = match r.stack.pop() {
+                    Some(ReduceMember::Expression(e)) => e,
+                    _ => parser.err_here("Expected expression before '.'")?,
+                };
+                let dot_span = parser.consume_token(Token::Period)?;
+                let field = parser.consume_plain_identifier_unreserved()?;
+                r.shift_expr(Expression::FieldAccess(Box::new(FieldAccessExpression {
+                    expr,
+                    dot_span,
+                    field,
+                })))
             }
             Token::Ident(_, Keyword::NOT)
                 if !matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
@@ -2184,22 +2228,71 @@ pub(crate) fn parse_expression_restricted<'a>(
                         let mut parts = vec![IdentifierPart::Name(
                             parser.token_to_plain_identifier(&i, s)?,
                         )];
+                        // Save the last identifier token so we can call parse_function if
+                        // the chain is followed by `(` (schema-qualified function call).
+                        let mut last_ident_tok: Option<(Token<'a>, Span)> = None;
                         loop {
                             if parser.skip_token(Token::Period).is_none() {
                                 break;
                             }
                             match &parser.token {
-                                Token::Mul => parts
-                                    .push(IdentifierPart::Star(parser.consume_token(Token::Mul)?)),
-                                Token::Ident(_, _) => parts.push(IdentifierPart::Name(
-                                    parser.consume_plain_identifier_unreserved()?,
-                                )),
+                                Token::Mul => {
+                                    last_ident_tok = None;
+                                    parts.push(IdentifierPart::Star(
+                                        parser.consume_token(Token::Mul)?,
+                                    ));
+                                }
+                                Token::Ident(_, _) => {
+                                    let fn_tok = parser.token.clone();
+                                    let fn_span = parser.span.clone();
+                                    last_ident_tok = Some((fn_tok, fn_span));
+                                    parts.push(IdentifierPart::Name(
+                                        parser.consume_plain_identifier_unreserved()?,
+                                    ));
+                                }
                                 _ => parser.expected_failure("Identifier or '*'")?,
                             }
                         }
-                        r.shift_expr(Expression::Identifier(Box::new(IdentifierExpression {
-                            parts,
-                        })))
+                        // Schema-qualified function call: schema.func(args)
+                        if matches!(parser.token, Token::LParen) {
+                            if let Some((fn_tok, fn_span)) = last_ident_tok {
+                                // All parts form the qualified name; last part is function name
+                                let mut all_idents: Vec<Identifier<'a>> = parts[..parts.len() - 1]
+                                    .iter()
+                                    .filter_map(|p| match p {
+                                        IdentifierPart::Name(id) => Some(id.clone()),
+                                        _ => None,
+                                    })
+                                    .collect();
+                                let fn_ident = Identifier {
+                                    value: match &fn_tok {
+                                        Token::Ident(v, _) => v,
+                                        _ => "",
+                                    },
+                                    span: fn_span.clone(),
+                                };
+                                all_idents.push(fn_ident);
+                                // function_span covers from first qualifier to function name
+                                let function_span = if all_idents.len() > 1 {
+                                    all_idents[0].span.join_span(&fn_span)
+                                } else {
+                                    fn_span
+                                };
+                                r.shift_expr(parse_function_call(
+                                    parser,
+                                    Function::Other(all_idents),
+                                    function_span,
+                                )?)
+                            } else {
+                                r.shift_expr(Expression::Identifier(Box::new(
+                                    IdentifierExpression { parts },
+                                )))
+                            }
+                        } else {
+                            r.shift_expr(Expression::Identifier(Box::new(IdentifierExpression {
+                                parts,
+                            })))
+                        }
                     }
                 }
             }

@@ -135,9 +135,9 @@ pub use drop::{
 pub use expression::{
     ArgExpression, ArrayExpression, ArraySubscriptExpression, BetweenExpression, BinaryExpression,
     BinaryOperator, BoolExpression, CaseExpression, CastExpression, ConvertExpression,
-    DefaultExpression, ExistsExpression, Expression, ExtractExpression, FloatExpression,
-    GroupConcatExpression, IdentifierExpression, IdentifierPart, InExpression, IntegerExpression,
-    IntervalExpression, InvalidExpression, Is, IsExpression, ListHackExpression,
+    DefaultExpression, ExistsExpression, Expression, ExtractExpression, FieldAccessExpression,
+    FloatExpression, GroupConcatExpression, IdentifierExpression, IdentifierPart, InExpression,
+    IntegerExpression, IntervalExpression, InvalidExpression, Is, IsExpression, ListHackExpression,
     MatchAgainstExpression, MatchMode, MemberOfExpression, NullExpression, Quantifier,
     QuantifierExpression, SubqueryExpression, TimeUnit, TimestampAddExpression,
     TimestampDiffExpression, TypeCastExpression, UnaryExpression, UnaryOperator,
