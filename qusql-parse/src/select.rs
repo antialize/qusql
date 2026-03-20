@@ -316,7 +316,8 @@ pub enum TableReference<'a> {
         as_span: Option<Span>,
         /// Alias for table if specified
         as_: Option<Identifier<'a>>,
-        //TODO collist
+        /// Optional column list `(col1, col2, ...)` after the alias
+        col_list: Vec<Identifier<'a>>,
     },
     /// JSON_TABLE function
     JsonTable {
@@ -378,7 +379,8 @@ impl<'a> Spanned for TableReference<'a> {
                 query,
                 as_span,
                 as_,
-            } => query.join_span(as_span).join_span(as_),
+                col_list,
+            } => query.join_span(as_span).join_span(as_).join_span(col_list),
             TableReference::JsonTable {
                 json_table_span,
                 json_expr,
@@ -454,6 +456,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
                     .map(|s| lateral_span.join_span(&s))
                     .or(Some(lateral_span)),
                 as_,
+                col_list: Vec::new(),
             })
         }
         Token::Ident(_, Keyword::SELECT) | Token::LParen => {
@@ -470,10 +473,30 @@ pub(crate) fn parse_table_reference_inner<'a>(
             } else {
                 None
             };
+            // Optional column list: AS alias (col1, col2, ...)
+            let mut col_list = Vec::new();
+            if as_.is_some() && matches!(parser.token, Token::LParen) {
+                parser.consume_token(Token::LParen)?;
+                loop {
+                    parser.recovered(
+                        "')' or ','",
+                        &|t| matches!(t, Token::RParen | Token::Comma),
+                        |parser| {
+                            col_list.push(parser.consume_plain_identifier_restrict(Restrict::EMPTY)?);
+                            Ok(())
+                        },
+                    )?;
+                    if parser.skip_token(Token::Comma).is_none() {
+                        break;
+                    }
+                }
+                parser.consume_token(Token::RParen)?;
+            };
             Ok(TableReference::Query {
                 query: Box::new(query),
                 as_span,
                 as_,
+                col_list,
             })
         }
         Token::Ident(_, _) => parse_table_reference_named(parser, additional_restrict),

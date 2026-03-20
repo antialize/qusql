@@ -1435,6 +1435,7 @@ pub(crate) fn parse_compound_query_bottom<'a>(
             Ok(s.unwrap_or(Statement::Invalid(Box::new(Invalid { span: lp }))))
         }
         Token::Ident(_, Keyword::SELECT) => Ok(Statement::Select(Box::new(parse_select(parser)?))),
+        Token::Ident(_, Keyword::VALUES) => Ok(Statement::Values(Box::new(parse_values(parser)?))),
         _ => parser.expected_failure("'SELECET' or '('")?,
     }
 }
