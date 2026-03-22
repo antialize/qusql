@@ -22,36 +22,14 @@ use crate::{
     copy::{CopyFrom, CopyTo, parse_copy_statement},
     create::{
         CreateDatabase, CreateSchema, CreateSequence, CreateServer, CreateTypeEnum, parse_create,
-    },
-    create_function::CreateFunction,
-    create_table::{CreateTable, CreateTablePartitionOf},
-    create_view::CreateView,
-    delete::{Delete, parse_delete},
-    drop::{
+    }, create_function::CreateFunction, create_table::{CreateTable, CreateTablePartitionOf}, create_view::CreateView, delete::{Delete, parse_delete}, drop::{
         DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
         DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView, parse_drop,
-    },
-    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
-    flush::{Flush, parse_flush},
-    insert_replace::{InsertReplace, parse_insert_replace},
-    keywords::Keyword,
-    kill::{Kill, parse_kill},
-    lexer::{StringType, Token},
-    lock::{Lock, Unlock, parse_lock, parse_unlock},
-    parser::{ParseError, Parser},
-    qualified_name::parse_qualified_name_unreserved,
-    rename::parse_rename_table,
-    select::{OrderFlag, Select, parse_select},
-    show::{
+    }, expression::{Expression, PRIORITY_MAX, parse_expression_unreserved}, flush::{Flush, parse_flush}, insert_replace::{InsertReplace, parse_insert_replace}, keywords::Keyword, kill::{Kill, parse_kill}, lexer::Token, lock::{Lock, Unlock, parse_lock, parse_unlock}, parser::{ParseError, Parser}, qualified_name::parse_qualified_name_unreserved, rename::parse_rename_table, select::{OrderFlag, Select, parse_select}, show::{
         ShowCharacterSet, ShowCollation, ShowColumns, ShowCreateDatabase, ShowCreateTable,
         ShowCreateView, ShowDatabases, ShowEngines, ShowProcessList, ShowStatus, ShowTables,
         ShowVariables, parse_show,
-    },
-    span::OptSpanned,
-    truncate::{TruncateTable, parse_truncate_table},
-    update::{Update, parse_update},
-    values::parse_values,
-    with_query::parse_with_query,
+    }, span::OptSpanned, truncate::{TruncateTable, parse_truncate_table}, update::{Update, parse_update}, values::parse_values, with_query::parse_with_query
 };
 
 #[derive(Clone, Debug)]
@@ -665,6 +643,7 @@ pub enum Statement<'a> {
     CreateView(Box<CreateView<'a>>),
     CreateTrigger(Box<CreateTrigger<'a>>),
     CreateFunction(Box<CreateFunction<'a>>),
+    CreateProcedure(Box<CreateProcedure<'a>>),
     CreateDatabase(Box<CreateDatabase<'a>>),
     CreateSchema(Box<CreateSchema<'a>>),
     CreateSequence(Box<CreateSequence<'a>>),
@@ -761,6 +740,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::CreateView(v) => v.span(),
             Statement::CreateTrigger(v) => v.span(),
             Statement::CreateFunction(v) => v.span(),
+            Statement::CreateProcedure(v) => v.span(),
             Statement::CreateDatabase(v) => v.span(),
             Statement::CreateSchema(v) => v.span(),
             Statement::CreateSequence(v) => v.span(),
