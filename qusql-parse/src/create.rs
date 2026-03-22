@@ -12,7 +12,7 @@
 use crate::{
     DataType, Identifier, QualifiedName, SString, Span, Spanned, Statement,
     create_constraint_trigger::parse_create_constraint_trigger,
-    create_function::parse_create_function,
+    create_function::{parse_create_function, parse_create_procedure},
     create_index::parse_create_index,
     create_option::{CreateAlgorithm, CreateOption},
     create_role::parse_create_role,
@@ -964,7 +964,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
     parser.consume_keyword(Keyword::CREATE)?;
 
     let mut create_options = Vec::new();
-    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'INDEX' | 'TYPE' | 'DATABASE' | 'DOMAIN' |'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR' | 'CONSTRAINT'";
+    const CREATABLE: &str = "'TABLE' | 'VIEW' | 'TRIGGER' | 'FUNCTION' | 'PROCEDURE' | 'INDEX' | 'TYPE' | 'DATABASE' | 'DOMAIN' |'EXTENSION' | 'SCHEMA' | 'SEQUENCE' | 'ROLE' | 'SERVER' | 'OPERATOR' | 'CONSTRAINT'";
 
     parser.recovered(
         CREATABLE,
@@ -978,6 +978,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         | Keyword::VIEW
                         | Keyword::TRIGGER
                         | Keyword::FUNCTION
+                        | Keyword::PROCEDURE
                         | Keyword::INDEX
                         | Keyword::TYPE
                         | Keyword::DATABASE
@@ -1133,6 +1134,9 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
             )),
             Token::Ident(_, Keyword::FUNCTION) => Statement::CreateFunction(Box::new(
                 parse_create_function(parser, create_span, create_options)?,
+            )),
+            Token::Ident(_, Keyword::PROCEDURE) => Statement::CreateProcedure(Box::new(
+                parse_create_procedure(parser, create_span, create_options)?,
             )),
             Token::Ident(_, Keyword::TRIGGER) => Statement::CreateTrigger(Box::new(
                 parse_create_trigger(parser, create_span, create_options)?,

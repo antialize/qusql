@@ -23,7 +23,7 @@ use crate::{
     create::{
         CreateDatabase, CreateSchema, CreateSequence, CreateServer, CreateTypeEnum, parse_create,
     },
-    create_function::CreateFunction,
+    create_function::{CreateFunction, CreateProcedure},
     create_table::{CreateTable, CreateTablePartitionOf},
     create_view::CreateView,
     delete::{Delete, parse_delete},
@@ -474,18 +474,36 @@ impl Spanned for StartTransaction {
     }
 }
 
+/// Body of a DO statement
+#[derive(Clone, Debug)]
+pub enum DoBody<'a> {
+    /// Parsed statements from `DO $$ BEGIN ... END $$`
+    Statements(Vec<Statement<'a>>),
+    /// Unparsed dollar-quoted string literal, e.g. `DO $$ ... $$`
+    String(&'a str, Span),
+}
+
+impl<'a> OptSpanned for DoBody<'a> {
+    fn opt_span(&self) -> Option<Span> {
+        match self {
+            DoBody::Statements(s) => s.opt_span(),
+            DoBody::String(_, span) => Some(span.clone()),
+        }
+    }
+}
+
 /// Do statement
 #[derive(Clone, Debug)]
 pub struct Do<'a> {
     /// Span of "DO"
     pub do_span: Span,
-    /// Statements in "DO"
-    pub statements: Vec<Statement<'a>>,
+    /// Body of the DO block
+    pub body: DoBody<'a>,
 }
 
 impl<'a> Spanned for Do<'a> {
     fn span(&self) -> Span {
-        self.do_span.join_span(&self.statements)
+        self.do_span.join_span(&self.body)
     }
 }
 
@@ -656,6 +674,48 @@ pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, Par
     }
 }
 
+/// CALL statement — invokes a stored procedure
+#[derive(Clone, Debug)]
+pub struct Call<'a> {
+    /// Span of "CALL"
+    pub call_span: Span,
+    /// Name of the procedure (possibly qualified)
+    pub name: crate::QualifiedName<'a>,
+    /// Argument expressions
+    pub args: Vec<Expression<'a>>,
+}
+
+impl<'a> Spanned for Call<'a> {
+    fn span(&self) -> Span {
+        self.call_span.join_span(&self.name).join_span(&self.args)
+    }
+}
+
+fn parse_call<'a>(parser: &mut Parser<'a, '_>) -> Result<Call<'a>, ParseError> {
+    let call_span = parser.consume_keyword(Keyword::CALL)?;
+    let name = parse_qualified_name_unreserved(parser)?;
+    let mut args = Vec::new();
+    parser.consume_token(Token::LParen)?;
+    parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
+        loop {
+            if matches!(parser.token, Token::RParen) {
+                break;
+            }
+            args.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        Ok(())
+    })?;
+    parser.consume_token(Token::RParen)?;
+    Ok(Call {
+        call_span,
+        name,
+        args,
+    })
+}
+
 /// SQL statement
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
@@ -665,6 +725,7 @@ pub enum Statement<'a> {
     CreateView(Box<CreateView<'a>>),
     CreateTrigger(Box<CreateTrigger<'a>>),
     CreateFunction(Box<CreateFunction<'a>>),
+    CreateProcedure(Box<CreateProcedure<'a>>),
     CreateDatabase(Box<CreateDatabase<'a>>),
     CreateSchema(Box<CreateSchema<'a>>),
     CreateSequence(Box<CreateSequence<'a>>),
@@ -749,6 +810,8 @@ pub enum Statement<'a> {
     RefreshMaterializedView(Box<RefreshMaterializedView<'a>>),
     /// PostgreSQL PREPARE statement
     Prepare(Box<Prepare<'a>>),
+    /// CALL statement for invoking stored procedures
+    Call(Box<Call<'a>>),
 }
 
 impl<'a> Spanned for Statement<'a> {
@@ -761,6 +824,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::CreateView(v) => v.span(),
             Statement::CreateTrigger(v) => v.span(),
             Statement::CreateFunction(v) => v.span(),
+            Statement::CreateProcedure(v) => v.span(),
             Statement::CreateDatabase(v) => v.span(),
             Statement::CreateSchema(v) => v.span(),
             Statement::CreateSequence(v) => v.span(),
@@ -838,6 +902,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::DeclareCursor(v) => v.span(),
             Statement::RefreshMaterializedView(v) => v.span(),
             Statement::Prepare(v) => v.span(),
+            Statement::Call(v) => v.span(),
         }
     }
 }
@@ -926,18 +991,20 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::REFRESH) => Some(Statement::RefreshMaterializedView(Box::new(
             parse_refresh_materialized_view(parser)?,
         ))),
+        Token::Ident(_, Keyword::CALL) => Some(Statement::Call(Box::new(parse_call(parser)?))),
         _ => None,
     })
 }
 
 pub(crate) fn parse_do<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let do_span = parser.consume_keyword(Keyword::DO)?;
-    if matches!(parser.token, Token::String(_, StringType::DollarQuoted)) {
+    if let Token::String(s, StringType::DollarQuoted) = parser.token {
         // PostgreSQL: DO $$...$$ — the body is a dollar-quoted string literal
-        parser.consume();
+        let body_str = s;
+        let body_span = parser.consume();
         return Ok(Statement::Do(Box::new(Do {
             do_span,
-            statements: Vec::new(),
+            body: DoBody::String(body_str, body_span),
         })));
     }
     parser.consume_token(Token::DoubleDollar)?;
@@ -945,7 +1012,7 @@ pub(crate) fn parse_do<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>,
     parser.consume_token(Token::DoubleDollar)?;
     Ok(Statement::Do(Box::new(Do {
         do_span,
-        statements: block.statements,
+        body: DoBody::Statements(block.statements),
     })))
 }
 

@@ -105,8 +105,8 @@ pub use create::{
 };
 pub use create_constraint_trigger::{AfterEvent, CreateConstraintTrigger, Deferrable, Initially};
 pub use create_function::{
-    CreateFunction, FunctionBody, FunctionCharacteristic, FunctionLanguage, FunctionParallel,
-    FunctionParam, FunctionParamDirection,
+    CreateFunction, CreateProcedure, FunctionBody, FunctionCharacteristic, FunctionLanguage,
+    FunctionParallel, FunctionParam, FunctionParamDirection,
 };
 pub use create_index::{
     CreateIndex, CreateIndexOption, IncludeClause, UsingIndexMethod, WithOption,
@@ -178,9 +178,9 @@ pub use show::{
 pub use span::{OptSpanned, Span, Spanned};
 pub use sstring::SString;
 pub use statement::{
-    AlterSchema, AlterSchemaAction, Begin, Block, CaseStatement, Commit, CompoundOperator,
+    AlterSchema, AlterSchemaAction, Begin, Block, Call, CaseStatement, Commit, CompoundOperator,
     CompoundQuantifier, CompoundQuery, CompoundQueryBranch, CursorHold, CursorScroll,
-    CursorSensitivity, DeclareCursor, Do, End, Explain, ExplainFormat, ExplainOption, If,
+    CursorSensitivity, DeclareCursor, Do, DoBody, End, Explain, ExplainFormat, ExplainOption, If,
     IfCondition, Invalid, Prepare, RefreshMaterializedView, Return, Set, Signal,
     SignalConditionInformationName, StartTransaction, Statement, Stdin, WhenStatement,
 };

@@ -896,6 +896,8 @@ pub fn parse_schemas<'a>(
             qusql_parse::Statement::Commit(_) => (),
             qusql_parse::Statement::Begin(_) => (),
             qusql_parse::Statement::CreateFunction(_) => (),
+            qusql_parse::Statement::CreateProcedure(_) => (),
+            qusql_parse::Statement::Call(_) => (),
             s => {
                 issues.err(
                     alloc::format!("Unsupported statement {s:?} in schema definition"),

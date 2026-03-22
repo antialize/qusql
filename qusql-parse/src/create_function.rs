@@ -491,3 +491,163 @@ pub(crate) fn parse_create_function<'a>(
         returns_span,
     })
 }
+
+/// Representation of a CREATE PROCEDURE statement
+///
+/// Like functions but without a RETURNS clause.
+#[derive(Clone, Debug)]
+pub struct CreateProcedure<'a> {
+    /// Span of "CREATE"
+    pub create_span: Span,
+    /// Options after "CREATE" (e.g. DEFINER=)
+    pub create_options: Vec<CreateOption<'a>>,
+    /// Span of "PROCEDURE"
+    pub procedure_span: Span,
+    /// Span of "IF NOT EXISTS" if specified
+    pub if_not_exists: Option<Span>,
+    /// Name of created procedure
+    pub name: Identifier<'a>,
+    /// Names and types of procedure parameters
+    pub params: Vec<FunctionParam<'a>>,
+    /// Characteristics (DETERMINISTIC, NO SQL, etc.)
+    pub characteristics: Vec<FunctionCharacteristic<'a>>,
+    /// Body statement (typically a BEGIN...END block)
+    pub body: Option<Statement<'a>>,
+}
+
+impl<'a> Spanned for CreateProcedure<'a> {
+    fn span(&self) -> Span {
+        self.create_span
+            .join_span(&self.create_options)
+            .join_span(&self.procedure_span)
+            .join_span(&self.if_not_exists)
+            .join_span(&self.name)
+            .join_span(&self.params)
+            .join_span(&self.characteristics)
+            .join_span(&self.body)
+    }
+}
+
+pub(crate) fn parse_create_procedure<'a>(
+    parser: &mut Parser<'a, '_>,
+    create_span: Span,
+    create_options: Vec<CreateOption<'a>>,
+) -> Result<CreateProcedure<'a>, ParseError> {
+    let procedure_span = parser.consume_keyword(Keyword::PROCEDURE)?;
+
+    let if_not_exists = if let Some(if_) = parser.skip_keyword(Keyword::IF) {
+        Some(
+            parser
+                .consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?
+                .join_span(&if_),
+        )
+    } else {
+        None
+    };
+
+    let name = parser.consume_plain_identifier_unreserved()?;
+    let mut params = Vec::new();
+    parser.consume_token(Token::LParen)?;
+    parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
+        loop {
+            if matches!(parser.token, Token::RParen) {
+                break;
+            }
+            let direction = match &parser.token {
+                Token::Ident(_, Keyword::IN) => {
+                    let in_ = parser.consume_keyword(Keyword::IN)?;
+                    if let Some(out) = parser.skip_keyword(Keyword::OUT) {
+                        Some(FunctionParamDirection::InOut(in_.join_span(&out)))
+                    } else {
+                        Some(FunctionParamDirection::In(in_))
+                    }
+                }
+                Token::Ident(_, Keyword::OUT) => Some(FunctionParamDirection::Out(
+                    parser.consume_keyword(Keyword::OUT)?,
+                )),
+                Token::Ident(_, Keyword::INOUT) => Some(FunctionParamDirection::InOut(
+                    parser.consume_keyword(Keyword::INOUT)?,
+                )),
+                _ => None,
+            };
+            let name = Some(parser.consume_plain_identifier_unreserved()?);
+            let type_ = parse_data_type(parser, DataTypeContext::FunctionParam)?;
+            params.push(FunctionParam {
+                direction,
+                name,
+                type_,
+                default: None,
+            });
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        Ok(())
+    })?;
+    parser.consume_token(Token::RParen)?;
+
+    let mut characteristics = Vec::new();
+    loop {
+        let f = match &parser.token {
+            Token::Ident(_, Keyword::NOT) => FunctionCharacteristic::NotDeterministic(
+                parser.consume_keywords(&[Keyword::NOT, Keyword::DETERMINISTIC])?,
+            ),
+            Token::Ident(_, Keyword::DETERMINISTIC) => FunctionCharacteristic::Deterministic(
+                parser.consume_keyword(Keyword::DETERMINISTIC)?,
+            ),
+            Token::Ident(_, Keyword::CONTAINS) => FunctionCharacteristic::ContainsSql(
+                parser.consume_keywords(&[Keyword::CONTAINS, Keyword::SQL])?,
+            ),
+            Token::Ident(_, Keyword::NO) => FunctionCharacteristic::NoSql(
+                parser.consume_keywords(&[Keyword::NO, Keyword::SQL])?,
+            ),
+            Token::Ident(_, Keyword::READS) => {
+                FunctionCharacteristic::ReadsSqlData(parser.consume_keywords(&[
+                    Keyword::READS,
+                    Keyword::SQL,
+                    Keyword::DATA,
+                ])?)
+            }
+            Token::Ident(_, Keyword::MODIFIES) => {
+                FunctionCharacteristic::ModifiesSqlData(parser.consume_keywords(&[
+                    Keyword::MODIFIES,
+                    Keyword::SQL,
+                    Keyword::DATA,
+                ])?)
+            }
+            Token::Ident(_, Keyword::COMMENT) => {
+                parser.consume_keyword(Keyword::COMMENT)?;
+                FunctionCharacteristic::Comment(parser.consume_string()?)
+            }
+            Token::Ident(_, Keyword::SQL) => {
+                let span = parser.consume_keywords(&[Keyword::SQL, Keyword::SECURITY])?;
+                match &parser.token {
+                    Token::Ident(_, Keyword::DEFINER) => {
+                        FunctionCharacteristic::SqlSecurityDefiner(
+                            parser.consume_keyword(Keyword::DEFINER)?.join_span(&span),
+                        )
+                    }
+                    Token::Ident(_, Keyword::USER) => FunctionCharacteristic::SqlSecurityUser(
+                        parser.consume_keyword(Keyword::USER)?.join_span(&span),
+                    ),
+                    _ => parser.expected_failure("'DEFINER' or 'USER'")?,
+                }
+            }
+            _ => break,
+        };
+        characteristics.push(f);
+    }
+
+    let body = parse_statement(parser)?;
+
+    Ok(CreateProcedure {
+        create_span,
+        create_options,
+        procedure_span,
+        if_not_exists,
+        name,
+        params,
+        characteristics,
+        body,
+    })
+}
