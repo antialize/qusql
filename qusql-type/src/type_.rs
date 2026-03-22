@@ -18,7 +18,9 @@ use alloc::{
 };
 use qusql_parse::Span;
 
-/// Canonical base type of a type
+/// Canonical base type / type category of a value.
+///
+/// Also exported as [`TypeCategory`], which is the preferred name in new code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BaseType {
     /// There are no constraint of the value
@@ -37,7 +39,25 @@ pub enum BaseType {
     Time,
     TimeStamp,
     TimeInterval,
+    /// Exact numeric (DECIMAL / NUMERIC)
+    Decimal,
+    /// UUID
+    Uuid,
+    /// Network address (inet, cidr, macaddr)
+    Network,
+    /// Geometric types (point, line, polygon, …)
+    Geometric,
+    /// Range types (int4range, tsrange, …)
+    Range,
+    /// JSON / JSONB
+    Json,
+    /// Array types
+    Array,
 }
+
+/// Type category — same as [`BaseType`] under a more descriptive name.
+/// Use this in new code; `BaseType` is kept for backwards compatibility.
+pub type TypeCategory = BaseType;
 
 impl Display for BaseType {
     fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
@@ -53,6 +73,13 @@ impl Display for BaseType {
             BaseType::Time => f.write_str("time"),
             BaseType::TimeStamp => f.write_str("timestamp"),
             BaseType::TimeInterval => f.write_str("timeinterval"),
+            BaseType::Decimal => f.write_str("decimal"),
+            BaseType::Uuid => f.write_str("uuid"),
+            BaseType::Network => f.write_str("network"),
+            BaseType::Geometric => f.write_str("geometric"),
+            BaseType::Range => f.write_str("range"),
+            BaseType::Json => f.write_str("json"),
+            BaseType::Array => f.write_str("array"),
         }
     }
 }
@@ -89,6 +116,38 @@ pub enum Type<'a> {
     // This type is used internally and should not escape to the user
     #[doc(hidden)]
     Null,
+
+    // ── Exact numeric ──
+    /// DECIMAL / NUMERIC with unspecified precision/scale
+    Decimal,
+
+    // ── PostgreSQL-specific concrete types ──
+    /// UUID
+    Uuid,
+    /// IPv4/IPv6 address
+    Inet,
+    /// Network address with mask
+    Cidr,
+    /// MAC address (6 bytes)
+    Macaddr,
+    /// JSONB (binary JSON; semantically distinct from JSON in PostgreSQL)
+    Jsonb,
+    /// Array of a given element type (e.g. `integer[]`)
+    Array(Arc<Type<'a>>),
+    /// Range of a given element type (e.g. `int4range`)
+    Range(Arc<Type<'a>>),
+    /// Multi-range of a given element type
+    MultiRange(Arc<Type<'a>>),
+
+    // ── PostgreSQL geometric types ──
+    Point,
+    Line,
+    Lseg,
+    /// PostgreSQL BOX geometric type (named GeoBox to avoid conflict with Rust's Box)
+    GeoBox,
+    Path,
+    Polygon,
+    Circle,
 }
 
 impl<'a> Display for Type<'a> {
@@ -117,6 +176,22 @@ impl<'a> Display for Type<'a> {
             Type::U64 => f.write_str("u64"),
             Type::U8 => f.write_str("u8"),
             Type::Null => f.write_str("null"),
+            Type::Decimal => f.write_str("decimal"),
+            Type::Uuid => f.write_str("uuid"),
+            Type::Inet => f.write_str("inet"),
+            Type::Cidr => f.write_str("cidr"),
+            Type::Macaddr => f.write_str("macaddr"),
+            Type::Jsonb => f.write_str("jsonb"),
+            Type::Array(inner) => write!(f, "{inner}[]"),
+            Type::Range(inner) => write!(f, "{}range", inner),
+            Type::MultiRange(inner) => write!(f, "{}multirange", inner),
+            Type::Point => f.write_str("point"),
+            Type::Line => f.write_str("line"),
+            Type::Lseg => f.write_str("lseg"),
+            Type::GeoBox => f.write_str("box"),
+            Type::Path => f.write_str("path"),
+            Type::Polygon => f.write_str("polygon"),
+            Type::Circle => f.write_str("circle"),
             Type::Enum(v) => {
                 f.write_str("enum(")?;
                 for (i, v) in v.iter().enumerate() {
@@ -142,7 +217,7 @@ impl<'a> Display for Type<'a> {
 }
 
 impl<'a> Type<'a> {
-    /// Compute the canonical base type
+    /// Compute the canonical base type / category
     pub fn base(&self) -> BaseType {
         match self {
             Type::Args(t, _) => *t,
@@ -156,7 +231,7 @@ impl<'a> Type<'a> {
             Type::I64 => BaseType::Integer,
             Type::I8 => BaseType::Integer,
             Type::Invalid => BaseType::Any,
-            Type::JSON => BaseType::Any,
+            Type::JSON => BaseType::Json,
             Type::Null => BaseType::Any,
             Type::Set(_) => BaseType::String,
             Type::U16 => BaseType::Integer,
@@ -164,6 +239,19 @@ impl<'a> Type<'a> {
             Type::U32 => BaseType::Integer,
             Type::U64 => BaseType::Integer,
             Type::U8 => BaseType::Integer,
+            Type::Decimal => BaseType::Decimal,
+            Type::Uuid => BaseType::Uuid,
+            Type::Inet | Type::Cidr | Type::Macaddr => BaseType::Network,
+            Type::Jsonb => BaseType::Json,
+            Type::Array(_) => BaseType::Array,
+            Type::Range(_) | Type::MultiRange(_) => BaseType::Range,
+            Type::Point
+            | Type::Line
+            | Type::Lseg
+            | Type::GeoBox
+            | Type::Path
+            | Type::Polygon
+            | Type::Circle => BaseType::Geometric,
         }
     }
 }

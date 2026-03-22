@@ -260,6 +260,15 @@ fn quote_args(
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {qusql_sqlx_type::Timestamp}
             }
+            qusql_type::Type::Base(
+                qusql_type::BaseType::Decimal
+                | qusql_type::BaseType::Uuid
+                | qusql_type::BaseType::Network
+                | qusql_type::BaseType::Geometric
+                | qusql_type::BaseType::Range
+                | qusql_type::BaseType::Json
+                | qusql_type::BaseType::Array,
+            ) => quote! {String},
             qusql_type::Type::Null => todo!("null"),
             qusql_type::Type::Invalid => quote! {std::convert::Infallible},
             qusql_type::Type::Enum(_) => quote! {&str},
@@ -268,6 +277,22 @@ fn quote_args(
             qusql_type::Type::F32 => quote! {f32},
             qusql_type::Type::F64 => quote! {f64},
             qusql_type::Type::JSON => quote! {qusql_sqlx_type::Any},
+            qusql_type::Type::Decimal => quote! {f64},
+            qusql_type::Type::Uuid
+            | qusql_type::Type::Inet
+            | qusql_type::Type::Cidr
+            | qusql_type::Type::Macaddr
+            | qusql_type::Type::Jsonb => quote! {String},
+            qusql_type::Type::Array(_)
+            | qusql_type::Type::Range(_)
+            | qusql_type::Type::MultiRange(_)
+            | qusql_type::Type::Point
+            | qusql_type::Type::Line
+            | qusql_type::Type::Lseg
+            | qusql_type::Type::GeoBox
+            | qusql_type::Type::Path
+            | qusql_type::Type::Polygon
+            | qusql_type::Type::Circle => todo!("unsupported type in sqlx macro"),
         };
         if !ta.not_null {
             t = quote! {Option<#t>}
@@ -384,6 +409,15 @@ fn construct_row(
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
+            qusql_type::Type::Base(
+                qusql_type::BaseType::Decimal
+                | qusql_type::BaseType::Uuid
+                | qusql_type::BaseType::Network
+                | qusql_type::BaseType::Geometric
+                | qusql_type::BaseType::Range
+                | qusql_type::BaseType::Json
+                | qusql_type::BaseType::Array,
+            ) => quote! {String},
             qusql_type::Type::Null => todo!("from_null"),
             qusql_type::Type::Invalid => quote! {i64},
             qusql_type::Type::Enum(_) => quote! {String},
@@ -392,6 +426,22 @@ fn construct_row(
             qusql_type::Type::F32 => quote! {f32},
             qusql_type::Type::F64 => quote! {f64},
             qusql_type::Type::JSON => quote! {String},
+            qusql_type::Type::Decimal => quote! {f64},
+            qusql_type::Type::Uuid
+            | qusql_type::Type::Inet
+            | qusql_type::Type::Cidr
+            | qusql_type::Type::Macaddr
+            | qusql_type::Type::Jsonb => quote! {String},
+            qusql_type::Type::Array(_)
+            | qusql_type::Type::Range(_)
+            | qusql_type::Type::MultiRange(_)
+            | qusql_type::Type::Point
+            | qusql_type::Type::Line
+            | qusql_type::Type::Lseg
+            | qusql_type::Type::GeoBox
+            | qusql_type::Type::Path
+            | qusql_type::Type::Polygon
+            | qusql_type::Type::Circle => todo!("unsupported type in sqlx macro"),
         };
         let name = match &c.name {
             Some(v) => v,
@@ -713,6 +763,15 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
+            qusql_type::Type::Base(
+                qusql_type::BaseType::Decimal
+                | qusql_type::BaseType::Uuid
+                | qusql_type::BaseType::Network
+                | qusql_type::BaseType::Geometric
+                | qusql_type::BaseType::Range
+                | qusql_type::BaseType::Json
+                | qusql_type::BaseType::Array,
+            ) => quote! {String},
             qusql_type::Type::Null => todo!("from_null"),
             qusql_type::Type::Invalid => quote! {i64},
             qusql_type::Type::Enum(_) => quote! {String},
@@ -721,6 +780,22 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             qusql_type::Type::F32 => quote! {f32},
             qusql_type::Type::F64 => quote! {f64},
             qusql_type::Type::JSON => quote! {String},
+            qusql_type::Type::Decimal => quote! {f64},
+            qusql_type::Type::Uuid
+            | qusql_type::Type::Inet
+            | qusql_type::Type::Cidr
+            | qusql_type::Type::Macaddr
+            | qusql_type::Type::Jsonb => quote! {String},
+            qusql_type::Type::Array(_)
+            | qusql_type::Type::Range(_)
+            | qusql_type::Type::MultiRange(_)
+            | qusql_type::Type::Point
+            | qusql_type::Type::Line
+            | qusql_type::Type::Lseg
+            | qusql_type::Type::GeoBox
+            | qusql_type::Type::Path
+            | qusql_type::Type::Polygon
+            | qusql_type::Type::Circle => todo!("unsupported type in sqlx macro"),
         };
         let name = match &c.name {
             Some(v) => v,

@@ -234,6 +234,13 @@ fn map_type(t: &qusql_type::FullType<'_>) -> Type {
             qusql_type::BaseType::Time => Type::Any,
             qusql_type::BaseType::TimeStamp => Type::Any,
             qusql_type::BaseType::TimeInterval => Type::Any,
+            qusql_type::BaseType::Decimal => Type::Float,
+            qusql_type::BaseType::Uuid
+            | qusql_type::BaseType::Network
+            | qusql_type::BaseType::Geometric
+            | qusql_type::BaseType::Range
+            | qusql_type::BaseType::Json
+            | qusql_type::BaseType::Array => Type::String,
         },
         qusql_type::Type::Enum(v) => Type::Enum(v.iter().map(|v| v.to_string()).collect()),
         qusql_type::Type::F32 => Type::Float,
@@ -252,6 +259,22 @@ fn map_type(t: &qusql_type::FullType<'_>) -> Type {
         qusql_type::Type::U64 => Type::Integer,
         qusql_type::Type::U8 => Type::Integer,
         qusql_type::Type::Null => Type::Any,
+        qusql_type::Type::Decimal => Type::Float,
+        qusql_type::Type::Uuid
+        | qusql_type::Type::Inet
+        | qusql_type::Type::Cidr
+        | qusql_type::Type::Macaddr
+        | qusql_type::Type::Jsonb => Type::String,
+        qusql_type::Type::Array(_)
+        | qusql_type::Type::Range(_)
+        | qusql_type::Type::MultiRange(_)
+        | qusql_type::Type::Point
+        | qusql_type::Type::Line
+        | qusql_type::Type::Lseg
+        | qusql_type::Type::GeoBox
+        | qusql_type::Type::Path
+        | qusql_type::Type::Polygon
+        | qusql_type::Type::Circle => Type::Any,
     };
     if t.list_hack {
         Type::List(Box::new(b))

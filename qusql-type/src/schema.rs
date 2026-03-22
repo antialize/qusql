@@ -256,22 +256,21 @@ pub(crate) fn parse_column<'a>(
             BaseType::Integer.into()
         }
         qusql_parse::Type::Float8 => BaseType::Float.into(),
-        qusql_parse::Type::Numeric(_) => todo!("Numeric"),
-        qusql_parse::Type::Decimal(_) => todo!("Decimal"),
+        qusql_parse::Type::Numeric(_) => Type::Decimal,
+        qusql_parse::Type::Decimal(_) => Type::Decimal,
         qusql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
-        qusql_parse::Type::Json => BaseType::String.into(),
-        qusql_parse::Type::Jsonb => BaseType::String.into(),
+        qusql_parse::Type::Json => Type::JSON,
+        qusql_parse::Type::Jsonb => Type::Jsonb,
         qusql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
         qusql_parse::Type::VarBit(_) => BaseType::Bytes.into(),
         qusql_parse::Type::Bytea => BaseType::Bytes.into(),
         qusql_parse::Type::Named(_) => BaseType::String.into(), // TODO lookup name??
-        qusql_parse::Type::Inet4 => BaseType::String.into(),
-        qusql_parse::Type::Inet6 => BaseType::String.into(),
-        qusql_parse::Type::InetAddr => BaseType::String.into(),
-        qusql_parse::Type::Cidr => BaseType::String.into(),
-        qusql_parse::Type::Macaddr => BaseType::String.into(),
-        qusql_parse::Type::Macaddr8 => BaseType::String.into(),
-        qusql_parse::Type::Array(_, _) => todo!("Array type not yet implemented"),
+        qusql_parse::Type::Inet4 | qusql_parse::Type::Inet6 | qusql_parse::Type::InetAddr => {
+            Type::Inet
+        }
+        qusql_parse::Type::Cidr => Type::Cidr,
+        qusql_parse::Type::Macaddr | qusql_parse::Type::Macaddr8 => Type::Macaddr,
+        qusql_parse::Type::Array(_, _) => Type::Base(BaseType::Array),
         qusql_parse::Type::Table(_, _) => todo!("Table type not yet implemented"),
         qusql_parse::Type::Serial
         | qusql_parse::Type::SmallSerial
@@ -281,17 +280,17 @@ pub(crate) fn parse_column<'a>(
         qusql_parse::Type::Interval(_) => BaseType::TimeInterval.into(),
         qusql_parse::Type::TsQuery => BaseType::String.into(),
         qusql_parse::Type::TsVector => BaseType::String.into(),
-        qusql_parse::Type::Uuid => BaseType::String.into(),
+        qusql_parse::Type::Uuid => Type::Uuid,
         qusql_parse::Type::Xml => BaseType::String.into(),
-        qusql_parse::Type::Range(_) => BaseType::Bytes.into(),
-        qusql_parse::Type::MultiRange(_) => BaseType::Bytes.into(),
-        qusql_parse::Type::Point
-        | qusql_parse::Type::Line
-        | qusql_parse::Type::Lseg
-        | qusql_parse::Type::Box
-        | qusql_parse::Type::Path
-        | qusql_parse::Type::Polygon
-        | qusql_parse::Type::Circle => BaseType::Bytes.into(),
+        qusql_parse::Type::Range(_) => Type::Range(Arc::new(Type::Base(BaseType::Any))),
+        qusql_parse::Type::MultiRange(_) => Type::MultiRange(Arc::new(Type::Base(BaseType::Any))),
+        qusql_parse::Type::Point => Type::Point,
+        qusql_parse::Type::Line => Type::Line,
+        qusql_parse::Type::Lseg => Type::Lseg,
+        qusql_parse::Type::Box => Type::GeoBox,
+        qusql_parse::Type::Path => Type::Path,
+        qusql_parse::Type::Polygon => Type::Polygon,
+        qusql_parse::Type::Circle => Type::Circle,
     };
 
     Column {
@@ -896,6 +895,9 @@ pub fn parse_schemas<'a>(
             qusql_parse::Statement::Commit(_) => (),
             qusql_parse::Statement::Begin(_) => (),
             qusql_parse::Statement::CreateFunction(_) => (),
+            // Custom type definitions (enums, domains, etc.) are not
+            // tracked in the schema yet; ignore them silently.
+            qusql_parse::Statement::CreateTypeEnum(_) => (),
             s => {
                 issues.err(
                     alloc::format!("Unsupported statement {s:?} in schema definition"),

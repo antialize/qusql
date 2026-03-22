@@ -74,9 +74,30 @@ fn type_unary_expression<'a>(
                 | Type::I64
                 | Type::I8
                 | Type::Invalid
+                | Type::Decimal
                 | Type::Base(BaseType::Integer)
-                | Type::Base(BaseType::Float) => op_type.t,
-                Type::Args(..) | Type::Base(..) | Type::Enum(..) | Type::JSON | Type::Set(..) => {
+                | Type::Base(BaseType::Float)
+                | Type::Base(BaseType::Decimal) => op_type.t,
+                Type::Args(..)
+                | Type::Base(..)
+                | Type::Enum(..)
+                | Type::JSON
+                | Type::Jsonb
+                | Type::Set(..)
+                | Type::Uuid
+                | Type::Inet
+                | Type::Cidr
+                | Type::Macaddr
+                | Type::Array(_)
+                | Type::Range(_)
+                | Type::MultiRange(_)
+                | Type::Point
+                | Type::Line
+                | Type::Lseg
+                | Type::GeoBox
+                | Type::Path
+                | Type::Polygon
+                | Type::Circle => {
                     typer.err(format!("Expected numeric type got {}", op_type.t), &op_span);
                     Type::Invalid
                 }
@@ -101,7 +122,7 @@ pub(crate) fn type_expression<'a>(
     typer: &mut Typer<'a, '_>,
     expression: &Expression<'a>,
     flags: ExpressionFlags,
-    _context: BaseType,
+    context: BaseType,
 ) -> FullType<'a> {
     match expression {
         Expression::Binary(e) => type_binary_expression(typer, &e.op, &e.lhs, &e.rhs, flags),
@@ -121,14 +142,43 @@ pub(crate) fn type_expression<'a>(
             typer.err("_LIST_ only allowed in IN ()", v);
             FullType::invalid()
         }
-        Expression::Null(_) => FullType::new(Type::Null, false),
-        Expression::Bool(_) => FullType::new(BaseType::Bool, true),
-        Expression::String(_) => FullType::new(BaseType::String, true),
-        Expression::Integer(_) => FullType::new(BaseType::Integer, true),
-        Expression::Float(_) => FullType::new(BaseType::Float, true),
-        Expression::Function(e) => {
-            type_function(typer, &e.function, &e.args, &e.function_span, flags)
+        Expression::Null(_) => {
+            // When a context type is known, use it for NULL so that
+            // placeholder propagation works correctly
+            let t = match context {
+                BaseType::Any => Type::Null,
+                other => Type::Base(other),
+            };
+            FullType::new(t, false)
         }
+        Expression::Bool(_) => FullType::new(BaseType::Bool, true),
+        Expression::String(_) => {
+            // String literal in a temporal context: accept it as the temporal type.
+            // The value is not validated at this point — that's a runtime concern.
+            match context {
+                BaseType::Date | BaseType::DateTime | BaseType::Time | BaseType::TimeStamp => {
+                    FullType::new(context, true)
+                }
+                BaseType::Uuid => FullType::new(BaseType::Uuid, true),
+                _ => FullType::new(BaseType::String, true),
+            }
+        }
+        Expression::Integer(_) => {
+            // Integer literal in a boolean context: accept as bool.
+            match context {
+                BaseType::Bool => FullType::new(BaseType::Bool, true),
+                _ => FullType::new(BaseType::Integer, true),
+            }
+        }
+        Expression::Float(_) => FullType::new(BaseType::Float, true),
+        Expression::Function(e) => type_function(
+            typer,
+            &e.function,
+            &e.args,
+            &e.function_span,
+            flags,
+            context,
+        ),
         Expression::WindowFunction(e) => {
             if let Some((_, partition_by)) = &e.over.window_spec.partition_by {
                 for e in partition_by {
@@ -140,7 +190,14 @@ pub(crate) fn type_expression<'a>(
                     type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
                 }
             }
-            type_function(typer, &e.function, &e.args, &e.function_span, flags)
+            type_function(
+                typer,
+                &e.function,
+                &e.args,
+                &e.function_span,
+                flags,
+                context,
+            )
         }
         Expression::AggregateFunction(e) => {
             if let Some((_, filter)) = &e.filter {
@@ -248,13 +305,21 @@ pub(crate) fn type_expression<'a>(
                 Some((_, type_)) => type_.clone(),
             }
         }
-        Expression::Arg(e) => FullType::new(
-            Type::Args(
-                BaseType::Any,
-                Arc::new(vec![(e.index, ArgType::Normal, e.span.clone())]),
-            ),
-            false,
-        ),
+        Expression::Arg(e) => {
+            // If a context type is known, record it as the initial constraint
+            // and carry it in the Args base so that accumulation works correctly.
+            let base = context; // BaseType::Any when no context
+            if base != BaseType::Any {
+                typer.constrain_arg(e.index, &ArgType::Normal, &FullType::new(base, false));
+            }
+            FullType::new(
+                Type::Args(
+                    base,
+                    Arc::new(vec![(e.index, ArgType::Normal, e.span.clone())]),
+                ),
+                false,
+            )
+        }
         Expression::Exists(e) => {
             type_union_select(typer, &e.subquery, false);
             FullType::new(BaseType::Bool, true)
@@ -363,12 +428,16 @@ pub(crate) fn type_expression<'a>(
                 issue_todo!(typer.issues, e);
                 FullType::invalid()
             } else {
-                let not_null = true;
+                // not_null is the AND of all branch nullabilities.
+                // If there is no ELSE, the CASE can return NULL when no
+                // WHEN matches, so not_null is forced false.
+                let mut not_null = true;
                 let mut t: Option<Type> = None;
                 for when in &e.whens {
                     let op_type = type_expression(typer, &when.when, flags, BaseType::Bool);
                     typer.ensure_base(&when.when, &op_type, BaseType::Bool);
                     let t2 = type_expression(typer, &when.then, flags, BaseType::Any);
+                    not_null = not_null && t2.not_null;
                     if let Some(t1) = t {
                         t = typer.matched_type(&t1, &t2.t)
                     } else {
@@ -377,11 +446,15 @@ pub(crate) fn type_expression<'a>(
                 }
                 if let Some((_, else_)) = &e.else_ {
                     let t2 = type_expression(typer, else_, flags, BaseType::Any);
+                    not_null = not_null && t2.not_null;
                     if let Some(t1) = t {
                         t = typer.matched_type(&t1, &t2.t)
                     } else {
                         t = Some(t2.t);
                     }
+                } else {
+                    // No ELSE clause → can return NULL when no WHEN matches.
+                    not_null = false;
                 }
                 if let Some(t) = t {
                     FullType::new(t, not_null)

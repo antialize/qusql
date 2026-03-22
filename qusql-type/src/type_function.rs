@@ -15,6 +15,7 @@ use qusql_parse::{Expression, Function, Span};
 
 use crate::{
     Type,
+    compat::resolve_now_return,
     type_::{BaseType, FullType},
     type_expression::{ExpressionFlags, type_expression},
     typer::{Restrict, Typer},
@@ -77,6 +78,7 @@ pub(crate) fn type_function<'a, 'b>(
     args: &[Expression<'a>],
     span: &Span,
     flags: ExpressionFlags,
+    context: BaseType,
 ) -> FullType<'a> {
     let mut tf = |return_type: Type<'a>,
                   required_args: &[BaseType],
@@ -345,7 +347,11 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::Integer, true)
         }
-        Function::Now => tf(BaseType::DateTime.into(), &[], &[BaseType::Integer]),
+        Function::Now => tf(
+            resolve_now_return(context).into(),
+            &[],
+            &[BaseType::Integer],
+        ),
         Function::CurDate | Function::UtcDate => tf(BaseType::Date.into(), &[], &[]),
         Function::CurTime | Function::UtcTime => tf(BaseType::Time.into(), &[], &[]),
         Function::UtcTimeStamp => tf(BaseType::DateTime.into(), &[], &[]),
@@ -388,7 +394,9 @@ pub(crate) fn type_function<'a, 'b>(
             arg_cnt(typer, 3..3, args, span);
             let mut not_null = true;
             if let Some((e, t)) = typed.first() {
-                not_null = not_null && t.not_null;
+                // Do not fold the condition's nullability into `not_null`:
+                // IF(NULL, x, y) is valid SQL and the condition being nullable
+                // does not make the result nullable.
                 typer.ensure_base(*e, t, BaseType::Bool);
             }
             let mut ans = FullType::invalid();

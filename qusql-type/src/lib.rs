@@ -54,6 +54,7 @@ pub use qusql_parse::{Fragment, Issue, Issues, Level};
 use qusql_parse::{ParseOptions, parse_statement};
 use schema::Schemas;
 
+mod compat;
 mod type_;
 mod type_binary_expression;
 mod type_delete;
@@ -67,7 +68,7 @@ mod type_update;
 mod typer;
 
 pub mod schema;
-pub use type_::{BaseType, FullType, Type};
+pub use type_::{BaseType, FullType, Type, TypeCategory};
 pub use type_insert_replace::AutoIncrementId;
 pub use type_select::SelectTypeColumn;
 use typer::Typer;
@@ -80,6 +81,10 @@ pub struct TypeOptions {
     parse_options: ParseOptions,
     warn_unnamed_column_in_select: bool,
     warn_duplicate_column_in_select: bool,
+    /// When `true`, no implicit cross-category coercions are allowed —
+    /// stricter than any real database, catching the most potential bugs.
+    /// When `false`, the dialect's own implicit coercion rules apply.
+    pub strict: bool,
 }
 
 impl TypeOptions {
@@ -146,6 +151,12 @@ impl TypeOptions {
             parse_options: self.parse_options.list_hack(list_hack),
             ..self
         }
+    }
+
+    /// When true, disallow all implicit cross-category coercions.
+    /// When false (default), the dialect's own coercion rules apply.
+    pub fn strict(self, strict: bool) -> Self {
+        Self { strict, ..self }
     }
 }
 
@@ -351,6 +362,11 @@ mod tests {
             "ts" => BaseType::TimeStamp.into(),
             "time" => BaseType::Time.into(),
             "json" => Type::JSON,
+            "jsonb" => Type::Jsonb,
+            "uuid" => Type::Uuid,
+            "inet" => Type::Inet,
+            "cidr" => Type::Cidr,
+            "macaddr" => Type::Macaddr,
             "any" => BaseType::Any.into(),
             _ => panic!("Unknown type {t}"),
         };
@@ -566,7 +582,7 @@ mod tests {
                 check_arguments(
                     name,
                     &arguments,
-                    "b,i,i,i,i,i,i,i,i,str,bytes,f,f",
+                    "b,u8,u16,u32,u64,i8,i16,i32,i64,str,bytes,f32,f64",
                     &mut errors,
                 );
                 check_columns(
@@ -651,7 +667,7 @@ mod tests {
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Delete { arguments, .. } = q {
-                check_arguments(name, &arguments, "i", &mut errors);
+                check_arguments(name, &arguments, "i32", &mut errors);
             } else {
                 println!("{name} should be delete");
                 errors += 1;
@@ -734,7 +750,7 @@ mod tests {
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
-                check_arguments(name, &arguments, "i", &mut errors);
+                check_arguments(name, &arguments, "i32", &mut errors);
                 check_columns(name, src, &columns, "cc:dt!", &mut errors);
             } else {
                 println!("{name} should be select");
@@ -828,7 +844,7 @@ mod tests {
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
-                check_arguments(name, &arguments, "i[]", &mut errors);
+                check_arguments(name, &arguments, "i32[]", &mut errors);
                 check_columns(name, src, &columns, "id:i32!", &mut errors);
             } else {
                 println!("{name} should be select");
@@ -956,7 +972,7 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
-                check_columns(name, src, &columns, "id:str!", &mut errors);
+                check_columns(name, src, &columns, "id:inet!", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
@@ -1277,15 +1293,11 @@ mod tests {
         let schema_src = "
         BEGIN;
 
-        DO $$ BEGIN
-            CREATE TYPE my_enum AS ENUM (
+        CREATE TYPE my_enum AS ENUM (
             'V1',
             'V2',
             'V3'
         );
-        EXCEPTION
-            WHEN duplicate_object THEN null;
-        END $$;
 
         CREATE TABLE IF NOT EXISTS t1 (
             id bigint NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,

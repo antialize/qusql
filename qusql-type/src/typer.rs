@@ -13,7 +13,7 @@
 use alloc::borrow::Cow;
 
 use crate::{
-    ArgumentKey, Type, TypeOptions,
+    ArgumentKey, Type, TypeOptions, compat,
     schema::{Schema, Schemas},
     type_::{ArgType, BaseType, FullType},
 };
@@ -109,17 +109,60 @@ impl<'a, 'b> Typer<'a, 'b> {
         if t2b == BaseType::Any {
             t2b = t1b;
         }
-        if t1b != t2b {
-            return None;
-        }
 
-        for t in &[t1, t2] {
-            if let Type::Args(_, a) = t {
+        if t1b != t2b {
+            // Try implicit coercion (non-strict or strict mode).
+            let dialect = self.options.parse_options.get_dialect();
+            let strict = self.options.strict;
+            let result = match compat::binary_coerce(dialect, strict, t1, t2) {
+                compat::Coercion::Exact(t) | compat::Coercion::Implicit(t) => t,
+                compat::Coercion::Incompatible => return None,
+            };
+            // Constrain any placeholder Args using the concrete partner type.
+            let partner_of_t1 = if t2.base() != BaseType::Any { t2 } else { t1 };
+            let partner_of_t2 = if t1.base() != BaseType::Any { t1 } else { t2 };
+            if let Type::Args(_, a) = t1 {
+                let constraint = FullType::new(partner_of_t1.clone(), false);
                 for (idx, arg_type, _) in a.iter() {
-                    self.constrain_arg(*idx, arg_type, &FullType::new(t1b, false));
+                    self.constrain_arg(*idx, arg_type, &constraint);
                 }
             }
+            if let Type::Args(_, a) = t2 {
+                let constraint = FullType::new(partner_of_t2.clone(), false);
+                for (idx, arg_type, _) in a.iter() {
+                    self.constrain_arg(*idx, arg_type, &constraint);
+                }
+            }
+            return Some(result);
         }
+
+        // Same base category: constrain Args to the concrete partner type
+        // (not just the base category — this is the §7.6 fix).
+        let partner_of_t1 = if t2.base() != BaseType::Any { t2 } else { t1 };
+        let partner_of_t2 = if t1.base() != BaseType::Any { t1 } else { t2 };
+        if let Type::Args(_, a) = t1 {
+            let constraint_type = if partner_of_t1.base() != BaseType::Any {
+                partner_of_t1.clone()
+            } else {
+                Type::Base(t1b)
+            };
+            let constraint = FullType::new(constraint_type, false);
+            for (idx, arg_type, _) in a.iter() {
+                self.constrain_arg(*idx, arg_type, &constraint);
+            }
+        }
+        if let Type::Args(_, a) = t2 {
+            let constraint_type = if partner_of_t2.base() != BaseType::Any {
+                partner_of_t2.clone()
+            } else {
+                Type::Base(t1b)
+            };
+            let constraint = FullType::new(constraint_type, false);
+            for (idx, arg_type, _) in a.iter() {
+                self.constrain_arg(*idx, arg_type, &constraint);
+            }
+        }
+
         if t1b == BaseType::Any {
             let mut args = Vec::new();
             for t in &[t1, t2] {
@@ -173,7 +216,14 @@ impl<'a, 'b> Typer<'a, 'b> {
             | BaseType::Bytes
             | BaseType::Float
             | BaseType::Integer
-            | BaseType::TimeInterval => {
+            | BaseType::TimeInterval
+            | BaseType::Decimal
+            | BaseType::Uuid
+            | BaseType::Network
+            | BaseType::Geometric
+            | BaseType::Range
+            | BaseType::Json
+            | BaseType::Array => {
                 self.issues
                     .err(format!("Expected time like type got {}", given.t), span);
                 return Type::Invalid;

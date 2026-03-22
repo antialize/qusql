@@ -136,14 +136,56 @@ arg_io!(String, String);
 arg_io!(Float, f64);
 arg_io!(Float, f32);
 
-arg_io!(u64, u64);
-arg_io!(i64, i64);
-arg_io!(u32, u32);
-arg_io!(i32, i32);
-arg_io!(u16, u16);
-arg_io!(i16, i16);
-arg_io!(u8, u8);
-arg_io!(i8, i8);
+/// Concrete integer types accept any integer for input (matching the old
+/// generic `Integer` behaviour), but output stays strict (1:1).
+macro_rules! arg_in_int {
+    ( $dst:ty, $( $src:ty ),+ ) => { $(
+        impl ArgIn<$dst> for $src {}
+        impl ArgIn<$dst> for &$src {}
+        impl ArgIn<Option<$dst>> for $src {}
+        impl ArgIn<Option<$dst>> for &$src {}
+        impl ArgIn<Option<$dst>> for Option<$src> {}
+        impl ArgIn<Option<$dst>> for Option<&$src> {}
+        impl ArgIn<Option<$dst>> for &Option<$src> {}
+        impl ArgIn<Option<$dst>> for &Option<&$src> {}
+    )+ };
+}
+
+arg_in_int!(u64, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(i64, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(u32, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(i32, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(u16, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(i16, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(u8, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(i8, u64, i64, u32, i32, u16, i16, u8, i8);
+
+// Output stays 1:1
+impl<const IDX: usize> ArgOut<u64, IDX> for u64 {}
+impl<const IDX: usize> ArgOut<Option<u64>, IDX> for Option<u64> {}
+impl<const IDX: usize> ArgOut<u64, IDX> for Option<u64> {}
+impl<const IDX: usize> ArgOut<i64, IDX> for i64 {}
+impl<const IDX: usize> ArgOut<Option<i64>, IDX> for Option<i64> {}
+impl<const IDX: usize> ArgOut<i64, IDX> for Option<i64> {}
+impl<const IDX: usize> ArgOut<u32, IDX> for u32 {}
+impl<const IDX: usize> ArgOut<Option<u32>, IDX> for Option<u32> {}
+impl<const IDX: usize> ArgOut<u32, IDX> for Option<u32> {}
+impl<const IDX: usize> ArgOut<i32, IDX> for i32 {}
+impl<const IDX: usize> ArgOut<Option<i32>, IDX> for Option<i32> {}
+impl<const IDX: usize> ArgOut<i32, IDX> for Option<i32> {}
+impl<const IDX: usize> ArgOut<u16, IDX> for u16 {}
+impl<const IDX: usize> ArgOut<Option<u16>, IDX> for Option<u16> {}
+impl<const IDX: usize> ArgOut<u16, IDX> for Option<u16> {}
+impl<const IDX: usize> ArgOut<i16, IDX> for i16 {}
+impl<const IDX: usize> ArgOut<Option<i16>, IDX> for Option<i16> {}
+impl<const IDX: usize> ArgOut<i16, IDX> for Option<i16> {}
+impl<const IDX: usize> ArgOut<u8, IDX> for u8 {}
+impl<const IDX: usize> ArgOut<Option<u8>, IDX> for Option<u8> {}
+impl<const IDX: usize> ArgOut<u8, IDX> for Option<u8> {}
+impl<const IDX: usize> ArgOut<i8, IDX> for i8 {}
+impl<const IDX: usize> ArgOut<Option<i8>, IDX> for Option<i8> {}
+impl<const IDX: usize> ArgOut<i8, IDX> for Option<i8> {}
+
 arg_io!(bool, bool);
 arg_io!(f32, f32);
 arg_io!(f64, f64);

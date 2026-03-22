@@ -659,14 +659,56 @@ arg_io!(String, String);
 arg_io!(Float, f64);
 arg_io!(Float, f32);
 
-arg_io!(u64, u64);
-arg_io!(i64, i64);
-arg_io!(u32, u32);
-arg_io!(i32, i32);
-arg_io!(u16, u16);
-arg_io!(i16, i16);
-arg_io!(u8, u8);
-arg_io!(i8, i8);
+/// Concrete integer types accept any integer for input (matching the old
+/// generic `Integer` behaviour), but output stays strict (1:1).
+macro_rules! arg_in_int {
+    ( $dst:ty, $( $src:ty ),+ ) => { $(
+        impl ArgIn<$dst> for $src {}
+        impl ArgIn<$dst> for &$src {}
+        impl ArgIn<Option<$dst>> for $src {}
+        impl ArgIn<Option<$dst>> for &$src {}
+        impl ArgIn<Option<$dst>> for Option<$src> {}
+        impl ArgIn<Option<$dst>> for Option<&$src> {}
+        impl ArgIn<Option<$dst>> for &Option<$src> {}
+        impl ArgIn<Option<$dst>> for &Option<&$src> {}
+    )+ };
+}
+
+arg_in_int!(u64, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(i64, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(u32, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(i32, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(u16, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(i16, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(u8, u64, i64, u32, i32, u16, i16, u8, i8);
+arg_in_int!(i8, u64, i64, u32, i32, u16, i16, u8, i8);
+
+// Output stays 1:1
+impl<N> ArgOut<N, u64> for u64 {}
+impl<N> ArgOut<N, Option<u64>> for Option<u64> {}
+impl<N> ArgOut<N, u64> for Option<u64> {}
+impl<N> ArgOut<N, i64> for i64 {}
+impl<N> ArgOut<N, Option<i64>> for Option<i64> {}
+impl<N> ArgOut<N, i64> for Option<i64> {}
+impl<N> ArgOut<N, u32> for u32 {}
+impl<N> ArgOut<N, Option<u32>> for Option<u32> {}
+impl<N> ArgOut<N, u32> for Option<u32> {}
+impl<N> ArgOut<N, i32> for i32 {}
+impl<N> ArgOut<N, Option<i32>> for Option<i32> {}
+impl<N> ArgOut<N, i32> for Option<i32> {}
+impl<N> ArgOut<N, u16> for u16 {}
+impl<N> ArgOut<N, Option<u16>> for Option<u16> {}
+impl<N> ArgOut<N, u16> for Option<u16> {}
+impl<N> ArgOut<N, i16> for i16 {}
+impl<N> ArgOut<N, Option<i16>> for Option<i16> {}
+impl<N> ArgOut<N, i16> for Option<i16> {}
+impl<N> ArgOut<N, u8> for u8 {}
+impl<N> ArgOut<N, Option<u8>> for Option<u8> {}
+impl<N> ArgOut<N, u8> for Option<u8> {}
+impl<N> ArgOut<N, i8> for i8 {}
+impl<N> ArgOut<N, Option<i8>> for Option<i8> {}
+impl<N> ArgOut<N, i8> for Option<i8> {}
+
 arg_io!(bool, bool);
 arg_io!(f32, f32);
 arg_io!(f64, f64);
