@@ -91,8 +91,8 @@ pub use create::{
     CreateAlgorithm, CreateDatabase, CreateDatabaseOption, CreateDefinition, CreateFunction,
     CreateIndex, CreateIndexOption, CreateOption, CreateRole, CreateSchema, CreateSequence,
     CreateServer, CreateTable, CreateTableAs, CreateTrigger, CreateTypeEnum, CreateView,
-    FunctionCharacteristic, FunctionParamDirection, RoleMembership, RoleMembershipType, RoleOption,
-    SequenceOption, TableOption, TriggerEvent, TriggerTime,
+    FunctionCharacteristic, FunctionParamDirection, IncludeClause, RoleMembership,
+    RoleMembershipType, RoleOption, SequenceOption, TableOption, TriggerEvent, TriggerTime,
 };
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
@@ -121,7 +121,7 @@ pub use show::{
     ShowCreateView, ShowDatabases, ShowEngines, ShowProcessList, ShowStatus, ShowTables,
     ShowVariables,
 };
-pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
+pub use truncate::{CascadeOrRestrict, IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
 pub use with_query::{WithBlock, WithQuery};
 
