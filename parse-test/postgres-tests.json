@@ -1012,55 +1012,52 @@
   },
   {
     "input": "ALTER TABLE tab OWNER TO \"new_owner\"",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier {\n                    value: \"new_owner\",\n                    span: 25..36,\n                },\n            },\n        ],\n    },\n)",
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier(\n                    Identifier {\n                        value: \"new_owner\",\n                        span: 25..36,\n                    },\n                ),\n            },\n        ],\n    },\n)",
     "issues": []
   },
   {
     "input": "ALTER TABLE tab OWNER TO 4",
+    "failure": true,
     "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [],\n    },\n)",
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 25..26,\n    sql_segment: \"4\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    ]
   },
   {
     "input": "ALTER TABLE tab OWNER TO CREATE",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier {\n                    value: \"CREATE\",\n                    span: 25..31,\n                },\n            },\n        ],\n    },\n)",
+    "failure": true,
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier(\n                    Identifier {\n                        value: \"CREATE\",\n                        span: 25..31,\n                    },\n                ),\n            },\n        ],\n    },\n)",
     "issues": [
       "Issue {\n    level: Error,\n    message: \"'CREATE' is a reserved identifier use `CREATE`\",\n    span: 25..31,\n    sql_segment: \"CREATE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    ]
   },
   {
     "input": "ALTER TABLE tab OWNER TO CREATE FOO",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier {\n                    value: \"CREATE\",\n                    span: 25..31,\n                },\n            },\n        ],\n    },\n)",
+    "failure": true,
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier(\n                    Identifier {\n                        value: \"CREATE\",\n                        span: 25..31,\n                    },\n                ),\n            },\n        ],\n    },\n)",
     "issues": [
       "Issue {\n    level: Error,\n    message: \"'CREATE' is a reserved identifier use `CREATE`\",\n    span: 25..31,\n    sql_segment: \"CREATE\",\n    fragments: [],\n}",
       "Issue {\n    level: Error,\n    message: \"Expected '';'' here\",\n    span: 32..35,\n    sql_segment: \"FOO\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    ]
   },
   {
     "input": "ALTER TABLE tab OWNER TO CURRENT_ROLE",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier {\n                    value: \"CURRENT_ROLE\",\n                    span: 25..37,\n                },\n            },\n        ],\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"'CURRENT_ROLE' is a reserved identifier use `CURRENT_ROLE`\",\n    span: 25..37,\n    sql_segment: \"CURRENT_ROLE\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: CurrentRole(\n                    25..37,\n                ),\n            },\n        ],\n    },\n)",
+    "issues": []
   },
   {
     "input": "ALTER TABLE tab OWNER TO SESSION_USER",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier {\n                    value: \"SESSION_USER\",\n                    span: 25..37,\n                },\n            },\n        ],\n    },\n)",
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: SessionUser(\n                    25..37,\n                ),\n            },\n        ],\n    },\n)",
     "issues": []
   },
   {
     "input": "ALTER TABLE tab OWNER TO new_owner",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier {\n                    value: \"new_owner\",\n                    span: 25..34,\n                },\n            },\n        ],\n    },\n)",
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier(\n                    Identifier {\n                        value: \"new_owner\",\n                        span: 25..34,\n                    },\n                ),\n            },\n        ],\n    },\n)",
     "issues": []
   },
   {
     "input": "ALTER TABLE tab OWNER TO postgres",
-    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier {\n                    value: \"postgres\",\n                    span: 25..33,\n                },\n            },\n        ],\n    },\n)",
+    "output": "AlterTable(\n    AlterTable {\n        alter_span: 0..5,\n        online: None,\n        ignore: None,\n        table_span: 6..11,\n        if_exists: None,\n        table: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"tab\",\n                span: 12..15,\n            },\n        },\n        alter_specifications: [\n            OwnerTo {\n                span: 16..24,\n                owner: Identifier(\n                    Identifier {\n                        value: \"postgres\",\n                        span: 25..33,\n                    },\n                ),\n            },\n        ],\n    },\n)",
     "issues": []
   },
   {
