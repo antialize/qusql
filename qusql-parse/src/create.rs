@@ -15,7 +15,7 @@ use crate::{
     DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
     alter::{
         ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption,
-        IndexType, parse_index_cols, parse_index_options, parse_index_type,
+        IndexType, parse_index_cols, parse_index_options, parse_index_type, parse_operator_class,
     },
     data_type::parse_data_type,
     expression::parse_expression,
@@ -373,6 +373,8 @@ pub enum CreateOption<'a> {
     },
     /// MATERIALIZED (for VIEWs, PostgreSQL)
     Materialized(Span),
+    /// CONCURRENTLY (for INDEX, PostgreSQL)
+    Concurrently(Span),
     Unique(Span),
     Algorithm(Span, CreateAlgorithm),
     Definer {
@@ -393,6 +395,7 @@ impl<'a> Spanned for CreateOption<'a> {
                 temporary_span,
             } => temporary_span.join_span(local_span),
             CreateOption::Materialized(v) => v.span(),
+            CreateOption::Concurrently(v) => v.span(),
             CreateOption::Algorithm(s, a) => s.join_span(a),
             CreateOption::Definer {
                 definer_span,
@@ -1385,6 +1388,9 @@ pub enum CreateIndexOption<'a> {
     UsingBTree(Span),
     UsingHash(Span),
     UsingRTree(Span),
+    UsingBloom(Span),
+    UsingBrin(Span),
+    UsingHnsw(Span),
     Algorithm(Span, Identifier<'a>),
     Lock(Span, Identifier<'a>),
 }
@@ -1396,9 +1402,29 @@ impl<'a> Spanned for CreateIndexOption<'a> {
             CreateIndexOption::UsingBTree(s) => s.clone(),
             CreateIndexOption::UsingHash(s) => s.clone(),
             CreateIndexOption::UsingRTree(s) => s.clone(),
+            CreateIndexOption::UsingBloom(s) => s.clone(),
+            CreateIndexOption::UsingBrin(s) => s.clone(),
+            CreateIndexOption::UsingHnsw(s) => s.clone(),
             CreateIndexOption::Algorithm(s, i) => s.join_span(i),
             CreateIndexOption::Lock(s, i) => s.join_span(i),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct IncludeClause<'a> {
+    pub include_span: Span,
+    pub l_paren_span: Span,
+    pub columns: Vec<Identifier<'a>>,
+    pub r_paren_span: Span,
+}
+
+impl<'a> Spanned for IncludeClause<'a> {
+    fn span(&self) -> Span {
+        self.include_span
+            .join_span(&self.l_paren_span)
+            .join_span(&self.columns)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -1407,7 +1433,7 @@ pub struct CreateIndex<'a> {
     pub create_span: Span,
     pub create_options: Vec<CreateOption<'a>>,
     pub index_span: Span,
-    pub index_name: Identifier<'a>,
+    pub index_name: Option<Identifier<'a>>,
     pub if_not_exists: Option<Span>,
     pub on_span: Span,
     pub table_name: QualifiedName<'a>,
@@ -1415,7 +1441,9 @@ pub struct CreateIndex<'a> {
     pub l_paren_span: Span,
     pub column_names: Vec<IndexCol<'a>>,
     pub r_paren_span: Span,
+    pub include_clause: Option<IncludeClause<'a>>,
     pub where_: Option<(Span, Expression<'a>)>,
+    pub nulls_distinct: Option<(Span, Option<Span>)>,
 }
 
 impl<'a> Spanned for CreateIndex<'a> {
@@ -1430,37 +1458,81 @@ impl<'a> Spanned for CreateIndex<'a> {
             .join_span(&self.l_paren_span)
             .join_span(&self.column_names)
             .join_span(&self.r_paren_span)
+            .join_span(&self.include_clause)
             .join_span(&self.where_)
+            .join_span(&self.nulls_distinct)
     }
 }
 
 fn parse_create_index<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
-    create_options: Vec<CreateOption<'a>>,
+    mut create_options: Vec<CreateOption<'a>>,
 ) -> Result<Statement<'a>, ParseError> {
     let index_span = parser.consume_keyword(Keyword::INDEX)?;
+
+    // PostgreSQL: CONCURRENTLY
+    if let Some(concurrently_span) = parser.skip_keyword(Keyword::CONCURRENTLY) {
+        parser.postgres_only(&concurrently_span);
+        create_options.push(CreateOption::Concurrently(concurrently_span));
+    }
+
     let if_not_exists = if let Some(s) = parser.skip_keyword(Keyword::IF) {
         Some(s.join_span(&parser.consume_keywords(&[Keyword::NOT, Keyword::EXISTS])?))
     } else {
         None
     };
-    let index_name = parser.consume_plain_identifier()?;
+
+    // PostgreSQL: index name is optional, ON can come directly after INDEX
+    let index_name = if let Token::Ident(_, Keyword::ON) = &parser.token {
+        // Unnamed index
+        None
+    } else {
+        // Named index
+        Some(parser.consume_plain_identifier()?)
+    };
+
+    // MySQL/MariaDB require index names
+    if index_name.is_none() && parser.options.dialect.is_maria() {
+        parser.err("Index name required", &index_span);
+    }
+
     let on_span = parser.consume_keyword(Keyword::ON)?;
     let table_name = parse_qualified_name(parser)?;
 
-    // PostgreSQL: USING GIST before column list
+    // PostgreSQL: USING (GIST|BLOOM|BRIN|HNSW) before column list
     let mut index_options = Vec::new();
     if let Some(using_span) = parser.skip_keyword(Keyword::USING) {
-        if let Token::Ident(_, Keyword::GIST) = &parser.token {
-            let gist_span = parser.consume_keyword(Keyword::GIST)?;
-            index_options.push(CreateIndexOption::UsingGist(
-                using_span.join_span(&gist_span),
-            ));
-        } else {
-            // Error - USING before column list requires GIST for PostgreSQL
-            parser
-                .err_here("Expected GIST after USING (or use USING after column list for MySQL)")?;
+        match &parser.token {
+            Token::Ident(_, Keyword::GIST) => {
+                let gist_span = parser.consume_keyword(Keyword::GIST)?;
+                index_options.push(CreateIndexOption::UsingGist(
+                    using_span.join_span(&gist_span),
+                ));
+            }
+            Token::Ident(_, Keyword::BLOOM) => {
+                let bloom_span = parser.consume_keyword(Keyword::BLOOM)?;
+                index_options.push(CreateIndexOption::UsingBloom(
+                    using_span.join_span(&bloom_span),
+                ));
+            }
+            Token::Ident(_, Keyword::BRIN) => {
+                let brin_span = parser.consume_keyword(Keyword::BRIN)?;
+                index_options.push(CreateIndexOption::UsingBrin(
+                    using_span.join_span(&brin_span),
+                ));
+            }
+            Token::Ident(_, Keyword::HNSW) => {
+                let hnsw_span = parser.consume_keyword(Keyword::HNSW)?;
+                index_options.push(CreateIndexOption::UsingHnsw(
+                    using_span.join_span(&hnsw_span),
+                ));
+            }
+            _ => {
+                // Error - USING before column list requires GIST/BLOOM/BRIN/HNSW for PostgreSQL
+                parser
+                    .err_here("Expected GIST, BLOOM, BRIN, or HNSW after USING (or use USING after column list for MySQL)")?;
+            }
         }
     }
 
@@ -1490,6 +1562,9 @@ fn parse_create_index<'a>(
             None
         };
 
+        // Parse optional operator class (PostgreSQL)
+        let opclass = parse_operator_class(parser)?;
+
         // Parse optional ASC | DESC
         let asc = parser.skip_keyword(Keyword::ASC);
         let desc = if asc.is_none() {
@@ -1501,29 +1576,41 @@ fn parse_create_index<'a>(
         column_names.push(IndexCol {
             expr,
             size,
+            opclass,
             asc,
             desc,
         });
 
-        if let Token::Ident(
-            _,
-            Keyword::TEXT_PATTERN_OPS
-            | Keyword::VARCHAR_PATTERN_OPS
-            | Keyword::BPCHAR_PATTERN_OPS
-            | Keyword::INT8_OPS
-            | Keyword::INT4_OPS
-            | Keyword::INT2_OPS,
-        ) = &parser.token
-        {
-            let range = parser.consume();
-            parser.postgres_only(&range);
-        }
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
     }
 
     let r_paren_span = parser.consume_token(Token::RParen)?;
+
+    // PostgreSQL: INCLUDE clause
+    let include_clause = if let Some(include_span) = parser.skip_keyword(Keyword::INCLUDE) {
+        let l_paren = parser.consume_token(Token::LParen)?;
+        let mut include_cols = Vec::new();
+        loop {
+            include_cols.push(parser.consume_plain_identifier()?);
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        let r_paren = parser.consume_token(Token::RParen)?;
+        parser.postgres_only(&include_span);
+        Some(IncludeClause {
+            include_span,
+            l_paren_span: l_paren,
+            columns: include_cols,
+            r_paren_span: r_paren,
+        })
+    } else {
+        None
+    };
+
+    // Parse index options after column list (MySQL/MariaDB)
 
     // Parse index options after column list (MySQL/MariaDB)
     loop {
@@ -1583,6 +1670,16 @@ fn parse_create_index<'a>(
         where_ = Some((where_span, where_expr));
     }
 
+    // PostgreSQL: NULLS [NOT] DISTINCT
+    let nulls_distinct = if let Some(nulls_span) = parser.skip_keyword(Keyword::NULLS) {
+        let not_span = parser.skip_keyword(Keyword::NOT);
+        let distinct_span = parser.consume_keyword(Keyword::DISTINCT)?;
+        parser.postgres_only(&nulls_span.join_span(&distinct_span));
+        Some((nulls_span, not_span))
+    } else {
+        None
+    };
+
     Ok(Statement::CreateIndex(CreateIndex {
         create_span,
         create_options,
@@ -1595,7 +1692,9 @@ fn parse_create_index<'a>(
         l_paren_span,
         column_names,
         r_paren_span,
+        include_clause,
         where_,
+        nulls_distinct,
     }))
 }
 
