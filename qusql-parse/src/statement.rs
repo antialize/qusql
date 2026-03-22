@@ -22,14 +22,36 @@ use crate::{
     copy::{CopyFrom, CopyTo, parse_copy_statement},
     create::{
         CreateDatabase, CreateSchema, CreateSequence, CreateServer, CreateTypeEnum, parse_create,
-    }, create_function::CreateFunction, create_table::{CreateTable, CreateTablePartitionOf}, create_view::CreateView, delete::{Delete, parse_delete}, drop::{
+    },
+    create_function::CreateFunction,
+    create_table::{CreateTable, CreateTablePartitionOf},
+    create_view::CreateView,
+    delete::{Delete, parse_delete},
+    drop::{
         DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
         DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView, parse_drop,
-    }, expression::{Expression, PRIORITY_MAX, parse_expression_unreserved}, flush::{Flush, parse_flush}, insert_replace::{InsertReplace, parse_insert_replace}, keywords::Keyword, kill::{Kill, parse_kill}, lexer::Token, lock::{Lock, Unlock, parse_lock, parse_unlock}, parser::{ParseError, Parser}, qualified_name::parse_qualified_name_unreserved, rename::parse_rename_table, select::{OrderFlag, Select, parse_select}, show::{
+    },
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
+    flush::{Flush, parse_flush},
+    insert_replace::{InsertReplace, parse_insert_replace},
+    keywords::Keyword,
+    kill::{Kill, parse_kill},
+    lexer::Token,
+    lock::{Lock, Unlock, parse_lock, parse_unlock},
+    parser::{ParseError, Parser},
+    qualified_name::parse_qualified_name_unreserved,
+    rename::parse_rename_table,
+    select::{OrderFlag, Select, parse_select},
+    show::{
         ShowCharacterSet, ShowCollation, ShowColumns, ShowCreateDatabase, ShowCreateTable,
         ShowCreateView, ShowDatabases, ShowEngines, ShowProcessList, ShowStatus, ShowTables,
         ShowVariables, parse_show,
-    }, span::OptSpanned, truncate::{TruncateTable, parse_truncate_table}, update::{Update, parse_update}, values::parse_values, with_query::parse_with_query
+    },
+    span::OptSpanned,
+    truncate::{TruncateTable, parse_truncate_table},
+    update::{Update, parse_update},
+    values::parse_values,
+    with_query::parse_with_query,
 };
 
 #[derive(Clone, Debug)]
@@ -634,6 +656,48 @@ pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, Par
     }
 }
 
+/// CALL statement — invokes a stored procedure
+#[derive(Clone, Debug)]
+pub struct Call<'a> {
+    /// Span of "CALL"
+    pub call_span: Span,
+    /// Name of the procedure (possibly qualified)
+    pub name: crate::QualifiedName<'a>,
+    /// Argument expressions
+    pub args: Vec<Expression<'a>>,
+}
+
+impl<'a> Spanned for Call<'a> {
+    fn span(&self) -> Span {
+        self.call_span.join_span(&self.name).join_span(&self.args)
+    }
+}
+
+fn parse_call<'a>(parser: &mut Parser<'a, '_>) -> Result<Call<'a>, ParseError> {
+    let call_span = parser.consume_keyword(Keyword::CALL)?;
+    let name = parse_qualified_name_unreserved(parser)?;
+    let mut args = Vec::new();
+    parser.consume_token(Token::LParen)?;
+    parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
+        loop {
+            if matches!(parser.token, Token::RParen) {
+                break;
+            }
+            args.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        Ok(())
+    })?;
+    parser.consume_token(Token::RParen)?;
+    Ok(Call {
+        call_span,
+        name,
+        args,
+    })
+}
+
 /// SQL statement
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
@@ -728,6 +792,8 @@ pub enum Statement<'a> {
     RefreshMaterializedView(Box<RefreshMaterializedView<'a>>),
     /// PostgreSQL PREPARE statement
     Prepare(Box<Prepare<'a>>),
+    /// CALL statement for invoking stored procedures
+    Call(Box<Call<'a>>),
 }
 
 impl<'a> Spanned for Statement<'a> {
@@ -818,6 +884,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::DeclareCursor(v) => v.span(),
             Statement::RefreshMaterializedView(v) => v.span(),
             Statement::Prepare(v) => v.span(),
+            Statement::Call(v) => v.span(),
         }
     }
 }
@@ -906,6 +973,7 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::REFRESH) => Some(Statement::RefreshMaterializedView(Box::new(
             parse_refresh_materialized_view(parser)?,
         ))),
+        Token::Ident(_, Keyword::CALL) => Some(Statement::Call(Box::new(parse_call(parser)?))),
         _ => None,
     })
 }

@@ -896,6 +896,7 @@ pub fn parse_schemas<'a>(
             qusql_parse::Statement::Begin(_) => (),
             qusql_parse::Statement::CreateFunction(_) => (),
             qusql_parse::Statement::CreateProcedure(_) => (),
+            qusql_parse::Statement::Call(_) => (),
             // Custom type definitions (enums, domains, etc.) are not
             // tracked in the schema yet; ignore them silently.
             qusql_parse::Statement::CreateTypeEnum(_) => (),
