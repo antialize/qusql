@@ -180,7 +180,7 @@ impl<'a> Spanned for OperatorRef<'a> {
 pub(crate) fn parse_create_operator<'a>(
     parser: &mut Parser<'a, '_>,
     create_span: Span,
-    create_options: Vec<crate::create::CreateOption<'a>>,
+    create_options: Vec<crate::create_option::CreateOption<'a>>,
 ) -> Result<CreateOperator<'a>, ParseError> {
     let operator_span = parser.consume_keyword(Keyword::OPERATOR)?;
     parser.postgres_only(&operator_span);
