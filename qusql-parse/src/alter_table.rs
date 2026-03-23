@@ -17,7 +17,7 @@ use crate::{
     data_type::parse_data_type,
     expression::parse_expression_unreserved,
     keywords::{Keyword, Restrict},
-    lexer::Token,
+    lexer::{StringType, Token},
     parser::{ParseError, Parser},
 };
 use alloc::vec::Vec;
@@ -1686,7 +1686,9 @@ fn parse_add_alter_specification<'a>(
             {
                 Some(parser.consume_plain_identifier_restrict(Restrict::EMPTY)?)
             }
-            Token::DoubleQuotedString(_) if parser.options.dialect.is_postgresql() => {
+            Token::String(_, StringType::DoubleQuoted)
+                if parser.options.dialect.is_postgresql() =>
+            {
                 Some(parser.consume_plain_identifier_restrict(Restrict::EMPTY)?)
             }
             _ => None,

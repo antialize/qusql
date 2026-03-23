@@ -408,12 +408,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
 
                     // Parse JSON path - just a simple string for now
                     let path = match &parser.token {
-                        Token::SingleQuotedString(s) => {
-                            let val = *s;
-                            let span = parser.consume();
-                            Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
-                        }
-                        Token::DoubleQuotedString(s) => {
+                        Token::String(s, _) => {
                             let val = *s;
                             let span = parser.consume();
                             Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
@@ -575,12 +570,7 @@ fn parse_json_table_columns<'a>(
         if let Some(nested_span) = parser.skip_keyword(Keyword::NESTED) {
             let path_span = parser.consume_keyword(Keyword::PATH)?;
             let path = match &parser.token {
-                Token::SingleQuotedString(s) => {
-                    let val = *s;
-                    let span = parser.consume();
-                    Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
-                }
-                Token::DoubleQuotedString(s) => {
+                Token::String(s, _) => {
                     let val = *s;
                     let span = parser.consume();
                     Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
@@ -624,12 +614,7 @@ fn parse_json_table_columns<'a>(
                 // Parse PATH keyword and path expression
                 let path_span = parser.consume_keyword(Keyword::PATH)?;
                 let path = match &parser.token {
-                    Token::SingleQuotedString(s) => {
-                        let val = *s;
-                        let span = parser.consume();
-                        Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
-                    }
-                    Token::DoubleQuotedString(s) => {
+                    Token::String(s, _) => {
                         let val = *s;
                         let span = parser.consume();
                         Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))

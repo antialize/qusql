@@ -3555,65 +3555,44 @@
     "input": "SELECT E'\\'",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 11..11,\n    sql_segment: \"\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 7..11,\n    sql_segment: \"E'\\\\'\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
   {
     "input": "SELECT E'\\080'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 14..14,\n    sql_segment: \"\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"\\080\",\n                        span: 7..14,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT E'\\U00110000'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 20..20,\n    sql_segment: \"\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"\",\n                        span: 7..20,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT E'\\u0000'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 16..16,\n    sql_segment: \"\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"\\0\",\n                        span: 7..16,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT E'\\u0001', E'\\U0010FFFF', E'\\xC', E'\\x25', E'\\2', E'\\45', E'\\445'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 16..17,\n    sql_segment: \",\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"\\u{1}\",\n                        span: 7..16,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"\\u{10ffff}\",\n                        span: 18..31,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"\\u{c}\",\n                        span: 33..39,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"%\",\n                        span: 41..48,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"\\u{2}\",\n                        span: 50..55,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"%\",\n                        span: 57..63,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"\u0125\",\n                        span: 65..72,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT E'\\u{0001}'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 18..18,\n    sql_segment: \"\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"{0001}\",\n                        span: 7..18,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT E'\\xCAD'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 15..15,\n    sql_segment: \"\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"\u00caD\",\n                        span: 7..15,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT E's1 \\n s1', E's2 \\\\n s2', E's3 \\\\\\n s3', E's4 \\\\\\\\n s4', E'\\'', E'foo \\\\'",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 18..19,\n    sql_segment: \",\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"s1 \\n s1\",\n                        span: 7..18,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"s2 \\\\n s2\",\n                        span: 20..32,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"s3 \\\\\\n s3\",\n                        span: 34..47,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"s4 \\\\\\\\n s4\",\n                        span: 49..63,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"'\",\n                        span: 65..70,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"foo \\\\\",\n                        span: 72..81,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT GREATEST(my_schema.sections_tbl.*) AS sections FROM sections_tbl",

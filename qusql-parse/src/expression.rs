@@ -1256,11 +1256,7 @@ pub(crate) fn parse_expression_restricted<'a>(
             Token::Ident(_, Keyword::INTERVAL) => {
                 let interval_span = parser.consume();
                 let time_interval = match parser.token {
-                    Token::SingleQuotedString(_)
-                    | Token::DoubleQuotedString(_)
-                    | Token::DollarQuotedString(_)
-                    | Token::HexString(_)
-                    | Token::BinaryString(_) => {
+                    Token::String(..) => {
                         let v = parser.consume_string()?;
                         let mut r = Vec::new();
                         for part in v.split([':', '!', ',', '.', '-', ' ']) {
@@ -1392,11 +1388,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                     span: parser.consume_keyword(Keyword::_LIST_)?,
                 })))
             }
-            Token::SingleQuotedString(_)
-            | Token::DoubleQuotedString(_)
-            | Token::DollarQuotedString(_)
-            | Token::HexString(_)
-            | Token::BinaryString(_) => {
+            Token::String(..) => {
                 r.shift_expr(Expression::String(Box::new(parser.consume_string()?)))
             }
             Token::Integer(_) => {
@@ -1644,15 +1636,7 @@ pub(crate) fn parse_expression_restricted<'a>(
             }
             // Handle charset-prefixed strings like _utf8mb4 'abc' or _binary 'data'
             Token::Ident(charset, _)
-                if charset.starts_with('_')
-                    && matches!(
-                        parser.peek(),
-                        Token::SingleQuotedString(_)
-                            | Token::DoubleQuotedString(_)
-                            | Token::DollarQuotedString(_)
-                            | Token::HexString(_)
-                            | Token::BinaryString(_)
-                    ) =>
+                if charset.starts_with('_') && matches!(parser.peek(), Token::String(..)) =>
             {
                 // Consume the charset prefix
                 parser.consume();

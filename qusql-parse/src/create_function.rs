@@ -14,7 +14,7 @@ use crate::{
     create_option::CreateOption,
     data_type::parse_data_type,
     keywords::Keyword,
-    lexer::Token,
+    lexer::{StringType, Token},
     parser::{ParseError, Parser},
     statement::parse_statement,
 };
@@ -191,7 +191,7 @@ pub(crate) fn parse_create_function<'a>(
     let returns_span = parser.consume_keyword(Keyword::RETURNS)?;
     let return_type = parse_data_type(parser, true)?;
     if parser.options.dialect.is_postgresql() && parser.skip_keyword(Keyword::AS).is_some() {
-        if matches!(parser.token, Token::DollarQuotedString(_)) {
+        if matches!(parser.token, Token::String(_, StringType::DollarQuoted)) {
             // PostgreSQL: function body is a dollar-quoted string literal
             parser.consume();
         } else {

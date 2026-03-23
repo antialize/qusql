@@ -230,7 +230,7 @@ fn parse_create_extension<'a>(
                 let version_span = parser.consume_keyword(Keyword::VERSION)?;
                 // Version can be identifier or string
                 let version_value = match &parser.token {
-                    Token::SingleQuotedString(v) => SString::new((*v).into(), parser.consume()),
+                    Token::String(v, _) => SString::new((*v).into(), parser.consume()),
                     _ => {
                         let ident = parser.consume_plain_identifier_unreserved()?;
                         SString::new(ident.value.into(), ident.span)
@@ -1041,7 +1041,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         // TODO user | CURRENT_USER | role | CURRENT_ROLE
                         // Accept both plain identifiers and string literals
                         let user = match &parser.token {
-                            Token::SingleQuotedString(v) => {
+                            Token::String(v, _) => {
                                 let v = *v;
                                 Identifier::new(v, parser.consume())
                             }
@@ -1049,7 +1049,7 @@ pub(crate) fn parse_create<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<
                         };
                         parser.consume_token(Token::At)?;
                         let host = match &parser.token {
-                            Token::SingleQuotedString(v) => {
+                            Token::String(v, _) => {
                                 let v = *v;
                                 Identifier::new(v, parser.consume())
                             }

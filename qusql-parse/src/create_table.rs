@@ -20,7 +20,7 @@ use crate::{
     data_type::parse_data_type,
     expression::parse_expression_unreserved,
     keywords::{Keyword, Restrict},
-    lexer::Token,
+    lexer::{StringType, Token},
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name_unreserved,
     statement::parse_compound_query,
@@ -794,7 +794,7 @@ pub(crate) fn parse_create_definition<'a>(
         Token::Ident(_, Keyword::CHECK) => {
             return parse_check_constraint_definition(parser, constraint_span, constraint_symbol);
         }
-        Token::DoubleQuotedString(_) if parser.options.dialect.is_postgresql() => {
+        Token::String(_, StringType::DoubleQuoted) if parser.options.dialect.is_postgresql() => {
             // PostgreSQL allows double-quoted identifiers as column names
             // If we had CONSTRAINT keyword, this is an error
             if constraint_span.is_some() {
@@ -830,7 +830,7 @@ pub(crate) fn parse_create_definition<'a>(
                 Token::Ident(_, _) if !matches!(parser.token, Token::LParen) => {
                     Some(parser.consume_plain_identifier_unreserved()?)
                 }
-                Token::SingleQuotedString(s) | Token::DoubleQuotedString(s) => {
+                Token::String(s, _) => {
                     let val = *s;
                     let span = parser.consume();
                     Some(Identifier { value: val, span })
@@ -849,7 +849,7 @@ pub(crate) fn parse_create_definition<'a>(
                 {
                     Some(parser.consume_plain_identifier_restrict(Restrict::USING)?)
                 }
-                Token::SingleQuotedString(s) | Token::DoubleQuotedString(s) => {
+                Token::String(s, _) => {
                     let val = *s;
                     let span = parser.consume();
                     Some(Identifier { value: val, span })
@@ -1206,7 +1206,7 @@ pub(crate) fn parse_create_table<'a>(
                         parser.skip_token(Token::Eq);
                         // ENCRYPTION can be 'Y'/'N' string or YES/NO keyword
                         let value = match &parser.token {
-                            Token::SingleQuotedString(_) | Token::DoubleQuotedString(_) => {
+                            Token::String(..) => {
                                 let s = parser.consume_string()?;
                                 let is_yes = s.as_str().eq_ignore_ascii_case("y")
                                     || s.as_str().eq_ignore_ascii_case("yes");

@@ -16,7 +16,7 @@ use crate::{
     Identifier, InvalidExpression, SString, Span, Spanned,
     expression::{Expression, parse_expression_unreserved},
     keywords::Keyword,
-    lexer::Token,
+    lexer::{StringType, Token},
     parser::{ParseError, Parser},
     span::OptSpanned,
 };
@@ -420,7 +420,7 @@ pub(crate) fn parse_data_type<'a>(
             parser.postgres_only(&t);
             (t, Type::VarBit(parse_width(parser)?))
         }
-        Token::DoubleQuotedString(_) if parser.options.dialect.is_postgresql() => {
+        Token::String(_, StringType::DoubleQuoted) if parser.options.dialect.is_postgresql() => {
             let name = parser.consume();
             (name.clone(), Type::Named(name))
         }

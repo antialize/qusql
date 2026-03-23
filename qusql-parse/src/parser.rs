@@ -16,7 +16,7 @@ use crate::{
     Identifier, ParseOptions, SString, Span, Spanned,
     issue::{IssueHandle, Issues},
     keywords::{Keyword, Restrict},
-    lexer::{Lexer, Token},
+    lexer::{Lexer, StringType, Token},
     span::OptSpanned,
 };
 
@@ -54,6 +54,117 @@ pub(crate) fn decode_single_quoted_string(s: &str) -> Cow<'_, str> {
         }
         r.into()
     }
+}
+
+/// Decode a PostgreSQL escape string (`E'...'`).
+/// Handles `\\`, `\'`, `\n`, `\t`, `\r`, `\b`, `\f`, `\uXXXX`, `\UXXXXXXXX`,
+/// `\xHH` (hex), `\ooo` (octal 1-3 digits), `''` (doubled quote), and any
+/// other `\c` → `c` (non-standard passthrough).
+pub(crate) fn decode_escape_string(s: &str) -> Cow<'_, str> {
+    if !s.contains('\\') && !s.contains('\'') {
+        return s.into();
+    }
+    let mut r = String::new();
+    let mut chars = s.chars().peekable();
+    loop {
+        match chars.next() {
+            None => break,
+            Some('\'') => {
+                // Doubled-quote escape: '' → '
+                chars.next();
+                r.push('\'');
+            }
+            Some('\\') => match chars.next() {
+                None => break,
+                Some('n') => r.push('\n'),
+                Some('t') => r.push('\t'),
+                Some('r') => r.push('\r'),
+                Some('b') => r.push('\x08'),
+                Some('f') => r.push('\x0C'),
+                Some('\\') => r.push('\\'),
+                Some('\'') => r.push('\''),
+                Some('"') => r.push('"'),
+                Some('0') => r.push('\0'),
+                Some('u') => {
+                    // \uXXXX — exactly 4 hex digits
+                    let mut hex = String::with_capacity(4);
+                    for _ in 0..4 {
+                        match chars.peek() {
+                            Some(&c) if c.is_ascii_hexdigit() => {
+                                chars.next();
+                                hex.push(c);
+                            }
+                            _ => break,
+                        }
+                    }
+                    if let Ok(n) = u32::from_str_radix(&hex, 16)
+                        && let Some(c) = char::from_u32(n)
+                    {
+                        r.push(c);
+                    }
+                }
+                Some('U') => {
+                    // \UXXXXXXXX — exactly 8 hex digits
+                    let mut hex = String::with_capacity(8);
+                    for _ in 0..8 {
+                        match chars.peek() {
+                            Some(&c) if c.is_ascii_hexdigit() => {
+                                chars.next();
+                                hex.push(c);
+                            }
+                            _ => break,
+                        }
+                    }
+                    if let Ok(n) = u32::from_str_radix(&hex, 16)
+                        && let Some(c) = char::from_u32(n)
+                    {
+                        r.push(c);
+                    }
+                }
+                Some('x') => {
+                    // \xHH — 1 or 2 hex digits
+                    let mut hex = String::with_capacity(2);
+                    for _ in 0..2 {
+                        match chars.peek() {
+                            Some(&c) if c.is_ascii_hexdigit() => {
+                                chars.next();
+                                hex.push(c);
+                            }
+                            _ => break,
+                        }
+                    }
+                    if !hex.is_empty()
+                        && let Ok(n) = u32::from_str_radix(&hex, 16)
+                        && let Some(c) = char::from_u32(n)
+                    {
+                        r.push(c);
+                    }
+                }
+                Some(c @ '1'..='7') => {
+                    // \ooo — 1 to 3 octal digits (note: \0 handled above)
+                    let mut oct = String::with_capacity(3);
+                    oct.push(c);
+                    for _ in 0..2 {
+                        match chars.peek() {
+                            Some(&c) if matches!(c, '0'..='7') => {
+                                chars.next();
+                                oct.push(c);
+                            }
+                            _ => break,
+                        }
+                    }
+                    if let Ok(n) = u32::from_str_radix(&oct, 8)
+                        && let Some(c) = char::from_u32(n)
+                    {
+                        r.push(c);
+                    }
+                }
+                Some(c) => r.push(c),
+            },
+            Some(c) => r.push(c),
+        }
+    }
+    r.into()
 }
 
 pub(crate) fn decode_double_quoted_string(s: &str) -> Cow<'_, str> {
@@ -325,7 +436,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                 }
                 Ok(Identifier::new(v, self.consume()))
             }
-            Token::DoubleQuotedString(v) if self.options.dialect.is_postgresql() => {
+            Token::String(v, StringType::DoubleQuoted) if self.options.dialect.is_postgresql() => {
                 Ok(Identifier::new(v, self.consume()))
             }
             _ => self.expected_failure("identifier"),
@@ -392,64 +503,37 @@ impl<'a, 'b> Parser<'a, 'b> {
 
     pub(crate) fn consume_string(&mut self) -> Result<SString<'a>, ParseError> {
         let (mut a, mut b) = match &self.token {
-            Token::SingleQuotedString(v) => {
+            Token::String(v, kind) => {
                 let v = *v;
+                let kind = kind.clone();
                 let span = self.span.clone();
                 self.next();
-                (decode_single_quoted_string(v), span)
-            }
-            Token::DoubleQuotedString(v) => {
-                let v = *v;
-                let span = self.span.clone();
-                self.next();
-                (decode_double_quoted_string(v), span)
-            }
-            Token::DollarQuotedString(v) => {
-                let v = *v;
-                let span = self.span.clone();
-                self.next();
-                // Dollar-quoted strings are literal, no decoding needed
-                (Cow::Borrowed(v), span)
-            }
-            Token::HexString(v) => {
-                let v = *v;
-                let span = self.span.clone();
-                self.next();
-                (decode_hex_string(v), span)
-            }
-            Token::BinaryString(v) => {
-                let v = *v;
-                let span = self.span.clone();
-                self.next();
-                (decode_binary_string(v), span)
+                let decoded = match kind {
+                    StringType::SingleQuoted => decode_single_quoted_string(v),
+                    StringType::DoubleQuoted => decode_double_quoted_string(v),
+                    StringType::DollarQuoted => Cow::Borrowed(v),
+                    StringType::Escape => decode_escape_string(v),
+                    StringType::Hex => decode_hex_string(v),
+                    StringType::Binary => decode_binary_string(v),
+                };
+                (decoded, span)
             }
             _ => self.expected_failure("string")?,
         };
-        loop {
-            match self.token {
-                Token::SingleQuotedString(v) => {
-                    b = b.join_span(&self.span);
-                    a.to_mut().push_str(decode_single_quoted_string(v).as_ref());
-                    self.next();
-                }
-                Token::DoubleQuotedString(v) => {
-                    b = b.join_span(&self.span);
-                    a.to_mut().push_str(decode_double_quoted_string(v).as_ref());
-                    self.next();
-                }
-                Token::DollarQuotedString(v) => {
-                    b = b.join_span(&self.span);
-                    // Dollar-quoted strings are literal, no decoding needed
-                    a.to_mut().push_str(v);
-                    self.next();
-                }
-                Token::HexString(v) => {
-                    b = b.join_span(&self.span);
-                    a.to_mut().push_str(decode_hex_string(v).as_ref());
-                    self.next();
-                }
-                _ => break,
-            }
+        while let Token::String(v, kind) = &self.token {
+            let v = *v;
+            let kind = kind.clone();
+            b = b.join_span(&self.span);
+            let decoded = match kind {
+                StringType::SingleQuoted => decode_single_quoted_string(v),
+                StringType::DoubleQuoted => decode_double_quoted_string(v),
+                StringType::DollarQuoted => Cow::Borrowed(v),
+                StringType::Escape => decode_escape_string(v),
+                StringType::Hex => decode_hex_string(v),
+                StringType::Binary => decode_binary_string(v),
+            };
+            a.to_mut().push_str(decoded.as_ref());
+            self.next();
         }
         Ok(SString::new(a, b))
     }
