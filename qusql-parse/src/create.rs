@@ -13,7 +13,7 @@ use alloc::{boxed::Box, vec::Vec};
 // limitations under the License.
 use crate::{
     DataType, Expression, Identifier, QualifiedName, SString, Span, Spanned, Statement,
-    alter::{
+    alter_table::{
         ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption,
         IndexType, parse_index_cols, parse_index_options, parse_index_type, parse_operator_class,
     },
