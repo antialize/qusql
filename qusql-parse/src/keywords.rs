@@ -86,7 +86,7 @@ pub(crate) enum Keyword {
     CASE,                // reserved: mariadb, postgres, sqlite
     CAST,                // reserved: postgres
     CHANGE,              // reserved: mariadb
-    CHAR,                // reserved: mariadb
+    CHAR,                // reserved: mariadb; expr_ident
     CHARACTER,           // reserved: mariadb
     CHECK,               // reserved: mariadb, postgres, sqlite
     COLLATE,             // reserved: mariadb, postgres, sqlite
@@ -171,7 +171,7 @@ pub(crate) enum Keyword {
     INNER,               // reserved: mariadb, postgres
     INOUT,               // reserved: mariadb
     INSENSITIVE,         // reserved: mariadb
-    INSERT,              // reserved: mariadb, sqlite
+    INSERT,              // reserved: mariadb, sqlite; expr_ident
     INT,                 // reserved: mariadb
     INT1,                // reserved: mariadb
     INT2,                // reserved: mariadb
@@ -212,7 +212,7 @@ pub(crate) enum Keyword {
     MIDDLEINT,           // reserved: mariadb
     MINUTE_MICROSECOND,  // reserved: mariadb
     MINUTE_SECOND,       // reserved: mariadb
-    MOD,                 // reserved: mariadb
+    MOD,                 // reserved: mariadb; expr_ident
     MODIFIES,            // reserved: mariadb
     NATURAL,             // reserved: mariadb, postgres
     NOT,                 // reserved: mariadb, postgres, sqlite
@@ -251,7 +251,7 @@ pub(crate) enum Keyword {
     REGEXP,              // reserved: mariadb
     RELEASE,             // reserved: mariadb
     RENAME,              // reserved: mariadb
-    REPEAT,              // reserved: mariadb
+    REPEAT,              // reserved: mariadb; expr_ident
     REPLACE,             // reserved: mariadb; expr_ident
     REQUIRE,             // reserved: mariadb
     RESIGNAL,            // reserved: mariadb
@@ -1050,6 +1050,7 @@ pub(crate) enum Keyword {
     TO_SECONDS,
     TRANSACTIONAL,
     TRIGGERS,
+    TRIM, // expr_ident
     TRUNCATE,
     TSQUERY,
     TSMULTIRANGE,
@@ -1120,6 +1121,60 @@ pub(crate) enum Keyword {
     YEARWEEK,
     ZONE,
     _LIST_,
+    // MySQL 8.4 functions
+    AES_DECRYPT,
+    AES_ENCRYPT,
+    ANY_VALUE,
+    BENCHMARK,
+    BIN_TO_UUID,
+    BIT_COUNT,
+    COERCIBILITY,
+    COMPRESS,
+    CONNECTION_ID,
+    FIRST_VALUE,
+    FORMAT_BYTES,
+    FORMAT_PICO_TIME,
+    FOUND_ROWS,
+    GET_LOCK,
+    GROUPING,
+    ICU_VERSION,
+    INET6_ATON,
+    INET6_NTOA,
+    INET_ATON,
+    INET_NTOA,
+    IS_FREE_LOCK,
+    IS_IPV4,
+    IS_IPV4_COMPAT,
+    IS_IPV4_MAPPED,
+    IS_IPV6,
+    IS_USED_LOCK,
+    IS_UUID,
+    LAST_INSERT_ID,
+    MD5,
+    NAME_CONST,
+    NTH_VALUE,
+    NTILE,
+    PS_CURRENT_THREAD_ID,
+    PS_THREAD_ID,
+    RANDOM_BYTES,
+    REGEXP_INSTR,
+    REGEXP_LIKE,
+    REGEXP_REPLACE,
+    REGEXP_SUBSTR,
+    RELEASE_ALL_LOCKS,
+    RELEASE_LOCK,
+    ROLES_GRAPHML,
+    ROW_NUMBER,
+    SHA,
+    SHA1,
+    SHA2,
+    STATEMENT_DIGEST,
+    STATEMENT_DIGEST_TEXT,
+    SYSTEM_USER,
+    UNCOMPRESS,
+    UUID_SHORT,
+    UUID_TO_BIN,
+    VALIDATE_PASSWORD_STRENGTH,
 }
 // End of keyword list
 

@@ -140,13 +140,14 @@ pub use expression::{
     IntegerExpression, IntervalExpression, InvalidExpression, Is, IsExpression, ListHackExpression,
     MatchAgainstExpression, MatchMode, MemberOfExpression, NullExpression, Quantifier,
     QuantifierExpression, SubqueryExpression, TimeUnit, TimestampAddExpression,
-    TimestampDiffExpression, TypeCastExpression, UnaryExpression, UnaryOperator,
-    UserVariableExpression, Variable, VariableExpression, When,
+    TimestampDiffExpression, TrimDirection, TrimExpression, TypeCastExpression, UnaryExpression,
+    UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
 };
 pub use flush::{Flush, FlushOption};
 pub use function_expression::{
-    AggregateFunctionCallExpression, Function, FunctionCallExpression, WindowClause, WindowFrame,
-    WindowFrameBound, WindowFrameMode, WindowFunctionCallExpression, WindowSpec,
+    AggregateFunctionCallExpression, CharFunctionExpression, Function, FunctionCallExpression,
+    WindowClause, WindowFrame, WindowFrameBound, WindowFrameMode, WindowFunctionCallExpression,
+    WindowSpec,
 };
 pub use identifier::Identifier;
 pub use insert_replace::{

@@ -14,9 +14,9 @@ use crate::{
     DataType, Identifier, QualifiedName, SString, Span, Spanned, Statement,
     data_type::{DataTypeContext, parse_data_type},
     function_expression::{
-        AggregateFunctionCallExpression, Function, FunctionCallExpression,
+        AggregateFunctionCallExpression, CharFunctionExpression, Function, FunctionCallExpression,
         WindowFunctionCallExpression, is_aggregate_function_ident, parse_aggregate_function,
-        parse_function, parse_function_call,
+        parse_char_function, parse_function, parse_function_call,
     },
     keywords::{Keyword, Restrict},
     lexer::Token,
@@ -387,6 +387,49 @@ impl Spanned for ExtractExpression<'_> {
             .join_span(&self.time_unit.1)
             .join_span(&self.from_span)
             .join_span(&self.date)
+    }
+}
+
+/// Direction for TRIM()
+#[derive(Debug, Clone)]
+pub enum TrimDirection {
+    Both(Span),
+    Leading(Span),
+    Trailing(Span),
+}
+
+impl Spanned for TrimDirection {
+    fn span(&self) -> Span {
+        match self {
+            TrimDirection::Both(s) | TrimDirection::Leading(s) | TrimDirection::Trailing(s) => {
+                s.clone()
+            }
+        }
+    }
+}
+
+/// TRIM([{BOTH|LEADING|TRAILING} [remstr] FROM] str) expression
+#[derive(Debug, Clone)]
+pub struct TrimExpression<'a> {
+    /// Span of "TRIM"
+    pub trim_span: Span,
+    /// Optional BOTH / LEADING / TRAILING direction
+    pub direction: Option<TrimDirection>,
+    /// Optional removal string (remstr)
+    pub what: Option<Expression<'a>>,
+    /// Span of "FROM" when present
+    pub from_span: Option<Span>,
+    /// The string to trim
+    pub value: Expression<'a>,
+}
+
+impl Spanned for TrimExpression<'_> {
+    fn span(&self) -> Span {
+        self.trim_span
+            .join_span(&self.direction)
+            .join_span(&self.what)
+            .join_span(&self.from_span)
+            .join_span(&self.value)
     }
 }
 
@@ -978,6 +1021,8 @@ pub enum Expression<'a> {
     Exists(Box<ExistsExpression<'a>>),
     /// Extract expression
     Extract(Box<ExtractExpression<'a>>),
+    /// Trim expression
+    Trim(Box<TrimExpression<'a>>),
     /// In expression
     In(Box<InExpression<'a>>),
     /// Between expression
@@ -1016,6 +1061,8 @@ pub enum Expression<'a> {
     Quantifier(Box<QuantifierExpression<'a>>),
     /// PostgreSQL composite type field access: (expr).field
     FieldAccess(Box<FieldAccessExpression<'a>>),
+    /// CHAR(N,... [USING charset_name]) expression
+    Char(Box<CharFunctionExpression<'a>>),
 }
 
 impl<'a> Spanned for Expression<'a> {
@@ -1051,6 +1098,7 @@ impl<'a> Spanned for Expression<'a> {
             Expression::WindowFunction(e) => e.span(),
             Expression::Interval(e) => e.span(),
             Expression::Extract(e) => e.span(),
+            Expression::Trim(e) => e.span(),
             Expression::TimestampAdd(e) => e.span(),
             Expression::TimestampDiff(e) => e.span(),
             Expression::MatchAgainst(e) => e.span(),
@@ -1058,6 +1106,7 @@ impl<'a> Spanned for Expression<'a> {
             Expression::ArraySubscript(e) => e.span(),
             Expression::Quantifier(e) => e.span(),
             Expression::FieldAccess(e) => e.span(),
+            Expression::Char(e) => e.span(),
         }
     }
 }
@@ -1891,7 +1940,10 @@ pub(crate) fn parse_expression_restricted<'a>(
             Token::Mod if PRIORITY_MULT < max_priority => {
                 r.shift_binop(BinaryOperator::Mod(parser.consume()))
             }
-            Token::Ident(_, Keyword::MOD) if PRIORITY_MULT < max_priority => {
+            Token::Ident(_, Keyword::MOD)
+                if PRIORITY_MULT < max_priority
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
                 r.shift_binop(BinaryOperator::Mod(parser.consume()))
             }
             Token::Ident(_, Keyword::TRUE) => {
@@ -2013,6 +2065,66 @@ pub(crate) fn parse_expression_restricted<'a>(
                 } else {
                     r.shift_expr(Expression::Invalid(Box::new(InvalidExpression {
                         span: group_concat_span,
+                    })))
+                }
+            }
+            Token::Ident(_, Keyword::TRIM) if matches!(parser.peek(), Token::LParen) => {
+                let trim_span = parser.consume_keyword(Keyword::TRIM)?;
+                parser.consume_token(Token::LParen)?;
+                let parts = parser.recovered("')'", &|t| matches!(t, Token::RParen), |parser| {
+                    // Optional BOTH / LEADING / TRAILING
+                    let direction = match &parser.token {
+                        Token::Ident(_, Keyword::BOTH) => {
+                            Some(TrimDirection::Both(parser.consume()))
+                        }
+                        Token::Ident(_, Keyword::LEADING) => {
+                            Some(TrimDirection::Leading(parser.consume()))
+                        }
+                        Token::Ident(_, Keyword::TRAILING) => {
+                            Some(TrimDirection::Trailing(parser.consume()))
+                        }
+                        _ => None,
+                    };
+
+                    let (what, from_span, value) = if direction.is_some() {
+                        // After direction: optionally [remstr] FROM value
+                        if let Some(from_s) = parser.skip_keyword(Keyword::FROM) {
+                            // No remstr: TRIM(BOTH FROM str)
+                            let value = parse_expression_outer(parser)?;
+                            (None, Some(from_s), value)
+                        } else {
+                            // Has remstr: TRIM(BOTH remstr FROM str)
+                            let what = parse_expression_outer(parser)?;
+                            let from_s = parser.consume_keyword(Keyword::FROM)?;
+                            let value = parse_expression_outer(parser)?;
+                            (Some(what), Some(from_s), value)
+                        }
+                    } else {
+                        // No direction: TRIM(str) or TRIM(remstr FROM str)
+                        let first = parse_expression_outer(parser)?;
+                        if let Some(from_s) = parser.skip_keyword(Keyword::FROM) {
+                            // first is remstr
+                            let value = parse_expression_outer(parser)?;
+                            (Some(first), Some(from_s), value)
+                        } else {
+                            // first is the value itself
+                            (None, None, first)
+                        }
+                    };
+                    Ok(Some((direction, what, from_span, value)))
+                })?;
+                parser.consume_token(Token::RParen)?;
+                if let Some((direction, what, from_span, value)) = parts {
+                    r.shift_expr(Expression::Trim(Box::new(TrimExpression {
+                        trim_span,
+                        direction,
+                        what,
+                        from_span,
+                        value,
+                    })))
+                } else {
+                    r.shift_expr(Expression::Invalid(Box::new(InvalidExpression {
+                        span: trim_span,
                     })))
                 }
             }
@@ -2144,6 +2256,11 @@ pub(crate) fn parse_expression_restricted<'a>(
                 let s = parser.span.clone();
                 parser.consume();
                 r.shift_expr(parse_function(parser, i, s)?)
+            }
+            Token::Ident(_, Keyword::CHAR) if matches!(parser.peek(), Token::LParen) => {
+                let s = parser.span.clone();
+                parser.consume();
+                r.shift_expr(parse_char_function(parser, s)?)
             }
             Token::Ident(_, keyword)
                 if matches!(parser.peek(), Token::LParen)
