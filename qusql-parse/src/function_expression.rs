@@ -35,6 +35,7 @@ pub enum Function<'a> {
     Bin,
     BitLength,
     Ceil,
+    Char,
     CharacterLength,
     Chr,
     Concat,
@@ -147,6 +148,7 @@ pub enum Function<'a> {
     Mid,
     Min,
     Minute,
+    Mod,
     Month,
     MonthName,
     NaturalSortkey,
@@ -217,7 +219,72 @@ pub enum Function<'a> {
     WeekOfYear,
     Year,
     YearWeek,
-    // Aggregate / statistical functions
+    // MySQL 8.4 explicit functions
+    AesDecrypt,
+    AesEncrypt,
+    AnyValue,
+    Benchmark,
+    BinToUuid,
+    BitCount,
+    Charset,
+    Coercibility,
+    Collation,
+    Compress,
+    ConnectionId,
+    DatabaseFunc,
+    FirstValue,
+    FormatBytes,
+    FormatPicoTime,
+    FoundRows,
+    GetFormat,
+    GetLock,
+    Grouping,
+    IcuVersion,
+    Inet6Aton,
+    Inet6Ntoa,
+    InetAton,
+    InetNtoa,
+    IsFreeLock,
+    IsIPv4,
+    IsIPv4Compat,
+    IsIPv4Mapped,
+    IsIPv6,
+    IsUsedLock,
+    IsUuid,
+    LastInsertId,
+    LastValue,
+    Md5,
+    NameConst,
+    NthValue,
+    Ntile,
+    PsCurrentThreadId,
+    PsThreadId,
+    RandomBytes,
+    RegexpInstr,
+    RegexpLike,
+    RegexpReplace,
+    RegexpSubstr,
+    ReleaseAllLocks,
+    ReleaseLock,
+    RolesGraphml,
+    RowCount,
+    RowNumber,
+    SchemaFunc,
+    SessionUserFunc,
+    Sha,
+    Sha1,
+    Sha2,
+    StatementDigest,
+    StatementDigestText,
+    SystemUser,
+    Uncompress,
+    UserFunc,
+    Uuid,
+    UuidShort,
+    UuidToBin,
+    ValidatePasswordStrength,
+    Version,
+    WeightString,
     ArrayAgg,
     BitAnd,
     BitOr,
@@ -269,6 +336,25 @@ pub struct FunctionCallExpression<'a> {
 impl Spanned for FunctionCallExpression<'_> {
     fn span(&self) -> Span {
         self.function_span.join_span(&self.args)
+    }
+}
+
+/// CHAR(N,... [USING charset_name]) expression
+#[derive(Debug, Clone)]
+pub struct CharFunctionExpression<'a> {
+    /// Span of "CHAR"
+    pub char_span: Span,
+    /// Arguments to CHAR()
+    pub args: Vec<Expression<'a>>,
+    /// Optional USING charset_name clause
+    pub using_charset: Option<(Span, Identifier<'a>)>,
+}
+
+impl<'a> Spanned for CharFunctionExpression<'a> {
+    fn span(&self) -> Span {
+        self.char_span
+            .join_span(&self.args)
+            .join_span(&self.using_charset)
     }
 }
 
@@ -715,6 +801,7 @@ pub(crate) fn parse_function<'a>(
     span: Span,
 ) -> Result<Expression<'a>, ParseError> {
     parser.consume_token(Token::LParen)?;
+
     let func = match &t {
         // https://mariadb.com/kb/en/string-functions/
         Token::Ident(_, Keyword::ASCII) => Function::Ascii,
@@ -812,6 +899,7 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::LOG) => Function::Log,
         Token::Ident(_, Keyword::LOG10) => Function::Log10,
         Token::Ident(_, Keyword::LOG2) => Function::Log2,
+        Token::Ident(_, Keyword::MOD) => Function::Mod,
         Token::Ident(_, Keyword::OCT) => Function::Oct,
         Token::Ident(_, Keyword::PI) => Function::Pi,
         Token::Ident(_, Keyword::POW | Keyword::POWER) => Function::Pow,
@@ -928,6 +1016,90 @@ pub(crate) fn parse_function<'a>(
         // Sqlite
         Token::Ident(_, Keyword::STRFTIME) => Function::Strftime,
         Token::Ident(_, Keyword::DATETIME) => Function::Datetime,
+
+        // MySQL 8.4 encryption / compression
+        Token::Ident(_, Keyword::AES_DECRYPT) => Function::AesDecrypt,
+        Token::Ident(_, Keyword::AES_ENCRYPT) => Function::AesEncrypt,
+        Token::Ident(_, Keyword::COMPRESS) => Function::Compress,
+        Token::Ident(_, Keyword::MD5) => Function::Md5,
+        Token::Ident(_, Keyword::RANDOM_BYTES) => Function::RandomBytes,
+        Token::Ident(_, Keyword::SHA) => Function::Sha,
+        Token::Ident(_, Keyword::SHA1) => Function::Sha1,
+        Token::Ident(_, Keyword::SHA2) => Function::Sha2,
+        Token::Ident(_, Keyword::STATEMENT_DIGEST) => Function::StatementDigest,
+        Token::Ident(_, Keyword::STATEMENT_DIGEST_TEXT) => Function::StatementDigestText,
+        Token::Ident(_, Keyword::UNCOMPRESS) => Function::Uncompress,
+        Token::Ident(_, Keyword::VALIDATE_PASSWORD_STRENGTH) => Function::ValidatePasswordStrength,
+
+        // MySQL 8.4 locking
+        Token::Ident(_, Keyword::GET_LOCK) => Function::GetLock,
+        Token::Ident(_, Keyword::IS_FREE_LOCK) => Function::IsFreeLock,
+        Token::Ident(_, Keyword::IS_USED_LOCK) => Function::IsUsedLock,
+        Token::Ident(_, Keyword::RELEASE_ALL_LOCKS) => Function::ReleaseAllLocks,
+        Token::Ident(_, Keyword::RELEASE_LOCK) => Function::ReleaseLock,
+
+        // MySQL 8.4 information
+        Token::Ident(_, Keyword::BENCHMARK) => Function::Benchmark,
+        Token::Ident(_, Keyword::CHARSET) => Function::Charset,
+        Token::Ident(_, Keyword::COERCIBILITY) => Function::Coercibility,
+        Token::Ident(_, Keyword::COLLATION) => Function::Collation,
+        Token::Ident(_, Keyword::CONNECTION_ID) => Function::ConnectionId,
+        Token::Ident(_, Keyword::CURRENT_ROLE) => Function::CurrentRole,
+        Token::Ident(_, Keyword::CURRENT_USER) => Function::CurrentUser,
+        Token::Ident(_, Keyword::DATABASE) => Function::DatabaseFunc,
+        Token::Ident(_, Keyword::FOUND_ROWS) => Function::FoundRows,
+        Token::Ident(_, Keyword::ICU_VERSION) => Function::IcuVersion,
+        Token::Ident(_, Keyword::LAST_INSERT_ID) => Function::LastInsertId,
+        Token::Ident(_, Keyword::ROLES_GRAPHML) => Function::RolesGraphml,
+        Token::Ident(_, Keyword::ROW_COUNT) => Function::RowCount,
+        Token::Ident(_, Keyword::SCHEMA) => Function::SchemaFunc,
+        Token::Ident(_, Keyword::SESSION_USER) => Function::SessionUserFunc,
+        Token::Ident(_, Keyword::SYSTEM_USER) => Function::SystemUser,
+        Token::Ident(_, Keyword::USER) => Function::UserFunc,
+        Token::Ident(_, Keyword::VERSION) => Function::Version,
+
+        // MySQL 8.4 regexp
+        Token::Ident(_, Keyword::REGEXP_INSTR) => Function::RegexpInstr,
+        Token::Ident(_, Keyword::REGEXP_LIKE) => Function::RegexpLike,
+        Token::Ident(_, Keyword::REGEXP_REPLACE) => Function::RegexpReplace,
+        Token::Ident(_, Keyword::REGEXP_SUBSTR) => Function::RegexpSubstr,
+        Token::Ident(_, Keyword::WEIGHT_STRING) => Function::WeightString,
+
+        // MySQL 8.4 datetime
+        Token::Ident(_, Keyword::GET_FORMAT) => Function::GetFormat,
+
+        // MySQL 8.4 window / analytics
+        Token::Ident(_, Keyword::FIRST_VALUE) => Function::FirstValue,
+        Token::Ident(_, Keyword::LAST_VALUE) => Function::LastValue,
+        Token::Ident(_, Keyword::NTH_VALUE) => Function::NthValue,
+        Token::Ident(_, Keyword::NTILE) => Function::Ntile,
+        Token::Ident(_, Keyword::ROW_NUMBER) => Function::RowNumber,
+
+        // MySQL 8.4 performance schema
+        Token::Ident(_, Keyword::FORMAT_BYTES) => Function::FormatBytes,
+        Token::Ident(_, Keyword::FORMAT_PICO_TIME) => Function::FormatPicoTime,
+        Token::Ident(_, Keyword::PS_CURRENT_THREAD_ID) => Function::PsCurrentThreadId,
+        Token::Ident(_, Keyword::PS_THREAD_ID) => Function::PsThreadId,
+
+        // MySQL 8.4 miscellaneous
+        Token::Ident(_, Keyword::ANY_VALUE) => Function::AnyValue,
+        Token::Ident(_, Keyword::BIN_TO_UUID) => Function::BinToUuid,
+        Token::Ident(_, Keyword::BIT_COUNT) => Function::BitCount,
+        Token::Ident(_, Keyword::GROUPING) => Function::Grouping,
+        Token::Ident(_, Keyword::INET6_ATON) => Function::Inet6Aton,
+        Token::Ident(_, Keyword::INET6_NTOA) => Function::Inet6Ntoa,
+        Token::Ident(_, Keyword::INET_ATON) => Function::InetAton,
+        Token::Ident(_, Keyword::INET_NTOA) => Function::InetNtoa,
+        Token::Ident(_, Keyword::IS_IPV4) => Function::IsIPv4,
+        Token::Ident(_, Keyword::IS_IPV4_COMPAT) => Function::IsIPv4Compat,
+        Token::Ident(_, Keyword::IS_IPV4_MAPPED) => Function::IsIPv4Mapped,
+        Token::Ident(_, Keyword::IS_IPV6) => Function::IsIPv6,
+        Token::Ident(_, Keyword::IS_UUID) => Function::IsUuid,
+        Token::Ident(_, Keyword::NAME_CONST) => Function::NameConst,
+        Token::Ident(_, Keyword::UUID) => Function::Uuid,
+        Token::Ident(_, Keyword::UUID_SHORT) => Function::UuidShort,
+        Token::Ident(_, Keyword::UUID_TO_BIN) => Function::UuidToBin,
+
         Token::Ident(v, k) if !k.restricted(parser.reserved()) => {
             Function::Other(alloc::vec![Identifier {
                 value: v,
@@ -979,6 +1151,47 @@ pub(crate) fn parse_function<'a>(
 /// Parse the argument list and optional OVER clause for a schema-qualified function call.
 /// The caller has already resolved `func = Function::Other(qualified_parts)` and
 /// computed `function_span` covering the full qualified name.
+pub(crate) fn parse_char_function<'a>(
+    parser: &mut Parser<'a, '_>,
+    char_span: Span,
+) -> Result<Expression<'a>, ParseError> {
+    parser.consume_token(Token::LParen)?;
+    let mut args = Vec::new();
+    if !matches!(parser.token, Token::RParen) {
+        loop {
+            parser.recovered(
+                "')' or ','",
+                &|t| {
+                    matches!(
+                        t,
+                        Token::RParen | Token::Comma | Token::Ident(_, Keyword::USING)
+                    )
+                },
+                |parser| {
+                    args.push(parse_expression_outer(parser)?);
+                    Ok(())
+                },
+            )?;
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+    }
+    // Optional USING charset_name
+    let using_charset = if let Some(using_span) = parser.skip_keyword(Keyword::USING) {
+        let charset = parser.consume_plain_identifier_unreserved()?;
+        Some((using_span, charset))
+    } else {
+        None
+    };
+    parser.consume_token(Token::RParen)?;
+    Ok(Expression::Char(Box::new(CharFunctionExpression {
+        char_span,
+        args,
+        using_charset,
+    })))
+}
+
 pub(crate) fn parse_function_call<'a>(
     parser: &mut Parser<'a, '_>,
     func: Function<'a>,

@@ -579,5 +579,13 @@ pub(crate) fn type_expression<'a>(
             issue_todo!(typer.issues, e);
             FullType::invalid()
         }
+        Expression::Trim(e) => {
+            issue_todo!(typer.issues, e);
+            FullType::invalid()
+        }
+        Expression::Char(e) => {
+            issue_todo!(typer.issues, e);
+            FullType::invalid()
+        }
     }
 }
