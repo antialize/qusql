@@ -12,7 +12,7 @@
 use crate::{
     Expression, Identifier, Span, Spanned,
     create_option::CreateOption,
-    expression::parse_expression,
+    expression::parse_expression_unreserved,
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
@@ -160,7 +160,7 @@ pub(crate) fn parse_create_role<'a>(
     // Parse role names (comma-separated list)
     let mut role_names = Vec::new();
     loop {
-        role_names.push(parser.consume_plain_identifier()?);
+        role_names.push(parser.consume_plain_identifier_unreserved()?);
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
@@ -180,7 +180,7 @@ pub(crate) fn parse_create_role<'a>(
                 let user_span = parser.consume_keyword(Keyword::USER)?;
                 let mut roles = Vec::new();
                 loop {
-                    roles.push(parser.consume_plain_identifier()?);
+                    roles.push(parser.consume_plain_identifier_unreserved()?);
                     if parser.skip_token(Token::Comma).is_none() {
                         break;
                     }
@@ -194,7 +194,7 @@ pub(crate) fn parse_create_role<'a>(
                 let role_span = parser.consume_keyword(Keyword::ROLE)?;
                 let mut roles = Vec::new();
                 loop {
-                    roles.push(parser.consume_plain_identifier()?);
+                    roles.push(parser.consume_plain_identifier_unreserved()?);
                     if parser.skip_token(Token::Comma).is_none() {
                         break;
                     }
@@ -208,7 +208,7 @@ pub(crate) fn parse_create_role<'a>(
                 let admin_span = parser.consume_keyword(Keyword::ADMIN)?;
                 let mut roles = Vec::new();
                 loop {
-                    roles.push(parser.consume_plain_identifier()?);
+                    roles.push(parser.consume_plain_identifier_unreserved()?);
                     if parser.skip_token(Token::Comma).is_none() {
                         break;
                     }
@@ -222,7 +222,7 @@ pub(crate) fn parse_create_role<'a>(
                 let in_role_span = parser.consume_keywords(&[Keyword::IN, Keyword::ROLE])?;
                 let mut roles = Vec::new();
                 loop {
-                    roles.push(parser.consume_plain_identifier()?);
+                    roles.push(parser.consume_plain_identifier_unreserved()?);
                     if parser.skip_token(Token::Comma).is_none() {
                         break;
                     }
@@ -291,12 +291,12 @@ pub(crate) fn parse_create_role<'a>(
             }
             Token::Ident(_, Keyword::CONNECTION) => {
                 let span = parser.consume_keywords(&[Keyword::CONNECTION, Keyword::LIMIT])?;
-                let expr = parse_expression(parser, false)?;
+                let expr = parse_expression_unreserved(parser, false)?;
                 options.push(RoleOption::ConnectionLimit(span, expr));
             }
             Token::Ident(_, Keyword::ENCRYPTED) => {
                 let span = parser.consume_keywords(&[Keyword::ENCRYPTED, Keyword::PASSWORD])?;
-                let expr = parse_expression(parser, false)?;
+                let expr = parse_expression_unreserved(parser, false)?;
                 options.push(RoleOption::EncryptedPassword(span, expr));
             }
             Token::Ident(_, Keyword::PASSWORD) => {
@@ -304,18 +304,18 @@ pub(crate) fn parse_create_role<'a>(
                 if parser.skip_keyword(Keyword::NULL).is_some() {
                     options.push(RoleOption::PasswordNull(password_span));
                 } else {
-                    let expr = parse_expression(parser, false)?;
+                    let expr = parse_expression_unreserved(parser, false)?;
                     options.push(RoleOption::Password(password_span, expr));
                 }
             }
             Token::Ident(_, Keyword::VALID) => {
                 let span = parser.consume_keywords(&[Keyword::VALID, Keyword::UNTIL])?;
-                let expr = parse_expression(parser, false)?;
+                let expr = parse_expression_unreserved(parser, false)?;
                 options.push(RoleOption::ValidUntil(span, expr));
             }
             Token::Ident(_, Keyword::SYSID) => {
                 let sysid_span = parser.consume_keyword(Keyword::SYSID)?;
-                let expr = parse_expression(parser, false)?;
+                let expr = parse_expression_unreserved(parser, false)?;
                 options.push(RoleOption::Sysid(sysid_span, expr));
             }
             _ => break,
