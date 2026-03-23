@@ -169,8 +169,15 @@ impl<'a> Lexer<'a> {
                 Some((_, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9')) => {
                     self.chars.next();
                 }
-                // For MariaDB, allow $ and @ in identifiers
-                Some((_, '$' | '@')) if self.dialect.is_maria() => {
+                // For MariaDB, allow $ and @ in identifiers, but stop before $$
+                // so that e.g. END$$ is lexed as END + $$ rather than a single token.
+                Some((i, '$')) if self.dialect.is_maria() => {
+                    if self.src.as_bytes().get(i + 1) == Some(&b'$') {
+                        break *i;
+                    }
+                    self.chars.next();
+                }
+                Some((_, '@')) if self.dialect.is_maria() => {
                     self.chars.next();
                 }
                 // MySQL allows Unicode characters (U+0080 and above) in identifiers
