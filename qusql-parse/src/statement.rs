@@ -35,7 +35,7 @@ use crate::{
     insert_replace::{InsertReplace, parse_insert_replace},
     keywords::Keyword,
     kill::{Kill, parse_kill},
-    lexer::Token,
+    lexer::{StringType, Token},
     lock::{Lock, Unlock, parse_lock, parse_unlock},
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name_unreserved,
@@ -912,7 +912,7 @@ pub(crate) fn parse_statement<'a>(
 
 pub(crate) fn parse_do<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let do_span = parser.consume_keyword(Keyword::DO)?;
-    if matches!(parser.token, Token::DollarQuotedString(_)) {
+    if matches!(parser.token, Token::String(_, StringType::DollarQuoted)) {
         // PostgreSQL: DO $$...$$ — the body is a dollar-quoted string literal
         parser.consume();
         return Ok(Statement::Do(Box::new(Do {

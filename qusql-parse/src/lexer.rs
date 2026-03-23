@@ -13,6 +13,23 @@
 //! Lexer for SQL statements. Converts a SQL string into a stream of tokens.
 use crate::{SQLDialect, Span, keywords::Keyword};
 
+/// Describes the quoting/prefix style of a SQL string literal token.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum StringType {
+    /// Standard single-quoted string: `'...'`
+    SingleQuoted,
+    /// Double-quoted string: `"..."`
+    DoubleQuoted,
+    /// PostgreSQL dollar-quoted string: `$$...$$` / `$tag$...$tag$`
+    DollarQuoted,
+    /// Hex bit-string: `x'...'` / `X'...'`
+    Hex,
+    /// Binary bit-string: `b'...'` / `B'...'`
+    Binary,
+    /// PostgreSQL escape string: `E'...'` / `e'...'`
+    Escape,
+}
+
 /// SQL Token enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Token<'a> {
@@ -62,11 +79,7 @@ pub(crate) enum Token<'a> {
     Sharp,
     ShiftLeft,
     ShiftRight,
-    SingleQuotedString(&'a str),
-    DoubleQuotedString(&'a str),
-    DollarQuotedString(&'a str),
-    HexString(&'a str),
-    BinaryString(&'a str),
+    String(&'a str, StringType),
     Spaceship,
     Tilde,
     PercentS,
@@ -138,11 +151,9 @@ impl<'a> Token<'a> {
             Token::DollarArg(v) if *v == 8 => "'$8'",
             Token::DollarArg(v) if *v == 9 => "'$9'",
             Token::DollarArg(_) => "'$i'",
-            Token::SingleQuotedString(_) => "String",
-            Token::DoubleQuotedString(_) => "String",
-            Token::DollarQuotedString(_) => "String",
-            Token::HexString(_) => "HexString",
-            Token::BinaryString(_) => "BinaryString",
+            Token::String(_, StringType::Hex) => "HexString",
+            Token::String(_, StringType::Binary) => "BinaryString",
+            Token::String(_, _) => "String",
             Token::Spaceship => "'<=>'",
             Token::Tilde => "'~'",
             Token::PercentS => "'%s'",
@@ -645,8 +656,9 @@ impl<'a> Lexer<'a> {
                             }
 
                             if found {
-                                Some(Token::DollarQuotedString(
+                                Some(Token::String(
                                     self.s(content_start..content_end),
+                                    StringType::DollarQuoted,
                                 ))
                             } else {
                                 Some(Token::Invalid)
@@ -790,7 +802,9 @@ impl<'a> Lexer<'a> {
                         self.chars.next(); // consume the '
                         loop {
                             match self.chars.next() {
-                                Some((i, b'\'')) => break Token::HexString(self.s(start + 2..i)),
+                                Some((i, b'\'')) => {
+                                    break Token::String(self.s(start + 2..i), StringType::Hex);
+                                }
                                 Some((_, b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F')) => (),
                                 Some((_, _)) => break Token::Invalid,
                                 None => break Token::Invalid,
@@ -805,10 +819,36 @@ impl<'a> Lexer<'a> {
                         loop {
                             match self.chars.next() {
                                 Some((i, b'\'')) => {
-                                    break Token::BinaryString(self.s(start + 2..i));
+                                    break Token::String(self.s(start + 2..i), StringType::Binary);
                                 }
                                 Some((_, b'0' | b'1')) => (),
                                 Some((_, _)) => break Token::Invalid,
+                                None => break Token::Invalid,
+                            }
+                        }
+                    }
+                    _ => self.unquoted_identifier(start),
+                },
+                b'e' | b'E' => match self.chars.peek() {
+                    Some((_, b'\'')) => {
+                        self.chars.next(); // consume the '
+                        loop {
+                            match self.chars.next() {
+                                Some((_, b'\\')) => {
+                                    self.chars.next(); // skip escaped character
+                                }
+                                Some((i, b'\'')) => match self.chars.peek() {
+                                    Some((_, b'\'')) => {
+                                        self.chars.next(); // doubled-quote escape
+                                    }
+                                    _ => {
+                                        break Token::String(
+                                            self.s(start + 2..i),
+                                            StringType::Escape,
+                                        );
+                                    }
+                                },
+                                Some((_, _)) => (),
                                 None => break Token::Invalid,
                             }
                         }
@@ -848,7 +888,12 @@ impl<'a> Lexer<'a> {
                             Some((_, b'\'')) => {
                                 self.chars.next();
                             }
-                            _ => break Token::SingleQuotedString(self.s(start + 1..i)),
+                            _ => {
+                                break Token::String(
+                                    self.s(start + 1..i),
+                                    StringType::SingleQuoted,
+                                );
+                            }
                         },
                         Some((_, _)) => (),
                         None => break Token::Invalid,
@@ -863,7 +908,12 @@ impl<'a> Lexer<'a> {
                             Some((_, b'"')) => {
                                 self.chars.next();
                             }
-                            _ => break Token::DoubleQuotedString(self.s(start + 1..i)),
+                            _ => {
+                                break Token::String(
+                                    self.s(start + 1..i),
+                                    StringType::DoubleQuoted,
+                                );
+                            }
                         },
                         Some((_, _)) => (),
                         None => break Token::Invalid,
@@ -1318,46 +1368,46 @@ mod tests {
         let dialect = SQLDialect::MariaDB;
 
         // Single quoted strings
-        if let Token::SingleQuotedString(value) = lex_single("'hello'", &dialect) {
+        if let Token::String(value, StringType::SingleQuoted) = lex_single("'hello'", &dialect) {
             assert_eq!(value, "hello");
         } else {
             panic!("Expected single quoted string");
         }
 
-        if let Token::SingleQuotedString(value) = lex_single("'it''s'", &dialect) {
+        if let Token::String(value, StringType::SingleQuoted) = lex_single("'it''s'", &dialect) {
             assert_eq!(value, "it''s");
         } else {
             panic!("Expected single quoted string with escaped quote");
         }
 
         // Double quoted strings
-        if let Token::DoubleQuotedString(value) = lex_single("\"hello\"", &dialect) {
+        if let Token::String(value, StringType::DoubleQuoted) = lex_single("\"hello\"", &dialect) {
             assert_eq!(value, "hello");
         } else {
             panic!("Expected double quoted string");
         }
 
         // Hex strings
-        if let Token::HexString(value) = lex_single("x'48656C6C6F'", &dialect) {
+        if let Token::String(value, StringType::Hex) = lex_single("x'48656C6C6F'", &dialect) {
             assert_eq!(value, "48656C6C6F");
         } else {
             panic!("Expected hex string");
         }
 
-        if let Token::HexString(value) = lex_single("X'ABCDEF'", &dialect) {
+        if let Token::String(value, StringType::Hex) = lex_single("X'ABCDEF'", &dialect) {
             assert_eq!(value, "ABCDEF");
         } else {
             panic!("Expected hex string");
         }
 
         // Binary strings
-        if let Token::BinaryString(value) = lex_single("b'101010'", &dialect) {
+        if let Token::String(value, StringType::Binary) = lex_single("b'101010'", &dialect) {
             assert_eq!(value, "101010");
         } else {
             panic!("Expected binary string");
         }
 
-        if let Token::BinaryString(value) = lex_single("B'111'", &dialect) {
+        if let Token::String(value, StringType::Binary) = lex_single("B'111'", &dialect) {
             assert_eq!(value, "111");
         } else {
             panic!("Expected binary string");
@@ -1457,42 +1507,50 @@ mod tests {
         let postgresql = SQLDialect::PostgreSQL;
 
         // Simple dollar-quoted string
-        if let Token::DollarQuotedString(value) = lex_single("$$Hello World$$", &postgresql) {
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$$Hello World$$", &postgresql)
+        {
             assert_eq!(value, "Hello World");
         } else {
             panic!("Expected dollar-quoted string");
         }
 
         // Empty dollar-quoted string
-        if let Token::DollarQuotedString(value) = lex_single("$$$$", &postgresql) {
+        if let Token::String(value, StringType::DollarQuoted) = lex_single("$$$$", &postgresql) {
             assert_eq!(value, "");
         } else {
             panic!("Expected empty dollar-quoted string");
         }
 
         // Dollar-quoted string with tag
-        if let Token::DollarQuotedString(value) = lex_single("$tag$Hello World$tag$", &postgresql) {
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$tag$Hello World$tag$", &postgresql)
+        {
             assert_eq!(value, "Hello World");
         } else {
             panic!("Expected tagged dollar-quoted string");
         }
 
         // Dollar-quoted string with special characters
-        if let Token::DollarQuotedString(value) = lex_single("$$hello$$world$$", &postgresql) {
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$$hello$$world$$", &postgresql)
+        {
             assert_eq!(value, "hello");
         } else {
             panic!("Expected dollar-quoted string with $$ inside");
         }
 
         // Dollar-quoted string with tag containing various characters
-        if let Token::DollarQuotedString(value) = lex_single("$x$hello$x$", &postgresql) {
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$x$hello$x$", &postgresql)
+        {
             assert_eq!(value, "hello");
         } else {
             panic!("Expected dollar-quoted string with tag 'x'");
         }
 
         // Dollar-quoted string with underscore in tag
-        if let Token::DollarQuotedString(value) =
+        if let Token::String(value, StringType::DollarQuoted) =
             lex_single("$tag_name$world$tag_name$", &postgresql)
         {
             assert_eq!(value, "world");
@@ -1501,7 +1559,9 @@ mod tests {
         }
 
         // Dollar-quoted string with newlines and special characters
-        if let Token::DollarQuotedString(value) = lex_single("$$Foo$Bar$$", &postgresql) {
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$$Foo$Bar$$", &postgresql)
+        {
             assert_eq!(value, "Foo$Bar");
         } else {
             panic!("Expected dollar-quoted string with $ character inside");
@@ -1511,7 +1571,7 @@ mod tests {
         let tokens = lex_all("SELECT $$Hello$$", &postgresql);
         assert_eq!(tokens.len(), 2);
         assert!(matches!(tokens[0], Token::Ident(_, Keyword::SELECT)));
-        if let Token::DollarQuotedString(value) = &tokens[1] {
+        if let Token::String(value, StringType::DollarQuoted) = &tokens[1] {
             assert_eq!(*value, "Hello");
         } else {
             panic!("Expected dollar-quoted string in SELECT");
@@ -1658,14 +1718,16 @@ mod tests {
         let dialect = SQLDialect::MariaDB;
 
         // Backslash escapes in single quoted strings
-        if let Token::SingleQuotedString(value) = lex_single("'hello\\nworld'", &dialect) {
+        if let Token::String(value, StringType::SingleQuoted) =
+            lex_single("'hello\\nworld'", &dialect)
+        {
             assert_eq!(value, "hello\\nworld");
         } else {
             panic!("Expected single quoted string with escape");
         }
 
         // Double single quotes
-        if let Token::SingleQuotedString(value) = lex_single("'can''t'", &dialect) {
+        if let Token::String(value, StringType::SingleQuoted) = lex_single("'can''t'", &dialect) {
             assert_eq!(value, "can''t");
         } else {
             panic!("Expected single quoted string with doubled quote");
@@ -2091,5 +2153,182 @@ mod tests {
                 tokens[0]
             );
         }
+    }
+
+    /// Tests dialect-specific backslash behaviour inside single- and double-quoted string literals.
+    ///
+    /// In MariaDB, `\` escapes the next character, so `\'` keeps the string open.
+    /// In PostgreSQL, `\` is a plain literal character inside `'...'` / `"..."` (only
+    /// `E'...'` strings support backslash escapes), so `'\''` closes the string right
+    /// after the backslash.
+    #[test]
+    fn test_backslash_string_escaping() {
+        let pg = SQLDialect::PostgreSQL;
+        let maria = SQLDialect::MariaDB;
+
+        // ── single-quoted strings ────────────────────────────────────────────
+
+        // r"'\'" is the 3-char SQL text  '  \  '
+        // PostgreSQL: \ is literal → closing quote ends the string → content = "\"
+        if let Token::String(value, StringType::SingleQuoted) = lex_single(r"'\'", &pg) {
+            assert_eq!(
+                value, r"\",
+                "PG: backslash should be literal in single-quoted string"
+            );
+        } else {
+            panic!(
+                "Expected PG single-quoted string containing backslash, got {:?}",
+                lex_single(r"'\'", &pg)
+            );
+        }
+
+        // MariaDB: \ escapes the next ', so the string is never closed → Invalid
+        assert_eq!(
+            lex_single(r"'\'", &maria),
+            Token::Invalid,
+            "MariaDB: backslash-escaped quote should leave string unterminated"
+        );
+
+        // Verify the PG fix in context: after '\' the next token is reachable.
+        // SQL: '\' FORCE  →  String("\") + Ident(FORCE)
+        {
+            let tokens = lex_all(r"'\' FORCE", &pg);
+            assert_eq!(tokens.len(), 2, "PG: should lex two tokens after '\\''");
+            assert!(
+                matches!(&tokens[0], Token::String(v, StringType::SingleQuoted) if *v == r"\"),
+                "first token must be String(\"\\\\\") got {:?}",
+                tokens[0]
+            );
+            assert!(
+                matches!(tokens[1], Token::Ident(_, Keyword::FORCE)),
+                "second token must be FORCE keyword"
+            );
+        }
+
+        // In MariaDB the same input produces a single Invalid (string runs to EOF).
+        {
+            let tokens = lex_all(r"'\' FORCE", &maria);
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0], Token::Invalid);
+        }
+
+        // Backslash before a non-quote char: both dialects store the raw bytes;
+        // the behaviour only diverges when \ precedes the delimiter.
+        // '\n'  →  content "\\n"  in both dialects (MariaDB skips 'n', PG keeps it,
+        // but the raw slice between the outer quotes is the same two bytes).
+        if let Token::String(v, StringType::SingleQuoted) = lex_single(r"'\n'", &pg) {
+            assert_eq!(v, r"\n");
+        } else {
+            panic!("Expected PG single-quoted string '\\n'");
+        }
+        if let Token::String(v, StringType::SingleQuoted) = lex_single(r"'\n'", &maria) {
+            assert_eq!(v, r"\n");
+        } else {
+            panic!("Expected MariaDB single-quoted string '\\n'");
+        }
+
+        // ── double-quoted strings ────────────────────────────────────────────
+
+        // r#""\""# is the 3-char SQL text  "  \  "
+        // PostgreSQL: \ is literal → closing quote ends the string → content = "\"
+        if let Token::String(value, StringType::DoubleQuoted) = lex_single(r#""\""#, &pg) {
+            assert_eq!(
+                value, r"\",
+                "PG: backslash should be literal in double-quoted string"
+            );
+        } else {
+            panic!(
+                "Expected PG double-quoted string containing backslash, got {:?}",
+                lex_single(r#""\""#, &pg)
+            );
+        }
+
+        // MariaDB: \ escapes the next " → string never closes → Invalid
+        assert_eq!(
+            lex_single(r#""\""#, &maria),
+            Token::Invalid,
+            "MariaDB: backslash-escaped double-quote should leave string unterminated"
+        );
+    }
+
+    /// Tests that PostgreSQL escape strings (E'...') are correctly lexed as SqlString with StringType::Escape,
+    /// with the raw content preserved (decoding is done in the parser).
+    #[test]
+    fn test_escape_strings() {
+        let pg = SQLDialect::PostgreSQL;
+        let maria = SQLDialect::MariaDB;
+
+        // Basic E'' string
+        if let Token::String(value, StringType::Escape) = lex_single("E'hello'", &pg) {
+            assert_eq!(value, "hello");
+        } else {
+            panic!(
+                "Expected escape string, got {:?}",
+                lex_single("E'hello'", &pg)
+            );
+        }
+
+        // Lowercase e
+        if let Token::String(value, StringType::Escape) = lex_single("e'world'", &pg) {
+            assert_eq!(value, "world");
+        } else {
+            panic!("Expected escape string (lowercase e)");
+        }
+
+        // Backslash escape sequences — raw content is stored as-is by the lexer
+        if let Token::String(value, StringType::Escape) = lex_single(r"E'hello\nworld'", &pg) {
+            assert_eq!(value, r"hello\nworld");
+        } else {
+            panic!("Expected escape string with \\n");
+        }
+
+        // Unicode escape \uXXXX - stored raw
+        if let Token::String(value, StringType::Escape) = lex_single(r"E'\u0041'", &pg) {
+            assert_eq!(value, r"\u0041");
+        } else {
+            panic!("Expected escape string with \\uXXXX");
+        }
+
+        // Unicode escape \UXXXXXXXX (large codepoint) - stored raw
+        if let Token::String(value, StringType::Escape) = lex_single("E'\\U0010FFFF'", &pg) {
+            assert_eq!(value, "\\U0010FFFF");
+        } else {
+            panic!("Expected escape string with \\UXXXXXXXX");
+        }
+
+        // Hex escape \xHH - stored raw
+        if let Token::String(value, StringType::Escape) = lex_single("E'\\x41'", &pg) {
+            assert_eq!(value, "\\x41");
+        } else {
+            panic!("Expected escape string with \\xHH");
+        }
+
+        // Octal escapes - stored raw
+        if let Token::String(value, StringType::Escape) = lex_single("E'\\101'", &pg) {
+            assert_eq!(value, "\\101");
+        } else {
+            panic!("Expected escape string with octal escape");
+        }
+
+        // Doubled-quote escape '' - stored raw
+        if let Token::String(value, StringType::Escape) = lex_single("E'it''s'", &pg) {
+            assert_eq!(value, "it''s");
+        } else {
+            panic!("Expected escape string with doubled quote");
+        }
+
+        // E'' works in MariaDB too
+        if let Token::String(value, StringType::Escape) = lex_single("E'test'", &maria) {
+            assert_eq!(value, "test");
+        } else {
+            panic!("Expected escape string in MariaDB");
+        }
+
+        // E without quote is a plain identifier
+        assert!(matches!(lex_single("E", &pg), Token::Ident(_, _)));
+        assert!(matches!(lex_single("e", &pg), Token::Ident(_, _)));
+
+        // Unclosed E'' string is Invalid
+        assert_eq!(lex_single("E'unclosed", &pg), Token::Invalid);
     }
 }
