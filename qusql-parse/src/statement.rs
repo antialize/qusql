@@ -13,8 +13,10 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    CreateOperator, Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
-    alter::{AlterRole, AlterTable, parse_alter},
+    AlterRole, AlterTable, CreateOperator, Identifier, QualifiedName, RenameTable, Span, Spanned,
+    WithQuery,
+    alter_role::parse_alter_role,
+    alter_table::parse_alter_table,
     create::{
         CreateDatabase, CreateFunction, CreateIndex, CreateRole, CreateSchema, CreateSequence,
         CreateServer, CreateTable, CreateTrigger, CreateTypeEnum, CreateView, parse_create,
@@ -511,6 +513,23 @@ pub struct Stdin<'a> {
 impl Spanned for Stdin<'_> {
     fn span(&self) -> Span {
         self.span.clone()
+    }
+}
+
+pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
+    let alter_span = parser.consume_keyword(Keyword::ALTER)?;
+
+    let online = parser.skip_keyword(Keyword::ONLINE);
+    let ignore = parser.skip_keyword(Keyword::IGNORE);
+
+    match &parser.token {
+        Token::Ident(_, Keyword::TABLE) => Ok(Statement::AlterTable(Box::new(parse_alter_table(
+            parser, alter_span, online, ignore,
+        )?))),
+        Token::Ident(_, Keyword::ROLE) => Ok(Statement::AlterRole(Box::new(parse_alter_role(
+            parser, alter_span,
+        )?))),
+        _ => parser.expected_failure("alterable"),
     }
 }
 

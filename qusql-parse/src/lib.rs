@@ -45,7 +45,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 use lexer::Token;
 use parser::Parser;
-mod alter;
+mod alter_role;
+mod alter_table;
 mod create;
 mod data_type;
 mod delete;
@@ -96,6 +97,7 @@ pub use create::{
     FunctionCharacteristic, FunctionParamDirection, IncludeClause, RoleMembership,
     RoleMembershipType, RoleOption, SequenceOption, TableOption, TriggerEvent, TriggerTime,
 };
+pub use data_type::{DataType, DataTypeProperty, Timestamp, Type};
 pub use delete::{Delete, DeleteFlag};
 pub use drop::{
     DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropFunctionArg,
@@ -113,10 +115,12 @@ pub use expression::{
     VariableExpression, When, WindowFunctionCallExpression, WindowSpec,
 };
 pub use flush::{Flush, FlushOption};
+pub use identifier::Identifier;
 pub use insert_replace::{
     InsertReplace, InsertReplaceFlag, InsertReplaceOnDuplicateKeyUpdate, InsertReplaceSet,
     InsertReplaceSetPair, InsertReplaceType, OnConflict, OnConflictAction, OnConflictTarget,
 };
+pub use issue::{Fragment, Issue, IssueHandle, Issues, Level};
 pub use kill::{Kill, KillType};
 pub use lock::{Lock, LockMember, LockType, Unlock};
 pub use operator::{CreateOperator, OperatorOption, OperatorRef};
