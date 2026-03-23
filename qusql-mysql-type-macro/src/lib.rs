@@ -23,6 +23,7 @@ use syn::{parse::Parse, punctuated::Punctuated, Expr, Ident, LitStr, Token};
 /// Do we support _LIST_ in queries
 #[cfg(feature = "list_hack")]
 const LIST_HACK: bool = true;
+/// Do we support _LIST_ in queries
 #[cfg(not(feature = "list_hack"))]
 const LIST_HACK: bool = false;
 
