@@ -293,6 +293,12 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
     }
 
+    pub(crate) fn consume_plain_identifier_unreserved(
+        &mut self,
+    ) -> Result<Identifier<'a>, ParseError> {
+        self.consume_plain_identifier_restrict(self.reserved())
+    }
+
     pub(crate) fn consume_plain_identifier_restrict(
         &mut self,
         restricted: Restrict,
