@@ -16,7 +16,7 @@ use crate::{
     function_expression::{
         Function, FunctionCallExpression, WindowFunctionCallExpression, parse_function,
     },
-    keywords::Keyword,
+    keywords::{self, Keyword},
     lexer::Token,
     parser::{ParseError, Parser},
     select::parse_select,
@@ -942,9 +942,10 @@ impl<'a> Reducer<'a> {
     }
 }
 
-pub(crate) fn parse_expression<'a>(
+pub(crate) fn parse_expression_restricted<'a>(
     parser: &mut Parser<'a, '_>,
     inner: bool,
+    _restrict: keywords::Restrict,
 ) -> Result<Expression<'a>, ParseError> {
     let mut r = Reducer { stack: Vec::new() };
     loop {
@@ -984,7 +985,7 @@ pub(crate) fn parse_expression<'a>(
             {
                 // COLLATE is a binary operator: expr COLLATE collation_name
                 let collate_span = parser.consume_keyword(Keyword::COLLATE)?;
-                let collation = parser.consume_plain_identifier()?;
+                let collation = parser.consume_plain_identifier_unreserved()?;
                 if let Err(e) = r.shift_binop(collate_span, BinaryOperator::Collate) {
                     parser.err_here(e)?;
                 }
@@ -1357,7 +1358,7 @@ pub(crate) fn parse_expression<'a>(
                         // Check if it's CONVERT(expr, type) or CONVERT(expr USING charset)
                         if parser.skip_keyword(Keyword::USING).is_some() {
                             // CONVERT(expr USING charset)
-                            let charset = parser.consume_plain_identifier()?;
+                            let charset = parser.consume_plain_identifier_unreserved()?;
                             Ok(Some((expr, None, Some(charset))))
                         } else {
                             // CONVERT(expr, type)
@@ -1479,7 +1480,7 @@ pub(crate) fn parse_expression<'a>(
                 // Parse the search expression but don't treat `IN`/`WITH` as binary
                 // operators here — they are MATCH modes and may appear inside the
                 // AGAINST(...) parentheses (MySQL allows both inside and outside).
-                let expr = parse_expression(parser, true)?;
+                let expr = parse_expression_unreserved(parser, true)?;
 
                 // optional mode that may appear inside the AGAINST(...) parentheses
                 let mut mode: Option<MatchMode> = None;
@@ -1611,8 +1612,9 @@ pub(crate) fn parse_expression<'a>(
                             match &parser.token {
                                 Token::Mul => parts
                                     .push(IdentifierPart::Star(parser.consume_token(Token::Mul)?)),
-                                Token::Ident(_, _) => parts
-                                    .push(IdentifierPart::Name(parser.consume_plain_identifier()?)),
+                                Token::Ident(_, _) => parts.push(IdentifierPart::Name(
+                                    parser.consume_plain_identifier_unreserved()?,
+                                )),
                                 _ => parser.expected_failure("Identifier or '*'")?,
                             }
                         }
@@ -1668,7 +1670,7 @@ pub(crate) fn parse_expression<'a>(
             Token::Ident(_, Keyword::CASE) => {
                 let case_span = parser.consume_keyword(Keyword::CASE)?;
                 let value = if !matches!(parser.token, Token::Ident(_, Keyword::WHEN)) {
-                    Some(parse_expression(parser, false)?)
+                    Some(parse_expression_unreserved(parser, false)?)
                 } else {
                     None
                 };
@@ -1680,9 +1682,9 @@ pub(crate) fn parse_expression<'a>(
                     |parser| {
                         loop {
                             let when_span = parser.consume_keyword(Keyword::WHEN)?;
-                            let when = parse_expression(parser, false)?;
+                            let when = parse_expression_unreserved(parser, false)?;
                             let then_span = parser.consume_keyword(Keyword::THEN)?;
-                            let then = parse_expression(parser, false)?;
+                            let then = parse_expression_unreserved(parser, false)?;
                             whens.push(When {
                                 when_span,
                                 when,
@@ -1694,7 +1696,7 @@ pub(crate) fn parse_expression<'a>(
                             }
                         }
                         if let Some(span) = parser.skip_keyword(Keyword::ELSE) {
-                            else_ = Some((span, parse_expression(parser, false)?))
+                            else_ = Some((span, parse_expression_unreserved(parser, false)?))
                         };
                         Ok(())
                     },
@@ -1733,7 +1735,7 @@ pub(crate) fn parse_expression<'a>(
             Token::At => {
                 // User variable: @variable_name
                 let at_span = parser.consume_token(Token::At)?;
-                let name = parser.consume_plain_identifier()?;
+                let name = parser.consume_plain_identifier_unreserved()?;
                 r.shift_expr(Expression::UserVariable(Box::new(UserVariableExpression {
                     name,
                     at_span,
@@ -1756,6 +1758,21 @@ pub(crate) fn parse_expression<'a>(
     }
 }
 
+pub(crate) fn parse_expression_unreserved<'a>(
+    parser: &mut Parser<'a, '_>,
+    inner: bool,
+) -> Result<Expression<'a>, ParseError> {
+    parse_expression_restricted(parser, inner, parser.reserved())
+}
+
+/// Temporary function will be removed
+pub(crate) fn parse_expression<'a>(
+    parser: &mut Parser<'a, '_>,
+    inner: bool,
+) -> Result<Expression<'a>, ParseError> {
+    parse_expression_restricted(parser, inner, parser.reserved())
+}
+
 pub(crate) fn parse_expression_outer<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<Expression<'a>, ParseError> {
@@ -1764,7 +1781,7 @@ pub(crate) fn parse_expression_outer<'a>(
             expression: Statement::Select(Box::new(parse_select(parser)?)),
         })))
     } else {
-        parse_expression(parser, false)
+        parse_expression_unreserved(parser, false)
     }
 }
 
@@ -1776,7 +1793,7 @@ pub(crate) fn parse_expression_paren<'a>(
             expression: parse_compound_query(parser)?,
         })))
     } else {
-        parse_expression(parser, false)
+        parse_expression_unreserved(parser, false)
     }
 }
 
@@ -1796,7 +1813,7 @@ mod tests {
         parser::Parser,
     };
 
-    use super::{IdentifierPart, parse_expression};
+    use super::{IdentifierPart, parse_expression_unreserved};
 
     fn test_ident<'a>(e: &Expression<'a>, v: &str) -> Result<(), String> {
         let v = match e {
@@ -1817,7 +1834,7 @@ mod tests {
         let mut issues = Issues::new(src);
         let options = ParseOptions::new().dialect(SQLDialect::MariaDB);
         let mut parser = Parser::new(src, &mut issues, &options);
-        let res = parse_expression(&mut parser, false).expect("Expression in test expr");
+        let res = parse_expression_unreserved(&mut parser, false).expect("Expression in test expr");
         if let Err(e) = f(&res) {
             panic!("Error parsing {}: {}\nGot {:#?}", src, e, res);
         }
