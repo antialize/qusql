@@ -13,13 +13,13 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    AlterRole, AlterTable, CreateOperator, Identifier, QualifiedName, RenameTable, Span, Spanned,
-    WithQuery,
+    AlterRole, AlterTable, CreateIndex, CreateOperator, CreateTrigger, Identifier, QualifiedName,
+    RenameTable, Span, Spanned, WithQuery,
     alter_role::parse_alter_role,
     alter_table::parse_alter_table,
     create::{
-        CreateDatabase, CreateIndex, CreateRole, CreateSchema, CreateSequence, CreateServer,
-        CreateTrigger, CreateTypeEnum, parse_create,
+        CreateDatabase, CreateRole, CreateSchema, CreateSequence, CreateServer, CreateTypeEnum,
+        parse_create,
     },
     create_function::CreateFunction,
     create_table::CreateTable,
