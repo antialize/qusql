@@ -14,7 +14,7 @@ use crate::{
     create_option::CreateOption,
     keywords::Keyword,
     parser::{ParseError, Parser},
-    qualified_name::parse_qualified_name,
+    qualified_name::parse_qualified_name_unreserved,
     statement::parse_compound_query,
 };
 use alloc::vec::Vec;
@@ -91,7 +91,7 @@ pub(crate) fn parse_create_view<'a>(
         None
     };
 
-    let name = parse_qualified_name(parser)?;
+    let name = parse_qualified_name_unreserved(parser)?;
     // TODO (column_list)
 
     let as_span = parser.consume_keyword(Keyword::AS)?;

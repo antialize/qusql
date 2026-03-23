@@ -32,6 +32,14 @@ pub(crate) fn parse_qualified_name_restrict<'a>(
     Ok(QualifiedName { prefix, identifier })
 }
 
+/// Convenience wrapper for parse_qualified_name with no keyword restrictions.
+#[inline]
+pub(crate) fn parse_qualified_name_unreserved<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<QualifiedName<'a>, ParseError> {
+    parse_qualified_name_restrict(parser, parser.reserved())
+}
+
 /// Temporary function will be removed
 pub(crate) fn parse_qualified_name<'a>(
     parser: &mut Parser<'a, '_>,
