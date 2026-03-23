@@ -60,6 +60,7 @@ mod delete;
 mod drop;
 mod expression;
 mod flush;
+mod function_expression;
 mod identifier;
 mod insert_replace;
 mod issue;
@@ -107,14 +108,16 @@ pub use drop::{
 pub use expression::{
     ArgExpression, BinaryExpression, BinaryOperator, BoolExpression, CaseExpression,
     CastExpression, ConvertExpression, CountExpression, ExistsExpression, Expression,
-    ExtractExpression, FloatExpression, Function, FunctionCallExpression, GroupConcatExpression,
-    IdentifierExpression, IdentifierPart, InExpression, IntegerExpression, IntervalExpression,
-    InvalidExpression, Is, IsExpression, ListHackExpression, MatchAgainstExpression, MatchMode,
-    MemberOfExpression, NullExpression, SubqueryExpression, TimeUnit, TimestampAddExpression,
-    TimestampDiffExpression, UnaryExpression, UnaryOperator, UserVariableExpression, Variable,
-    VariableExpression, When, WindowFunctionCallExpression, WindowSpec,
+    ExtractExpression, FloatExpression, GroupConcatExpression, IdentifierExpression,
+    IdentifierPart, InExpression, IntegerExpression, IntervalExpression, InvalidExpression, Is,
+    IsExpression, ListHackExpression, MatchAgainstExpression, MatchMode, MemberOfExpression,
+    NullExpression, SubqueryExpression, TimeUnit, TimestampAddExpression, TimestampDiffExpression,
+    UnaryExpression, UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
 };
 pub use flush::{Flush, FlushOption};
+pub use function_expression::{
+    Function, FunctionCallExpression, WindowFunctionCallExpression, WindowSpec,
+};
 pub use identifier::Identifier;
 pub use insert_replace::{
     InsertReplace, InsertReplaceFlag, InsertReplaceOnDuplicateKeyUpdate, InsertReplaceSet,
