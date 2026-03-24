@@ -13,9 +13,10 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    AlterOperatorClass, AlterOperatorFamily, AlterRole, AlterTable, CreateIndex, CreateOperator,
-    CreateOperatorClass, CreateOperatorFamily, CreateRole, CreateTrigger, DropOperatorClass,
-    DropOperatorFamily, Identifier, QualifiedName, RenameTable, Span, Spanned, WithQuery,
+    AlterOperator, AlterOperatorClass, AlterOperatorFamily, AlterRole, AlterTable, CreateIndex,
+    CreateOperator, CreateOperatorClass, CreateOperatorFamily, CreateRole, CreateTrigger,
+    DropOperatorClass, DropOperatorFamily, Identifier, QualifiedName, RenameTable, Span, Spanned,
+    WithQuery,
     alter_role::parse_alter_role,
     alter_table::parse_alter_table,
     create::{
@@ -554,7 +555,12 @@ pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, Par
                         )?,
                     )))
                 }
-                _ => parser.expected_failure("'CLASS' or 'FAMILY' after ALTER OPERATOR"),
+                _ => Ok(Statement::AlterOperator(Box::new(
+                    crate::operator::parse_alter_operator(
+                        parser,
+                        alter_span.join_span(&operator_span),
+                    )?,
+                ))),
             }
         }
         _ => parser.expected_failure("alterable"),
@@ -579,6 +585,7 @@ pub enum Statement<'a> {
     CreateOperatorClass(Box<CreateOperatorClass<'a>>),
     CreateOperatorFamily(Box<CreateOperatorFamily<'a>>),
     AlterOperatorClass(Box<AlterOperatorClass<'a>>),
+    AlterOperator(Box<AlterOperator<'a>>),
     Select(Box<Select<'a>>),
     Delete(Box<Delete<'a>>),
     InsertReplace(Box<InsertReplace<'a>>),
@@ -643,6 +650,7 @@ pub enum Statement<'a> {
 impl<'a> Spanned for Statement<'a> {
     fn span(&self) -> Span {
         match &self {
+            Statement::AlterOperator(v) => v.span(),
             Statement::CreateIndex(v) => v.span(),
             Statement::CreateTable(v) => v.span(),
             Statement::CreateView(v) => v.span(),
