@@ -1091,8 +1091,10 @@ pub(crate) fn parse_alter_operator_family<'a>(
     let name = parse_qualified_name_unreserved(parser)?;
     let using_span = parser.consume_keyword(Keyword::USING)?;
     let index_method = crate::create_index::parse_using_index_method(parser, using_span)?;
+
     let lparen_span = parser.consume_token(Token::LParen)?;
     let rparen_span = parser.consume_token(Token::RParen)?;
+
     Ok(AlterOperatorFamily {
         alter_operator_family_span,
         name,

@@ -83,9 +83,14 @@ mod with_query;
 
 pub use alter_role::{AlterRole, AlterRoleAction, AlterRoleValue};
 pub use alter_table::{
-    AlterAlgorithm, AlterColumnAction, AlterLock, AlterSpecification, AlterTable, AlterTableOwner,
+    AddColumn, AddForeignKey, AddIndex, AddTableConstraint, Algorithm, AlterAlgorithm, AlterColumn,
+    AlterColumnAction, AlterLock, AlterSpecification, AlterTable, AlterTableOwner, AutoIncrement,
+    Change, DisableRowLevelSecurity, DisableRule, DisableTrigger, DropColumn, DropForeignKey,
+    DropPrimaryKey, EnableRowLevelSecurity, EnableRule, EnableTrigger, ForceRowLevelSecurity,
     ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType, IndexCol, IndexColExpr, IndexOption,
-    IndexType,
+    IndexType, ModifyColumn, NoForceRowLevelSecurity, OwnerTo, RenameColumn, RenameConstraint,
+    RenameIndex, RenameTo, ReplicaIdentity, ReplicaIdentityOption, TableConstraintType,
+    TriggerName, ValidateConstraint,
 };
 pub use create::{
     CreateDatabase, CreateDatabaseOption, CreateSchema, CreateSequence, CreateServer,
@@ -147,9 +152,9 @@ pub use show::{
 pub use span::{OptSpanned, Span, Spanned};
 pub use sstring::SString;
 pub use statement::{
-    Begin, Block, CaseStatement, Commit, Copy, Do, End, If, IfCondition, Invalid, Return, Set,
-    Signal, SignalConditionInformationName, StartTransaction, Statement, Stdin, Union, UnionType,
-    UnionWith, WhenStatement,
+    AlterSchema, AlterSchemaAction, Begin, Block, CaseStatement, Commit, Copy, Do, End, If,
+    IfCondition, Invalid, Return, Set, Signal, SignalConditionInformationName, StartTransaction,
+    Statement, Stdin, Union, UnionType, UnionWith, WhenStatement,
 };
 pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
