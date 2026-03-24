@@ -4374,11 +4374,8 @@
   },
   {
     "input": "VALUES (1, 'a'), (2, 'b'), (3, 'c')",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Statement' here\",\n    span: 0..6,\n    sql_segment: \"VALUES\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Values(\n    Values {\n        values_span: 0..6,\n        rows: [\n            [\n                Integer(\n                    IntegerExpression {\n                        value: 1,\n                        span: 8..9,\n                    },\n                ),\n                String(\n                    SString {\n                        value: \"a\",\n                        span: 11..14,\n                    },\n                ),\n            ],\n            [\n                Integer(\n                    IntegerExpression {\n                        value: 2,\n                        span: 18..19,\n                    },\n                ),\n                String(\n                    SString {\n                        value: \"b\",\n                        span: 21..24,\n                    },\n                ),\n            ],\n            [\n                Integer(\n                    IntegerExpression {\n                        value: 3,\n                        span: 28..29,\n                    },\n                ),\n                String(\n                    SString {\n                        value: \"c\",\n                        span: 31..34,\n                    },\n                ),\n            ],\n        ],\n        order_by: None,\n        limit: None,\n        offset: None,\n        fetch: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "WITH \"result\" AS (UPDATE \"Hero\" SET \"name\" = 'Captain America', \"number_of_movies\" = \"number_of_movies\" + 1 WHERE \"secret_identity\" = 'Sam Wilson' RETURNING \"id\", \"name\", \"secret_identity\", \"number_of_movies\") SELECT * FROM \"result\"",

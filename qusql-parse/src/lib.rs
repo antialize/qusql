@@ -78,6 +78,7 @@ mod sstring;
 mod statement;
 mod truncate;
 mod update;
+mod values;
 mod with_query;
 
 pub use alter_role::{AlterRole, AlterRoleAction, AlterRoleValue};
@@ -152,6 +153,7 @@ pub use statement::{
 };
 pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
+pub use values::{Fetch, FetchDirection, Values};
 pub use with_query::{WithBlock, WithQuery};
 
 /// What sql diarect to parse as
