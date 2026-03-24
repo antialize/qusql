@@ -49,3 +49,5 @@ jobs:
         run: cargo  doc --all --all-features --no-deps
       - name: Check markdown rust examples
         run: python3 check.py
+      - name: Check qusql-parse pub struct exports
+        run: python3 qusql-parse/check_exports.py
