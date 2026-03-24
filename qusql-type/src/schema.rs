@@ -89,7 +89,10 @@ use crate::{
     typer::unqualified_name,
 };
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
-use qusql_parse::{DataType, Expression, Identifier, Issues, Span, Spanned, parse_statements};
+use qusql_parse::{
+    AddColumn, AddIndex, AlterColumn, DataType, DropColumn, Expression, Identifier, Issues,
+    ModifyColumn, Span, Spanned, parse_statements,
+};
 
 /// A column in a schema
 #[derive(Debug)]
@@ -578,12 +581,12 @@ pub fn parse_schemas<'a>(
                 };
                 for s in a.alter_specifications {
                     match s {
-                        qusql_parse::AlterSpecification::AddIndex {
+                        qusql_parse::AlterSpecification::AddIndex(AddIndex {
                             if_not_exists,
                             name,
                             cols,
                             ..
-                        } => {
+                        }) => {
                             for col in &cols {
                                 // Only validate regular column names, skip functional index expressions
                                 if let qusql_parse::IndexColExpr::Column(name) = &col.expr
@@ -621,12 +624,12 @@ pub fn parse_schemas<'a>(
                             }
                         }
                         qusql_parse::AlterSpecification::AddForeignKey { .. } => {}
-                        qusql_parse::AlterSpecification::Modify {
+                        qusql_parse::AlterSpecification::Modify(ModifyColumn {
                             if_exists,
                             col,
                             definition,
                             ..
-                        } => {
+                        }) => {
                             let c = match e.get_column_mut(col.value) {
                                 Some(v) => v,
                                 None => {
@@ -645,11 +648,11 @@ pub fn parse_schemas<'a>(
                                 Some(options),
                             );
                         }
-                        qusql_parse::AlterSpecification::AddColumn {
+                        qusql_parse::AlterSpecification::AddColumn(AddColumn {
                             identifier,
                             data_type,
                             ..
-                        } => {
+                        }) => {
                             e.columns.push(parse_column(
                                 data_type,
                                 identifier,
@@ -658,7 +661,9 @@ pub fn parse_schemas<'a>(
                             ));
                         }
                         qusql_parse::AlterSpecification::OwnerTo { .. } => {}
-                        qusql_parse::AlterSpecification::DropColumn { column, .. } => {
+                        qusql_parse::AlterSpecification::DropColumn(DropColumn {
+                            column, ..
+                        }) => {
                             let cnt = e.columns.len();
                             e.columns.retain(|c| c.identifier != column);
                             if cnt == e.columns.len() {
@@ -667,11 +672,11 @@ pub fn parse_schemas<'a>(
                                     .frag("Table defined here", &e.identifier_span);
                             }
                         }
-                        qusql_parse::AlterSpecification::AlterColumn {
+                        qusql_parse::AlterSpecification::AlterColumn(AlterColumn {
                             column,
                             alter_column_action,
                             ..
-                        } => {
+                        }) => {
                             let c = match e.get_column_mut(column.value) {
                                 Some(v) => v,
                                 None => {
@@ -692,6 +697,9 @@ pub fn parse_schemas<'a>(
                                 }
                                 qusql_parse::AlterColumnAction::DropNotNull { .. } => {
                                     c.type_.not_null = false
+                                }
+                                a @ qusql_parse::AlterColumnAction::AddGenerated { .. } => {
+                                    issues.err("not implemented", &a);
                                 }
                             }
                         }
@@ -760,6 +768,39 @@ pub fn parse_schemas<'a>(
                                 alloc::format!("Unsupported statement {s:?} in schema definition"),
                                 &s,
                             );
+                        }
+                        s @ qusql_parse::AlterSpecification::ReplicaIdentity(_) => {
+                            issues.err("Not supported", &s);
+                        }
+                        s @ qusql_parse::AlterSpecification::ValidateConstraint(_) => {
+                            issues.err("Not supported", &s);
+                        }
+                        s @ qusql_parse::AlterSpecification::AddTableConstraint(_) => {
+                            issues.err("Not supported", &s);
+                        }
+                        s @ qusql_parse::AlterSpecification::DisableTrigger(_) => {
+                            issues.err("Not supported", &s);
+                        }
+                        s @ qusql_parse::AlterSpecification::EnableTrigger(_) => {
+                            issues.err("Not supported", &s);
+                        }
+                        s @ qusql_parse::AlterSpecification::DisableRule(_) => {
+                            issues.err("Not supported", &s);
+                        }
+                        s @ qusql_parse::AlterSpecification::EnableRule(_) => {
+                            issues.err("Not supported", &s);
+                        }
+                        s @ qusql_parse::AlterSpecification::DisableRowLevelSecurity(_) => {
+                            issues.err("Not supported", &s);
+                        }
+                        s @ qusql_parse::AlterSpecification::EnableRowLevelSecurity(_) => {
+                            issues.err("Not supported", &s);
+                        }
+                        s @ qusql_parse::AlterSpecification::ForceRowLevelSecurity(_) => {
+                            issues.err("Not supported", &s);
+                        }
+                        s @ qusql_parse::AlterSpecification::NoForceRowLevelSecurity(_) => {
+                            issues.err("Not supported", &s);
                         }
                     }
                 }
