@@ -1985,11 +1985,8 @@
   },
   {
     "input": "CREATE TABLE \"foo\" (\"bar\" \"int\")",
-    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 13..18,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [],\n        options: [],\n        table_as: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'identifier' here\",\n    span: 20..25,\n    sql_segment: \"\\\"bar\\\"\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "CreateTable(\n    CreateTable {\n        create_span: 0..6,\n        create_options: [],\n        table_span: 7..12,\n        identifier: QualifiedName {\n            prefix: [],\n            identifier: Identifier {\n                value: \"foo\",\n                span: 13..18,\n            },\n        },\n        if_not_exists: None,\n        create_definitions: [\n            ColumnDefinition {\n                identifier: Identifier {\n                    value: \"bar\",\n                    span: 20..25,\n                },\n                data_type: DataType {\n                    identifier: 26..31,\n                    type_: Named(\n                        26..31,\n                    ),\n                    properties: [],\n                },\n            },\n        ],\n        options: [],\n        table_as: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "CREATE TABLE IF EXISTS uk_cities ()",
@@ -3234,54 +3231,45 @@
   },
   {
     "input": "SELECT '1 second'::INTERVAL {field}",
-    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"1 second\",\n                        span: 7..17,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: TypeCast(\n                    TypeCastExpression {\n                        expr: String(\n                            SString {\n                                value: \"1 second\",\n                                span: 7..17,\n                            },\n                        ),\n                        doublecolon_span: 17..19,\n                        type_: DataType {\n                            identifier: 19..27,\n                            type_: Named(\n                                19..27,\n                            ),\n                            properties: [],\n                        },\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 17..19,\n    sql_segment: \"::\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 28..29,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "SELECT '1 second'::INTERVAL {field}({p})",
-    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"1 second\",\n                        span: 7..17,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: TypeCast(\n                    TypeCastExpression {\n                        expr: String(\n                            SString {\n                                value: \"1 second\",\n                                span: 7..17,\n                            },\n                        ),\n                        doublecolon_span: 17..19,\n                        type_: DataType {\n                            identifier: 19..27,\n                            type_: Named(\n                                19..27,\n                            ),\n                            properties: [],\n                        },\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 17..19,\n    sql_segment: \"::\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 28..29,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "SELECT '1 second'::INTERVAL({p})",
-    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"1 second\",\n                        span: 7..17,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 17..19,\n    sql_segment: \"::\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 28..29,\n    sql_segment: \"{\",\n    fragments: [],\n}"
     ],
     "failure": true,
     "should_fail": true
   },
   {
     "input": "SELECT '123'::INTEGER",
-    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"123\",\n                        span: 7..12,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 12..14,\n    sql_segment: \"::\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: TypeCast(\n                    TypeCastExpression {\n                        expr: String(\n                            SString {\n                                value: \"123\",\n                                span: 7..12,\n                            },\n                        ),\n                        doublecolon_span: 12..14,\n                        type_: DataType {\n                            identifier: 14..21,\n                            type_: Integer(\n                                None,\n                            ),\n                            properties: [],\n                        },\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT '2024-01-01 12:00:00'::TIMESTAMP",
-    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"2024-01-01 12:00:00\",\n                        span: 7..28,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 28..30,\n    sql_segment: \"::\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: TypeCast(\n                    TypeCastExpression {\n                        expr: String(\n                            SString {\n                                value: \"2024-01-01 12:00:00\",\n                                span: 7..28,\n                            },\n                        ),\n                        doublecolon_span: 28..30,\n                        type_: DataType {\n                            identifier: 30..39,\n                            type_: Timestamp(\n                                Timestamp {\n                                    width: None,\n                                    with_time_zone: None,\n                                },\n                            ),\n                            properties: [],\n                        },\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT '2024-01-01'::DATE",
-    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: String(\n                    SString {\n                        value: \"2024-01-01\",\n                        span: 7..19,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 19..21,\n    sql_segment: \"::\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: TypeCast(\n                    TypeCastExpression {\n                        expr: String(\n                            SString {\n                                value: \"2024-01-01\",\n                                span: 7..19,\n                            },\n                        ),\n                        doublecolon_span: 19..21,\n                        type_: DataType {\n                            identifier: 21..25,\n                            type_: Date,\n                            properties: [],\n                        },\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT 'Hello' || ' ' || 'World'",
@@ -3957,11 +3945,8 @@
   },
   {
     "input": "SELECT id::TEXT FROM users",
-    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Identifier(\n                    IdentifierExpression {\n                        parts: [\n                            Name(\n                                Identifier {\n                                    value: \"id\",\n                                    span: 7..9,\n                                },\n                            ),\n                        ],\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 9..11,\n    sql_segment: \"::\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: TypeCast(\n                    TypeCastExpression {\n                        expr: Identifier(\n                            IdentifierExpression {\n                                parts: [\n                                    Name(\n                                        Identifier {\n                                            value: \"id\",\n                                            span: 7..9,\n                                        },\n                                    ),\n                                ],\n                            },\n                        ),\n                        doublecolon_span: 9..11,\n                        type_: DataType {\n                            identifier: 11..15,\n                            type_: Text(\n                                None,\n                            ),\n                            properties: [],\n                        },\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: Some(\n            16..20,\n        ),\n        table_references: Some(\n            [\n                Table {\n                    identifier: QualifiedName {\n                        prefix: [],\n                        identifier: Identifier {\n                            value: \"users\",\n                            span: 21..26,\n                        },\n                    },\n                    as_span: None,\n                    as_: None,\n                    index_hints: [],\n                },\n            ],\n        ),\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT info #- ARRAY['a', 'b'] FROM orders",

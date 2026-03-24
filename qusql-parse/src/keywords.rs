@@ -44,6 +44,9 @@ impl Restrict {
 
     // Start restrict set list
 
+    /// Restrict keywords: USING
+    pub const USING: Self = Restrict(0b1000);
+
     // End restrict set list
 }
 
