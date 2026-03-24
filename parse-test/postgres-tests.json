@@ -3357,11 +3357,8 @@
   },
   {
     "input": "SELECT CURRENT_CATALOG, CURRENT_USER, SESSION_USER, USER",
-    "output": null,
-    "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected expression\",\n    span: 24..36,\n    sql_segment: \"CURRENT_USER\",\n    fragments: [],\n}"
-    ],
-    "failure": true
+    "output": "Select(\n    Select {\n        select_span: 0..6,\n        flags: [],\n        select_exprs: [\n            SelectExpr {\n                expr: Function(\n                    FunctionCallExpression {\n                        function: CurrentCatalog,\n                        args: [],\n                        function_span: 7..22,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: Function(\n                    FunctionCallExpression {\n                        function: CurrentUser,\n                        args: [],\n                        function_span: 24..36,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: Function(\n                    FunctionCallExpression {\n                        function: SessionUser,\n                        args: [],\n                        function_span: 38..50,\n                    },\n                ),\n                as_: None,\n            },\n            SelectExpr {\n                expr: Function(\n                    FunctionCallExpression {\n                        function: CurrentUser,\n                        args: [],\n                        function_span: 52..56,\n                    },\n                ),\n                as_: None,\n            },\n        ],\n        from_span: None,\n        table_references: None,\n        where_: None,\n        group_by: None,\n        having: None,\n        window_span: None,\n        order_by: None,\n        limit: None,\n        distinct_on: None,\n        offset: None,\n        fetch: None,\n        locking: None,\n    },\n)",
+    "issues": []
   },
   {
     "input": "SELECT DENSE_RANK(5) WITHIN GROUP (ORDER BY x) FROM t",
