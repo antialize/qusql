@@ -14,7 +14,7 @@ use crate::{
     create_option::CreateOption,
     data_type::{DataTypeContext, parse_data_type},
     keywords::Keyword,
-    lexer::{StringType, Token},
+    lexer::Token,
     parser::{ParseError, Parser},
     statement::parse_statement,
 };
@@ -276,26 +276,7 @@ pub(crate) fn parse_create_function<'a>(
     parser.consume_token(Token::RParen)?;
     let returns_span = parser.consume_keyword(Keyword::RETURNS)?;
     let return_type = parse_data_type(parser, DataTypeContext::FunctionReturn)?;
-    if parser.options.dialect.is_postgresql() && parser.skip_keyword(Keyword::AS).is_some() {
-        if matches!(parser.token, Token::String(_, StringType::DollarQuoted)) {
-            // PostgreSQL: function body is a dollar-quoted string literal
-            parser.consume();
-        } else {
-            parser.consume_token(Token::DoubleDollar)?;
-            loop {
-                match &parser.token {
-                    Token::Eof | Token::DoubleDollar => {
-                        parser.consume_token(Token::DoubleDollar)?;
-                        break;
-                    }
-                    _ => {
-                        parser.consume();
-                    }
-                }
-            }
-        }
-    }
-
+    let mut body: Option<FunctionBody<'_>> = None;
     let mut characteristics = Vec::new();
     loop {
         let f = match &parser.token {
@@ -413,26 +394,8 @@ pub(crate) fn parse_create_function<'a>(
                         parser.expected_error("'$$' or string");
                     }
                 }
-                // AS body ends the characteristics loop
-                characteristics.push(FunctionCharacteristic::Language(
-                    as_span.clone(),
-                    FunctionLanguage::Sql(as_span.clone()),
-                ));
-                // Store body and break out — parsed below
-                let body = Some(FunctionBody { as_span, strings });
-                return Ok(CreateFunction {
-                    create_span,
-                    create_options,
-                    function_span,
-                    if_not_exists,
-                    name,
-                    params,
-                    return_type,
-                    characteristics,
-                    body,
-                    return_: None,
-                    returns_span,
-                });
+                body = Some(FunctionBody { as_span, strings });
+                break;
             }
             _ => break,
         };
@@ -465,7 +428,7 @@ pub(crate) fn parse_create_function<'a>(
         params,
         return_type,
         characteristics,
-        body: None,
+        body,
         return_,
         returns_span,
     })
