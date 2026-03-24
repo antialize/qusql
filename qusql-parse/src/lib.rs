@@ -104,7 +104,10 @@ pub use create::{
     CreateSequence, CreateServer, CreateTypeEnum, DomainConstraint, SequenceOption,
 };
 pub use create_constraint_trigger::{AfterEvent, CreateConstraintTrigger, Deferrable, Initially};
-pub use create_function::{CreateFunction, FunctionCharacteristic, FunctionParamDirection};
+pub use create_function::{
+    CreateFunction, FunctionBody, FunctionCharacteristic, FunctionLanguage, FunctionParallel,
+    FunctionParamDirection,
+};
 pub use create_index::{CreateIndex, CreateIndexOption, IncludeClause, UsingIndexMethod};
 pub use create_option::{CreateAlgorithm, CreateOption};
 pub use create_role::{CreateRole, RoleMembership, RoleMembershipType, RoleOption};

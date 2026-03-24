@@ -20,11 +20,51 @@ use crate::{
 };
 use alloc::vec::Vec;
 
+/// Language of a function
+#[derive(Clone, Debug)]
+pub enum FunctionLanguage<'a> {
+    Sql(Span),
+    Plpgsql(Span),
+    Other(Identifier<'a>),
+}
+
+impl<'a> Spanned for FunctionLanguage<'a> {
+    fn span(&self) -> Span {
+        match &self {
+            FunctionLanguage::Sql(v) => v.span(),
+            FunctionLanguage::Plpgsql(v) => v.span(),
+            FunctionLanguage::Other(v) => v.span(),
+        }
+    }
+}
+
+/// Parallel safety level of a function
+#[derive(Clone, Debug)]
+pub enum FunctionParallel {
+    Safe(Span),
+    Unsafe(Span),
+    Restricted(Span),
+}
+
+impl Spanned for FunctionParallel {
+    fn span(&self) -> Span {
+        match self {
+            FunctionParallel::Safe(s) => s.clone(),
+            FunctionParallel::Unsafe(s) => s.clone(),
+            FunctionParallel::Restricted(s) => s.clone(),
+        }
+    }
+}
+
 /// Characteristic of a function
 #[derive(Clone, Debug)]
 pub enum FunctionCharacteristic<'a> {
-    LanguageSql(Span),
-    LanguagePlpgsql(Span),
+    Language(Span, FunctionLanguage<'a>),
+    Immutable(Span),
+    Stable(Span),
+    Volatile(Span),
+    Strict(Span),
+    Parallel(Span, FunctionParallel),
     NotDeterministic(Span),
     Deterministic(Span),
     ContainsSql(Span),
@@ -39,7 +79,7 @@ pub enum FunctionCharacteristic<'a> {
 impl<'a> Spanned for FunctionCharacteristic<'a> {
     fn span(&self) -> Span {
         match &self {
-            FunctionCharacteristic::LanguageSql(v) => v.span(),
+            FunctionCharacteristic::Language(s, v) => s.join_span(v),
             FunctionCharacteristic::NotDeterministic(v) => v.span(),
             FunctionCharacteristic::Deterministic(v) => v.span(),
             FunctionCharacteristic::ContainsSql(v) => v.span(),
@@ -49,7 +89,11 @@ impl<'a> Spanned for FunctionCharacteristic<'a> {
             FunctionCharacteristic::SqlSecurityDefiner(v) => v.span(),
             FunctionCharacteristic::SqlSecurityUser(v) => v.span(),
             FunctionCharacteristic::Comment(v) => v.span(),
-            FunctionCharacteristic::LanguagePlpgsql(v) => v.span(),
+            FunctionCharacteristic::Immutable(v) => v.span(),
+            FunctionCharacteristic::Stable(v) => v.span(),
+            FunctionCharacteristic::Volatile(v) => v.span(),
+            FunctionCharacteristic::Strict(v) => v.span(),
+            FunctionCharacteristic::Parallel(s, v) => s.join_span(v),
         }
     }
 }
@@ -70,6 +114,21 @@ impl Spanned for FunctionParamDirection {
             FunctionParamDirection::InOut(v) => v.span(),
         }
     }
+}
+
+impl<'a> Spanned for FunctionBody<'a> {
+    fn span(&self) -> Span {
+        self.as_span.join_span(&self.strings)
+    }
+}
+
+/// Body of a CREATE FUNCTION AS clause
+#[derive(Clone, Debug)]
+pub struct FunctionBody<'a> {
+    /// Span of the AS keyword
+    pub as_span: Span,
+    /// The body string(s) — typically one dollar-quoted string, or two strings for C functions
+    pub strings: Vec<SString<'a>>,
 }
 
 /// Representation of Create Function Statement
@@ -114,13 +173,19 @@ pub struct CreateFunction<'a> {
     /// Name o created function
     pub name: Identifier<'a>,
     /// Names and types of function arguments
-    pub params: Vec<(Option<FunctionParamDirection>, Identifier<'a>, DataType<'a>)>,
+    pub params: Vec<(
+        Option<FunctionParamDirection>,
+        Option<Identifier<'a>>,
+        DataType<'a>,
+    )>,
     /// Span of "RETURNS"
     pub returns_span: Span,
     /// Type of return value
     pub return_type: DataType<'a>,
     /// Characteristics of created function
     pub characteristics: Vec<FunctionCharacteristic<'a>>,
+    /// Optional AS body (PostgreSQL)
+    pub body: Option<FunctionBody<'a>>,
     /// Statement computing return value
     pub return_: Option<Statement<'a>>,
 }
@@ -134,6 +199,7 @@ impl<'a> Spanned for CreateFunction<'a> {
             .join_span(&self.name)
             .join_span(&self.return_type)
             .join_span(&self.characteristics)
+            .join_span(&self.body)
             .join_span(&self.return_)
     }
 }
@@ -178,7 +244,27 @@ pub(crate) fn parse_create_function<'a>(
                 _ => None,
             };
 
-            let name = parser.consume_plain_identifier_unreserved()?;
+            let name = if parser.options.dialect.is_postgresql() {
+                // In PostgreSQL, params can be unnamed (type only).
+                // Peek at the next token to decide: if it's a boundary/separator,
+                // the current token is the type start (unnamed param).
+                let is_unnamed = matches!(
+                    parser.peek(),
+                    Token::Comma
+                        | Token::RParen
+                        | Token::LParen
+                        | Token::Eq
+                        | Token::Ident(_, Keyword::DEFAULT)
+                        | Token::LBracket
+                );
+                if is_unnamed {
+                    None
+                } else {
+                    Some(parser.consume_plain_identifier_unreserved()?)
+                }
+            } else {
+                Some(parser.consume_plain_identifier_unreserved()?)
+            };
             let type_ = parse_data_type(parser, false)?;
             params.push((direction, name, type_));
             if parser.skip_token(Token::Comma).is_none() {
@@ -216,11 +302,19 @@ pub(crate) fn parse_create_function<'a>(
             Token::Ident(_, Keyword::LANGUAGE) => {
                 let lg = parser.consume();
                 match &parser.token {
-                    Token::Ident(_, Keyword::SQL) => {
-                        FunctionCharacteristic::LanguageSql(lg.join_span(&parser.consume()))
-                    }
-                    Token::Ident(_, Keyword::PLPGSQL) => {
-                        FunctionCharacteristic::LanguagePlpgsql(lg.join_span(&parser.consume()))
+                    Token::Ident(_, Keyword::SQL) => FunctionCharacteristic::Language(
+                        lg,
+                        FunctionLanguage::Sql(parser.consume()),
+                    ),
+                    Token::Ident(_, Keyword::PLPGSQL) => FunctionCharacteristic::Language(
+                        lg,
+                        FunctionLanguage::Plpgsql(parser.consume()),
+                    ),
+                    Token::Ident(_, _) if parser.options.dialect.is_postgresql() => {
+                        FunctionCharacteristic::Language(
+                            lg,
+                            FunctionLanguage::Other(parser.consume_plain_identifier_unreserved()?),
+                        )
                     }
                     _ => parser.expected_failure("language name")?,
                 }
@@ -269,9 +363,88 @@ pub(crate) fn parse_create_function<'a>(
                     _ => parser.expected_failure("'DEFINER' or 'USER'")?,
                 }
             }
+            Token::Ident(_, Keyword::IMMUTABLE) => {
+                FunctionCharacteristic::Immutable(parser.consume_keyword(Keyword::IMMUTABLE)?)
+            }
+            Token::Ident(_, Keyword::STABLE) => {
+                FunctionCharacteristic::Stable(parser.consume_keyword(Keyword::STABLE)?)
+            }
+            Token::Ident(_, Keyword::VOLATILE) => {
+                FunctionCharacteristic::Volatile(parser.consume_keyword(Keyword::VOLATILE)?)
+            }
+            Token::Ident(_, Keyword::STRICT) => {
+                FunctionCharacteristic::Strict(parser.consume_keyword(Keyword::STRICT)?)
+            }
+            Token::Ident(_, Keyword::PARALLEL) => {
+                let parallel_span = parser.consume_keyword(Keyword::PARALLEL)?;
+                let level = match parser.consume_plain_identifier_unreserved()?.value {
+                    v if v.eq_ignore_ascii_case("safe") => {
+                        FunctionParallel::Safe(parallel_span.clone())
+                    }
+                    v if v.eq_ignore_ascii_case("unsafe") => {
+                        FunctionParallel::Unsafe(parallel_span.clone())
+                    }
+                    v if v.eq_ignore_ascii_case("restricted") => {
+                        FunctionParallel::Restricted(parallel_span.clone())
+                    }
+                    _ => {
+                        parser.expected_error("SAFE, UNSAFE, or RESTRICTED");
+                        FunctionParallel::Unsafe(parallel_span.clone())
+                    }
+                };
+                FunctionCharacteristic::Parallel(parallel_span, level)
+            }
+            Token::Ident(_, Keyword::AS) if parser.options.dialect.is_postgresql() => {
+                let as_span = parser.consume_keyword(Keyword::AS)?;
+                let mut strings = Vec::new();
+                match &parser.token {
+                    Token::String(_, _) => {
+                        strings.push(parser.consume_string()?);
+                        // Handle comma-separated strings (e.g. C functions: 'MODULE_PATHNAME', 'func_name')
+                        while parser.skip_token(Token::Comma).is_some() {
+                            if matches!(&parser.token, Token::String(_, _)) {
+                                strings.push(parser.consume_string()?);
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                    _ => {
+                        parser.expected_error("'$$' or string");
+                    }
+                }
+                // AS body ends the characteristics loop
+                characteristics.push(FunctionCharacteristic::Language(
+                    as_span.clone(),
+                    FunctionLanguage::Sql(as_span.clone()),
+                ));
+                // Store body and break out — parsed below
+                let body = Some(FunctionBody { as_span, strings });
+                return Ok(CreateFunction {
+                    create_span,
+                    create_options,
+                    function_span,
+                    if_not_exists,
+                    name,
+                    params,
+                    return_type,
+                    characteristics,
+                    body,
+                    return_: None,
+                    returns_span,
+                });
+            }
             _ => break,
         };
         characteristics.push(f);
+    }
+
+    if parser.options.dialect.is_postgresql()
+        && !characteristics
+            .iter()
+            .any(|c| matches!(c, FunctionCharacteristic::Language(_, _)))
+    {
+        parser.expected_failure("LANGUAGE")?;
     }
 
     let return_ = if parser.options.dialect.is_maria() {
@@ -292,6 +465,7 @@ pub(crate) fn parse_create_function<'a>(
         params,
         return_type,
         characteristics,
+        body: None,
         return_,
         returns_span,
     })
