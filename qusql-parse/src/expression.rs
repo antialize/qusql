@@ -1995,6 +1995,11 @@ pub(crate) fn parse_expression_restricted<'a>(
                         Token::Ident(_, Keyword::UTC_TIME) => Some(Function::UtcTime),
                         Token::Ident(_, Keyword::CURRENT_DATE) => Some(Function::CurDate),
                         Token::Ident(_, Keyword::CURRENT_TIME) => Some(Function::CurTime),
+                        Token::Ident(_, Keyword::CURRENT_USER) => Some(Function::CurrentUser),
+                        Token::Ident(_, Keyword::CURRENT_ROLE) => Some(Function::CurrentRole),
+                        Token::Ident(_, Keyword::CURRENT_CATALOG) => Some(Function::CurrentCatalog),
+                        Token::Ident(_, Keyword::SESSION_USER) => Some(Function::SessionUser),
+                        Token::Ident(_, Keyword::USER) => Some(Function::CurrentUser),
                         _ => None,
                     };
                     if let Some(f) = f {

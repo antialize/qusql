@@ -101,11 +101,12 @@ pub(crate) enum Keyword {
     CONVERT,             // reserved: mariadb
     CREATE,              // reserved: mariadb, postgres, sqlite
     CROSS,               // reserved: mariadb, postgres
+    CURRENT_CATALOG,     // reserved: postgres; expr_ident
     CURRENT_DATE,        // reserved: mariadb, postgres; expr_ident
-    CURRENT_ROLE,        // reserved: mariadb, postgres
+    CURRENT_ROLE,        // reserved: mariadb, postgres; expr_ident
     CURRENT_TIME,        // reserved: mariadb, postgres; expr_ident
     CURRENT_TIMESTAMP,   // reserved: mariadb, postgres; expr_ident
-    CURRENT_USER,        // reserved: mariadb, postgres
+    CURRENT_USER,        // reserved: mariadb, postgres; expr_ident
     CURSOR,              // reserved: mariadb
     DATABASES,           // reserved: mariadb
     DAY_HOUR,            // reserved: mariadb
@@ -266,7 +267,7 @@ pub(crate) enum Keyword {
     SELECT,              // reserved: mariadb, postgres, sqlite
     SENSITIVE,           // reserved: mariadb
     SEPARATOR,           // reserved: mariadb
-    SESSION_USER,        // reserved: postgres
+    SESSION_USER,        // reserved: postgres; expr_ident
     SET,                 // reserved: mariadb, postgres, sqlite
     SHOW,                // reserved: mariadb
     SIGNAL,              // reserved: mariadb
@@ -306,7 +307,7 @@ pub(crate) enum Keyword {
     UPDATE,              // reserved: mariadb, sqlite
     USAGE,               // reserved: mariadb
     USE,                 // reserved: mariadb
-    USER,                // reserved: postgres
+    USER,                // reserved: postgres; expr_ident
     USING,               // reserved: mariadb, postgres, sqlite
     UTC_DATE,            // reserved: mariadb; expr_ident
     UTC_TIME,            // reserved: mariadb; expr_ident
