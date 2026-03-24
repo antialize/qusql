@@ -19,7 +19,7 @@ use crate::{
     create_option::CreateOption,
     data_type::parse_data_type,
     expression::parse_expression_unreserved,
-    keywords::Keyword,
+    keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name_unreserved,
@@ -621,6 +621,19 @@ pub(crate) fn parse_create_definition<'a>(
         Token::Ident(_, Keyword::CHECK) => {
             return parse_check_constraint_definition(parser, constraint_span, constraint_symbol);
         }
+        Token::DoubleQuotedString(_) if parser.options.dialect.is_postgresql() => {
+            // PostgreSQL allows double-quoted identifiers as column names
+            // If we had CONSTRAINT keyword, this is an error
+            if constraint_span.is_some() {
+                parser.expected_failure(
+                    "PRIMARY, UNIQUE, INDEX, KEY, FULLTEXT, SPATIAL, FOREIGN, or CHECK",
+                )?
+            }
+            return Ok(CreateDefinition::ColumnDefinition {
+                identifier: parser.consume_plain_identifier_unreserved()?,
+                data_type: parse_data_type(parser, false)?,
+            });
+        }
         Token::Ident(_, _) => {
             // If we had CONSTRAINT keyword, this is an error
             if constraint_span.is_some() {
@@ -661,7 +674,7 @@ pub(crate) fn parse_create_definition<'a>(
                         Token::LParen | Token::Ident(_, Keyword::USING)
                     ) =>
                 {
-                    Some(parser.consume_plain_identifier_unreserved()?)
+                    Some(parser.consume_plain_identifier_restrict(Restrict::USING)?)
                 }
                 Token::SingleQuotedString(s) | Token::DoubleQuotedString(s) => {
                     let val = *s;

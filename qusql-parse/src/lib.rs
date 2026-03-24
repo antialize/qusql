@@ -118,7 +118,8 @@ pub use expression::{
     IdentifierPart, InExpression, IntegerExpression, IntervalExpression, InvalidExpression, Is,
     IsExpression, ListHackExpression, MatchAgainstExpression, MatchMode, MemberOfExpression,
     NullExpression, SubqueryExpression, TimeUnit, TimestampAddExpression, TimestampDiffExpression,
-    UnaryExpression, UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
+    TypeCastExpression, UnaryExpression, UnaryOperator, UserVariableExpression, Variable,
+    VariableExpression, When,
 };
 pub use flush::{Flush, FlushOption};
 pub use function_expression::{

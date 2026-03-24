@@ -399,6 +399,26 @@ impl Spanned for ConvertExpression<'_> {
     }
 }
 
+/// PostgreSQL-style typecast expression (expr::type)
+#[derive(Debug, Clone)]
+pub struct TypeCastExpression<'a> {
+    /// The expression being cast
+    pub expr: Expression<'a>,
+    /// Span of "::"
+    pub doublecolon_span: Span,
+    /// Type to cast to
+    pub type_: DataType<'a>,
+}
+
+impl Spanned for TypeCastExpression<'_> {
+    fn span(&self) -> Span {
+        self.expr
+            .span()
+            .join_span(&self.doublecolon_span)
+            .join_span(&self.type_)
+    }
+}
+
 /// Count expression
 #[derive(Debug, Clone)]
 pub struct CountExpression<'a> {
@@ -766,6 +786,8 @@ pub enum Expression<'a> {
     TimestampAdd(Box<TimestampAddExpression<'a>>),
     /// Timestampdiff call
     TimestampDiff(Box<TimestampDiffExpression<'a>>),
+    /// PostgreSQL-style typecast expression (expr::type)
+    TypeCast(Box<TypeCastExpression<'a>>),
     /// Full-text MATCH ... AGAINST expression
     MatchAgainst(Box<MatchAgainstExpression<'a>>),
 }
@@ -793,6 +815,7 @@ impl<'a> Spanned for Expression<'a> {
             Expression::Case(e) => e.span(),
             Expression::Cast(e) => e.span(),
             Expression::Convert(e) => e.span(),
+            Expression::TypeCast(e) => e.span(),
             Expression::Count(e) => e.span(),
             Expression::GroupConcat(e) => e.span(),
             Expression::Variable(e) => e.span(),
@@ -809,6 +832,7 @@ impl<'a> Spanned for Expression<'a> {
 
 //const INTERVAL_PRIORITY: usize = 10;
 const IN_PRIORITY: usize = 110;
+const TYPECAST_PRIORITY: usize = 10;
 
 trait Priority {
     fn priority(&self) -> usize;
@@ -947,7 +971,7 @@ impl<'a> Reducer<'a> {
 pub(crate) fn parse_expression_restricted<'a>(
     parser: &mut Parser<'a, '_>,
     inner: bool,
-    _restrict: Restrict,
+    restrict: Restrict,
 ) -> Result<Expression<'a>, ParseError> {
     let mut r = Reducer { stack: Vec::new() };
     loop {
@@ -1096,6 +1120,28 @@ pub(crate) fn parse_expression_restricted<'a>(
                     lhs,
                     is,
                     is_span: op,
+                })))
+            }
+            Token::DoubleColon
+                if !inner
+                    && parser.options.dialect.is_postgresql()
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                // PostgreSQL typecast operator: expr::type
+                // Reduce with very high priority (binds tighter than most operators)
+                if let Err(e) = r.reduce(TYPECAST_PRIORITY) {
+                    parser.err_here(e)?;
+                }
+                let expr = match r.stack.pop() {
+                    Some(ReduceMember::Expression(e)) => e,
+                    _ => parser.err_here("Expected expression before '::'")?,
+                };
+                let doublecolon_span = parser.consume_token(Token::DoubleColon)?;
+                let type_ = parse_data_type(parser, false)?;
+                r.shift_expr(Expression::TypeCast(Box::new(TypeCastExpression {
+                    expr,
+                    doublecolon_span,
+                    type_,
                 })))
             }
             Token::Ident(_, Keyword::NOT)
@@ -1597,7 +1643,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                 // Parse the string literal
                 r.shift_expr(Expression::String(Box::new(parser.consume_string()?)))
             }
-            Token::Ident(_, k) if k.expr_ident() || !k.restricted(parser.reserved()) => {
+            Token::Ident(_, k) if k.expr_ident() || !k.restricted(restrict) => {
                 let i = parser.token.clone();
                 let s = parser.span.clone();
                 parser.consume();

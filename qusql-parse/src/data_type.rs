@@ -420,6 +420,10 @@ pub(crate) fn parse_data_type<'a>(
             parser.postgres_only(&t);
             (t, Type::VarBit(parse_width(parser)?))
         }
+        Token::DoubleQuotedString(_) if parser.options.dialect.is_postgresql() => {
+            let name = parser.consume();
+            (name.clone(), Type::Named(name))
+        }
         Token::Ident(_, _) if parser.options.dialect.is_postgresql() => {
             let name = parser.consume();
             (name.clone(), Type::Named(name))
