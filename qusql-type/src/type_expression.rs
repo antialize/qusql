@@ -297,6 +297,9 @@ pub(crate) fn type_expression<'a>(
                 qusql_parse::Is::Unknown | qusql_parse::Is::NotUnknown => {
                     (flags.without_values(), BaseType::Any)
                 }
+                qusql_parse::Is::DistinctFrom | qusql_parse::Is::NotDistinctFrom => {
+                    (flags.without_values(), BaseType::Any)
+                }
             };
             let t = type_expression(typer, &e.lhs, flags, base_type);
             match e.is {
@@ -309,6 +312,8 @@ pub(crate) fn type_expression<'a>(
                 qusql_parse::Is::NotNull
                 | qusql_parse::Is::True
                 | qusql_parse::Is::NotTrue
+                | qusql_parse::Is::DistinctFrom
+                | qusql_parse::Is::NotDistinctFrom
                 | qusql_parse::Is::False
                 | qusql_parse::Is::NotFalse => FullType::new(BaseType::Bool, true),
                 qusql_parse::Is::Unknown | qusql_parse::Is::NotUnknown => {

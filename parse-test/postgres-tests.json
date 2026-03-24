@@ -3596,7 +3596,7 @@
     "input": "SELECT * FROM users WHERE status IS DISTINCT FROM 'active'",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''NOT', 'TRUE', 'FALSE', 'UNKNOWN' or 'NULL'' here\",\n    span: 36..44,\n    sql_segment: \"DISTINCT\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 58..58,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
@@ -3604,7 +3604,7 @@
     "input": "SELECT * FROM users WHERE status IS NOT DISTINCT FROM NULL",
     "output": null,
     "issues": [
-      "Issue {\n    level: Error,\n    message: \"Expected ''TRUE', 'FALSE', 'UNKNOWN' or 'NULL'' here\",\n    span: 40..48,\n    sql_segment: \"DISTINCT\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expression should not follow expression\",\n    span: 58..58,\n    sql_segment: \"\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
