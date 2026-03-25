@@ -112,9 +112,9 @@ fn parse_statement_list<'a>(
     parser: &mut Parser<'a, '_>,
     out: &mut Vec<Statement<'a>>,
 ) -> Result<(), ParseError> {
-    let old_delimiter = parser.lexer.replace_delimitor(None);
+    let old = core::mem::replace(&mut parser.lexer.semicolon_as_delimiter, true);
     let r = parse_statement_list_inner(parser, out);
-    parser.lexer.replace_delimitor(old_delimiter);
+    parser.lexer.semicolon_as_delimiter = old;
     r
 }
 

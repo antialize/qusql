@@ -240,6 +240,11 @@ pub(crate) struct Lexer<'a> {
     dialect: SQLDialect,
     /// The current MySQL statement delimiter, which can be changed by a `DELIMITER` statement. If `None`, the default delimiter `;` is used.
     delimiter: Option<&'a str>,
+    /// When true, `;` also emits `Token::Delimiter` even while a custom delimiter (e.g. `$$`) is
+    /// active. Set when parsing statement lists inside `BEGIN...END` compound blocks so that
+    /// individual statements are still terminated by `;`, while the outer `$$` delimiter is
+    /// preserved for identifier-splitting (preventing `END$$` from being lexed as one token).
+    pub(crate) semicolon_as_delimiter: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -253,6 +258,7 @@ impl<'a> Lexer<'a> {
             },
             dialect: dialect.clone(),
             delimiter: None,
+            semicolon_as_delimiter: false,
         }
     }
 
@@ -293,6 +299,8 @@ impl<'a> Lexer<'a> {
             }
         };
         let s = self.s(start..end);
+        // If a custom delimiter (e.g. `$$`) is active, split the identifier at that boundary so
+        // that `END$$` does not become a single token.
         if let Some(delimiter) = self.delimiter
             && let Some(idx) = s.find(delimiter)
         {
@@ -341,13 +349,6 @@ impl<'a> Lexer<'a> {
         let s = self.s(start..end);
         self.delimiter = if s == ";" { None } else { Some(s) };
         Ok(start..end)
-    }
-
-    /// Replaces the current statement delimiter with a new one, returning the old delimiter. If `new_delimiter` is `None`, resets to the default delimiter `;`.
-    pub fn replace_delimitor(&mut self, new_delimiter: Option<&'a str>) -> Option<&'a str> {
-        let old = self.delimiter;
-        self.delimiter = new_delimiter;
-        old
     }
 
     /// Returns the name of the current delimiter, used in error messages.
@@ -517,7 +518,7 @@ impl<'a> Lexer<'a> {
                     }
                     _ => self.next_operator(start, (start, c), Token::QuestionMark),
                 },
-                b';' if self.delimiter.is_none() => Token::Delimiter,
+                b';' if self.delimiter.is_none() || self.semicolon_as_delimiter => Token::Delimiter,
                 b';' => Token::SemiColon,
                 b'\\' => Token::Backslash,
                 b'[' => Token::LBracket,
