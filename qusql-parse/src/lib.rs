@@ -178,11 +178,13 @@ pub use show::{
 pub use span::{OptSpanned, Span, Spanned};
 pub use sstring::SString;
 pub use statement::{
-    AlterSchema, AlterSchemaAction, Begin, Block, Call, CaseStatement, Commit, CompoundOperator,
-    CompoundQuantifier, CompoundQuery, CompoundQueryBranch, CursorHold, CursorScroll,
-    CursorSensitivity, DeclareCursor, Do, DoBody, End, Explain, ExplainFormat, ExplainOption, If,
-    IfCondition, Invalid, Prepare, RefreshMaterializedView, Return, Set, Signal,
-    SignalConditionInformationName, StartTransaction, Statement, Stdin, WhenStatement,
+    AlterSchema, AlterSchemaAction, Begin, Block, Call, CaseStatement, CloseCursor, Commit,
+    CompoundOperator, CompoundQuantifier, CompoundQuery, CompoundQueryBranch, CursorHold,
+    CursorScroll, CursorSensitivity, DeclareCursor, DeclareCursorMariaDb, DeclareHandler,
+    DeclareVariable, Do, DoBody, End, Explain, ExplainFormat, ExplainOption, FetchCursor,
+    HandlerAction, HandlerCondition, If, IfCondition, Invalid, Iterate, Leave, Loop, OpenCursor,
+    Prepare, RefreshMaterializedView, Repeat, Return, Set, Signal, SignalConditionInformationName,
+    StartTransaction, Statement, Stdin, WhenStatement, While,
 };
 pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};

@@ -87,7 +87,35 @@ fn parse_statement_list_inner<'a>(
 ) -> Result<(), ParseError> {
     loop {
         while parser.skip_token(Token::Delimiter).is_some() {}
-        let stdin = match parse_statement(parser)? {
+        // Detect MariaDB statement labels: `label_name:`
+        let label = if parser.permit_compound_statements
+            && matches!(&parser.token, Token::Ident(_, Keyword::NOT_A_KEYWORD))
+            && matches!(parser.peek(), Token::Colon)
+        {
+            let l = parser.consume_plain_identifier_unreserved()?;
+            parser.consume(); // colon
+            Some(l)
+        } else {
+            None
+        };
+        let stmt = if let Some(label) = label {
+            // After a label, only loop constructs are valid; label is stored in AST
+            match &parser.token {
+                Token::Ident(_, Keyword::LOOP) if parser.options.dialect.is_maria() => {
+                    Some(Statement::Loop(Box::new(parse_loop(parser, Some(label))?)))
+                }
+                Token::Ident(_, Keyword::WHILE) if parser.options.dialect.is_maria() => Some(
+                    Statement::While(Box::new(parse_while(parser, Some(label))?)),
+                ),
+                Token::Ident(_, Keyword::REPEAT) if parser.options.dialect.is_maria() => Some(
+                    Statement::Repeat(Box::new(parse_repeat(parser, Some(label))?)),
+                ),
+                _ => parse_statement(parser)?,
+            }
+        } else {
+            parse_statement(parser)?
+        };
+        let stdin = match stmt {
             Some(v) => {
                 let stdin = v.reads_from_stdin();
                 out.push(v);
@@ -806,6 +834,28 @@ pub enum Statement<'a> {
     Explain(Box<Explain<'a>>),
     /// PostgreSQL DECLARE cursor statement
     DeclareCursor(Box<DeclareCursor<'a>>),
+    /// MariaDB/MySQL DECLARE variable inside a stored procedure/function
+    DeclareVariable(Box<DeclareVariable<'a>>),
+    /// MariaDB/MySQL DECLARE cursor inside a stored procedure/function
+    DeclareCursorMariaDb(Box<DeclareCursorMariaDb<'a>>),
+    /// MariaDB/MySQL DECLARE handler inside a stored procedure/function
+    DeclareHandler(Box<DeclareHandler<'a>>),
+    /// MariaDB/MySQL OPEN cursor statement
+    OpenCursor(Box<OpenCursor<'a>>),
+    /// MariaDB/MySQL CLOSE cursor statement
+    CloseCursor(Box<CloseCursor<'a>>),
+    /// MariaDB/MySQL FETCH cursor statement
+    FetchCursor(Box<FetchCursor<'a>>),
+    /// MariaDB/MySQL LEAVE label statement
+    Leave(Box<Leave<'a>>),
+    /// MariaDB/MySQL ITERATE label statement
+    Iterate(Box<Iterate<'a>>),
+    /// MariaDB/MySQL LOOP body END LOOP construct
+    Loop(Box<Loop<'a>>),
+    /// MariaDB/MySQL WHILE condition DO body END WHILE construct
+    While(Box<While<'a>>),
+    /// MariaDB/MySQL REPEAT body UNTIL condition END REPEAT construct
+    Repeat(Box<Repeat<'a>>),
     /// PostgreSQL REFRESH MATERIALIZED VIEW statement
     RefreshMaterializedView(Box<RefreshMaterializedView<'a>>),
     /// PostgreSQL PREPARE statement
@@ -900,6 +950,17 @@ impl<'a> Spanned for Statement<'a> {
             Statement::CreateTablePartitionOf(v) => v.span(),
             Statement::Explain(v) => v.span(),
             Statement::DeclareCursor(v) => v.span(),
+            Statement::DeclareVariable(v) => v.span(),
+            Statement::DeclareCursorMariaDb(v) => v.span(),
+            Statement::DeclareHandler(v) => v.span(),
+            Statement::OpenCursor(v) => v.span(),
+            Statement::CloseCursor(v) => v.span(),
+            Statement::FetchCursor(v) => v.span(),
+            Statement::Leave(v) => v.span(),
+            Statement::Iterate(v) => v.span(),
+            Statement::Loop(v) => v.span(),
+            Statement::While(v) => v.span(),
+            Statement::Repeat(v) => v.span(),
             Statement::RefreshMaterializedView(v) => v.span(),
             Statement::Prepare(v) => v.span(),
             Statement::Call(v) => v.span(),
@@ -982,9 +1043,13 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::EXPLAIN) => {
             Some(Statement::Explain(Box::new(parse_explain(parser)?)))
         }
-        Token::Ident(_, Keyword::DECLARE) => Some(Statement::DeclareCursor(Box::new(
-            parse_declare_cursor(parser)?,
-        ))),
+        Token::Ident(_, Keyword::DECLARE) => Some(
+            if parser.permit_compound_statements && parser.options.dialect.is_maria() {
+                parse_declare_maria(parser)?
+            } else {
+                Statement::DeclareCursor(Box::new(parse_declare_cursor(parser)?))
+            },
+        ),
         Token::Ident(_, Keyword::PREPARE) => {
             Some(Statement::Prepare(Box::new(parse_prepare(parser)?)))
         }
@@ -992,6 +1057,51 @@ pub(crate) fn parse_statement<'a>(
             parse_refresh_materialized_view(parser)?,
         ))),
         Token::Ident(_, Keyword::CALL) => Some(Statement::Call(Box::new(parse_call(parser)?))),
+        // MariaDB compound-block control statements
+        Token::Ident(_, Keyword::OPEN)
+            if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
+        {
+            Some(Statement::OpenCursor(Box::new(parse_open_cursor(parser)?)))
+        }
+        Token::Ident(_, Keyword::CLOSE)
+            if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
+        {
+            Some(Statement::CloseCursor(Box::new(parse_close_cursor(
+                parser,
+            )?)))
+        }
+        Token::Ident(_, Keyword::FETCH)
+            if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
+        {
+            Some(Statement::FetchCursor(Box::new(parse_fetch_cursor(
+                parser,
+            )?)))
+        }
+        Token::Ident(_, Keyword::LEAVE)
+            if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
+        {
+            Some(Statement::Leave(Box::new(parse_leave(parser)?)))
+        }
+        Token::Ident(_, Keyword::ITERATE)
+            if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
+        {
+            Some(Statement::Iterate(Box::new(parse_iterate(parser)?)))
+        }
+        Token::Ident(_, Keyword::LOOP)
+            if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
+        {
+            Some(Statement::Loop(Box::new(parse_loop(parser, None)?)))
+        }
+        Token::Ident(_, Keyword::WHILE)
+            if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
+        {
+            Some(Statement::While(Box::new(parse_while(parser, None)?)))
+        }
+        Token::Ident(_, Keyword::REPEAT)
+            if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
+        {
+            Some(Statement::Repeat(Box::new(parse_repeat(parser, None)?)))
+        }
         _ => None,
     })
 }
@@ -1215,6 +1325,488 @@ impl Spanned for CursorHold {
             CursorHold::WithHold(s) | CursorHold::WithoutHold(s) => s.clone(),
         }
     }
+}
+
+/// MariaDB/MySQL DECLARE variable statement inside a stored procedure/function.
+/// `DECLARE name data_type [DEFAULT expr]`
+#[derive(Clone, Debug)]
+pub struct DeclareVariable<'a> {
+    pub declare_span: Span,
+    pub name: crate::Identifier<'a>,
+    pub data_type: crate::DataType<'a>,
+    pub default: Option<(Span, Expression<'a>)>,
+}
+
+impl<'a> Spanned for DeclareVariable<'a> {
+    fn span(&self) -> Span {
+        self.declare_span
+            .join_span(&self.name)
+            .join_span(&self.data_type)
+            .join_span(&self.default)
+    }
+}
+
+/// MariaDB/MySQL DECLARE cursor statement inside a stored procedure/function.
+/// `DECLARE name CURSOR FOR select`
+#[derive(Clone, Debug)]
+pub struct DeclareCursorMariaDb<'a> {
+    pub declare_span: Span,
+    pub name: crate::Identifier<'a>,
+    pub cursor_span: Span,
+    pub for_span: Span,
+    pub query: Box<Select<'a>>,
+}
+
+impl<'a> Spanned for DeclareCursorMariaDb<'a> {
+    fn span(&self) -> Span {
+        self.declare_span.join_span(&self.query)
+    }
+}
+
+/// Action part of a MariaDB/MySQL handler declaration.
+#[derive(Clone, Debug)]
+pub enum HandlerAction {
+    Continue(Span),
+    Exit(Span),
+}
+
+impl Spanned for HandlerAction {
+    fn span(&self) -> Span {
+        match self {
+            HandlerAction::Continue(s) | HandlerAction::Exit(s) => s.clone(),
+        }
+    }
+}
+
+/// Condition part of a MariaDB/MySQL handler declaration.
+#[derive(Clone, Debug)]
+pub enum HandlerCondition<'a> {
+    /// `NOT FOUND`
+    NotFound(Span, Span),
+    /// `SQLEXCEPTION`
+    SqlException(Span),
+    /// `SQLWARNING`
+    SqlWarning(Span),
+    /// `SQLSTATE [VALUE] 'code'`
+    SqlState(Span, crate::SString<'a>),
+}
+
+impl<'a> Spanned for HandlerCondition<'a> {
+    fn span(&self) -> Span {
+        match self {
+            HandlerCondition::NotFound(a, b) => a.join_span(b),
+            HandlerCondition::SqlException(s) => s.clone(),
+            HandlerCondition::SqlWarning(s) => s.clone(),
+            HandlerCondition::SqlState(s, v) => s.join_span(v),
+        }
+    }
+}
+
+/// MariaDB/MySQL DECLARE handler statement inside a stored procedure/function.
+/// `DECLARE CONTINUE|EXIT HANDLER FOR condition statement`
+#[derive(Clone, Debug)]
+pub struct DeclareHandler<'a> {
+    pub declare_span: Span,
+    pub action: HandlerAction,
+    pub handler_span: Span,
+    pub for_span: Span,
+    pub condition: HandlerCondition<'a>,
+    pub statement: Box<Statement<'a>>,
+}
+
+impl<'a> Spanned for DeclareHandler<'a> {
+    fn span(&self) -> Span {
+        self.declare_span.join_span(&self.statement)
+    }
+}
+
+/// MariaDB/MySQL OPEN cursor statement.
+/// `OPEN cursor_name`
+#[derive(Clone, Debug)]
+pub struct OpenCursor<'a> {
+    pub open_span: Span,
+    pub name: crate::Identifier<'a>,
+}
+
+impl<'a> Spanned for OpenCursor<'a> {
+    fn span(&self) -> Span {
+        self.open_span.join_span(&self.name)
+    }
+}
+
+/// MariaDB/MySQL CLOSE cursor statement.
+/// `CLOSE cursor_name`
+#[derive(Clone, Debug)]
+pub struct CloseCursor<'a> {
+    pub close_span: Span,
+    pub name: crate::Identifier<'a>,
+}
+
+impl<'a> Spanned for CloseCursor<'a> {
+    fn span(&self) -> Span {
+        self.close_span.join_span(&self.name)
+    }
+}
+
+/// MariaDB/MySQL FETCH cursor statement.
+/// `FETCH [NEXT] [FROM] cursor INTO var, ...`
+#[derive(Clone, Debug)]
+pub struct FetchCursor<'a> {
+    pub fetch_span: Span,
+    pub next_span: Option<Span>,
+    pub from_span: Option<Span>,
+    pub cursor: crate::Identifier<'a>,
+    pub into_span: Span,
+    pub variables: Vec<crate::Identifier<'a>>,
+}
+
+impl<'a> Spanned for FetchCursor<'a> {
+    fn span(&self) -> Span {
+        self.fetch_span.join_span(&self.variables)
+    }
+}
+
+/// MariaDB/MySQL LEAVE label statement.
+/// `LEAVE label`
+#[derive(Clone, Debug)]
+pub struct Leave<'a> {
+    pub leave_span: Span,
+    pub label: crate::Identifier<'a>,
+}
+
+impl<'a> Spanned for Leave<'a> {
+    fn span(&self) -> Span {
+        self.leave_span.join_span(&self.label)
+    }
+}
+
+/// MariaDB/MySQL ITERATE label statement.
+/// `ITERATE label`
+#[derive(Clone, Debug)]
+pub struct Iterate<'a> {
+    pub iterate_span: Span,
+    pub label: crate::Identifier<'a>,
+}
+
+impl<'a> Spanned for Iterate<'a> {
+    fn span(&self) -> Span {
+        self.iterate_span.join_span(&self.label)
+    }
+}
+
+/// MariaDB/MySQL LOOP body END LOOP construct.
+/// `[label:] LOOP body END LOOP [label]`
+#[derive(Clone, Debug)]
+pub struct Loop<'a> {
+    pub label: Option<crate::Identifier<'a>>,
+    pub loop_span: Span,
+    pub body: Vec<Statement<'a>>,
+    pub end_loop_span: Span,
+    pub end_label: Option<crate::Identifier<'a>>,
+}
+
+impl<'a> Spanned for Loop<'a> {
+    fn span(&self) -> Span {
+        self.loop_span
+            .join_span(&self.label)
+            .join_span(&self.body)
+            .join_span(&self.end_loop_span)
+            .join_span(&self.end_label)
+    }
+}
+
+/// MariaDB/MySQL WHILE condition DO body END WHILE construct.
+/// `[label:] WHILE condition DO body END WHILE [label]`
+#[derive(Clone, Debug)]
+pub struct While<'a> {
+    pub label: Option<crate::Identifier<'a>>,
+    pub while_span: Span,
+    pub condition: Expression<'a>,
+    pub do_span: Span,
+    pub body: Vec<Statement<'a>>,
+    pub end_while_span: Span,
+    pub end_label: Option<crate::Identifier<'a>>,
+}
+
+impl<'a> Spanned for While<'a> {
+    fn span(&self) -> Span {
+        self.while_span
+            .join_span(&self.label)
+            .join_span(&self.condition)
+            .join_span(&self.do_span)
+            .join_span(&self.body)
+            .join_span(&self.end_while_span)
+            .join_span(&self.end_label)
+    }
+}
+
+/// MariaDB/MySQL REPEAT body UNTIL condition END REPEAT construct.
+/// `[label:] REPEAT body UNTIL condition END REPEAT [label]`
+#[derive(Clone, Debug)]
+pub struct Repeat<'a> {
+    pub label: Option<crate::Identifier<'a>>,
+    pub repeat_span: Span,
+    pub body: Vec<Statement<'a>>,
+    pub until_span: Span,
+    pub condition: Expression<'a>,
+    pub end_repeat_span: Span,
+    pub end_label: Option<crate::Identifier<'a>>,
+}
+
+impl<'a> Spanned for Repeat<'a> {
+    fn span(&self) -> Span {
+        self.repeat_span
+            .join_span(&self.label)
+            .join_span(&self.body)
+            .join_span(&self.until_span)
+            .join_span(&self.condition)
+            .join_span(&self.end_repeat_span)
+            .join_span(&self.end_label)
+    }
+}
+
+/// Dispatcher: parse a MariaDB DECLARE and return the appropriate Statement variant.
+fn parse_declare_maria<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
+    let declare_span = parser.consume_keyword(Keyword::DECLARE)?;
+    match &parser.token {
+        Token::Ident(_, Keyword::CONTINUE | Keyword::EXIT) => Ok(Statement::DeclareHandler(
+            Box::new(parse_handler_body(parser, declare_span)?),
+        )),
+        _ => {
+            let name = parser.consume_plain_identifier_unreserved()?;
+            if matches!(&parser.token, Token::Ident(_, Keyword::CURSOR)) {
+                Ok(Statement::DeclareCursorMariaDb(Box::new(
+                    parse_cursor_mariadb_body(parser, declare_span, name)?,
+                )))
+            } else {
+                Ok(Statement::DeclareVariable(Box::new(parse_variable_body(
+                    parser,
+                    declare_span,
+                    name,
+                )?)))
+            }
+        }
+    }
+}
+
+fn parse_variable_body<'a>(
+    parser: &mut Parser<'a, '_>,
+    declare_span: Span,
+    name: crate::Identifier<'a>,
+) -> Result<DeclareVariable<'a>, ParseError> {
+    use crate::data_type::{DataTypeContext, parse_data_type};
+    let data_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
+    let default = if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
+        let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+        Some((default_span, expr))
+    } else {
+        None
+    };
+    Ok(DeclareVariable {
+        declare_span,
+        name,
+        data_type,
+        default,
+    })
+}
+
+fn parse_cursor_mariadb_body<'a>(
+    parser: &mut Parser<'a, '_>,
+    declare_span: Span,
+    name: crate::Identifier<'a>,
+) -> Result<DeclareCursorMariaDb<'a>, ParseError> {
+    let cursor_span = parser.consume_keyword(Keyword::CURSOR)?;
+    let for_span = parser.consume_keyword(Keyword::FOR)?;
+    let query = Box::new(parse_select(parser)?);
+    Ok(DeclareCursorMariaDb {
+        declare_span,
+        name,
+        cursor_span,
+        for_span,
+        query,
+    })
+}
+
+fn parse_handler_body<'a>(
+    parser: &mut Parser<'a, '_>,
+    declare_span: Span,
+) -> Result<DeclareHandler<'a>, ParseError> {
+    let action = match &parser.token {
+        Token::Ident(_, Keyword::CONTINUE) => {
+            HandlerAction::Continue(parser.consume_keyword(Keyword::CONTINUE)?)
+        }
+        _ => HandlerAction::Exit(parser.consume_keyword(Keyword::EXIT)?),
+    };
+    let handler_span = parser.consume_keyword(Keyword::HANDLER)?;
+    let for_span = parser.consume_keyword(Keyword::FOR)?;
+    let condition = match &parser.token {
+        Token::Ident(_, Keyword::NOT) => {
+            let not_span = parser.consume_keyword(Keyword::NOT)?;
+            let found_span = parser.consume_keyword(Keyword::FOUND)?;
+            HandlerCondition::NotFound(not_span, found_span)
+        }
+        Token::Ident(_, Keyword::SQLEXCEPTION) => {
+            HandlerCondition::SqlException(parser.consume_keyword(Keyword::SQLEXCEPTION)?)
+        }
+        Token::Ident(_, Keyword::SQLWARNING) => {
+            HandlerCondition::SqlWarning(parser.consume_keyword(Keyword::SQLWARNING)?)
+        }
+        Token::Ident(_, Keyword::SQLSTATE) => {
+            let sqlstate_span = parser.consume_keyword(Keyword::SQLSTATE)?;
+            parser.skip_keyword(Keyword::VALUE);
+            let code = parser.consume_string()?;
+            HandlerCondition::SqlState(sqlstate_span, code)
+        }
+        _ => parser.expected_failure("NOT FOUND, SQLEXCEPTION, SQLWARNING, or SQLSTATE")?,
+    };
+    let statement = match parse_statement(parser)? {
+        Some(s) => Box::new(s),
+        None => parser.expected_failure("statement after handler condition")?,
+    };
+    Ok(DeclareHandler {
+        declare_span,
+        action,
+        handler_span,
+        for_span,
+        condition,
+        statement,
+    })
+}
+
+fn parse_open_cursor<'a>(parser: &mut Parser<'a, '_>) -> Result<OpenCursor<'a>, ParseError> {
+    let open_span = parser.consume_keyword(Keyword::OPEN)?;
+    let name = parser.consume_plain_identifier_unreserved()?;
+    Ok(OpenCursor { open_span, name })
+}
+
+fn parse_close_cursor<'a>(parser: &mut Parser<'a, '_>) -> Result<CloseCursor<'a>, ParseError> {
+    let close_span = parser.consume_keyword(Keyword::CLOSE)?;
+    let name = parser.consume_plain_identifier_unreserved()?;
+    Ok(CloseCursor { close_span, name })
+}
+
+fn parse_fetch_cursor<'a>(parser: &mut Parser<'a, '_>) -> Result<FetchCursor<'a>, ParseError> {
+    let fetch_span = parser.consume_keyword(Keyword::FETCH)?;
+    let next_span = parser.skip_keyword(Keyword::NEXT);
+    let from_span = parser.skip_keyword(Keyword::FROM);
+    let cursor = parser.consume_plain_identifier_unreserved()?;
+    let into_span = parser.consume_keyword(Keyword::INTO)?;
+    let mut variables = Vec::new();
+    loop {
+        variables.push(parser.consume_plain_identifier_unreserved()?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    Ok(FetchCursor {
+        fetch_span,
+        next_span,
+        from_span,
+        cursor,
+        into_span,
+        variables,
+    })
+}
+
+fn parse_leave<'a>(parser: &mut Parser<'a, '_>) -> Result<Leave<'a>, ParseError> {
+    let leave_span = parser.consume_keyword(Keyword::LEAVE)?;
+    let label = parser.consume_plain_identifier_unreserved()?;
+    Ok(Leave { leave_span, label })
+}
+
+fn parse_iterate<'a>(parser: &mut Parser<'a, '_>) -> Result<Iterate<'a>, ParseError> {
+    let iterate_span = parser.consume_keyword(Keyword::ITERATE)?;
+    let label = parser.consume_plain_identifier_unreserved()?;
+    Ok(Iterate {
+        iterate_span,
+        label,
+    })
+}
+
+fn parse_loop<'a>(
+    parser: &mut Parser<'a, '_>,
+    label: Option<crate::Identifier<'a>>,
+) -> Result<Loop<'a>, ParseError> {
+    let loop_span = parser.consume_keyword(Keyword::LOOP)?;
+    let mut body = Vec::new();
+    parser.recovered(
+        "'END'",
+        &|t| matches!(t, Token::Ident(_, Keyword::END)),
+        |parser| parse_statement_list(parser, &mut body),
+    )?;
+    let end_loop_span = parser.consume_keywords(&[Keyword::END, Keyword::LOOP])?;
+    let end_label = if matches!(&parser.token, Token::Ident(_, Keyword::NOT_A_KEYWORD)) {
+        Some(parser.consume_plain_identifier_unreserved()?)
+    } else {
+        None
+    };
+    Ok(Loop {
+        label,
+        loop_span,
+        body,
+        end_loop_span,
+        end_label,
+    })
+}
+
+fn parse_while<'a>(
+    parser: &mut Parser<'a, '_>,
+    label: Option<crate::Identifier<'a>>,
+) -> Result<While<'a>, ParseError> {
+    let while_span = parser.consume_keyword(Keyword::WHILE)?;
+    let condition = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+    let do_span = parser.consume_keyword(Keyword::DO)?;
+    let mut body = Vec::new();
+    parser.recovered(
+        "'END'",
+        &|t| matches!(t, Token::Ident(_, Keyword::END)),
+        |parser| parse_statement_list(parser, &mut body),
+    )?;
+    let end_while_span = parser.consume_keywords(&[Keyword::END, Keyword::WHILE])?;
+    let end_label = if matches!(&parser.token, Token::Ident(_, Keyword::NOT_A_KEYWORD)) {
+        Some(parser.consume_plain_identifier_unreserved()?)
+    } else {
+        None
+    };
+    Ok(While {
+        label,
+        while_span,
+        condition,
+        do_span,
+        body,
+        end_while_span,
+        end_label,
+    })
+}
+
+fn parse_repeat<'a>(
+    parser: &mut Parser<'a, '_>,
+    label: Option<crate::Identifier<'a>>,
+) -> Result<Repeat<'a>, ParseError> {
+    let repeat_span = parser.consume_keyword(Keyword::REPEAT)?;
+    let mut body = Vec::new();
+    parser.recovered(
+        "'UNTIL'",
+        &|t| matches!(t, Token::Ident(_, Keyword::UNTIL)),
+        |parser| parse_statement_list(parser, &mut body),
+    )?;
+    let until_span = parser.consume_keyword(Keyword::UNTIL)?;
+    let condition = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+    let end_repeat_span = parser.consume_keywords(&[Keyword::END, Keyword::REPEAT])?;
+    let end_label = if matches!(&parser.token, Token::Ident(_, Keyword::NOT_A_KEYWORD)) {
+        Some(parser.consume_plain_identifier_unreserved()?)
+    } else {
+        None
+    };
+    Ok(Repeat {
+        label,
+        repeat_span,
+        body,
+        until_span,
+        condition,
+        end_repeat_span,
+        end_label,
+    })
 }
 
 /// PostgreSQL DECLARE cursor statement

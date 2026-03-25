@@ -898,6 +898,17 @@ pub fn parse_schemas<'a>(
             qusql_parse::Statement::CreateFunction(_) => (),
             qusql_parse::Statement::CreateProcedure(_) => (),
             qusql_parse::Statement::Call(_) => (),
+            qusql_parse::Statement::DeclareVariable(_) => (),
+            qusql_parse::Statement::DeclareCursorMariaDb(_) => (),
+            qusql_parse::Statement::DeclareHandler(_) => (),
+            qusql_parse::Statement::OpenCursor(_) => (),
+            qusql_parse::Statement::CloseCursor(_) => (),
+            qusql_parse::Statement::FetchCursor(_) => (),
+            qusql_parse::Statement::Leave(_) => (),
+            qusql_parse::Statement::Iterate(_) => (),
+            qusql_parse::Statement::Loop(_) => (),
+            qusql_parse::Statement::While(_) => (),
+            qusql_parse::Statement::Repeat(_) => (),
             s => {
                 issues.err(
                     alloc::format!("Unsupported statement {s:?} in schema definition"),
