@@ -476,6 +476,12 @@ pub(crate) fn parse_create_function<'a>(
         };
         parser.permit_compound_statements = old;
         r
+    } else if matches!(&parser.token, Token::Ident(_, Keyword::RETURN)) {
+        // PostgreSQL SQL/PSM inline function body: `RETURN <expr>`
+        match parse_statement(parser)? {
+            Some(v) => Some(v),
+            None => parser.expected_failure("statement after RETURN")?,
+        }
     } else {
         None
     };

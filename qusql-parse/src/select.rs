@@ -526,7 +526,9 @@ fn parse_table_reference_named<'a>(
     parser: &mut Parser<'a, '_>,
     additional_restrict: Restrict,
 ) -> Result<TableReference<'a>, ParseError> {
-    if matches!(parser.token, Token::Ident(_, Keyword::JSON_TABLE)) {
+    if matches!(parser.token, Token::Ident(_, Keyword::JSON_TABLE))
+        && matches!(parser.peek(), Token::LParen)
+    {
         let json_table_span = parser.consume_keyword(Keyword::JSON_TABLE)?;
 
         parser.consume_token(Token::LParen)?;
