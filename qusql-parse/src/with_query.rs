@@ -95,12 +95,7 @@ pub(crate) fn parse_with_query<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<WithQuery<'a>, ParseError> {
     let with_span = parser.consume_keyword(Keyword::WITH)?;
-    let recursive_span = if let Some(s) = parser.skip_keyword(Keyword::RECURSIVE) {
-        parser.postgres_only(&s);
-        Some(s)
-    } else {
-        None
-    };
+    let recursive_span = parser.skip_keyword(Keyword::RECURSIVE);
     let mut with_blocks = Vec::new();
     loop {
         let identifier = parser.consume_plain_identifier_unreserved()?;
@@ -190,6 +185,5 @@ pub(crate) fn parse_with_query<'a>(
         with_blocks,
         statement,
     };
-    parser.postgres_only(&res);
     Ok(res)
 }

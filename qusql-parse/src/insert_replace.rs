@@ -12,7 +12,7 @@
 use alloc::vec::Vec;
 
 use crate::{
-    Identifier, OptSpanned, QualifiedName, Span, Spanned,
+    Identifier, OptSpanned, QualifiedName, Span, Spanned, Statement,
     expression::{
         Expression, PRIORITY_MAX, parse_expression_or_default, parse_expression_unreserved,
     },
@@ -358,6 +358,17 @@ pub(crate) fn parse_insert_replace<'a>(
     match &parser.token {
         Token::Ident(_, Keyword::SELECT) => {
             select = Some(parse_select(parser)?);
+        }
+        Token::Ident(_, Keyword::WITH) => {
+            // INSERT ... WITH [RECURSIVE] cte AS (...) SELECT ...
+            // Parse as a WithQuery and extract the inner SELECT.
+            use crate::with_query::parse_with_query;
+            let wq = parse_with_query(parser)?;
+            if let Statement::Select(s) = *wq.statement {
+                select = Some(*s);
+            } else {
+                parser.err("Expected SELECT after WITH", &wq.with_span);
+            }
         }
         Token::Ident(_, Keyword::VALUE | Keyword::VALUES) => {
             let values_span = parser.consume();

@@ -460,6 +460,20 @@ pub(crate) fn parse_table_reference_inner<'a>(
             })
         }
         Token::Ident(_, Keyword::SELECT) | Token::LParen => {
+            // If the token after '(' is an identifier (table name) or another '('
+            // (for nested groups like ((t1 join t2) join t3)), rather than
+            // SELECT/VALUES/WITH, treat it as a MySQL parenthesized join group.
+            let is_join_group = matches!(parser.token, Token::LParen)
+                && !matches!(
+                    parser.peek(),
+                    Token::Ident(_, Keyword::SELECT | Keyword::VALUES | Keyword::WITH)
+                );
+            if is_join_group {
+                parser.consume_token(Token::LParen)?;
+                let inner = parse_table_reference(parser, additional_restrict)?;
+                parser.consume_token(Token::RParen)?;
+                return Ok(inner);
+            }
             let query = parse_compound_query(parser)?;
             let as_span = parser.skip_keyword(Keyword::AS);
             let as_ = if as_span.is_some()
