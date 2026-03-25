@@ -469,10 +469,13 @@ pub(crate) fn parse_create_function<'a>(
     }
 
     let return_ = if parser.options.dialect.is_maria() {
-        match parse_statement(parser)? {
+        let old = core::mem::replace(&mut parser.permit_compound_statements, true);
+        let r = match parse_statement(parser)? {
             Some(v) => Some(v),
             None => parser.expected_failure("statement")?,
-        }
+        };
+        parser.permit_compound_statements = old;
+        r
     } else {
         None
     };
@@ -638,7 +641,9 @@ pub(crate) fn parse_create_procedure<'a>(
         characteristics.push(f);
     }
 
+    let old = core::mem::replace(&mut parser.permit_compound_statements, true);
     let body = parse_statement(parser)?;
+    parser.permit_compound_statements = old;
 
     Ok(CreateProcedure {
         create_span,
