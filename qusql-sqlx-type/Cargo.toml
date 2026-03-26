@@ -1,6 +1,6 @@
 [package]
 name = "qusql-sqlx-type"
-version = "0.0.1"
+version = "0.1.1"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -25,5 +25,5 @@ missing_docs_in_private_items = "deny"
 sqlx = { version = "0.8", default-features = false, features = ["chrono", "runtime-tokio-native-tls", "mysql"] }
 
 [dependencies]
-qusql-sqlx-type-macro = { version = "0.1.0", path = "../qusql-sqlx-type-macro"}
+qusql-sqlx-type-macro = { version = "0.1.1", path = "../qusql-sqlx-type-macro"}
 chrono = "0.4"

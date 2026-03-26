@@ -1,6 +1,6 @@
 [package]
 name = "qusql-mysql-type-plugin"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 
@@ -11,6 +11,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.27", features = ["extension-module"] }
-qusql-type = {version="0.1.0", path="../qusql-type" }
+qusql-type = {version="0.2.0", path="../qusql-type" }
 ariadne = "0.6"
 yoke = { version ="0.8", features = ["derive", "alloc"] }
