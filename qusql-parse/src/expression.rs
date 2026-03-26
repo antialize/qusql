@@ -2335,7 +2335,11 @@ pub(crate) fn parse_expression_restricted<'a>(
                         Token::Ident(_, Keyword::CURRENT_ROLE) => Some(Function::CurrentRole),
                         Token::Ident(_, Keyword::CURRENT_CATALOG) => Some(Function::CurrentCatalog),
                         Token::Ident(_, Keyword::SESSION_USER) => Some(Function::SessionUser),
-                        Token::Ident(_, Keyword::USER) => Some(Function::CurrentUser),
+                        Token::Ident(_, Keyword::USER)
+                            if parser.options.dialect.is_postgresql() =>
+                        {
+                            Some(Function::CurrentUser)
+                        }
                         _ => None,
                     };
                     if let Some(f) = f {
