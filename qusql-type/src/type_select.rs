@@ -12,8 +12,8 @@
 
 use alloc::{format, vec::Vec};
 use qusql_parse::{
-    Expression, Identifier, IdentifierPart, Issues, OptSpanned, Select, SelectExpr, Span, Spanned,
-    Statement, Union, issue_ice, issue_todo,
+    CompoundOperator, CompoundQuery, Expression, Identifier, IdentifierPart, Issues, OptSpanned,
+    Select, SelectExpr, Span, Spanned, Statement, issue_ice, issue_todo,
 };
 
 use crate::{
@@ -210,7 +210,9 @@ pub(crate) fn type_select<'a>(
     for flag in &select.flags {
         match &flag {
             qusql_parse::SelectFlag::All(_) => issue_todo!(typer.issues, flag),
-            qusql_parse::SelectFlag::Distinct(_) | qusql_parse::SelectFlag::DistinctRow(_) => (),
+            qusql_parse::SelectFlag::Distinct(_)
+            | qusql_parse::SelectFlag::DistinctOn(_)
+            | qusql_parse::SelectFlag::DistinctRow(_) => (),
             qusql_parse::SelectFlag::StraightJoin(_) => issue_todo!(typer.issues, flag),
             qusql_parse::SelectFlag::HighPriority(_)
             | qusql_parse::SelectFlag::SqlSmallResult(_)
@@ -326,7 +328,7 @@ pub(crate) fn type_select_exprs<'a, 'b>(
             result.push((name, type_, span));
         };
         if let Expression::Identifier(parts) = &e.expr {
-            resolve_kleene_identifier(typer, parts, &e.as_, add_result);
+            resolve_kleene_identifier(typer, &parts.parts, &e.as_, add_result);
         } else {
             let type_ = type_expression(typer, &e.expr, ExpressionFlags::default(), BaseType::Any);
             if let Some(as_) = &e.as_ {
@@ -345,11 +347,18 @@ pub(crate) fn type_select_exprs<'a, 'b>(
     result
 }
 
-pub(crate) fn type_union<'a>(typer: &mut Typer<'a, '_>, union: &Union<'a>) -> SelectType<'a> {
-    let mut t = type_union_select(typer, &union.left, true);
-    let mut left = union.left.span();
-    for w in &union.with {
-        let t2 = type_union_select(typer, &w.union_statement, true);
+pub(crate) fn type_compound_query<'a>(
+    typer: &mut Typer<'a, '_>,
+    query: &CompoundQuery<'a>,
+) -> SelectType<'a> {
+    let mut t = type_union_select(typer, &query.left, true);
+    let mut left = query.left.span();
+    for w in &query.with {
+        if w.operator != CompoundOperator::Union {
+            issue_todo!(typer.issues, w);
+        }
+
+        let t2 = type_union_select(typer, &w.statement, true);
 
         for i in 0..usize::max(t.columns.len(), t2.columns.len()) {
             if let Some(l) = t.columns.get_mut(i) {
@@ -358,18 +367,18 @@ pub(crate) fn type_union<'a>(typer: &mut Typer<'a, '_>, union: &Union<'a>) -> Se
                         if let Some(ln) = &l.name {
                             if let Some(rn) = &r.name {
                                 typer
-                                    .err("Incompatible names in union", &w.union_span)
+                                    .err("Incompatible names in union", &w.operator_span)
                                     .frag(format!("Column {i} is named {ln}"), &left)
-                                    .frag(format!("Column {i} is named {rn}"), &w.union_statement);
+                                    .frag(format!("Column {i} is named {rn}"), &w.statement);
                             } else {
                                 typer
-                                    .err("Incompatible names in union", &w.union_span)
+                                    .err("Incompatible names in union", &w.operator_span)
                                     .frag(format!("Column {i} is named {ln}"), &left)
-                                    .frag(format!("Column {i} has no name"), &w.union_statement);
+                                    .frag(format!("Column {i} has no name"), &w.statement);
                             }
                         } else {
                             typer
-                                .err("Incompatible names in union", &w.union_span)
+                                .err("Incompatible names in union", &w.operator_span)
                                 .frag(format!("Column {i} has no name"), &left)
                                 .frag(
                                     format!(
@@ -377,7 +386,7 @@ pub(crate) fn type_union<'a>(typer: &mut Typer<'a, '_>, union: &Union<'a>) -> Se
                                         i,
                                         r.name.as_ref().expect("name")
                                     ),
-                                    &w.union_statement,
+                                    &w.statement,
                                 );
                         }
                     }
@@ -388,36 +397,33 @@ pub(crate) fn type_union<'a>(typer: &mut Typer<'a, '_>, union: &Union<'a>) -> Se
                         l.type_ = FullType::new(t, l.type_.not_null && r.type_.not_null);
                     } else {
                         typer
-                            .err("Incompatible types in union", &w.union_span)
+                            .err("Incompatible types in union", &w.operator_span)
                             .frag(format!("Column {} is of type {}", i, l.type_.t), &left)
                             .frag(
                                 format!("Column {} is of type {}", i, r.type_.t),
-                                &w.union_statement,
+                                &w.statement,
                             );
                     }
                 } else if let Some(n) = &l.name {
                     typer
-                        .err("Incompatible types in union", &w.union_span)
+                        .err("Incompatible types in union", &w.operator_span)
                         .frag(format!("Column {i} ({n}) only on this side"), &left);
                 } else {
                     typer
-                        .err("Incompatible types in union", &w.union_span)
+                        .err("Incompatible types in union", &w.operator_span)
                         .frag(format!("Column {i} only on this side"), &left);
                 }
             } else if let Some(n) = &t2.columns[i].name {
                 typer
-                    .err("Incompatible types in union", &w.union_span)
-                    .frag(
-                        format!("Column {i} ({n}) only on this side"),
-                        &w.union_statement,
-                    );
+                    .err("Incompatible types in union", &w.operator_span)
+                    .frag(format!("Column {i} ({n}) only on this side"), &w.statement);
             } else {
                 typer
-                    .err("Incompatible types in union", &w.union_span)
-                    .frag(format!("Column {i} only on this side"), &w.union_statement);
+                    .err("Incompatible types in union", &w.operator_span)
+                    .frag(format!("Column {i} only on this side"), &w.statement);
             }
         }
-        left = left.join_span(&w.union_statement);
+        left = left.join_span(&w.statement);
     }
 
     typer.reference_types.push(ReferenceType {
@@ -430,13 +436,13 @@ pub(crate) fn type_union<'a>(typer: &mut Typer<'a, '_>, union: &Union<'a>) -> Se
             .collect(),
     });
 
-    if let Some((_, order_by)) = &union.order_by {
+    if let Some((_, order_by)) = &query.order_by {
         for (e, _) in order_by {
             type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
         }
     }
 
-    if let Some((_, offset, count)) = &union.limit {
+    if let Some((_, offset, count)) = &query.limit {
         if let Some(offset) = offset {
             let t = type_expression(typer, offset, ExpressionFlags::default(), BaseType::Integer);
             if typer
@@ -467,7 +473,7 @@ pub(crate) fn type_union_select<'a>(
 ) -> SelectType<'a> {
     match statement {
         Statement::Select(s) => type_select(typer, s, warn_duplicate),
-        Statement::Union(u) => type_union(typer, u),
+        Statement::CompoundQuery(q) => type_compound_query(typer, q),
         s => {
             issue_ice!(typer.issues, s);
             SelectType {

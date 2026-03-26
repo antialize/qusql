@@ -15,8 +15,10 @@ use alloc::vec::Vec;
 
 use crate::{
     Identifier, SelectExpr, Span, Spanned,
-    expression::{Expression, parse_expression},
-    keywords::Keyword,
+    expression::{
+        Expression, PRIORITY_MAX, parse_expression_or_default, parse_expression_unreserved,
+    },
+    keywords::{Keyword, Restrict},
     lexer::Token,
     parser::{ParseError, Parser},
     select::{TableReference, parse_select_expr, parse_table_reference},
@@ -51,7 +53,7 @@ impl Spanned for UpdateFlag {
 ///
 /// # assert!(issues.is_ok());
 /// let u: Update = match stmt {
-///     Some(Statement::Update(u)) => u,
+///     Some(Statement::Update(u)) => *u,
 ///     _ => panic!("We should get an update statement")
 /// };
 ///
@@ -71,6 +73,8 @@ pub struct Update<'a> {
     pub set: Vec<(Vec<Identifier<'a>>, Expression<'a>)>,
     /// Where expression and span of "WHERE" if specified
     pub where_: Option<(Expression<'a>, Span)>,
+    /// PostgreSQL: FROM clause (additional tables)
+    pub from: Option<(Span, Vec<TableReference<'a>>)>,
     /// Span of "RETURNING" and select expressions after "RETURNING", if "RETURNING" is present
     pub returning: Option<(Span, Vec<SelectExpr<'a>>)>,
 }
@@ -87,6 +91,7 @@ impl<'a> Spanned for Update<'a> {
             .join_span(&self.tables)
             .join_span(&self.set_span)
             .join_span(&set_span)
+            .join_span(&self.from)
             .join_span(&self.where_)
             .join_span(&self.returning)
     }
@@ -110,21 +115,24 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
 
     let mut tables = Vec::new();
     loop {
-        tables.push(parse_table_reference(parser)?);
+        tables.push(parse_table_reference(parser, Restrict::UPDATE_TABLE)?);
+        // In PostgreSQL UPDATE, SET is not fully reserved, so stop here before comma
+        if matches!(parser.token, Token::Ident(_, Keyword::SET)) {
+            break;
+        }
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
     }
-
     let set_span = parser.consume_keyword(Keyword::SET)?;
     let mut set = Vec::new();
     loop {
-        let mut col = vec![parser.consume_plain_identifier()?];
+        let mut col = vec![parser.consume_plain_identifier_unreserved()?];
         while parser.skip_token(Token::Period).is_some() {
-            col.push(parser.consume_plain_identifier()?);
+            col.push(parser.consume_plain_identifier_unreserved()?);
         }
         parser.consume_token(Token::Eq)?;
-        let val = parse_expression(parser, false)?;
+        let val = parse_expression_or_default(parser, PRIORITY_MAX)?;
         set.push((col, val));
         if parser.skip_token(Token::Comma).is_none() {
             break;
@@ -132,9 +140,39 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
     }
 
     let where_ = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
-        Some((parse_expression(parser, false)?, span))
+        Some((parse_expression_unreserved(parser, PRIORITY_MAX)?, span))
     } else {
         None
+    };
+
+    // PostgreSQL: FROM clause after SET (before WHERE)
+    let from = if where_.is_none() {
+        if let Some(from_span) = parser.skip_keyword(Keyword::FROM) {
+            parser.postgres_only(&from_span);
+            let mut from_tables = Vec::new();
+            loop {
+                from_tables.push(parse_table_reference(parser, Restrict::EMPTY)?);
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+            let where_inner = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
+                Some((parse_expression_unreserved(parser, PRIORITY_MAX)?, span))
+            } else {
+                None
+            };
+            // Re-assign where_ by returning it from the block — handled below
+            Some((from_span, from_tables, where_inner))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let (from, where_) = if let Some((from_span, from_tables, where_inner)) = from {
+        (Some((from_span, from_tables)), where_inner)
+    } else {
+        (None, where_)
     };
 
     let returning = if let Some(returning_span) = parser.skip_keyword(Keyword::RETURNING) {
@@ -145,9 +183,7 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
                 break;
             }
         }
-        if !parser.options.dialect.is_postgresql() {
-            parser.err("Only support by postgesql", &returning_span);
-        }
+        parser.postgres_only(&returning_span);
         Some((returning_span, returning_exprs))
     } else {
         None
@@ -159,6 +195,7 @@ pub(crate) fn parse_update<'a>(parser: &mut Parser<'a, '_>) -> Result<Update<'a>
         tables,
         set_span,
         set,
+        from,
         where_,
         returning,
     })

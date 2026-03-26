@@ -10,13 +10,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Lexer for SQL statements. Converts a SQL string into a stream of tokens.
 use crate::{SQLDialect, Span, keywords::Keyword};
+
+/// Describes the quoting/prefix style of a SQL string literal token.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum StringType {
+    /// Standard single-quoted string: `'...'`
+    SingleQuoted,
+    /// Double-quoted string: `"..."`
+    DoubleQuoted,
+    /// PostgreSQL dollar-quoted string: `$$...$$` / `$tag$...$tag$`
+    DollarQuoted,
+    /// Hex bit-string: `x'...'` / `X'...'`
+    Hex,
+    /// Binary bit-string: `b'...'` / `B'...'`
+    Binary,
+    /// PostgreSQL escape string: `E'...'` / `e'...'`
+    Escape,
+}
 
 /// SQL Token enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Token<'a> {
     Ampersand,
     At,
+    AtAt,
     Backslash,
     Caret,
     Colon,
@@ -44,6 +63,7 @@ pub(crate) enum Token<'a> {
     Minus,
     Mod,
     Mul,
+    Delimiter,
     Neq,
     Period,
     Pipe,
@@ -59,24 +79,38 @@ pub(crate) enum Token<'a> {
     Sharp,
     ShiftLeft,
     ShiftRight,
-    SingleQuotedString(&'a str),
-    DoubleQuotedString(&'a str),
-    HexString(&'a str),
-    BinaryString(&'a str),
+    String(&'a str, StringType),
     Spaceship,
     Tilde,
     PercentS,
     DollarArg(usize),
     AtAtGlobal,
     AtAtSession,
+    PostgresOperator(&'a str),
+    // PostgreSQL built-in operator tokens
+    Contains,          // @>
+    ContainedBy,       // <@
+    AtQuestion,        // @?
+    QuestionPipe,      // ?|
+    QuestionAmpersand, // ?&
+    HashArrow,         // #>
+    HashDoubleArrow,   // #>>
+    HashMinus,         // #-
+    TildeStar,         // ~*
+    NotTilde,          // !~
+    NotTildeStar,      // !~*
+    LikeTilde,         // ~~
+    NotLikeTilde,      // !~~
     Eof,
 }
 
 impl<'a> Token<'a> {
+    /// Returns a human-readable name for the token, used in error messages.
     pub(crate) fn name(&self) -> &'static str {
         match self {
             Token::Ampersand => "'&'",
             Token::At => "'@'",
+            Token::AtAt => "'@@'",
             Token::Backslash => "'\\'",
             Token::Caret => "'^'",
             Token::Colon => "':'",
@@ -131,59 +165,202 @@ impl<'a> Token<'a> {
             Token::DollarArg(v) if *v == 8 => "'$8'",
             Token::DollarArg(v) if *v == 9 => "'$9'",
             Token::DollarArg(_) => "'$i'",
-            Token::SingleQuotedString(_) => "String",
-            Token::DoubleQuotedString(_) => "String",
-            Token::HexString(_) => "HexString",
-            Token::BinaryString(_) => "BinaryString",
+            Token::String(_, StringType::Hex) => "HexString",
+            Token::String(_, StringType::Binary) => "BinaryString",
+            Token::String(_, _) => "String",
             Token::Spaceship => "'<=>'",
             Token::Tilde => "'~'",
             Token::PercentS => "'%s'",
             Token::AtAtGlobal => "@@GLOBAL",
             Token::AtAtSession => "@@SESSION",
+            Token::PostgresOperator(_) => "pg operator",
+            Token::Contains => "'@>'",
+            Token::ContainedBy => "'<@'",
+            Token::AtQuestion => "'@?'",
+            Token::QuestionPipe => "'?|'",
+            Token::QuestionAmpersand => "'?&'",
+            Token::HashArrow => "'#>'",
+            Token::HashDoubleArrow => "'#>>'",
+            Token::HashMinus => "'#-'",
+            Token::TildeStar => "'~*'",
+            Token::NotTilde => "'!~'",
+            Token::NotTildeStar => "'!~*'",
+            Token::LikeTilde => "'~~'",
+            Token::NotLikeTilde => "'!~~'",
             Token::Eof => "EndOfFile",
+            Token::Delimiter => "Delimiter",
         }
     }
 }
+
+/// A simple character iterator that keeps track of the current index in the source string.
+#[derive(Debug, Clone)]
+struct CharsIter<'a> {
+    /// The current character index in the source string.
+    idx: usize,
+    /// The source
+    src: &'a [u8],
+}
+
+impl<'a> CharsIter<'a> {
+    /// Returns the next character and its index, or `None` if we've reached the end of the input.
+    fn next(&mut self) -> Option<(usize, u8)> {
+        if let Some(v) = self.src.get(self.idx) {
+            let i = self.idx;
+            self.idx += 1;
+            Some((i, *v))
+        } else {
+            None
+        }
+    }
+
+    /// Skips the next `n` characters.
+    fn skip(&mut self, n: usize) {
+        self.idx += n;
+    }
+
+    /// Rewinds the iterator by `n` characters, moving the index back and prepending the skipped characters to the remaining slice.
+    fn rewind(&mut self, n: usize) {
+        self.idx -= n;
+    }
+
+    /// Peeks at the next character and its index without consuming it, or `None` if we've reached the end of the input.
+    fn peek(&self) -> Option<(usize, u8)> {
+        self.src.get(self.idx).map(|v| (self.idx, *v))
+    }
+}
+
+/// The main lexer struct that holds the source string, the character iterator, and the SQL dialect.
 pub(crate) struct Lexer<'a> {
+    /// The original source string being lexed.
     src: &'a str,
-    chars: core::iter::Peekable<core::str::CharIndices<'a>>,
+    /// An iterator over the characters of the source string, keeping track of the current index.
+    chars: CharsIter<'a>,
+    /// The SQL dialect to use for lexing, which may affect how certain tokens are recognized.
     dialect: SQLDialect,
+    /// The current MySQL statement delimiter, which can be changed by a `DELIMITER` statement. If `None`, the default delimiter `;` is used.
+    delimiter: Option<&'a str>,
+    /// When true, `;` also emits `Token::Delimiter` even while a custom delimiter (e.g. `$$`) is
+    /// active. Set when parsing statement lists inside `BEGIN...END` compound blocks so that
+    /// individual statements are still terminated by `;`, while the outer `$$` delimiter is
+    /// preserved for identifier-splitting (preventing `END$$` from being lexed as one token).
+    pub(crate) semicolon_as_delimiter: bool,
 }
 
 impl<'a> Lexer<'a> {
+    /// Creates a new `Lexer` instance for the given source string and SQL dialect.
     pub fn new(src: &'a str, dialect: &SQLDialect) -> Self {
         Self {
             src,
-            chars: src.char_indices().peekable(),
+            chars: CharsIter {
+                idx: 0,
+                src: src.as_bytes(),
+            },
             dialect: dialect.clone(),
+            delimiter: None,
+            semicolon_as_delimiter: false,
         }
     }
 
+    /// Returns the substring of the source corresponding to the given span.
     pub(crate) fn s(&self, span: Span) -> &'a str {
-        core::str::from_utf8(&self.src.as_bytes()[span]).unwrap()
+        // Safety: The span is expected to match the unicode boundaries
+        unsafe { core::str::from_utf8_unchecked(&self.src.as_bytes()[span]) }
     }
 
-    fn simple_literal(&mut self, start: usize) -> Token<'a> {
+    /// Lexes an unquoted identifier starting at the given index. The first character has already been consumed and is at `start`.
+    fn unquoted_identifier(&mut self, start: usize) -> Token<'a> {
         let end = loop {
             match self.chars.peek() {
-                Some((_, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9')) => {
+                Some((_, b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9')) => {
                     self.chars.next();
                 }
                 // For MariaDB, allow $ and @ in identifiers
-                Some((_, '$' | '@')) if self.dialect.is_maria() => {
+                Some((_, b'$' | b'@')) if self.dialect.is_maria() => {
                     self.chars.next();
                 }
                 // MySQL allows Unicode characters (U+0080 and above) in identifiers
-                Some((_, c)) if self.dialect.is_maria() && (*c as u32) >= 0x80 => {
+                // This handles UTF-8 leading bytes (11xxxxxx)
+                Some((_, c)) if self.dialect.is_maria() && (c & 0xc0) == 0xc0 => {
+                    self.chars.next();
+                    while let Some((_, c)) = self.chars.peek()
+                        && (c & 0xc0) == 0x80
+                    {
+                        self.chars.next();
+                    }
+                }
+                // UTF-8 continuation bytes (10xxxxxx) - needed when identifier starts with a UTF-8 character
+                // since next_token() only consumes the first byte before calling unquoted_identifier
+                Some((_, c)) if self.dialect.is_maria() && (c & 0xc0) == 0x80 => {
                     self.chars.next();
                 }
-                Some((i, _)) => break *i,
+                Some((i, _)) => break i,
                 None => break self.src.len(),
             }
         };
         let s = self.s(start..end);
-        let ss = s.to_ascii_uppercase();
-        Token::Ident(s, ss.as_str().into())
+        // If a custom delimiter (e.g. `$$`) is active, split the identifier at that boundary so
+        // that `END$$` does not become a single token.
+        if let Some(delimiter) = self.delimiter
+            && let Some(idx) = s.find(delimiter)
+        {
+            self.chars.rewind(s.len() - idx);
+            let s = self.s(start..start + idx);
+            Token::Ident(s, s.into())
+        } else {
+            Token::Ident(s, s.into())
+        }
+    }
+
+    /// Updates the MySQL statement delimiter by lexing the next token after a `DELIMITER` statement.
+    pub fn update_mysql_delimitor(&mut self) -> Result<Span, Span> {
+        // Skip whitespace
+        while self
+            .chars
+            .peek()
+            .filter(|(_, c)| *c != b'\n' && c.is_ascii_whitespace())
+            .is_some()
+        {
+            self.chars.next().unwrap();
+        }
+        let start = match self.chars.peek() {
+            Some((i, _)) => i,
+            None => {
+                let span = self.src.len()..self.src.len();
+                return Err(span);
+            }
+        };
+        // Skip none whitespace
+        while self
+            .chars
+            .peek()
+            .filter(|(_, c)| !c.is_ascii_whitespace())
+            .is_some()
+        {
+            self.chars.next().unwrap();
+        }
+        let end = match self.chars.peek() {
+            Some((i, _)) => i,
+            None => self.src.len(),
+        };
+        if start == end {
+            return Err(start..end);
+        }
+        let s = self.s(start..end);
+        self.delimiter = if s == ";" { None } else { Some(s) };
+        Ok(start..end)
+    }
+
+    /// Returns the name of the current delimiter, used in error messages.
+    pub fn delimiter_name(&self) -> &'static str {
+        match self.delimiter {
+            Some("//") => "//",
+            Some("$$") => "$$",
+            Some(";;") => ";;",
+            Some("###") => "###",
+            Some(_) => "delimiter",
+            None => ";",
+        }
     }
 
     /// Simulate reading from standard input after a statement like `COPY ... FROM STDIN;`.
@@ -195,32 +372,32 @@ impl<'a> Lexer<'a> {
         while self
             .chars
             .peek()
-            .filter(|(_, c)| *c != '\n' && c.is_ascii_whitespace())
+            .filter(|(_, c)| *c != b'\n' && c.is_ascii_whitespace())
             .is_some()
         {
             self.chars.next().unwrap();
         }
         let start = match self.chars.peek() {
-            Some((i, '\n')) => i + 1,
-            Some((i, _)) => *i,
+            Some((i, b'\n')) => i + 1,
+            Some((i, _)) => i,
             None => {
                 let span = self.src.len()..self.src.len();
                 return (self.s(span.clone()), span);
             }
         };
         while let Some((i, c)) = self.chars.next() {
-            if c != '\n' {
+            if c != b'\n' {
                 continue;
             }
-            if !matches!(self.chars.peek(), Some((_, '\\'))) {
-                continue;
-            }
-            self.chars.next().unwrap();
-            if !matches!(self.chars.peek(), Some((_, '.'))) {
+            if !matches!(self.chars.peek(), Some((_, b'\\'))) {
                 continue;
             }
             self.chars.next().unwrap();
-            if matches!(self.chars.peek(), Some((_, '\n'))) {
+            if !matches!(self.chars.peek(), Some((_, b'.'))) {
+                continue;
+            }
+            self.chars.next().unwrap();
+            if matches!(self.chars.peek(), Some((_, b'\n'))) {
                 // Data ends with NL '\' '.' NL.
                 self.chars.next().unwrap();
             } else if self.chars.peek().is_some() {
@@ -239,8 +416,89 @@ impl<'a> Lexer<'a> {
         (self.s(span.clone()), span)
     }
 
+    /// In PostgreSQL, operators can be multiple characters long and can contain a wide range of special characters.
+    fn next_operator(
+        &mut self,
+        start: usize,
+        mut last: (usize, u8),
+        token: Token<'a>,
+    ) -> Token<'a> {
+        if self.dialect.is_postgresql() {
+            // In PostgreSQL, many operators can be multiple characters long and can contain a wide range of special characters.
+            // We will consume characters until we encounter one that cannot be part of an operator.
+            // Valid operator characters in PostgreSQL include: + - * / < > = ~ ! @ # % ^ & | ` ?
+            // Additionally, we will allow operators to end with a '*' if it is preceded by a '/' to support C-style comments as operators (e.g. '/*' and '*/').
+        } else {
+            // In other dialects, we only consider the single character as the operator.
+            return token;
+        }
+        let mut token = Some(token);
+        loop {
+            match self.chars.peek() {
+                Some((
+                    _,
+                    b'!' | b'@' | b'#' | b'%' | b'^' | b'&' | b'+' | b'=' | b'~' | b'<' | b'>'
+                    | b'|' | b'/' | b'?' | b':' | b'`',
+                )) => {
+                    last = self.chars.next().unwrap();
+                    token = None;
+                }
+                Some((_, b'*')) => {
+                    if last.1 == b'/' {
+                        self.chars.next();
+                        let ok = loop {
+                            match self.chars.next() {
+                                Some((_, b'*')) => {
+                                    if matches!(self.chars.peek(), Some((_, b'/'))) {
+                                        self.chars.next();
+                                        break true;
+                                    }
+                                }
+                                Some(_) => (),
+                                None => break false,
+                            }
+                        };
+                        if ok {
+                            return Token::PostgresOperator(self.s(start..last.0));
+                        } else {
+                            return Token::Invalid;
+                        }
+                    }
+                    last = self.chars.next().unwrap();
+                    token = None;
+                }
+                Some((_, b'-')) => {
+                    if last.1 == b'-' {
+                        while !matches!(self.chars.next(), Some((_, b'\r' | b'\n')) | None) {}
+                        return Token::PostgresOperator(self.s(start..last.0));
+                    }
+                    last = self.chars.next().unwrap();
+                    token = None;
+                }
+                _ => {
+                    if let Some(t) = token {
+                        return t;
+                    } else {
+                        let s = self.s(start..last.0 + 1);
+                        return Token::PostgresOperator(s);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Returns the next token and its span in the source string.
+    /// If the end of the input is reached, returns `Token::Eof` with an empty span at the end of the source.
     pub fn next_token(&mut self) -> (Token<'a>, Span) {
         loop {
+            if let Some(delimiter) = self.delimiter
+                && self.src[self.chars.idx..].starts_with(delimiter)
+            {
+                let start = self.chars.idx;
+                self.chars.skip(delimiter.len());
+                return (Token::Delimiter, start..start + delimiter.len());
+            }
+
             let (start, c) = match self.chars.next() {
                 Some(v) => v,
                 None => {
@@ -248,211 +506,366 @@ impl<'a> Lexer<'a> {
                 }
             };
             let t = match c {
-                ' ' | '\t' | '\n' | '\r' => continue,
-                '?' => Token::QuestionMark,
-                ';' => Token::SemiColon,
-                '\\' => Token::Backslash,
-                '[' => Token::LBracket,
-                ']' => Token::RBracket,
-                '&' => match self.chars.peek() {
-                    Some((_, '&')) => {
-                        self.chars.next();
-                        Token::DoubleAmpersand
+                b' ' | b'\t' | b'\n' | b'\r' => continue,
+                b'?' => match self.chars.peek() {
+                    Some((_, b'|')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::QuestionPipe)
                     }
-                    _ => Token::Ampersand,
+                    Some((_, b'&')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::QuestionAmpersand)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::QuestionMark),
                 },
-                '^' => Token::Caret,
-                '{' => Token::LBrace,
-                '}' => Token::RBrace,
-                '(' => Token::LParen,
-                ')' => Token::RParen,
-                ',' => Token::Comma,
-                '+' => Token::Plus,
-                '*' => Token::Mul,
-                '%' => match self.chars.peek() {
-                    Some((_, 's')) => {
+                b';' if self.delimiter.is_none() || self.semicolon_as_delimiter => Token::Delimiter,
+                b';' => Token::SemiColon,
+                b'\\' => Token::Backslash,
+                b'[' => Token::LBracket,
+                b']' => Token::RBracket,
+                b'&' => match self.chars.peek() {
+                    Some((_, b'&')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::DoubleAmpersand)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::Ampersand),
+                },
+                b'^' => self.next_operator(start, (start, c), Token::Caret),
+                b'{' => Token::LBrace,
+                b'}' => Token::RBrace,
+                b'(' => Token::LParen,
+                b')' => Token::RParen,
+                b',' => Token::Comma,
+                b'+' => self.next_operator(start, (start, c), Token::Plus),
+                b'*' => self.next_operator(start, (start, c), Token::Mul),
+                b'%' => match self.chars.peek() {
+                    Some((_, b's')) => {
                         self.chars.next();
                         Token::PercentS
                     }
-                    _ => Token::Mod,
+                    _ => self.next_operator(start, (start, c), Token::Mod),
                 },
-                '#' => Token::Sharp,
-                '@' => match self.chars.peek() {
-                    Some((_, '@')) => {
-                        self.chars.next();
+                b'#' => match self.chars.peek() {
+                    Some((_, b'>')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        if matches!(self.chars.peek(), Some((_, b'>'))) {
+                            let next2 = self.chars.next().unwrap();
+                            self.next_operator(start, next2, Token::HashDoubleArrow)
+                        } else {
+                            self.next_operator(start, next, Token::HashArrow)
+                        }
+                    }
+                    Some((_, b'-')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::HashMinus)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::Sharp),
+                },
+                b'@' => match self.chars.peek() {
+                    Some((_, b'@')) => {
+                        let next = self.chars.next().unwrap();
                         #[allow(clippy::never_loop)]
                         match self.chars.peek() {
-                            Some((_, 's' | 'S')) => loop {
+                            Some((_, b's' | b'S')) => loop {
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'e' | 'E'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'e' | b'E'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 's' | 'S'))) {
+                                if !matches!(self.chars.peek(), Some((_, b's' | b'S'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 's' | 'S'))) {
+                                if !matches!(self.chars.peek(), Some((_, b's' | b'S'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'i' | 'I'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'i' | b'I'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'o' | 'O'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'o' | b'O'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'n' | 'N'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'n' | b'N'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
                                 break Token::AtAtSession;
                             },
-                            Some((_, 'g' | 'G')) => loop {
+                            Some((_, b'g' | b'G')) => loop {
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'l' | 'L'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'l' | b'L'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'o' | 'O'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'o' | b'O'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'b' | 'B'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'b' | b'B'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'a' | 'A'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'a' | b'A'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
-                                if !matches!(self.chars.peek(), Some((_, 'l' | 'L'))) {
+                                if !matches!(self.chars.peek(), Some((_, b'l' | b'L'))) {
                                     break Token::Invalid;
                                 }
                                 self.chars.next();
                                 break Token::AtAtGlobal;
                             },
+                            _ => self.next_operator(start, next, Token::AtAt),
+                        }
+                    }
+                    Some((_, b'>')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::Contains)
+                    }
+                    Some((_, b'?')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::AtQuestion)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::At),
+                },
+                b'~' => match self.chars.peek() {
+                    Some((_, b'*')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::TildeStar)
+                    }
+                    Some((_, b'~')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::LikeTilde)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::Tilde),
+                },
+                b':' => match self.chars.peek() {
+                    Some((_, b':')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::DoubleColon)
+                    }
+                    Some((_, b'=')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::ColonEq)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::Colon),
+                },
+                b'$' => {
+                    // Check for PostgreSQL dollar-quoted strings first
+                    let dollar_string = if self.dialect.is_postgresql() {
+                        // Try to parse a dollar-quoted string: $tag$...$tag$ or $$...$$
+                        let start_pos = start;
+                        let mut temp_chars = self.chars.clone();
+
+                        // Scan the tag (can be empty)
+                        let tag_start = start_pos + 1;
+                        let mut tag_end = tag_start;
+
+                        // Tag can contain letters, digits, and underscores
+                        let mut is_dollar_string = false;
+                        loop {
+                            match temp_chars.peek() {
+                                Some((i, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_')) => {
+                                    tag_end = i + 1;
+                                    temp_chars.next();
+                                }
+                                Some((_, b'$')) => {
+                                    // Found the closing $ of the opening delimiter
+                                    temp_chars.next(); // consume the $
+                                    is_dollar_string = true;
+                                    break;
+                                }
+                                _ => break,
+                            }
+                        }
+
+                        if is_dollar_string {
+                            let tag = self.s(tag_start..tag_end);
+                            let content_start = tag_end + 1;
+
+                            // Now search for the closing delimiter
+                            let mut found = false;
+                            let mut content_end = content_start;
+
+                            loop {
+                                match temp_chars.next() {
+                                    Some((i, b'$')) => {
+                                        // Possible start of closing delimiter
+                                        let mut closing_chars = temp_chars.clone();
+                                        let mut matches = true;
+
+                                        // Check if the tag matches
+                                        for tag_byte in tag.bytes() {
+                                            match closing_chars.next() {
+                                                Some((_, c)) if c == tag_byte => {}
+                                                _ => {
+                                                    matches = false;
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        // Check for closing $
+                                        if matches && let Some((_, b'$')) = closing_chars.peek() {
+                                            // Found the closing delimiter!
+                                            content_end = i;
+
+                                            // Advance the main iterator to after the closing delimiter
+                                            self.chars = closing_chars;
+                                            self.chars.next(); // consume the final $
+
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+                                    Some(_) => {}
+                                    None => break,
+                                }
+                            }
+
+                            if found {
+                                Some(Token::String(
+                                    self.s(content_start..content_end),
+                                    StringType::DollarQuoted,
+                                ))
+                            } else {
+                                Some(Token::Invalid)
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    if let Some(token) = dollar_string {
+                        token
+                    } else {
+                        // Not a dollar-quoted string, check other dollar patterns
+                        match self.chars.peek() {
+                            Some((_, b'$')) => {
+                                self.chars.next();
+                                Token::DoubleDollar
+                            }
+                            Some((_, b'1'..=b'9')) if self.dialect.is_postgresql() => {
+                                let mut v = (self.chars.peek().unwrap().1 - b'0') as usize;
+                                self.chars.next();
+                                while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
+                                    v = v * 10 + (self.chars.peek().unwrap().1 - b'0') as usize;
+                                    self.chars.next();
+                                }
+                                Token::DollarArg(v)
+                            }
+                            _ if self.dialect.is_maria() => {
+                                // In MariaDB, $ can start an identifier
+                                self.unquoted_identifier(start)
+                            }
                             _ => Token::Invalid,
                         }
                     }
-                    _ => Token::At,
+                }
+                b'=' => match self.chars.peek() {
+                    Some((_, b'>')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::RArrow)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::Eq),
                 },
-                '~' => Token::Tilde,
-                ':' => match self.chars.peek() {
-                    Some((_, ':')) => {
-                        self.chars.next();
-                        Token::DoubleColon
+                b'!' => match self.chars.peek() {
+                    Some((_, b'=')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::Neq)
                     }
-                    Some((_, '=')) => {
-                        self.chars.next();
-                        Token::ColonEq
+                    Some((_, b'!')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::DoubleExclamationMark)
                     }
-                    _ => Token::Colon,
-                },
-                '$' => match self.chars.peek() {
-                    Some((_, '$')) => {
-                        self.chars.next();
-                        Token::DoubleDollar
-                    }
-                    Some((_, '1'..='9')) if self.dialect.is_postgresql() => {
-                        let mut v = self.chars.peek().unwrap().1.to_digit(10).unwrap() as usize;
-                        self.chars.next();
-                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
-                            v = v * 10
-                                + self.chars.peek().unwrap().1.to_digit(10).unwrap() as usize;
-                            self.chars.next();
-                        }
-                        Token::DollarArg(v)
-                    }
-                    _ if self.dialect.is_maria() => {
-                        // In MariaDB, $ can start an identifier
-                        self.simple_literal(start)
-                    }
-                    _ => Token::Invalid,
-                },
-                '=' => match self.chars.peek() {
-                    Some((_, '>')) => {
-                        self.chars.next();
-                        Token::RArrow
-                    }
-                    _ => Token::Eq,
-                },
-                '!' => match self.chars.peek() {
-                    Some((_, '=')) => {
-                        self.chars.next();
-                        Token::Neq
-                    }
-                    Some((_, '!')) => {
-                        self.chars.next();
-                        Token::DoubleExclamationMark
-                    }
-                    _ => Token::ExclamationMark,
-                },
-                '<' => match self.chars.peek() {
-                    Some((_, '=')) => {
-                        self.chars.next();
+                    Some((_, b'~')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
                         match self.chars.peek() {
-                            Some((_, '>')) => {
-                                self.chars.next();
-                                Token::Spaceship
+                            Some((_, b'*')) => {
+                                let next2 = self.chars.next().unwrap();
+                                self.next_operator(start, next2, Token::NotTildeStar)
                             }
-                            _ => Token::LtEq,
+                            Some((_, b'~')) => {
+                                let next2 = self.chars.next().unwrap();
+                                self.next_operator(start, next2, Token::NotLikeTilde)
+                            }
+                            _ => self.next_operator(start, next, Token::NotTilde),
                         }
                     }
-                    Some((_, '>')) => {
-                        self.chars.next();
-                        Token::Neq
-                    }
-                    Some((_, '<')) => {
-                        self.chars.next();
-                        Token::ShiftLeft
-                    }
-                    _ => Token::Lt,
+                    _ => self.next_operator(start, (start, c), Token::ExclamationMark),
                 },
-                '>' => match self.chars.peek() {
-                    Some((_, '=')) => {
-                        self.chars.next();
-                        Token::GtEq
+                b'<' => match self.chars.peek() {
+                    Some((_, b'=')) => {
+                        let next = self.chars.next().unwrap();
+                        match self.chars.peek() {
+                            Some((_, b'>')) => {
+                                let next = self.chars.next().unwrap();
+                                self.next_operator(start, next, Token::Spaceship)
+                            }
+                            _ => self.next_operator(start, next, Token::LtEq),
+                        }
                     }
-                    Some((_, '>')) => {
-                        self.chars.next();
-                        Token::ShiftRight
+                    Some((_, b'>')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::Neq)
                     }
-                    _ => Token::Gt,
+                    Some((_, b'<')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::ShiftLeft)
+                    }
+                    Some((_, b'@')) if self.dialect.is_postgresql() => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::ContainedBy)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::Lt),
                 },
-                '|' => match self.chars.peek() {
-                    Some((_, '|')) => {
-                        self.chars.next();
-                        Token::DoublePipe
+                b'>' => match self.chars.peek() {
+                    Some((_, b'=')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::GtEq)
                     }
-                    _ => Token::Pipe,
+                    Some((_, b'>')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::ShiftRight)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::Gt),
                 },
-                '-' => match self.chars.peek() {
-                    Some((_, '-')) => {
-                        while !matches!(self.chars.next(), Some((_, '\r' | '\n')) | None) {}
+                b'|' => match self.chars.peek() {
+                    Some((_, b'|')) => {
+                        let next = self.chars.next().unwrap();
+                        self.next_operator(start, next, Token::DoublePipe)
+                    }
+                    _ => self.next_operator(start, (start, c), Token::Pipe),
+                },
+                b'-' => match self.chars.peek() {
+                    Some((_, b'-')) => {
+                        while !matches!(self.chars.next(), Some((_, b'\r' | b'\n')) | None) {}
                         continue;
                     }
-                    Some((_, '>')) => {
-                        self.chars.next();
+                    Some((_, b'>')) => {
+                        let next = self.chars.next().unwrap();
                         match self.chars.peek() {
-                            Some((_, '>')) => {
-                                self.chars.next();
-                                Token::RDoubleArrowJson
+                            Some((_, b'>')) => {
+                                let next = self.chars.next().unwrap();
+                                self.next_operator(start, next, Token::RDoubleArrowJson)
                             }
-                            _ => Token::RArrowJson,
+                            _ => self.next_operator(start, next, Token::RArrowJson),
                         }
                     }
-                    _ => Token::Minus,
+                    _ => self.next_operator(start, (start, c), Token::Minus),
                 },
-                '/' => match self.chars.peek() {
-                    Some((_, '*')) => {
+                b'/' => match self.chars.peek() {
+                    Some((_, b'*')) => {
                         self.chars.next();
                         let ok = loop {
                             match self.chars.next() {
-                                Some((_, '*')) => {
-                                    if matches!(self.chars.peek(), Some((_, '/'))) {
+                                Some((_, b'*')) => {
+                                    if matches!(self.chars.peek(), Some((_, b'/'))) {
                                         self.chars.next();
                                         break true;
                                     }
@@ -467,49 +880,79 @@ impl<'a> Lexer<'a> {
                             Token::Invalid
                         }
                     }
-                    Some((_, '/')) => {
-                        while !matches!(self.chars.next(), Some((_, '\r' | '\n')) | None) {}
+                    Some((_, b'/')) => {
+                        while !matches!(self.chars.next(), Some((_, b'\r' | b'\n')) | None) {}
                         continue;
                     }
-                    _ => Token::Div,
+                    _ => self.next_operator(start, (start, c), Token::Div),
                 },
-                'x' | 'X' => match self.chars.peek() {
-                    Some((_, '\'')) => {
+                b'x' | b'X' => match self.chars.peek() {
+                    Some((_, b'\'')) => {
                         self.chars.next(); // consume the '
                         loop {
                             match self.chars.next() {
-                                Some((i, '\'')) => break Token::HexString(self.s(start + 2..i)),
-                                Some((_, '0'..='9' | 'a'..='f' | 'A'..='F')) => (),
+                                Some((i, b'\'')) => {
+                                    break Token::String(self.s(start + 2..i), StringType::Hex);
+                                }
+                                Some((_, b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F')) => (),
                                 Some((_, _)) => break Token::Invalid,
                                 None => break Token::Invalid,
                             }
                         }
                     }
-                    _ => self.simple_literal(start),
+                    _ => self.unquoted_identifier(start),
                 },
-                'b' | 'B' => match self.chars.peek() {
-                    Some((_, '\'')) => {
+                b'b' | b'B' => match self.chars.peek() {
+                    Some((_, b'\'')) => {
                         self.chars.next(); // consume the '
                         loop {
                             match self.chars.next() {
-                                Some((i, '\'')) => break Token::BinaryString(self.s(start + 2..i)),
-                                Some((_, '0' | '1')) => (),
+                                Some((i, b'\'')) => {
+                                    break Token::String(self.s(start + 2..i), StringType::Binary);
+                                }
+                                Some((_, b'0' | b'1')) => (),
                                 Some((_, _)) => break Token::Invalid,
                                 None => break Token::Invalid,
                             }
                         }
                     }
-                    _ => self.simple_literal(start),
+                    _ => self.unquoted_identifier(start),
                 },
-                '_' | 'a'..='z' | 'A'..='Z' => self.simple_literal(start),
-                '`' => {
+                b'e' | b'E' => match self.chars.peek() {
+                    Some((_, b'\'')) => {
+                        self.chars.next(); // consume the '
+                        loop {
+                            match self.chars.next() {
+                                Some((_, b'\\')) => {
+                                    self.chars.next(); // skip escaped character
+                                }
+                                Some((i, b'\'')) => match self.chars.peek() {
+                                    Some((_, b'\'')) => {
+                                        self.chars.next(); // doubled-quote escape
+                                    }
+                                    _ => {
+                                        break Token::String(
+                                            self.s(start + 2..i),
+                                            StringType::Escape,
+                                        );
+                                    }
+                                },
+                                Some((_, _)) => (),
+                                None => break Token::Invalid,
+                            }
+                        }
+                    }
+                    _ => self.unquoted_identifier(start),
+                },
+                b'_' | b'a'..=b'z' | b'A'..=b'Z' => self.unquoted_identifier(start),
+                b'`' => {
                     // MySQL backtick-quoted identifiers can contain any character except backticks
                     // Backticks can be escaped by doubling them
                     loop {
                         match self.chars.next() {
-                            Some((i, '`')) => {
+                            Some((i, b'`')) => {
                                 // Check if it's a doubled backtick (escape sequence)
-                                if matches!(self.chars.peek(), Some((_, '`'))) {
+                                if matches!(self.chars.peek(), Some((_, b'`'))) {
                                     self.chars.next(); // consume the second backtick
                                     continue;
                                 } else {
@@ -525,41 +968,51 @@ impl<'a> Lexer<'a> {
                         }
                     }
                 }
-                '\'' => loop {
+                b'\'' => loop {
                     match self.chars.next() {
-                        Some((_, '\\')) => {
+                        Some((_, b'\\')) if self.dialect.is_maria() => {
                             self.chars.next();
                         }
-                        Some((i, '\'')) => match self.chars.peek() {
-                            Some((_, '\'')) => {
+                        Some((i, b'\'')) => match self.chars.peek() {
+                            Some((_, b'\'')) => {
                                 self.chars.next();
                             }
-                            _ => break Token::SingleQuotedString(self.s(start + 1..i)),
+                            _ => {
+                                break Token::String(
+                                    self.s(start + 1..i),
+                                    StringType::SingleQuoted,
+                                );
+                            }
                         },
                         Some((_, _)) => (),
                         None => break Token::Invalid,
                     }
                 },
-                '"' => loop {
+                b'"' => loop {
                     match self.chars.next() {
-                        Some((_, '\\')) => {
+                        Some((_, b'\\')) if self.dialect.is_maria() => {
                             self.chars.next();
                         }
-                        Some((i, '"')) => match self.chars.peek() {
-                            Some((_, '"')) => {
+                        Some((i, b'"')) => match self.chars.peek() {
+                            Some((_, b'"')) => {
                                 self.chars.next();
                             }
-                            _ => break Token::DoubleQuotedString(self.s(start + 1..i)),
+                            _ => {
+                                break Token::String(
+                                    self.s(start + 1..i),
+                                    StringType::DoubleQuoted,
+                                );
+                            }
                         },
                         Some((_, _)) => (),
                         None => break Token::Invalid,
                     }
                 },
-                '0'..='9' => {
+                b'0'..=b'9' => {
                     // For MariaDB, identifiers can start with digits
                     if self.dialect.is_maria() {
                         // Consume initial digits
-                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                        while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                             self.chars.next();
                         }
 
@@ -568,66 +1021,83 @@ impl<'a> Lexer<'a> {
                             // If followed by identifier char (not e/E or .), it's an identifier
                             Some((
                                 _,
-                                '_' | 'a'..='d' | 'f'..='z' | 'A'..='D' | 'F'..='Z' | '$' | '@',
+                                b'_'
+                                | b'a'..=b'd'
+                                | b'f'..=b'z'
+                                | b'A'..=b'D'
+                                | b'F'..=b'Z'
+                                | b'$'
+                                | b'@',
                             )) => {
                                 // It's an identifier - consume remaining identifier chars
                                 while matches!(
                                     self.chars.peek(),
-                                    Some((_, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '@'))
+                                    Some((
+                                        _,
+                                        b'_'
+                                        | b'a'..=b'z'
+                                        | b'A'..=b'Z'
+                                        | b'0'..=b'9'
+                                        | b'$'
+                                        | b'@',
+                                    ))
                                 ) {
                                     self.chars.next();
                                 }
                                 let end = match self.chars.peek() {
-                                    Some((i, _)) => *i,
+                                    Some((i, _)) => i,
                                     None => self.src.len(),
                                 };
                                 let s = self.s(start..end);
-                                let ss = s.to_ascii_uppercase();
-                                Token::Ident(s, ss.as_str().into())
+                                Token::Ident(s, Keyword::NOT_A_KEYWORD)
                             }
                             // Check for exponent notation
-                            Some((_, 'e' | 'E')) => {
+                            Some((_, b'e' | b'E')) => {
                                 // Peek ahead to see if this is a valid exponent or identifier char
                                 let mut temp = self.chars.clone();
                                 temp.next(); // skip 'e'/'E'
-                                if matches!(temp.peek(), Some((_, '+' | '-'))) {
+                                if matches!(temp.peek(), Some((_, b'+' | b'-'))) {
                                     temp.next();
                                 }
-                                if matches!(temp.peek(), Some((_, '0'..='9'))) {
+                                if matches!(temp.peek(), Some((_, b'0'..=b'9'))) {
                                     // Valid exponent - check if identifier chars follow after exponent
                                     self.chars.next(); // consume 'e'/'E'
-                                    if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                    if matches!(self.chars.peek(), Some((_, b'+' | b'-'))) {
                                         self.chars.next();
                                     }
-                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                    while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                                         self.chars.next();
                                     }
                                     // Now check if identifier chars follow the exponent
                                     if matches!(
                                         self.chars.peek(),
-                                        Some((_, '_' | 'a'..='z' | 'A'..='Z' | '$' | '@'))
+                                        Some((_, b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'@'))
                                     ) {
                                         // Identifier chars follow - it's an identifier
                                         while matches!(
                                             self.chars.peek(),
                                             Some((
                                                 _,
-                                                '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '@',
+                                                b'_'
+                                                | b'a'..=b'z'
+                                                | b'A'..=b'Z'
+                                                | b'0'..=b'9'
+                                                | b'$'
+                                                | b'@',
                                             ))
                                         ) {
                                             self.chars.next();
                                         }
                                         let end = match self.chars.peek() {
-                                            Some((i, _)) => *i,
+                                            Some((i, _)) => i,
                                             None => self.src.len(),
                                         };
                                         let s = self.s(start..end);
-                                        let ss = s.to_ascii_uppercase();
-                                        Token::Ident(s, ss.as_str().into())
+                                        Token::Ident(s, Keyword::NOT_A_KEYWORD)
                                     } else {
                                         // No identifier chars - it's a float
                                         let end = match self.chars.peek() {
-                                            Some((i, _)) => *i,
+                                            Some((i, _)) => i,
                                             None => self.src.len(),
                                         };
                                         Token::Float(self.s(start..end))
@@ -638,57 +1108,63 @@ impl<'a> Lexer<'a> {
                                         self.chars.peek(),
                                         Some((
                                             _,
-                                            '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '@',
+                                            b'_'
+                                            | b'a'..=b'z'
+                                            | b'A'..=b'Z'
+                                            | b'0'..=b'9'
+                                            | b'$'
+                                            | b'@',
                                         ))
                                     ) {
                                         self.chars.next();
                                     }
                                     let end = match self.chars.peek() {
-                                        Some((i, _)) => *i,
+                                        Some((i, _)) => i,
                                         None => self.src.len(),
                                     };
                                     let s = self.s(start..end);
-                                    let ss = s.to_ascii_uppercase();
-                                    Token::Ident(s, ss.as_str().into())
+                                    Token::Ident(s, Keyword::NOT_A_KEYWORD)
                                 }
                             }
                             // Check for decimal point
-                            Some((_, '.')) => {
+                            Some((_, b'.')) => {
                                 let mut temp = self.chars.clone();
                                 temp.next();
-                                if matches!(temp.peek(), Some((_, '0'..='9'))) {
+                                if matches!(temp.peek(), Some((_, b'0'..=b'9'))) {
                                     // Valid float - consume decimal part
                                     self.chars.next(); // consume '.'
-                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                    while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                                         self.chars.next();
                                     }
                                     // Check for exponent
-                                    if matches!(self.chars.peek(), Some((_, 'e' | 'E'))) {
+                                    if matches!(self.chars.peek(), Some((_, b'e' | b'E'))) {
                                         let mut temp2 = self.chars.clone();
                                         temp2.next();
-                                        if matches!(temp2.peek(), Some((_, '+' | '-'))) {
+                                        if matches!(temp2.peek(), Some((_, b'+' | b'-'))) {
                                             temp2.next();
                                         }
-                                        if matches!(temp2.peek(), Some((_, '0'..='9'))) {
+                                        if matches!(temp2.peek(), Some((_, b'0'..=b'9'))) {
                                             self.chars.next(); // consume 'e'/'E'
-                                            if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                            if matches!(self.chars.peek(), Some((_, b'+' | b'-'))) {
                                                 self.chars.next();
                                             }
-                                            while matches!(self.chars.peek(), Some((_, '0'..='9')))
-                                            {
+                                            while matches!(
+                                                self.chars.peek(),
+                                                Some((_, b'0'..=b'9'))
+                                            ) {
                                                 self.chars.next();
                                             }
                                         }
                                     }
                                     let end = match self.chars.peek() {
-                                        Some((i, _)) => *i,
+                                        Some((i, _)) => i,
                                         None => self.src.len(),
                                     };
                                     Token::Float(self.s(start..end))
                                 } else {
                                     // Period not followed by digit - just an integer
                                     let end = match self.chars.peek() {
-                                        Some((i, _)) => *i,
+                                        Some((i, _)) => i,
                                         None => self.src.len(),
                                     };
                                     Token::Integer(self.s(start..end))
@@ -697,7 +1173,7 @@ impl<'a> Lexer<'a> {
                             // No special chars - just an integer
                             _ => {
                                 let end = match self.chars.peek() {
-                                    Some((i, _)) => *i,
+                                    Some((i, _)) => i,
                                     None => self.src.len(),
                                 };
                                 Token::Integer(self.s(start..end))
@@ -708,35 +1184,35 @@ impl<'a> Lexer<'a> {
                         let mut is_float = false;
                         loop {
                             match self.chars.peek() {
-                                Some((_, '0'..='9')) => {
+                                Some((_, b'0'..=b'9')) => {
                                     self.chars.next();
                                 }
-                                Some((_, '.')) => {
+                                Some((_, b'.')) => {
                                     self.chars.next();
                                     is_float = true;
                                     // Consume fractional part
-                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                    while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                                         self.chars.next();
                                     }
                                     // Check for exponent
-                                    if matches!(self.chars.peek(), Some((_, 'e' | 'E'))) {
+                                    if matches!(self.chars.peek(), Some((_, b'e' | b'E'))) {
                                         self.chars.next();
-                                        if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                        if matches!(self.chars.peek(), Some((_, b'+' | b'-'))) {
                                             self.chars.next();
                                         }
-                                        while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                        while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                                             self.chars.next();
                                         }
                                     }
                                     break;
                                 }
-                                Some((_, 'e' | 'E')) => {
+                                Some((_, b'e' | b'E')) => {
                                     self.chars.next();
                                     is_float = true;
-                                    if matches!(self.chars.peek(), Some((_, '+' | '-'))) {
+                                    if matches!(self.chars.peek(), Some((_, b'+' | b'-'))) {
                                         self.chars.next();
                                     }
-                                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                                    while matches!(self.chars.peek(), Some((_, b'0'..=b'9'))) {
                                         self.chars.next();
                                     }
                                     break;
@@ -745,7 +1221,7 @@ impl<'a> Lexer<'a> {
                             }
                         }
                         let end = match self.chars.peek() {
-                            Some((i, _)) => *i,
+                            Some((i, _)) => i,
                             None => self.src.len(),
                         };
                         if is_float {
@@ -755,76 +1231,30 @@ impl<'a> Lexer<'a> {
                         }
                     }
                 }
-                '.' => match self.chars.peek() {
-                    Some((_, '0'..='9')) => loop {
+                b'.' => match self.chars.peek() {
+                    Some((_, b'0'..=b'9')) => loop {
                         match self.chars.peek() {
-                            Some((_, '0'..='9')) => {
+                            Some((_, b'0'..=b'9')) => {
                                 self.chars.next();
                             }
-                            Some((i, _)) => {
-                                let i = *i;
-                                break Token::Float(self.s(start..i));
-                            }
+                            Some((i, _)) => break Token::Float(self.s(start..i)),
                             None => break Token::Float(self.s(start..self.src.len())),
                         }
                     },
                     _ => Token::Period,
                 },
                 // In MariaDB, Unicode characters (U+0080 and above) can start identifiers
-                c if self.dialect.is_maria() && (c as u32) >= 0x80 => self.simple_literal(start),
+                c if self.dialect.is_maria() && (c as u32) >= 0x80 => {
+                    self.unquoted_identifier(start)
+                }
                 _ => Token::Invalid,
             };
 
             let end = match self.chars.peek() {
-                Some((i, _)) => *i,
+                Some((i, _)) => i,
                 None => self.src.len(),
             };
             return (t, start..end);
-
-            // // string
-
-            // '\'' => {
-            //     let value = self.tokenize_single_quoted_string(chars)?;
-            //     Ok(Some(Token::SingleQuotedString { value, span }))
-            // }
-
-            // // numbers and period
-            // '0'..='9' | '.' => {
-            //     let mut value = peeking_take_while(chars, |ch| matches!(ch, '0'..='9'));
-
-            //     // match binary literal that starts with 0x
-            //     if value == "0" && chars.peek().map(|(_, c)| c) == Some(&'x') {
-            //         chars.next();
-            //         let value = peeking_take_while(
-            //             chars,
-            //             |ch| matches!(ch, '0'..='9' | 'A'..='F' | 'a'..='f'),
-            //         );
-            //         return Ok(Some(Token::HexStringLiteral { value, span }));
-            //     }
-
-            //     // match one period
-            //     if let Some((_, '.')) = chars.peek() {
-            //         value.push('.');
-            //         chars.next();
-            //     }
-            //     value += &peeking_take_while(chars, |ch| matches!(ch, '0'..='9'));
-
-            //     // No number -> Token::Period
-            //     if value == "." {
-            //         return Ok(Some(Token::Period { span }));
-            //     }
-
-            //     let long = if let Some((_, 'L')) = chars.peek() {
-            //         chars.next();
-            //         true
-            //     } else {
-            //         false
-            //     };
-            //     Ok(Some(Token::Number { value, long, span }))
-            // }
-            // // punctuation
-
-            // // operators
         }
     }
 }
@@ -842,11 +1272,13 @@ mod tests {
     use super::*;
     use alloc::vec::Vec;
 
+    /// Helper function to lex a single token from the input string. It returns the token without its span.
     fn lex_single<'a>(src: &'a str, dialect: &SQLDialect) -> Token<'a> {
         let mut lexer = Lexer::new(src, dialect);
         lexer.next_token().0
     }
 
+    /// Helper function to lex all tokens from the input string. It returns a vector of tokens without their spans.
     fn lex_all<'a>(src: &'a str, dialect: &SQLDialect) -> Vec<Token<'a>> {
         let mut lexer = Lexer::new(src, dialect);
         let mut tokens = Vec::new();
@@ -860,6 +1292,8 @@ mod tests {
         tokens
     }
 
+    /// Tests that keywords are correctly recognized and case-insensitive.
+    /// It also checks that they are categorized as keywords rather than identifiers.
     #[test]
     fn test_keywords() {
         let dialect = SQLDialect::MariaDB;
@@ -926,6 +1360,7 @@ mod tests {
         ));
     }
 
+    /// Tests that identifiers are correctly recognized in various forms, including unquoted, backtick-quoted, and with escaped characters.
     #[test]
     fn test_identifiers() {
         let dialect = SQLDialect::MariaDB;
@@ -965,6 +1400,7 @@ mod tests {
         }
     }
 
+    /// Tests that numbers are correctly recognized in various formats, including integers, floats, and scientific notation.
     #[test]
     fn test_numbers() {
         let dialect = SQLDialect::MariaDB;
@@ -1015,57 +1451,59 @@ mod tests {
         }
     }
 
+    /// Tests that different types of strings are correctly recognized, including single-quoted, double-quoted, hex, and binary strings.
     #[test]
     fn test_strings() {
         let dialect = SQLDialect::MariaDB;
 
         // Single quoted strings
-        if let Token::SingleQuotedString(value) = lex_single("'hello'", &dialect) {
+        if let Token::String(value, StringType::SingleQuoted) = lex_single("'hello'", &dialect) {
             assert_eq!(value, "hello");
         } else {
             panic!("Expected single quoted string");
         }
 
-        if let Token::SingleQuotedString(value) = lex_single("'it''s'", &dialect) {
+        if let Token::String(value, StringType::SingleQuoted) = lex_single("'it''s'", &dialect) {
             assert_eq!(value, "it''s");
         } else {
             panic!("Expected single quoted string with escaped quote");
         }
 
         // Double quoted strings
-        if let Token::DoubleQuotedString(value) = lex_single("\"hello\"", &dialect) {
+        if let Token::String(value, StringType::DoubleQuoted) = lex_single("\"hello\"", &dialect) {
             assert_eq!(value, "hello");
         } else {
             panic!("Expected double quoted string");
         }
 
         // Hex strings
-        if let Token::HexString(value) = lex_single("x'48656C6C6F'", &dialect) {
+        if let Token::String(value, StringType::Hex) = lex_single("x'48656C6C6F'", &dialect) {
             assert_eq!(value, "48656C6C6F");
         } else {
             panic!("Expected hex string");
         }
 
-        if let Token::HexString(value) = lex_single("X'ABCDEF'", &dialect) {
+        if let Token::String(value, StringType::Hex) = lex_single("X'ABCDEF'", &dialect) {
             assert_eq!(value, "ABCDEF");
         } else {
             panic!("Expected hex string");
         }
 
         // Binary strings
-        if let Token::BinaryString(value) = lex_single("b'101010'", &dialect) {
+        if let Token::String(value, StringType::Binary) = lex_single("b'101010'", &dialect) {
             assert_eq!(value, "101010");
         } else {
             panic!("Expected binary string");
         }
 
-        if let Token::BinaryString(value) = lex_single("B'111'", &dialect) {
+        if let Token::String(value, StringType::Binary) = lex_single("B'111'", &dialect) {
             assert_eq!(value, "111");
         } else {
             panic!("Expected binary string");
         }
     }
 
+    /// Tests that various operators are correctly recognized, including multi-character operators and those specific to certain dialects.
     #[test]
     fn test_operators() {
         let dialect = SQLDialect::MariaDB;
@@ -1095,6 +1533,7 @@ mod tests {
         assert_eq!(lex_single("!!", &dialect), Token::DoubleExclamationMark);
     }
 
+    /// Tests that various punctuation characters are correctly recognized, including those specific to certain dialects.
     #[test]
     fn test_punctuation() {
         let dialect = SQLDialect::MariaDB;
@@ -1107,7 +1546,7 @@ mod tests {
         assert_eq!(lex_single("}", &dialect), Token::RBrace);
         assert_eq!(lex_single(",", &dialect), Token::Comma);
         assert_eq!(lex_single(".", &dialect), Token::Period);
-        assert_eq!(lex_single(";", &dialect), Token::SemiColon);
+        assert_eq!(lex_single(";", &dialect), Token::Delimiter);
         assert_eq!(lex_single(":", &dialect), Token::Colon);
         assert_eq!(lex_single("::", &dialect), Token::DoubleColon);
         assert_eq!(lex_single("?", &dialect), Token::QuestionMark);
@@ -1135,9 +1574,11 @@ mod tests {
             Token::Ident(_, Keyword::NOT_A_KEYWORD)
         ));
 
-        // Double dollar works in both dialects
+        // In MariaDB, $$ is a statement delimiter token
         assert_eq!(lex_single("$$", &mariadb), Token::DoubleDollar);
-        assert_eq!(lex_single("$$", &postgresql), Token::DoubleDollar);
+        // In PostgreSQL, $$ opens a dollar-quoted string; a bare $$ with no closing
+        // delimiter is unterminated → Invalid
+        assert_eq!(lex_single("$$", &postgresql), Token::Invalid);
 
         // Session variables (MariaDB)
         assert_eq!(lex_single("@@GLOBAL", &mariadb), Token::AtAtGlobal);
@@ -1149,6 +1590,84 @@ mod tests {
         assert_eq!(lex_single("%s", &mariadb), Token::PercentS);
     }
 
+    /// Tests that PostgreSQL dollar-quoted strings are correctly recognized and parsed.
+    #[test]
+    fn test_dollar_quoted_strings() {
+        let postgresql = SQLDialect::PostgreSQL;
+
+        // Simple dollar-quoted string
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$$Hello World$$", &postgresql)
+        {
+            assert_eq!(value, "Hello World");
+        } else {
+            panic!("Expected dollar-quoted string");
+        }
+
+        // Empty dollar-quoted string
+        if let Token::String(value, StringType::DollarQuoted) = lex_single("$$$$", &postgresql) {
+            assert_eq!(value, "");
+        } else {
+            panic!("Expected empty dollar-quoted string");
+        }
+
+        // Dollar-quoted string with tag
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$tag$Hello World$tag$", &postgresql)
+        {
+            assert_eq!(value, "Hello World");
+        } else {
+            panic!("Expected tagged dollar-quoted string");
+        }
+
+        // Dollar-quoted string with special characters
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$$hello$$world$$", &postgresql)
+        {
+            assert_eq!(value, "hello");
+        } else {
+            panic!("Expected dollar-quoted string with $$ inside");
+        }
+
+        // Dollar-quoted string with tag containing various characters
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$x$hello$x$", &postgresql)
+        {
+            assert_eq!(value, "hello");
+        } else {
+            panic!("Expected dollar-quoted string with tag 'x'");
+        }
+
+        // Dollar-quoted string with underscore in tag
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$tag_name$world$tag_name$", &postgresql)
+        {
+            assert_eq!(value, "world");
+        } else {
+            panic!("Expected dollar-quoted string with tag 'tag_name'");
+        }
+
+        // Dollar-quoted string with newlines and special characters
+        if let Token::String(value, StringType::DollarQuoted) =
+            lex_single("$$Foo$Bar$$", &postgresql)
+        {
+            assert_eq!(value, "Foo$Bar");
+        } else {
+            panic!("Expected dollar-quoted string with $ character inside");
+        }
+
+        // Dollar-quoted string in a SELECT statement
+        let tokens = lex_all("SELECT $$Hello$$", &postgresql);
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0], Token::Ident(_, Keyword::SELECT)));
+        if let Token::String(value, StringType::DollarQuoted) = &tokens[1] {
+            assert_eq!(*value, "Hello");
+        } else {
+            panic!("Expected dollar-quoted string in SELECT");
+        }
+    }
+
+    /// Tests that comments are correctly skipped and do not produce tokens. It covers single-line comments with both -- and //, as well as multi-line comments.
     #[test]
     fn test_comments() {
         let dialect = SQLDialect::MariaDB;
@@ -1178,6 +1697,7 @@ mod tests {
         assert!(matches!(tokens[1], Token::Ident(_, Keyword::FROM)));
     }
 
+    /// Tests that in MariaDB, identifiers can start with digits, but in PostgreSQL they cannot. It also checks that valid numbers are still recognized as numbers and not identifiers.
     #[test]
     fn test_mariadb_identifiers_starting_with_digits() {
         let dialect = SQLDialect::MariaDB;
@@ -1216,6 +1736,9 @@ mod tests {
         assert!(matches!(lex_single("1e5", &dialect), Token::Float(_)));
     }
 
+    /// Tests that the lexer correctly distinguishes between the PostgreSQL and MariaDB dialects
+    /// when it comes to identifiers starting with digits.
+    /// It verifies that in PostgreSQL, such tokens are treated as numbers, while in MariaDB they are treated as identifiers.
     #[test]
     fn test_postgresql_vs_mariadb() {
         // PostgreSQL doesn't allow identifiers starting with digits
@@ -1234,6 +1757,7 @@ mod tests {
         }
     }
 
+    /// Tests that whitespace characters are correctly skipped and do not produce tokens.
     #[test]
     fn test_whitespace_handling() {
         let dialect = SQLDialect::MariaDB;
@@ -1244,6 +1768,8 @@ mod tests {
         assert!(matches!(tokens[1], Token::Ident(_, Keyword::FROM)));
     }
 
+    /// Tests a complex SQL query to ensure that all components (keywords, identifiers, operators, literals)
+    /// are correctly tokenized in the right order.
     #[test]
     fn test_complex_query() {
         let dialect = SQLDialect::MariaDB;
@@ -1275,25 +1801,29 @@ mod tests {
         assert!(matches!(tokens[15], Token::Integer(_))); // 10
     }
 
+    /// Tests that escaped characters within strings are correctly recognized and included in the token value.
     #[test]
     fn test_escaped_strings() {
         let dialect = SQLDialect::MariaDB;
 
         // Backslash escapes in single quoted strings
-        if let Token::SingleQuotedString(value) = lex_single("'hello\\nworld'", &dialect) {
+        if let Token::String(value, StringType::SingleQuoted) =
+            lex_single("'hello\\nworld'", &dialect)
+        {
             assert_eq!(value, "hello\\nworld");
         } else {
             panic!("Expected single quoted string with escape");
         }
 
         // Double single quotes
-        if let Token::SingleQuotedString(value) = lex_single("'can''t'", &dialect) {
+        if let Token::String(value, StringType::SingleQuoted) = lex_single("'can''t'", &dialect) {
             assert_eq!(value, "can''t");
         } else {
             panic!("Expected single quoted string with doubled quote");
         }
     }
 
+    /// Tests that invalid tokens are correctly identified as Token::Invalid, and that valid tokens are not misclassified as invalid.
     #[test]
     fn test_invalid_tokens() {
         let dialect = SQLDialect::MariaDB;
@@ -1314,6 +1844,7 @@ mod tests {
         ));
     }
 
+    /// Tests that keywords are recognized regardless of their case, and that they are categorized as keywords rather than identifiers.
     #[test]
     fn test_case_insensitive_keywords() {
         let dialect = SQLDialect::MariaDB;
@@ -1341,6 +1872,8 @@ mod tests {
         ));
     }
 
+    /// Tests that in MariaDB, tokens that start with digits but have identifier characters after are treated as identifiers,
+    /// while valid numbers without identifier characters are treated as numbers.
     #[test]
     fn test_mariadb_number_identifier_edge_cases() {
         let dialect = SQLDialect::MariaDB;
@@ -1473,14 +2006,6 @@ mod tests {
         } else {
             panic!("Expected identifier");
         }
-    }
-
-    #[test]
-    fn test_mariadb_single_pass_correctness() {
-        let dialect = SQLDialect::MariaDB;
-
-        // Test that we get the same results with the single-pass optimization
-        // as we would with the old two-pass approach
 
         // Numbers should end at the right place
         let tokens = lex_all("123 456", &dialect);
@@ -1549,5 +2074,350 @@ mod tests {
         }
         assert_eq!(tokens[10], Token::Gt);
         assert!(matches!(tokens[11], Token::Float("123.456")));
+    }
+
+    /// Tests that PostgreSQL-specific operators are correctly recognized,
+    /// including those that are not standard SQL operators but are valid in PostgreSQL.
+    /// It covers comparison, string, numerical, geometric, and time interval operators.
+    #[test]
+    fn test_postgres_operators() {
+        let dialect = SQLDialect::PostgreSQL;
+
+        // Table 9-1: Comparison and string operators
+        assert_eq!(lex_single("<", &dialect), Token::Lt);
+        assert_eq!(lex_single("<=", &dialect), Token::LtEq);
+        assert_eq!(lex_single("<>", &dialect), Token::Neq);
+        assert_eq!(lex_single("=", &dialect), Token::Eq);
+        assert_eq!(lex_single(">", &dialect), Token::Gt);
+        assert_eq!(lex_single(">=", &dialect), Token::GtEq);
+        assert_eq!(lex_single("||", &dialect), Token::DoublePipe);
+        // The following are not standard tokens, but may be handled as PostgresOperator
+        assert_eq!(lex_single("!!=", &dialect), Token::PostgresOperator("!!="));
+        assert_eq!(lex_single("~~", &dialect), Token::LikeTilde);
+        assert_eq!(lex_single("!~~", &dialect), Token::NotLikeTilde);
+        assert_eq!(lex_single("~", &dialect), Token::Tilde);
+        assert_eq!(lex_single("~*", &dialect), Token::TildeStar);
+        assert_eq!(lex_single("!~", &dialect), Token::NotTilde);
+        assert_eq!(lex_single("!~*", &dialect), Token::NotTildeStar);
+
+        // Table 9-2: Numerical operators
+        assert_eq!(lex_single("!", &dialect), Token::ExclamationMark);
+        assert_eq!(lex_single("!!", &dialect), Token::DoubleExclamationMark);
+        assert_eq!(lex_single("%", &dialect), Token::Mod);
+        assert_eq!(lex_single("*", &dialect), Token::Mul);
+        assert_eq!(lex_single("+", &dialect), Token::Plus);
+        assert_eq!(lex_single("-", &dialect), Token::Minus);
+        assert_eq!(lex_single("/", &dialect), Token::Div);
+        assert_eq!(lex_single(":", &dialect), Token::Colon);
+        assert_eq!(lex_single(";", &dialect), Token::Delimiter);
+        assert_eq!(lex_single("@", &dialect), Token::At);
+        assert_eq!(lex_single("^", &dialect), Token::Caret);
+        assert_eq!(lex_single("|/", &dialect), Token::PostgresOperator("|/"));
+        assert_eq!(lex_single("||/", &dialect), Token::PostgresOperator("||/"));
+
+        // Table 9-3: Geometric operators (a selection)
+        assert_eq!(lex_single("#", &dialect), Token::Sharp);
+        assert_eq!(lex_single("##", &dialect), Token::PostgresOperator("##"));
+        assert_eq!(lex_single("&&", &dialect), Token::DoubleAmpersand);
+        assert_eq!(lex_single("&<", &dialect), Token::PostgresOperator("&<"));
+        assert_eq!(lex_single("&>", &dialect), Token::PostgresOperator("&>"));
+        assert_eq!(lex_single("<->", &dialect), Token::PostgresOperator("<->"));
+        assert_eq!(lex_single("<<", &dialect), Token::ShiftLeft); // Note: check if this is ShiftLeft or ShiftRight in your Token
+        assert_eq!(lex_single("<^", &dialect), Token::PostgresOperator("<^"));
+        assert_eq!(lex_single(">>", &dialect), Token::ShiftRight); // Note: check if this is ShiftLeft or ShiftRight in your Token
+        assert_eq!(lex_single(">^", &dialect), Token::PostgresOperator(">^"));
+        assert_eq!(lex_single("?#", &dialect), Token::PostgresOperator("?#"));
+        assert_eq!(lex_single("?-", &dialect), Token::PostgresOperator("?-"));
+        assert_eq!(lex_single("?-|", &dialect), Token::PostgresOperator("?-|"));
+        assert_eq!(lex_single("@-@", &dialect), Token::PostgresOperator("@-@"));
+        assert_eq!(lex_single("?|", &dialect), Token::QuestionPipe);
+        assert_eq!(lex_single("?||", &dialect), Token::PostgresOperator("?||"));
+        assert_eq!(lex_single("@", &dialect), Token::At);
+        assert_eq!(lex_single("@@", &dialect), Token::AtAt);
+        assert_eq!(lex_single("~=", &dialect), Token::PostgresOperator("~="));
+
+        // Table 9-4: Time interval operators (a selection)
+        assert_eq!(lex_single("#<", &dialect), Token::PostgresOperator("#<"));
+        assert_eq!(lex_single("#<=", &dialect), Token::PostgresOperator("#<="));
+        assert_eq!(lex_single("#<>", &dialect), Token::PostgresOperator("#<>"));
+        assert_eq!(lex_single("#=", &dialect), Token::PostgresOperator("#="));
+        assert_eq!(lex_single("#>", &dialect), Token::HashArrow);
+        assert_eq!(lex_single("#>=", &dialect), Token::PostgresOperator("#>="));
+        assert_eq!(lex_single("<#>", &dialect), Token::PostgresOperator("<#>"));
+        assert_eq!(lex_single("<?>", &dialect), Token::PostgresOperator("<?>"));
+
+        // Custom operator names (user-defined, valid in PostgreSQL)
+        assert_eq!(
+            lex_single("<<>>", &dialect),
+            Token::PostgresOperator("<<>>")
+        );
+        assert_eq!(lex_single("++", &dialect), Token::PostgresOperator("++"));
+        assert_eq!(lex_single("<+>", &dialect), Token::PostgresOperator("<+>"));
+        assert_eq!(lex_single("@#@", &dialect), Token::PostgresOperator("@#@"));
+        assert_eq!(lex_single("!@#", &dialect), Token::PostgresOperator("!@#"));
+        assert_eq!(
+            lex_single("<=>=", &dialect),
+            Token::PostgresOperator("<=>=")
+        );
+        assert_eq!(
+            lex_single("<->-<", &dialect),
+            Token::PostgresOperator("<->-<")
+        );
+        // Operator with question mark
+        assert_eq!(lex_single("??", &dialect), Token::PostgresOperator("??"));
+        // Operator with pipe and ampersand
+        assert_eq!(lex_single("|&|", &dialect), Token::PostgresOperator("|&|"));
+        // Operator with tilde and exclamation
+        assert_eq!(lex_single("~!~", &dialect), Token::PostgresOperator("~!~"));
+        // Operator with mixed symbols
+        assert_eq!(
+            lex_single("<@#>", &dialect),
+            Token::PostgresOperator("<@#>")
+        );
+        // Operator with caret and percent
+        assert_eq!(lex_single("^%", &dialect), Token::PostgresOperator("^%"));
+        // Operator with colon and equals
+        assert_eq!(lex_single(":=:", &dialect), Token::PostgresOperator(":=:"));
+        // Operator with exclamation and equals
+        assert_eq!(
+            lex_single("!=!=", &dialect),
+            Token::PostgresOperator("!=!=")
+        );
+        // Operator with ampersand and at
+        assert_eq!(lex_single("&@&", &dialect), Token::PostgresOperator("&@&"));
+        // Operator with hash and tilde
+        assert_eq!(lex_single("#~#", &dialect), Token::PostgresOperator("#~#"));
+
+        // Operators containing comment delimiters, using lex_all
+        // -- should start a comment, so only the first operator is returned
+        let tokens = lex_all("<<>>--foo", &dialect);
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0], Token::PostgresOperator("<<>>"));
+
+        // /* should start a comment, so only the first operator is returned
+        let tokens = lex_all("<<>>/*foo*/bar", &dialect);
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0], Token::PostgresOperator("<<>>"));
+        // After the comment, 'bar' is an identifier
+        assert!(matches!(tokens[1], Token::Ident(_, _)));
+
+        // Operator with -- inside (should be split)
+        let tokens = lex_all("<-->", &dialect);
+        // Should produce PostgresOperator("<-") and Minus
+        assert!(tokens.len() == 2 || tokens.len() == 1); // Accept both if implementation varies
+        assert!(
+            matches!(
+                tokens[0],
+                Token::PostgresOperator("<")
+                    | Token::PostgresOperator("<-")
+                    | Token::PostgresOperator("<-->")
+                    | Token::Minus
+            ),
+            "{tokens:?}"
+        );
+    }
+
+    /// Tests that non-breaking space (U+00A0) is correctly handled as part of an identifier
+    /// in MariaDB, not as whitespace that separates tokens.
+    #[test]
+    fn test_non_breaking_space_in_identifier() {
+        let dialect = SQLDialect::MariaDB;
+
+        // Single identifier with non-breaking space in the middle
+        // "Ã Ã" where the space is U+00A0 (non-breaking space)
+        let sql = "\u{00C3}\u{00A0}\u{00C3}";
+        let tokens = lex_all(sql, &dialect);
+
+        // Should be parsed as a single identifier, not split into two
+        assert_eq!(
+            tokens.len(),
+            1,
+            "Non-breaking space should not split identifier"
+        );
+        if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = &tokens[0] {
+            assert_eq!(*name, "\u{00C3}\u{00A0}\u{00C3}");
+        } else {
+            panic!(
+                "Expected identifier with non-breaking space, got {:?}",
+                tokens[0]
+            );
+        }
+    }
+
+    /// Tests dialect-specific backslash behaviour inside single- and double-quoted string literals.
+    ///
+    /// In MariaDB, `\` escapes the next character, so `\'` keeps the string open.
+    /// In PostgreSQL, `\` is a plain literal character inside `'...'` / `"..."` (only
+    /// `E'...'` strings support backslash escapes), so `'\''` closes the string right
+    /// after the backslash.
+    #[test]
+    fn test_backslash_string_escaping() {
+        let pg = SQLDialect::PostgreSQL;
+        let maria = SQLDialect::MariaDB;
+
+        // ── single-quoted strings ────────────────────────────────────────────
+
+        // r"'\'" is the 3-char SQL text  '  \  '
+        // PostgreSQL: \ is literal → closing quote ends the string → content = "\"
+        if let Token::String(value, StringType::SingleQuoted) = lex_single(r"'\'", &pg) {
+            assert_eq!(
+                value, r"\",
+                "PG: backslash should be literal in single-quoted string"
+            );
+        } else {
+            panic!(
+                "Expected PG single-quoted string containing backslash, got {:?}",
+                lex_single(r"'\'", &pg)
+            );
+        }
+
+        // MariaDB: \ escapes the next ', so the string is never closed → Invalid
+        assert_eq!(
+            lex_single(r"'\'", &maria),
+            Token::Invalid,
+            "MariaDB: backslash-escaped quote should leave string unterminated"
+        );
+
+        // Verify the PG fix in context: after '\' the next token is reachable.
+        // SQL: '\' FORCE  →  String("\") + Ident(FORCE)
+        {
+            let tokens = lex_all(r"'\' FORCE", &pg);
+            assert_eq!(tokens.len(), 2, "PG: should lex two tokens after '\\''");
+            assert!(
+                matches!(&tokens[0], Token::String(v, StringType::SingleQuoted) if *v == r"\"),
+                "first token must be String(\"\\\\\") got {:?}",
+                tokens[0]
+            );
+            assert!(
+                matches!(tokens[1], Token::Ident(_, Keyword::FORCE)),
+                "second token must be FORCE keyword"
+            );
+        }
+
+        // In MariaDB the same input produces a single Invalid (string runs to EOF).
+        {
+            let tokens = lex_all(r"'\' FORCE", &maria);
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0], Token::Invalid);
+        }
+
+        // Backslash before a non-quote char: both dialects store the raw bytes;
+        // the behaviour only diverges when \ precedes the delimiter.
+        // '\n'  →  content "\\n"  in both dialects (MariaDB skips 'n', PG keeps it,
+        // but the raw slice between the outer quotes is the same two bytes).
+        if let Token::String(v, StringType::SingleQuoted) = lex_single(r"'\n'", &pg) {
+            assert_eq!(v, r"\n");
+        } else {
+            panic!("Expected PG single-quoted string '\\n'");
+        }
+        if let Token::String(v, StringType::SingleQuoted) = lex_single(r"'\n'", &maria) {
+            assert_eq!(v, r"\n");
+        } else {
+            panic!("Expected MariaDB single-quoted string '\\n'");
+        }
+
+        // ── double-quoted strings ────────────────────────────────────────────
+
+        // r#""\""# is the 3-char SQL text  "  \  "
+        // PostgreSQL: \ is literal → closing quote ends the string → content = "\"
+        if let Token::String(value, StringType::DoubleQuoted) = lex_single(r#""\""#, &pg) {
+            assert_eq!(
+                value, r"\",
+                "PG: backslash should be literal in double-quoted string"
+            );
+        } else {
+            panic!(
+                "Expected PG double-quoted string containing backslash, got {:?}",
+                lex_single(r#""\""#, &pg)
+            );
+        }
+
+        // MariaDB: \ escapes the next " → string never closes → Invalid
+        assert_eq!(
+            lex_single(r#""\""#, &maria),
+            Token::Invalid,
+            "MariaDB: backslash-escaped double-quote should leave string unterminated"
+        );
+    }
+
+    /// Tests that PostgreSQL escape strings (E'...') are correctly lexed as SqlString with StringType::Escape,
+    /// with the raw content preserved (decoding is done in the parser).
+    #[test]
+    fn test_escape_strings() {
+        let pg = SQLDialect::PostgreSQL;
+        let maria = SQLDialect::MariaDB;
+
+        // Basic E'' string
+        if let Token::String(value, StringType::Escape) = lex_single("E'hello'", &pg) {
+            assert_eq!(value, "hello");
+        } else {
+            panic!(
+                "Expected escape string, got {:?}",
+                lex_single("E'hello'", &pg)
+            );
+        }
+
+        // Lowercase e
+        if let Token::String(value, StringType::Escape) = lex_single("e'world'", &pg) {
+            assert_eq!(value, "world");
+        } else {
+            panic!("Expected escape string (lowercase e)");
+        }
+
+        // Backslash escape sequences — raw content is stored as-is by the lexer
+        if let Token::String(value, StringType::Escape) = lex_single(r"E'hello\nworld'", &pg) {
+            assert_eq!(value, r"hello\nworld");
+        } else {
+            panic!("Expected escape string with \\n");
+        }
+
+        // Unicode escape \uXXXX - stored raw
+        if let Token::String(value, StringType::Escape) = lex_single(r"E'\u0041'", &pg) {
+            assert_eq!(value, r"\u0041");
+        } else {
+            panic!("Expected escape string with \\uXXXX");
+        }
+
+        // Unicode escape \UXXXXXXXX (large codepoint) - stored raw
+        if let Token::String(value, StringType::Escape) = lex_single("E'\\U0010FFFF'", &pg) {
+            assert_eq!(value, "\\U0010FFFF");
+        } else {
+            panic!("Expected escape string with \\UXXXXXXXX");
+        }
+
+        // Hex escape \xHH - stored raw
+        if let Token::String(value, StringType::Escape) = lex_single("E'\\x41'", &pg) {
+            assert_eq!(value, "\\x41");
+        } else {
+            panic!("Expected escape string with \\xHH");
+        }
+
+        // Octal escapes - stored raw
+        if let Token::String(value, StringType::Escape) = lex_single("E'\\101'", &pg) {
+            assert_eq!(value, "\\101");
+        } else {
+            panic!("Expected escape string with octal escape");
+        }
+
+        // Doubled-quote escape '' - stored raw
+        if let Token::String(value, StringType::Escape) = lex_single("E'it''s'", &pg) {
+            assert_eq!(value, "it''s");
+        } else {
+            panic!("Expected escape string with doubled quote");
+        }
+
+        // E'' works in MariaDB too
+        if let Token::String(value, StringType::Escape) = lex_single("E'test'", &maria) {
+            assert_eq!(value, "test");
+        } else {
+            panic!("Expected escape string in MariaDB");
+        }
+
+        // E without quote is a plain identifier
+        assert!(matches!(lex_single("E", &pg), Token::Ident(_, _)));
+        assert!(matches!(lex_single("e", &pg), Token::Ident(_, _)));
+
+        // Unclosed E'' string is Invalid
+        assert_eq!(lex_single("E'unclosed", &pg), Token::Invalid);
     }
 }

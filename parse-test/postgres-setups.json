@@ -1,0 +1,31 @@
+{
+  "empty_setup": [],
+  "operator_class_int_ops": [
+    "CREATE OPERATOR CLASS int_ops FOR TYPE int4 USING btree AS OPERATOR 1 <, OPERATOR 2 <=, OPERATOR 3 =, OPERATOR 4 >=, OPERATOR 5 >, FUNCTION 1 btint4cmp(int4, int4)"
+  ],
+  "operator_family_integer_ops": [
+    "CREATE OPERATOR FAMILY integer_ops USING btree"
+  ],
+  "t_with_integer_id": [
+    "CREATE TABLE t (id INTEGER)"
+  ],
+  "operator_family_my_ops": [
+    "CREATE OPERATOR FAMILY my_ops USING btree"
+  ],
+  "custom_type_int": [
+    "CREATE TYPE \"int\" AS (value INTEGER)"
+  ],
+  "users_table": [
+    "CREATE TABLE users (id INTEGER, name TEXT)"
+  ],
+  "test_tables": [
+    "CREATE TABLE test_tables (id INTEGER, a INTEGER, b INTEGER, c INTEGER)"
+  ],
+  "tbloom_table": [
+    "CREATE EXTENSION bloom",
+    "CREATE TABLE tbloom (i1 INTEGER, i2 INTEGER, i3 INTEGER)"
+  ],
+  "test_table": [
+    "CREATE TABLE test (id INTEGER, name TEXT, value TEXT, \"where\" TEXT, \"create\" TEXT, is_default BOOLEAN, classification TEXT, sort INTEGER)"
+  ]
+}

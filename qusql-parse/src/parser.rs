@@ -15,8 +15,9 @@ use alloc::{borrow::Cow, format, string::String, vec::Vec};
 use crate::{
     Identifier, ParseOptions, SString, Span, Spanned,
     issue::{IssueHandle, Issues},
-    keywords::Keyword,
-    lexer::{Lexer, Token},
+    keywords::{Keyword, Restrict},
+    lexer::{Lexer, StringType, Token},
+    span::OptSpanned,
 };
 
 #[derive(Debug)]
@@ -31,7 +32,6 @@ pub(crate) struct Parser<'a, 'b> {
     pub(crate) lexer: Lexer<'a>,
     pub(crate) issues: &'b mut Issues<'a>,
     pub(crate) arg: usize,
-    pub(crate) delimiter: Token<'a>,
     pub(crate) options: &'b ParseOptions,
     pub(crate) permit_compound_statements: bool,
 }
@@ -54,6 +54,117 @@ pub(crate) fn decode_single_quoted_string(s: &str) -> Cow<'_, str> {
         }
         r.into()
     }
+}
+
+/// Decode a PostgreSQL escape string (`E'...'`).
+/// Handles `\\`, `\'`, `\n`, `\t`, `\r`, `\b`, `\f`, `\uXXXX`, `\UXXXXXXXX`,
+/// `\xHH` (hex), `\ooo` (octal 1-3 digits), `''` (doubled quote), and any
+/// other `\c` → `c` (non-standard passthrough).
+pub(crate) fn decode_escape_string(s: &str) -> Cow<'_, str> {
+    if !s.contains('\\') && !s.contains('\'') {
+        return s.into();
+    }
+    let mut r = String::new();
+    let mut chars = s.chars().peekable();
+    loop {
+        match chars.next() {
+            None => break,
+            Some('\'') => {
+                // Doubled-quote escape: '' → '
+                chars.next();
+                r.push('\'');
+            }
+            Some('\\') => match chars.next() {
+                None => break,
+                Some('n') => r.push('\n'),
+                Some('t') => r.push('\t'),
+                Some('r') => r.push('\r'),
+                Some('b') => r.push('\x08'),
+                Some('f') => r.push('\x0C'),
+                Some('\\') => r.push('\\'),
+                Some('\'') => r.push('\''),
+                Some('"') => r.push('"'),
+                Some('0') => r.push('\0'),
+                Some('u') => {
+                    // \uXXXX — exactly 4 hex digits
+                    let mut hex = String::with_capacity(4);
+                    for _ in 0..4 {
+                        match chars.peek() {
+                            Some(&c) if c.is_ascii_hexdigit() => {
+                                chars.next();
+                                hex.push(c);
+                            }
+                            _ => break,
+                        }
+                    }
+                    if let Ok(n) = u32::from_str_radix(&hex, 16)
+                        && let Some(c) = char::from_u32(n)
+                    {
+                        r.push(c);
+                    }
+                }
+                Some('U') => {
+                    // \UXXXXXXXX — exactly 8 hex digits
+                    let mut hex = String::with_capacity(8);
+                    for _ in 0..8 {
+                        match chars.peek() {
+                            Some(&c) if c.is_ascii_hexdigit() => {
+                                chars.next();
+                                hex.push(c);
+                            }
+                            _ => break,
+                        }
+                    }
+                    if let Ok(n) = u32::from_str_radix(&hex, 16)
+                        && let Some(c) = char::from_u32(n)
+                    {
+                        r.push(c);
+                    }
+                }
+                Some('x') => {
+                    // \xHH — 1 or 2 hex digits
+                    let mut hex = String::with_capacity(2);
+                    for _ in 0..2 {
+                        match chars.peek() {
+                            Some(&c) if c.is_ascii_hexdigit() => {
+                                chars.next();
+                                hex.push(c);
+                            }
+                            _ => break,
+                        }
+                    }
+                    if !hex.is_empty()
+                        && let Ok(n) = u32::from_str_radix(&hex, 16)
+                        && let Some(c) = char::from_u32(n)
+                    {
+                        r.push(c);
+                    }
+                }
+                Some(c @ '1'..='7') => {
+                    // \ooo — 1 to 3 octal digits (note: \0 handled above)
+                    let mut oct = String::with_capacity(3);
+                    oct.push(c);
+                    for _ in 0..2 {
+                        match chars.peek() {
+                            Some(&c) if matches!(c, '0'..='7') => {
+                                chars.next();
+                                oct.push(c);
+                            }
+                            _ => break,
+                        }
+                    }
+                    if let Ok(n) = u32::from_str_radix(&oct, 8)
+                        && let Some(c) = char::from_u32(n)
+                    {
+                        r.push(c);
+                    }
+                }
+                Some(c) => r.push(c),
+            },
+            Some(c) => r.push(c),
+        }
+    }
+    r.into()
 }
 
 pub(crate) fn decode_double_quoted_string(s: &str) -> Cow<'_, str> {
@@ -128,7 +239,6 @@ impl<'a, 'b> Parser<'a, 'b> {
             lexer,
             issues,
             arg: 0,
-            delimiter: Token::SemiColon,
             options,
             permit_compound_statements: false,
         }
@@ -144,7 +254,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             match &self.token {
                 t if brackets.is_empty() && success(t) => return Ok(()),
                 Token::Eof => return Err(ParseError::Unrecovered),
-                t if t == &self.delimiter => return Err(ParseError::Unrecovered),
+                Token::Delimiter => return Err(ParseError::Unrecovered),
                 t if brackets.is_empty() && fail(t) => return Err(ParseError::Unrecovered),
                 Token::LParen => {
                     brackets.push(Token::LParen);
@@ -259,6 +369,15 @@ impl<'a, 'b> Parser<'a, 'b> {
         Err(ParseError::Unrecovered)
     }
 
+    /// Check if the given keyword is reserved in the current dialect.
+    pub(crate) fn reserved(&self) -> Restrict {
+        match self.options.dialect {
+            crate::SQLDialect::MariaDB => Restrict::MARIADB,
+            crate::SQLDialect::PostgreSQL => Restrict::POSTGRES,
+            crate::SQLDialect::Sqlite => Restrict::SQLITE,
+        }
+    }
+
     pub(crate) fn token_to_plain_identifier(
         &mut self,
         token: &Token<'a>,
@@ -267,7 +386,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         match &token {
             Token::Ident(v, kw) => {
                 let v = *v;
-                if kw.reserved() {
+                if kw.restricted(self.reserved()) {
                     self.err(
                         format!("'{}' is a reserved identifier use `{}`", v, v),
                         &span,
@@ -283,11 +402,20 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
     }
 
-    pub(crate) fn consume_plain_identifier(&mut self) -> Result<Identifier<'a>, ParseError> {
+    pub(crate) fn consume_plain_identifier_unreserved(
+        &mut self,
+    ) -> Result<Identifier<'a>, ParseError> {
+        self.consume_plain_identifier_restrict(self.reserved())
+    }
+
+    pub(crate) fn consume_plain_identifier_restrict(
+        &mut self,
+        restricted: Restrict,
+    ) -> Result<Identifier<'a>, ParseError> {
         match &self.token {
             Token::Ident(v, kw) => {
                 let v = *v;
-                if kw.reserved() {
+                if kw.restricted(restricted) {
                     self.err(
                         format!("'{}' is a reserved identifier use `{}`", v, v),
                         &self.span.span(),
@@ -308,7 +436,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                 }
                 Ok(Identifier::new(v, self.consume()))
             }
-            Token::DoubleQuotedString(v) if self.options.dialect.is_postgresql() => {
+            Token::String(v, StringType::DoubleQuoted) if self.options.dialect.is_postgresql() => {
                 Ok(Identifier::new(v, self.consume()))
             }
             _ => self.expected_failure("identifier"),
@@ -373,53 +501,51 @@ impl<'a, 'b> Parser<'a, 'b> {
         span
     }
 
+    /// Try to consume a SQL boolean literal: `TRUE`/`ON`/`1` → `Some((true, span))`,
+    /// `FALSE`/`OFF`/`0` → `Some((false, span))`, anything else → `None`.
+    pub(crate) fn try_parse_bool(&mut self) -> Option<(bool, Span)> {
+        match &self.token {
+            Token::Ident(_, Keyword::TRUE | Keyword::ON) => Some((true, self.consume())),
+            Token::Ident(_, Keyword::FALSE | Keyword::OFF) => Some((false, self.consume())),
+            Token::Integer(v) if *v == "1" => Some((true, self.consume())),
+            Token::Integer(v) if *v == "0" => Some((false, self.consume())),
+            _ => None,
+        }
+    }
+
     pub(crate) fn consume_string(&mut self) -> Result<SString<'a>, ParseError> {
         let (mut a, mut b) = match &self.token {
-            Token::SingleQuotedString(v) => {
+            Token::String(v, kind) => {
                 let v = *v;
+                let kind = kind.clone();
                 let span = self.span.clone();
                 self.next();
-                (decode_single_quoted_string(v), span)
-            }
-            Token::DoubleQuotedString(v) => {
-                let v = *v;
-                let span = self.span.clone();
-                self.next();
-                (decode_double_quoted_string(v), span)
-            }
-            Token::HexString(v) => {
-                let v = *v;
-                let span = self.span.clone();
-                self.next();
-                (decode_hex_string(v), span)
-            }
-            Token::BinaryString(v) => {
-                let v = *v;
-                let span = self.span.clone();
-                self.next();
-                (decode_binary_string(v), span)
+                let decoded = match kind {
+                    StringType::SingleQuoted => decode_single_quoted_string(v),
+                    StringType::DoubleQuoted => decode_double_quoted_string(v),
+                    StringType::DollarQuoted => Cow::Borrowed(v),
+                    StringType::Escape => decode_escape_string(v),
+                    StringType::Hex => decode_hex_string(v),
+                    StringType::Binary => decode_binary_string(v),
+                };
+                (decoded, span)
             }
             _ => self.expected_failure("string")?,
         };
-        loop {
-            match self.token {
-                Token::SingleQuotedString(v) => {
-                    b = b.join_span(&self.span);
-                    a.to_mut().push_str(decode_single_quoted_string(v).as_ref());
-                    self.next();
-                }
-                Token::DoubleQuotedString(v) => {
-                    b = b.join_span(&self.span);
-                    a.to_mut().push_str(decode_double_quoted_string(v).as_ref());
-                    self.next();
-                }
-                Token::HexString(v) => {
-                    b = b.join_span(&self.span);
-                    a.to_mut().push_str(decode_hex_string(v).as_ref());
-                    self.next();
-                }
-                _ => break,
-            }
+        while let Token::String(v, kind) = &self.token {
+            let v = *v;
+            let kind = kind.clone();
+            b = b.join_span(&self.span);
+            let decoded = match kind {
+                StringType::SingleQuoted => decode_single_quoted_string(v),
+                StringType::DoubleQuoted => decode_double_quoted_string(v),
+                StringType::DollarQuoted => Cow::Borrowed(v),
+                StringType::Escape => decode_escape_string(v),
+                StringType::Hex => decode_hex_string(v),
+                StringType::Binary => decode_binary_string(v),
+            };
+            a.to_mut().push_str(decoded.as_ref());
+            self.next();
         }
         Ok(SString::new(a, b))
     }
@@ -436,6 +562,36 @@ impl<'a, 'b> Parser<'a, 'b> {
                 let span = self.span.clone();
                 self.next();
                 Ok((v, span))
+            }
+            _ => self.expected_failure("integer"),
+        }
+    }
+
+    pub(crate) fn consume_signed_int<
+        T: core::str::FromStr + Default + core::ops::Neg<Output = T>,
+    >(
+        &mut self,
+    ) -> Result<(T, Span), ParseError> {
+        let minus = self.skip_token(Token::Minus);
+        if minus.is_none() {
+            self.skip_token(Token::Plus);
+        }
+        match &self.token {
+            Token::Integer(v) => {
+                let v: T = match v.parse() {
+                    Ok(v) => v,
+                    Err(_) => self.err_here("integer outside range").unwrap_or_default(),
+                };
+                if let Some(minus) = minus {
+                    let v = -v;
+                    let span = minus.join_span(&self.span);
+                    self.next();
+                    Ok((v, span))
+                } else {
+                    let span = self.span.clone();
+                    self.next();
+                    Ok((v, span))
+                }
             }
             _ => self.expected_failure("integer"),
         }
@@ -472,5 +628,25 @@ impl<'a, 'b> Parser<'a, 'b> {
 
     pub(crate) fn todo<T>(&mut self, file: &'static str, line: u32) -> Result<T, ParseError> {
         self.err_here(format!("Not yet implemented at {}:{}", file, line))
+    }
+
+    /// Verify that the current dialect is PostgreSQL, emitting an error if not.
+    /// Only emits an error if the span is present (Some).
+    pub(crate) fn postgres_only(&mut self, span: &impl OptSpanned) {
+        if !self.options.dialect.is_postgresql()
+            && let Some(s) = span.opt_span()
+        {
+            self.err("Only supported by PostgreSQL", &s);
+        }
+    }
+
+    /// Verify that the current dialect is MariaDB/MySQL, emitting an error if not.
+    /// Only emits an error if the span is present (Some).
+    pub(crate) fn maria_only(&mut self, span: &impl OptSpanned) {
+        if !self.options.dialect.is_maria()
+            && let Some(s) = span.opt_span()
+        {
+            self.err("Only supported by MariaDB", &s);
+        }
     }
 }

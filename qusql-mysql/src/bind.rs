@@ -425,6 +425,7 @@ pub fn list<'a, T: Bind>(v: &'a [T]) -> List<'a, T> {
 /// Produce a [List] object that can be used as an argument to a _LIST_ argument
 /// Assuming that the `list_hack` feature is set
 #[cfg(not(feature = "list_hack"))]
+#[allow(clippy::needless_lifetimes)]
 pub fn list<'a, T: Bind>(_: &'a [T]) -> std::convert::Infallible {
     panic!("The list_hack feature is not")
 }

@@ -1,0 +1,86 @@
+{
+  "users_table": [
+    "CREATE TABLE users (id INT PRIMARY KEY)"
+  ],
+  "users_table_with_auto_increment": [
+    "CREATE TABLE users (id INT PRIMARY KEY AUTO_INCREMENT)"
+  ],
+  "users_table_with_columns": [
+    "CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100), password_digest VARCHAR(255))"
+  ],
+  "orders_table": [
+    "CREATE TABLE orders (id INT PRIMARY KEY, description TEXT NOT NULL, total_count INT, foo INT)"
+  ],
+  "tab_table": [
+    "CREATE TABLE tab (id INT PRIMARY KEY)"
+  ],
+  "tab_table_with_foo_column": [
+    "CREATE TABLE tab (id INT PRIMARY KEY, foo INT)"
+  ],
+  "tab_table_with_textcol": [
+    "CREATE TABLE tab (id INT PRIMARY KEY, textcol TEXT)"
+  ],
+  "tab_table_with_textcol_no_pk": [
+    "CREATE TABLE tab (id INT, textcol TEXT)"
+  ],
+  "tab_table_with_foreign_key": [
+    "CREATE TABLE parent (id INT PRIMARY KEY)",
+    "CREATE TABLE tab (id INT PRIMARY KEY, parent_id INT, CONSTRAINT foo_ibfk_1 FOREIGN KEY (parent_id) REFERENCES parent(id))"
+  ],
+  "tab_table_with_index": [
+    "CREATE TABLE tab (id INT PRIMARY KEY, name VARCHAR(100), INDEX idx_index (name))"
+  ],
+  "foo_table": [
+    "CREATE TABLE foo (id INT PRIMARY KEY)"
+  ],
+  "foo_temporary_table": [
+    "CREATE TEMPORARY TABLE foo (id INT PRIMARY KEY)"
+  ],
+  "orders_and_customers_table": [
+    "CREATE TABLE customers (id INT PRIMARY KEY, firstname VARCHAR(100), lastname VARCHAR(100))",
+    "CREATE TABLE orders (id INT PRIMARY KEY, customer_id INT, completed BOOLEAN DEFAULT false)"
+  ],
+  "tasks_table": [
+    "CREATE TABLE tasks (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(200), priority INT)"
+  ],
+  "generic_table": [
+    "CREATE TABLE `table` (id INT PRIMARY KEY, `date` DATE)"
+  ],
+  "permission_groups_table": [
+    "CREATE TABLE permission_groups (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(100), description TEXT, perm_create BOOLEAN, perm_read BOOLEAN, perm_update BOOLEAN, perm_delete BOOLEAN)"
+  ],
+  "s1_t1_table": [
+    "CREATE DATABASE IF NOT EXISTS s1",
+    "CREATE TABLE s1.t1 (`123col_$@length123` DECIMAL(10,3))"
+  ],
+  "tb_table": [
+    "CREATE TABLE tb (id INT PRIMARY KEY AUTO_INCREMENT)"
+  ],
+  "account_table": [
+    "CREATE TABLE account (account_id INT PRIMARY KEY, balance DECIMAL(10,2))"
+  ],
+  "products_table": [
+    "CREATE TABLE products (id INT PRIMARY KEY, name VARCHAR(100), price DECIMAL(10,2), category VARCHAR(50))"
+  ],
+  "customers_table": [
+    "CREATE TABLE customers (id INT PRIMARY KEY, firstname VARCHAR(100), lastname VARCHAR(100))"
+  ],
+  "trans_and_customer_tables": [
+    "CREATE TABLE trans (id INT PRIMARY KEY)",
+    "CREATE TABLE customer (id INT PRIMARY KEY)"
+  ],
+  "table_name_with_index": [
+    "CREATE TABLE table_name (id INT PRIMARY KEY, name VARCHAR(100), INDEX idx_name (name))"
+  ],
+  "emp_table_with_trigger": [
+    "CREATE TABLE emp (id INT PRIMARY KEY, salary DECIMAL(10,2), last_modified TIMESTAMP)",
+    "CREATE TRIGGER emp_stamp BEFORE UPDATE ON emp FOR EACH ROW SET NEW.last_modified = NOW()"
+  ],
+  "tb_table_with_fulltext": [
+    "CREATE TABLE tb (id INT, c1 TEXT, c2 TEXT, c3 TEXT, FULLTEXT INDEX ft_c1 (c1), FULLTEXT INDEX ft_c1_c2_c3 (c1, c2, c3))"
+  ],
+  "empty_setup": [],
+  "t_table_for_indexes": [
+    "CREATE TABLE t (id INT PRIMARY KEY, col VARCHAR(100), textcol TEXT, c1 INT, c2 INT)"
+  ]
+}

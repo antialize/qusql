@@ -12,13 +12,13 @@
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 
 use crate::QualifiedName;
-use crate::qualified_name::parse_qualified_name;
+use crate::qualified_name::parse_qualified_name_unreserved;
 use crate::{
     DataType, Identifier, SString, Span, Spanned, Statement,
-    data_type::parse_data_type,
-    expression::{Expression, parse_expression},
-    keywords::Keyword,
-    lexer::Token,
+    data_type::{DataTypeContext, parse_data_type},
+    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
+    keywords::{Keyword, Restrict},
+    lexer::{StringType, Token},
     parser::{ParseError, Parser},
     span::OptSpanned,
     statement::parse_compound_query,
@@ -42,11 +42,21 @@ impl<'a> Spanned for SelectExpr<'a> {
 pub(crate) fn parse_select_expr<'a>(
     parser: &mut Parser<'a, '_>,
 ) -> Result<SelectExpr<'a>, ParseError> {
-    let expr = parse_expression(parser, false)?;
+    let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+    let reserved = parser.reserved();
     let as_ = if parser.skip_keyword(Keyword::AS).is_some() {
-        Some(parser.consume_plain_identifier()?)
+        Some(parser.consume_plain_identifier_unreserved()?)
     } else {
-        None
+        let is_implicit_alias = match &parser.token {
+            Token::Ident(_, kw) => !kw.restricted(reserved),
+            Token::String(_, StringType::DoubleQuoted) => parser.options.dialect.is_postgresql(),
+            _ => false,
+        };
+        if is_implicit_alias {
+            Some(parser.consume_plain_identifier_unreserved()?)
+        } else {
+            None
+        }
     };
     Ok(SelectExpr { expr, as_ })
 }
@@ -78,6 +88,7 @@ pub enum JoinType {
     Straight(Span),
     Left(Span),
     Right(Span),
+    FullOuter(Span),
     Natural(Span),
     NaturalInner(Span),
     NaturalLeft(Span),
@@ -92,6 +103,7 @@ impl Spanned for JoinType {
             JoinType::Straight(v) => v.span(),
             JoinType::Left(v) => v.span(),
             JoinType::Right(v) => v.span(),
+            JoinType::FullOuter(v) => v.span(),
             JoinType::Natural(v) => v.span(),
             JoinType::NaturalInner(v) => v.span(),
             JoinType::NaturalLeft(v) => v.span(),
@@ -172,7 +184,7 @@ impl<'a> Spanned for IndexHint<'a> {
 #[derive(Debug, Clone)]
 pub enum JsonTableOnErrorEmpty<'a> {
     /// DEFAULT value
-    Default(Box<Expression<'a>>),
+    Default(Expression<'a>),
     /// ERROR
     Error(Span),
     /// NULL
@@ -197,7 +209,7 @@ pub enum JsonTableColumn<'a> {
         name: Identifier<'a>,
         data_type: DataType<'a>,
         path_span: Span,
-        path: Box<Expression<'a>>,
+        path: Expression<'a>,
         /// ON EMPTY clause
         on_empty: Option<(JsonTableOnErrorEmpty<'a>, Span)>,
         /// ON ERROR clause
@@ -212,7 +224,7 @@ pub enum JsonTableColumn<'a> {
     Nested {
         nested_span: Span,
         path_span: Span,
-        path: Box<Expression<'a>>,
+        path: Expression<'a>,
         columns_span: Span,
         columns: Vec<JsonTableColumn<'a>>,
     },
@@ -254,6 +266,34 @@ impl<'a> Spanned for JsonTableColumn<'a> {
     }
 }
 
+/// The name of a table-valued function in a FROM clause.
+///
+/// Well-known set-returning functions get their own variant so consumers can
+/// match on them without string comparison. Any other function name falls into
+/// `Other`.
+#[derive(Debug, Clone)]
+pub enum TableFunctionName<'a> {
+    /// `UNNEST(array, ...)` — expand one or more arrays into a set of rows
+    Unnest(Span),
+    /// `GENERATE_SERIES(start, stop [, step])` — generate a series of values
+    GenerateSeries(Span),
+    /// `STRING_TO_TABLE(str, delimiter)` — split a string into rows
+    StringToTable(Span),
+    /// Any other set-returning function (user-defined or less common builtins)
+    Other(QualifiedName<'a>),
+}
+
+impl<'a> Spanned for TableFunctionName<'a> {
+    fn span(&self) -> Span {
+        match self {
+            TableFunctionName::Unnest(s)
+            | TableFunctionName::GenerateSeries(s)
+            | TableFunctionName::StringToTable(s) => s.clone(),
+            TableFunctionName::Other(n) => n.span(),
+        }
+    }
+}
+
 /// Reference to table in select
 #[derive(Debug, Clone)]
 pub enum TableReference<'a> {
@@ -276,16 +316,17 @@ pub enum TableReference<'a> {
         as_span: Option<Span>,
         /// Alias for table if specified
         as_: Option<Identifier<'a>>,
-        //TODO collist
+        /// Optional column list `(col1, col2, ...)` after the alias
+        col_list: Vec<Identifier<'a>>,
     },
     /// JSON_TABLE function
     JsonTable {
         /// Span of "JSON_TABLE"
         json_table_span: Span,
         /// JSON data expression
-        json_expr: Box<Expression<'a>>,
+        json_expr: Expression<'a>,
         /// JSON path expression
-        path: Box<Expression<'a>>,
+        path: Expression<'a>,
         /// COLUMNS keyword span
         columns_keyword_span: Span,
         /// Column definitions
@@ -293,6 +334,19 @@ pub enum TableReference<'a> {
         /// Span of "AS" if specified
         as_span: Option<Span>,
         /// Alias for table if specified
+        as_: Option<Identifier<'a>>,
+    },
+    /// Table-valued function call, e.g. `generate_series(1, 10)` or `unnest(arr) WITH ORDINALITY`
+    Function {
+        /// The function name
+        name: TableFunctionName<'a>,
+        /// Arguments passed to the function
+        args: Vec<Expression<'a>>,
+        /// Span of `WITH ORDINALITY` if present
+        with_ordinality: Option<Span>,
+        /// Span of "AS" if specified
+        as_span: Option<Span>,
+        /// Alias for the result set if specified
         as_: Option<Identifier<'a>>,
     },
     /// Join
@@ -325,7 +379,8 @@ impl<'a> Spanned for TableReference<'a> {
                 query,
                 as_span,
                 as_,
-            } => query.join_span(as_span).join_span(as_),
+                col_list,
+            } => query.join_span(as_span).join_span(as_).join_span(col_list),
             TableReference::JsonTable {
                 json_table_span,
                 json_expr,
@@ -339,6 +394,18 @@ impl<'a> Spanned for TableReference<'a> {
                 .join_span(path)
                 .join_span(columns_keyword_span)
                 .join_span(columns)
+                .join_span(as_span)
+                .join_span(as_),
+            TableReference::Function {
+                name,
+                args,
+                with_ordinality,
+                as_span,
+                as_,
+            } => name
+                .span()
+                .join_span(args)
+                .join_span(with_ordinality)
                 .join_span(as_span)
                 .join_span(as_),
             TableReference::Join {
@@ -356,6 +423,7 @@ impl<'a> Spanned for TableReference<'a> {
 
 pub(crate) fn parse_table_reference_inner<'a>(
     parser: &mut Parser<'a, '_>,
+    additional_restrict: crate::keywords::Restrict,
 ) -> Result<TableReference<'a>, ParseError> {
     // TODO [LATERAL] table_subquery [AS] alias [(col_list)]
     // if parser.skip_token(Token::LParen).is_some() {
@@ -365,193 +433,305 @@ pub(crate) fn parse_table_reference_inner<'a>(
     // }
 
     match &parser.token {
-        Token::Ident(_, Keyword::SELECT) | Token::LParen => {
+        Token::Ident(_, Keyword::LATERAL) => {
+            // LATERAL subquery/function
+            let lateral_span = parser.consume_keyword(Keyword::LATERAL)?;
+            parser.postgres_only(&lateral_span);
             let query = parse_compound_query(parser)?;
             let as_span = parser.skip_keyword(Keyword::AS);
             let as_ = if as_span.is_some()
-                || (matches!(&parser.token, Token::Ident(_, k) if !k.reserved()))
+                || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
             {
-                Some(parser.consume_plain_identifier()?)
+                Some(
+                    parser.consume_plain_identifier_restrict(
+                        parser.reserved() | additional_restrict,
+                    )?,
+                )
             } else {
                 None
             };
             Ok(TableReference::Query {
                 query: Box::new(query),
-                as_span,
+                as_span: as_span
+                    .map(|s| lateral_span.join_span(&s))
+                    .or(Some(lateral_span)),
                 as_,
+                col_list: Vec::new(),
             })
         }
-        Token::Ident(_, _) => {
-            let identifier = parse_qualified_name(parser)?;
-
-            // Check if this is JSON_TABLE (identifier followed by '(')
-            if matches!(parser.token, Token::LParen) && identifier.prefix.is_empty() {
-                let name = identifier.identifier;
-                let json_table_span = name.span.clone();
-
-                // Only parse JSON_TABLE for now
-                if name.value.eq_ignore_ascii_case("JSON_TABLE") {
-                    parser.consume_token(Token::LParen)?;
-
-                    // Parse JSON data expression (first argument)
-                    let json_expr = parse_expression(parser, true)?;
-
-                    // Expect comma
-                    parser.consume_token(Token::Comma)?;
-
-                    // Parse JSON path - just a simple string for now
-                    let path = match &parser.token {
-                        Token::SingleQuotedString(s) => {
-                            let val = *s;
-                            let span = parser.consume();
-                            Expression::String(SString::new(Cow::Borrowed(val), span))
-                        }
-                        Token::DoubleQuotedString(s) => {
-                            let val = *s;
-                            let span = parser.consume();
-                            Expression::String(SString::new(Cow::Borrowed(val), span))
-                        }
-                        _ => {
-                            // Fall back to expression parsing
-                            parse_expression(parser, true)?
-                        }
-                    };
-
-                    // Parse COLUMNS clause (no comma before COLUMNS)
-                    let columns_keyword_span = parser.consume_keyword(Keyword::COLUMNS)?;
-                    parser.consume_token(Token::LParen)?;
-
-                    let columns = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
-                        // Parse column definitions
-                        parse_json_table_columns(parser)
-                    })?;
-
-                    parser.consume_token(Token::RParen)?;
-
-                    // Closing parenthesis of JSON_TABLE
-                    parser.consume_token(Token::RParen)?;
-
-                    // Parse AS and alias
-                    let as_span = parser.skip_keyword(Keyword::AS);
-                    let as_ = if as_span.is_some()
-                        || (matches!(&parser.token, Token::Ident(_, k) if !k.reserved()))
-                    {
-                        Some(parser.consume_plain_identifier()?)
-                    } else {
-                        None
-                    };
-
-                    return Ok(TableReference::JsonTable {
-                        json_table_span,
-                        json_expr: Box::new(json_expr),
-                        path: Box::new(path),
-                        columns_keyword_span,
-                        columns,
-                        as_span,
-                        as_,
-                    });
-                } else {
-                    // For other functions, skip them (future extension point)
-                    let mut depth = 1;
-                    while depth > 0 && !matches!(parser.token, Token::Eof) {
-                        match parser.token {
-                            Token::LParen => depth += 1,
-                            Token::RParen => depth -= 1,
-                            _ => {}
-                        }
-                        if depth > 0 {
-                            parser.consume();
-                        }
-                    }
-                    parser.consume_token(Token::RParen)?;
-
-                    // For now, return an error for non-JSON_TABLE functions
-                    parser.expected_failure("JSON_TABLE function")?;
-                    unreachable!();
-                }
+        Token::Ident(_, Keyword::SELECT) | Token::LParen => {
+            // If the token after '(' is an identifier (table name) or another '('
+            // (for nested groups like ((t1 join t2) join t3)), rather than
+            // SELECT/VALUES/WITH, treat it as a MySQL parenthesized join group.
+            let is_join_group = matches!(parser.token, Token::LParen)
+                && !matches!(
+                    parser.peek(),
+                    Token::Ident(_, Keyword::SELECT | Keyword::VALUES | Keyword::WITH)
+                );
+            if is_join_group {
+                parser.consume_token(Token::LParen)?;
+                let inner = parse_table_reference(parser, additional_restrict)?;
+                parser.consume_token(Token::RParen)?;
+                return Ok(inner);
             }
-
-            // TODO [PARTITION (partition_names)] [[AS] alias]
+            let query = parse_compound_query(parser)?;
             let as_span = parser.skip_keyword(Keyword::AS);
             let as_ = if as_span.is_some()
-                || (matches!(&parser.token, Token::Ident(_, k) if !k.reserved()))
+                || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
             {
-                Some(parser.consume_plain_identifier()?)
+                Some(
+                    parser.consume_plain_identifier_restrict(
+                        parser.reserved() | additional_restrict,
+                    )?,
+                )
             } else {
                 None
             };
-
-            let mut index_hints = Vec::new();
-            loop {
-                let use_ = match parser.token {
-                    Token::Ident(_, Keyword::USE) => IndexHintUse::Use(parser.consume()),
-                    Token::Ident(_, Keyword::IGNORE) => IndexHintUse::Ignore(parser.consume()),
-                    Token::Ident(_, Keyword::FORCE) => IndexHintUse::Force(parser.consume()),
-                    _ => break,
-                };
-                let type_ = match parser.token {
-                    Token::Ident(_, Keyword::INDEX) => IndexHintType::Index(parser.consume()),
-                    Token::Ident(_, Keyword::KEY) => IndexHintType::Key(parser.consume()),
-                    _ => parser.expected_failure("'INDEX' or 'KEY'")?,
-                };
-                let for_ = if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
-                    let v = match parser.token {
-                        Token::Ident(_, Keyword::JOIN) => IndexHintFor::Join(parser.consume()),
-                        Token::Ident(_, Keyword::GROUP) => IndexHintFor::GroupBy(
-                            parser.consume_keywords(&[Keyword::GROUP, Keyword::BY])?,
-                        ),
-                        Token::Ident(_, Keyword::ORDER) => IndexHintFor::OrderBy(
-                            parser.consume_keywords(&[Keyword::ORDER, Keyword::BY])?,
-                        ),
-                        _ => parser.expected_failure("'JOIN', 'GROUP BY' or 'ORDER BY'")?,
-                    };
-                    Some((for_span, v))
-                } else {
-                    None
-                };
-                let lparen = parser.consume_token(Token::LParen)?;
-                let mut index_list = Vec::new();
+            // Optional column list: AS alias (col1, col2, ...)
+            let mut col_list = Vec::new();
+            if as_.is_some() && matches!(parser.token, Token::LParen) {
+                parser.consume_token(Token::LParen)?;
                 loop {
                     parser.recovered(
                         "')' or ','",
                         &|t| matches!(t, Token::RParen | Token::Comma),
                         |parser| {
-                            index_list.push(parser.consume_plain_identifier()?);
+                            col_list
+                                .push(parser.consume_plain_identifier_restrict(Restrict::EMPTY)?);
                             Ok(())
                         },
                     )?;
-                    if matches!(parser.token, Token::RParen) {
+                    if parser.skip_token(Token::Comma).is_none() {
                         break;
                     }
-                    parser.consume_token(Token::Comma)?;
                 }
-                let rparen = parser.consume_token(Token::RParen)?;
-                index_hints.push(IndexHint {
-                    use_,
-                    type_,
-                    for_,
-                    lparen,
-                    index_list,
-                    rparen,
-                })
-            }
-
-            if !index_hints.is_empty() && !parser.options.dialect.is_maria() {
-                parser.err(
-                    "Index hints only supported by MariaDb",
-                    &index_hints.opt_span().unwrap(),
-                );
-            }
-
-            Ok(TableReference::Table {
-                identifier,
+                parser.consume_token(Token::RParen)?;
+            };
+            Ok(TableReference::Query {
+                query: Box::new(query),
                 as_span,
                 as_,
-                index_hints,
+                col_list,
             })
+        }
+        Token::Ident(_, _) => parse_table_reference_named(parser, additional_restrict),
+        Token::String(_, StringType::DoubleQuoted) if parser.options.dialect.is_postgresql() => {
+            parse_table_reference_named(parser, additional_restrict)
         }
         _ => parser.expected_failure("subquery or identifier"),
     }
+}
+
+fn parse_table_reference_named<'a>(
+    parser: &mut Parser<'a, '_>,
+    additional_restrict: Restrict,
+) -> Result<TableReference<'a>, ParseError> {
+    if matches!(parser.token, Token::Ident(_, Keyword::JSON_TABLE))
+        && matches!(parser.peek(), Token::LParen)
+    {
+        let json_table_span = parser.consume_keyword(Keyword::JSON_TABLE)?;
+
+        parser.consume_token(Token::LParen)?;
+
+        // Parse JSON data expression (first argument)
+        let json_expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+
+        // Expect comma
+        parser.consume_token(Token::Comma)?;
+
+        // Parse JSON path - just a simple string for now
+        let path = match &parser.token {
+            Token::String(s, _) => {
+                let val = *s;
+                let span = parser.consume();
+                Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
+            }
+            _ => {
+                // Fall back to expression parsing
+                parse_expression_unreserved(parser, PRIORITY_MAX)?
+            }
+        };
+
+        // Parse COLUMNS clause (no comma before COLUMNS)
+        let columns_keyword_span = parser.consume_keyword(Keyword::COLUMNS)?;
+        parser.consume_token(Token::LParen)?;
+
+        let columns = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+            // Parse column definitions
+            parse_json_table_columns(parser)
+        })?;
+
+        parser.consume_token(Token::RParen)?;
+
+        // Closing parenthesis of JSON_TABLE
+        parser.consume_token(Token::RParen)?;
+
+        // Parse AS and alias
+        let as_span = parser.skip_keyword(Keyword::AS);
+        let as_ = if as_span.is_some()
+            || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
+        {
+            Some(parser.consume_plain_identifier_unreserved()?)
+        } else {
+            None
+        };
+
+        return Ok(TableReference::JsonTable {
+            json_table_span,
+            json_expr,
+            path,
+            columns_keyword_span,
+            columns,
+            as_span,
+            as_,
+        });
+    }
+
+    // Snapshot the first token's keyword (if any) before consuming the qualified name,
+    // so we can build the correct TableFunctionName variant if this turns out to be a
+    // table-valued function call.
+    let first_kw = match &parser.token {
+        Token::Ident(_, kw) => Some(*kw),
+        _ => None,
+    };
+    let identifier = parse_qualified_name_unreserved(parser)?;
+
+    if matches!(parser.token, Token::LParen) {
+        // Table-valued function call (any set-returning function)
+        let func_name = if identifier.prefix.is_empty() {
+            match first_kw {
+                Some(Keyword::UNNEST) => TableFunctionName::Unnest(identifier.identifier.span),
+                Some(Keyword::GENERATE_SERIES) => {
+                    TableFunctionName::GenerateSeries(identifier.identifier.span)
+                }
+                Some(Keyword::STRING_TO_TABLE) => {
+                    TableFunctionName::StringToTable(identifier.identifier.span)
+                }
+                _ => TableFunctionName::Other(identifier),
+            }
+        } else {
+            TableFunctionName::Other(identifier)
+        };
+        parser.consume_token(Token::LParen)?;
+        let mut args = Vec::new();
+        if !matches!(parser.token, Token::RParen) {
+            loop {
+                parser.recovered(
+                    "')' or ','",
+                    &|t| matches!(t, Token::RParen | Token::Comma),
+                    |parser| {
+                        args.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
+                        Ok(())
+                    },
+                )?;
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+        }
+        parser.consume_token(Token::RParen)?;
+        // WITH ORDINALITY is a general FROM-clause modifier supported by all SRFs
+        let with_ordinality = if let Some(with_span) = parser.skip_keyword(Keyword::WITH) {
+            let ord_span = parser.consume_keyword(Keyword::ORDINALITY)?;
+            Some(with_span.join_span(&ord_span))
+        } else {
+            None
+        };
+        let as_span = parser.skip_keyword(Keyword::AS);
+        let as_ = if as_span.is_some()
+            || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
+        {
+            Some(parser.consume_plain_identifier_unreserved()?)
+        } else {
+            None
+        };
+        return Ok(TableReference::Function {
+            name: func_name,
+            args,
+            with_ordinality,
+            as_span,
+            as_,
+        });
+    }
+
+    // TODO [PARTITION (partition_names)] [[AS] alias]
+    let as_span = parser.skip_keyword(Keyword::AS);
+    let as_ = if as_span.is_some()
+        || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
+    {
+        Some(parser.consume_plain_identifier_restrict(parser.reserved() | additional_restrict)?)
+    } else {
+        None
+    };
+
+    let mut index_hints = Vec::new();
+    loop {
+        let use_ = match parser.token {
+            Token::Ident(_, Keyword::USE) => IndexHintUse::Use(parser.consume()),
+            Token::Ident(_, Keyword::IGNORE) => IndexHintUse::Ignore(parser.consume()),
+            Token::Ident(_, Keyword::FORCE) => IndexHintUse::Force(parser.consume()),
+            _ => break,
+        };
+        let type_ = match parser.token {
+            Token::Ident(_, Keyword::INDEX) => IndexHintType::Index(parser.consume()),
+            Token::Ident(_, Keyword::KEY) => IndexHintType::Key(parser.consume()),
+            _ => parser.expected_failure("'INDEX' or 'KEY'")?,
+        };
+        let for_ = if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
+            let v = match parser.token {
+                Token::Ident(_, Keyword::JOIN) => IndexHintFor::Join(parser.consume()),
+                Token::Ident(_, Keyword::GROUP) => {
+                    IndexHintFor::GroupBy(parser.consume_keywords(&[Keyword::GROUP, Keyword::BY])?)
+                }
+                Token::Ident(_, Keyword::ORDER) => {
+                    IndexHintFor::OrderBy(parser.consume_keywords(&[Keyword::ORDER, Keyword::BY])?)
+                }
+                _ => parser.expected_failure("'JOIN', 'GROUP BY' or 'ORDER BY'")?,
+            };
+            Some((for_span, v))
+        } else {
+            None
+        };
+        let lparen = parser.consume_token(Token::LParen)?;
+        let mut index_list = Vec::new();
+        loop {
+            parser.recovered(
+                "')' or ','",
+                &|t| matches!(t, Token::RParen | Token::Comma),
+                |parser| {
+                    index_list.push(parser.consume_plain_identifier_unreserved()?);
+                    Ok(())
+                },
+            )?;
+            if matches!(parser.token, Token::RParen) {
+                break;
+            }
+            parser.consume_token(Token::Comma)?;
+        }
+        let rparen = parser.consume_token(Token::RParen)?;
+        index_hints.push(IndexHint {
+            use_,
+            type_,
+            for_,
+            lparen,
+            index_list,
+            rparen,
+        })
+    }
+
+    if !index_hints.is_empty() && !parser.options.dialect.is_maria() {
+        parser.err(
+            "Index hints only supported by MariaDb",
+            &index_hints.opt_span().unwrap(),
+        );
+    }
+
+    Ok(TableReference::Table {
+        identifier,
+        as_span,
+        as_,
+        index_hints,
+    })
 }
 
 fn parse_json_table_columns<'a>(
@@ -564,17 +744,12 @@ fn parse_json_table_columns<'a>(
         if let Some(nested_span) = parser.skip_keyword(Keyword::NESTED) {
             let path_span = parser.consume_keyword(Keyword::PATH)?;
             let path = match &parser.token {
-                Token::SingleQuotedString(s) => {
+                Token::String(s, _) => {
                     let val = *s;
                     let span = parser.consume();
-                    Expression::String(SString::new(Cow::Borrowed(val), span))
+                    Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                 }
-                Token::DoubleQuotedString(s) => {
-                    let val = *s;
-                    let span = parser.consume();
-                    Expression::String(SString::new(Cow::Borrowed(val), span))
-                }
-                _ => parse_expression(parser, true)?,
+                _ => parse_expression_unreserved(parser, PRIORITY_MAX)?,
             };
             let columns_span = parser.consume_keyword(Keyword::COLUMNS)?;
             parser.consume_token(Token::LParen)?;
@@ -586,13 +761,13 @@ fn parse_json_table_columns<'a>(
             columns.push(JsonTableColumn::Nested {
                 nested_span,
                 path_span,
-                path: Box::new(path),
+                path,
                 columns_span,
                 columns: nested_columns,
             });
         } else {
             // Parse column name
-            let name = parser.consume_plain_identifier()?;
+            let name = parser.consume_plain_identifier_unreserved()?;
 
             // Check if this is FOR ORDINALITY
             if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
@@ -605,7 +780,7 @@ fn parse_json_table_columns<'a>(
                 });
             } else {
                 // Parse data type
-                let data_type = parse_data_type(parser, true)?;
+                let data_type = parse_data_type(parser, DataTypeContext::FunctionReturn)?;
 
                 // Check for EXISTS before PATH
                 let _ = parser.skip_keyword(Keyword::EXISTS);
@@ -613,17 +788,12 @@ fn parse_json_table_columns<'a>(
                 // Parse PATH keyword and path expression
                 let path_span = parser.consume_keyword(Keyword::PATH)?;
                 let path = match &parser.token {
-                    Token::SingleQuotedString(s) => {
+                    Token::String(s, _) => {
                         let val = *s;
                         let span = parser.consume();
-                        Expression::String(SString::new(Cow::Borrowed(val), span))
+                        Expression::String(Box::new(SString::new(Cow::Borrowed(val), span)))
                     }
-                    Token::DoubleQuotedString(s) => {
-                        let val = *s;
-                        let span = parser.consume();
-                        Expression::String(SString::new(Cow::Borrowed(val), span))
-                    }
-                    _ => parse_expression(parser, true)?,
+                    _ => parse_expression_unreserved(parser, PRIORITY_MAX)?,
                 };
 
                 // Parse ON EMPTY and ON ERROR clauses
@@ -637,8 +807,8 @@ fn parse_json_table_columns<'a>(
                         Token::Ident(_, Keyword::DEFAULT) => {
                             parser.consume();
                             // Parse the default value
-                            let default_val = parse_expression(parser, true)?;
-                            Some(JsonTableOnErrorEmpty::Default(Box::new(default_val)))
+                            let default_val = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+                            Some(JsonTableOnErrorEmpty::Default(default_val))
                         }
                         Token::Ident(_, Keyword::ERROR) => {
                             let error_span = parser.consume();
@@ -680,7 +850,7 @@ fn parse_json_table_columns<'a>(
                     name,
                     data_type,
                     path_span,
-                    path: Box::new(path),
+                    path,
                     on_empty,
                     on_error,
                 });
@@ -703,10 +873,23 @@ fn parse_json_table_columns<'a>(
 
 pub(crate) fn parse_table_reference<'a>(
     parser: &mut Parser<'a, '_>,
+    additional_restrict: crate::keywords::Restrict,
 ) -> Result<TableReference<'a>, ParseError> {
-    let mut ans = parse_table_reference_inner(parser)?;
+    let mut ans = parse_table_reference_inner(parser, additional_restrict)?;
     loop {
         let join = match parser.token {
+            Token::Ident(_, Keyword::FULL) => {
+                let full = parser.consume_keyword(Keyword::FULL)?;
+                parser.postgres_only(&full);
+                if let Some(outer) = parser.skip_keyword(Keyword::OUTER) {
+                    JoinType::FullOuter(
+                        full.join_span(&outer)
+                            .join_span(&parser.consume_keyword(Keyword::JOIN)?),
+                    )
+                } else {
+                    JoinType::FullOuter(full.join_span(&parser.consume_keyword(Keyword::JOIN)?))
+                }
+            }
             Token::Ident(_, Keyword::INNER) => JoinType::Inner(
                 parser
                     .consume_keyword(Keyword::INNER)?
@@ -789,19 +972,19 @@ pub(crate) fn parse_table_reference<'a>(
             _ => break,
         };
 
-        let right = parse_table_reference_inner(parser)?;
+        let right = parse_table_reference_inner(parser, additional_restrict)?;
 
         let specification = match &parser.token {
             Token::Ident(_, Keyword::ON) => {
                 let on = parser.consume_keyword(Keyword::ON)?;
-                let expr = parse_expression(parser, false)?;
+                let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
                 Some(JoinSpecification::On(expr, on))
             }
             Token::Ident(_, Keyword::USING) => {
                 let using = parser.consume_keyword(Keyword::USING)?;
                 let mut join_column_list = Vec::new();
                 loop {
-                    join_column_list.push(parser.consume_plain_identifier()?);
+                    join_column_list.push(parser.consume_plain_identifier_unreserved()?);
                     if parser.skip_token(Token::Comma).is_none() {
                         break;
                     }
@@ -826,6 +1009,7 @@ pub(crate) fn parse_table_reference<'a>(
 pub enum SelectFlag {
     All(Span),
     Distinct(Span),
+    DistinctOn(Span),
     DistinctRow(Span),
     HighPriority(Span),
     StraightJoin(Span),
@@ -841,6 +1025,7 @@ impl Spanned for SelectFlag {
         match &self {
             SelectFlag::All(v) => v.span(),
             SelectFlag::Distinct(v) => v.span(),
+            SelectFlag::DistinctOn(v) => v.span(),
             SelectFlag::DistinctRow(v) => v.span(),
             SelectFlag::HighPriority(v) => v.span(),
             SelectFlag::StraightJoin(v) => v.span(),
@@ -858,6 +1043,12 @@ impl Spanned for SelectFlag {
 pub enum OrderFlag {
     Asc(Span),
     Desc(Span),
+    AscNullsFirst(Span),
+    AscNullsLast(Span),
+    DescNullsFirst(Span),
+    DescNullsLast(Span),
+    NullsFirst(Span),
+    NullsLast(Span),
     None,
 }
 impl OptSpanned for OrderFlag {
@@ -865,6 +1056,12 @@ impl OptSpanned for OrderFlag {
         match &self {
             OrderFlag::Asc(v) => v.opt_span(),
             OrderFlag::Desc(v) => v.opt_span(),
+            OrderFlag::AscNullsFirst(v) => v.opt_span(),
+            OrderFlag::AscNullsLast(v) => v.opt_span(),
+            OrderFlag::DescNullsFirst(v) => v.opt_span(),
+            OrderFlag::DescNullsLast(v) => v.opt_span(),
+            OrderFlag::NullsFirst(v) => v.opt_span(),
+            OrderFlag::NullsLast(v) => v.opt_span(),
             OrderFlag::None => None,
         }
     }
@@ -934,7 +1131,7 @@ impl<'a> Spanned for Locking<'a> {
 ///
 /// # assert!(issues.is_ok());
 /// let s: Select = match stmt {
-///     Some(Statement::Select(s)) => s,
+///     Some(Statement::Select(s)) => *s,
 ///     _ => panic!("We should get an select statement")
 /// };
 ///
@@ -945,7 +1142,7 @@ impl<'a> Spanned for Locking<'a> {
 ///
 /// # assert!(issues.is_ok());
 /// let s: Select = match stmt {
-///     Some(Statement::Select(s)) => s,
+///     Some(Statement::Select(s)) => *s,
 ///     _ => panic!("We should get an select statement")
 /// };
 ///
@@ -956,7 +1153,7 @@ impl<'a> Spanned for Locking<'a> {
 ///
 /// # assert!(issues.is_ok());
 /// let s: Select = match stmt {
-///     Some(Statement::Select(s)) => s,
+///     Some(Statement::Select(s)) => *s,
 ///     _ => panic!("We should get an select statement")
 /// };
 ///
@@ -987,6 +1184,12 @@ pub struct Select<'a> {
     pub order_by: Option<(Span, Vec<(Expression<'a>, OrderFlag)>)>,
     /// Span of "LIMIT", offset and count expressions if specified
     pub limit: Option<(Span, Option<Expression<'a>>, Expression<'a>)>,
+    /// PostgreSQL: DISTINCT ON (expr, ...) list
+    pub distinct_on: Option<(Span, Vec<Expression<'a>>)>,
+    /// PostgreSQL: OFFSET n [ROWS] (when no LIMIT is present)
+    pub offset: Option<(Span, Expression<'a>)>,
+    /// PostgreSQL: FETCH {FIRST|NEXT} n {ROW|ROWS} ONLY
+    pub fetch: Option<(Span, Expression<'a>)>,
     /// Row locking clause
     pub locking: Option<Locking<'a>>,
 }
@@ -1004,6 +1207,9 @@ impl<'a> Spanned for Select<'a> {
             .join_span(&self.window_span)
             .join_span(&self.order_by)
             .join_span(&self.limit)
+            .join_span(&self.distinct_on)
+            .join_span(&self.offset)
+            .join_span(&self.fetch)
     }
 }
 
@@ -1017,9 +1223,15 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
             Token::Ident(_, Keyword::ALL) => {
                 flags.push(SelectFlag::All(parser.consume_keyword(Keyword::ALL)?))
             }
-            Token::Ident(_, Keyword::DISTINCT) => flags.push(SelectFlag::Distinct(
-                parser.consume_keyword(Keyword::DISTINCT)?,
-            )),
+            Token::Ident(_, Keyword::DISTINCT) => {
+                let distinct_span = parser.consume_keyword(Keyword::DISTINCT)?;
+                // PostgreSQL: DISTINCT ON (expr, ...)
+                if matches!(parser.token, Token::Ident(_, Keyword::ON)) {
+                    flags.push(SelectFlag::DistinctOn(distinct_span));
+                } else {
+                    flags.push(SelectFlag::Distinct(distinct_span));
+                }
+            }
             Token::Ident(_, Keyword::DISTINCTROW) => flags.push(SelectFlag::DistinctRow(
                 parser.consume_keyword(Keyword::DISTINCTROW)?,
             )),
@@ -1048,6 +1260,34 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         }
     }
 
+    // PostgreSQL: parse DISTINCT ON (expr, ...) if signaled by DistinctOn flag
+    let distinct_on = if flags
+        .last()
+        .is_some_and(|f| matches!(f, SelectFlag::DistinctOn(_)))
+    {
+        let on_span = parser.consume_keyword(Keyword::ON)?;
+        parser.postgres_only(&on_span);
+        parser.consume_token(Token::LParen)?;
+        let mut exprs = Vec::new();
+        loop {
+            parser.recovered(
+                "')' or ','",
+                &|t| matches!(t, Token::RParen | Token::Comma),
+                |parser| {
+                    exprs.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
+                    Ok(())
+                },
+            )?;
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+        parser.consume_token(Token::RParen)?;
+        Some((on_span, exprs))
+    } else {
+        None
+    };
+
     loop {
         select_exprs.push(parse_select_expr(parser)?);
         if parser.skip_token(Token::Comma).is_none() {
@@ -1062,7 +1302,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
     let table_references = if from_span.is_some() {
         let mut table_references = Vec::new();
         loop {
-            table_references.push(parse_table_reference(parser)?);
+            table_references.push(parse_table_reference(parser, Restrict::EMPTY)?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -1074,7 +1314,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
 
     // TODO PARTITION partition_list;
     let where_ = if let Some(span) = parser.skip_keyword(Keyword::WHERE) {
-        Some((parse_expression(parser, false)?, span))
+        Some((parse_expression_unreserved(parser, PRIORITY_MAX)?, span))
     } else {
         None
     };
@@ -1083,7 +1323,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         let span = parser.consume_keyword(Keyword::BY)?.join_span(&group_span);
         let mut groups = Vec::new();
         loop {
-            groups.push(parse_expression(parser, false)?);
+            groups.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
@@ -1095,7 +1335,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
     };
 
     let having = if let Some(span) = parser.skip_keyword(Keyword::HAVING) {
-        Some((parse_expression(parser, false)?, span))
+        Some((parse_expression_unreserved(parser, PRIORITY_MAX)?, span))
     } else {
         None
     };
@@ -1109,11 +1349,40 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         let span = parser.consume_keyword(Keyword::BY)?.join_span(&span);
         let mut order = Vec::new();
         loop {
-            let e = parse_expression(parser, false)?;
-            let f = match &parser.token {
-                Token::Ident(_, Keyword::ASC) => OrderFlag::Asc(parser.consume()),
-                Token::Ident(_, Keyword::DESC) => OrderFlag::Desc(parser.consume()),
-                _ => OrderFlag::None,
+            let e = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            let dir_span_opt = match &parser.token {
+                Token::Ident(_, Keyword::ASC) => Some((true, parser.consume())),
+                Token::Ident(_, Keyword::DESC) => Some((false, parser.consume())),
+                _ => None,
+            };
+            let f = if let Some(nulls_span) = parser.skip_keyword(Keyword::NULLS) {
+                match &parser.token {
+                    Token::Ident(_, Keyword::FIRST) => {
+                        let s = parser.consume().join_span(&nulls_span);
+                        parser.postgres_only(&s);
+                        match dir_span_opt {
+                            Some((true, _)) => OrderFlag::AscNullsFirst(s),
+                            Some((false, _)) => OrderFlag::DescNullsFirst(s),
+                            None => OrderFlag::NullsFirst(s),
+                        }
+                    }
+                    Token::Ident(_, Keyword::LAST) => {
+                        let s = parser.consume().join_span(&nulls_span);
+                        parser.postgres_only(&s);
+                        match dir_span_opt {
+                            Some((true, _)) => OrderFlag::AscNullsLast(s),
+                            Some((false, _)) => OrderFlag::DescNullsLast(s),
+                            None => OrderFlag::NullsLast(s),
+                        }
+                    }
+                    _ => parser.expected_failure("FIRST or LAST")?,
+                }
+            } else {
+                match dir_span_opt {
+                    Some((true, s)) => OrderFlag::Asc(s),
+                    Some((false, s)) => OrderFlag::Desc(s),
+                    None => OrderFlag::None,
+                }
             };
             order.push((e, f));
             if parser.skip_token(Token::Comma).is_none() {
@@ -1126,18 +1395,62 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
     };
 
     let limit = if let Some(span) = parser.skip_keyword(Keyword::LIMIT) {
-        let n = parse_expression(parser, true)?;
+        let n = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         match parser.token {
             Token::Comma => {
                 parser.consume();
-                Some((span, Some(n), parse_expression(parser, true)?))
+                Some((
+                    span,
+                    Some(n),
+                    parse_expression_unreserved(parser, PRIORITY_MAX)?,
+                ))
             }
             Token::Ident(_, Keyword::OFFSET) => {
                 parser.consume();
-                Some((span, Some(parse_expression(parser, true)?), n))
+                Some((
+                    span,
+                    Some(parse_expression_unreserved(parser, PRIORITY_MAX)?),
+                    n,
+                ))
             }
             _ => Some((span, None, n)),
         }
+    } else {
+        None
+    };
+
+    // PostgreSQL: standalone OFFSET n [ROWS] (only when no LIMIT already consumed offset)
+    let offset = if limit.is_none() {
+        if let Some(offset_span) = parser.skip_keyword(Keyword::OFFSET) {
+            parser.postgres_only(&offset_span);
+            let n = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            // skip optional ROWS or ROW
+            if matches!(parser.token, Token::Ident(_, Keyword::ROWS | Keyword::ROW)) {
+                parser.consume();
+            }
+            Some((offset_span, n))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // PostgreSQL: FETCH {FIRST|NEXT} n {ROW|ROWS} ONLY
+    let fetch = if let Some(fetch_span) = parser.skip_keyword(Keyword::FETCH) {
+        parser.postgres_only(&fetch_span);
+        match &parser.token {
+            Token::Ident(_, Keyword::FIRST | Keyword::NEXT) => {
+                parser.consume();
+            }
+            _ => parser.expected_failure("FIRST or NEXT")?,
+        }
+        let n = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+        if matches!(parser.token, Token::Ident(_, Keyword::ROWS | Keyword::ROW)) {
+            parser.consume();
+        }
+        parser.consume_keyword(Keyword::ONLY)?;
+        Some((fetch_span, n))
     } else {
         None
     };
@@ -1172,7 +1485,7 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         let of = if let Some(of_span) = parser.skip_keyword(Keyword::OF) {
             let mut table_references = Vec::new();
             loop {
-                table_references.push(parser.consume_plain_identifier()?);
+                table_references.push(parser.consume_plain_identifier_unreserved()?);
                 if parser.skip_token(Token::Comma).is_none() {
                     break;
                 }
@@ -1224,6 +1537,9 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         window_span,
         order_by,
         limit,
+        distinct_on,
+        offset,
+        fetch,
         locking,
     })
 }
