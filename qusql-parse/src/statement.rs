@@ -2095,6 +2095,9 @@ pub(crate) fn parse_compound_query_bottom<'a>(
         }
         Token::Ident(_, Keyword::SELECT) => Ok(Statement::Select(Box::new(parse_select(parser)?))),
         Token::Ident(_, Keyword::VALUES) => Ok(Statement::Values(Box::new(parse_values(parser)?))),
+        Token::Ident(_, Keyword::WITH) => {
+            Ok(Statement::WithQuery(Box::new(parse_with_query(parser)?)))
+        }
         _ => parser.expected_failure("'SELECET' or '('")?,
     }
 }
