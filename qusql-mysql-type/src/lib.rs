@@ -687,6 +687,8 @@ arg_io!(DateTime, chrono::NaiveDateTime);
 arg_io!(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>);
 #[cfg(feature = "chrono")]
 arg_io!(Timestamp, chrono::DateTime<chrono::Utc>);
+#[cfg(feature = "chrono")]
+arg_io!(Date, chrono::NaiveDate);
 
 #[doc(hidden)]
 pub fn check_arg<T, T2: ArgIn<T>>(_: &T2) {}
