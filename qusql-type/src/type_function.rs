@@ -728,6 +728,785 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(BaseType::DateTime, not_null)
         }
         Function::Sleep => tf(BaseType::Integer.into(), &[BaseType::Float], &[]),
+        // Math / trig functions
+        Function::Abs => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                ) {
+                    typer.err(format!("Expected numeric type got {t}"), *e);
+                }
+                t.clone()
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Acos
+        | Function::Asin
+        | Function::Cos
+        | Function::Cot
+        | Function::Degrees
+        | Function::Exp
+        | Function::Ln
+        | Function::Log2
+        | Function::Log10
+        | Function::Radians
+        | Function::Sin
+        | Function::Sqrt
+        | Function::Tan => tf(Type::F64, &[BaseType::Float], &[]),
+        Function::Atan => tf(Type::F64, &[BaseType::Float], &[BaseType::Float]),
+        Function::Atan2 => tf(Type::F64, &[BaseType::Float, BaseType::Float], &[]),
+        Function::Ceil | Function::Floor => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                ) {
+                    typer.err(format!("Expected numeric type got {t}"), *e);
+                }
+                FullType::new(Type::I64, t.not_null)
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Log => tf(Type::F64, &[BaseType::Float], &[BaseType::Float]),
+        Function::Mod => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            for (e, t) in &typed {
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                ) {
+                    typer.err(format!("Expected numeric type got {t}"), *e);
+                }
+            }
+            if let Some((_, t)) = typed.first() {
+                t.clone()
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Pi => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(Type::F64, true)
+        }
+        Function::Pow => tf(Type::F64, &[BaseType::Float, BaseType::Float], &[]),
+        Function::Round => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            if let Some((e, t)) = typed.first() {
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                ) {
+                    typer.err(format!("Expected numeric type got {t}"), *e);
+                }
+                t.clone()
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Sign => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                ) {
+                    typer.err(format!("Expected numeric type got {t}"), *e);
+                }
+                FullType::new(Type::I8, t.not_null)
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Truncate => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            if let Some((e, t)) = typed.first() {
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                ) {
+                    typer.err(format!("Expected numeric type got {t}"), *e);
+                }
+                t.clone()
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Ascii => tf(BaseType::Integer.into(), &[BaseType::String], &[]),
+        Function::Bin => tf(BaseType::String.into(), &[BaseType::Integer], &[]),
+        Function::BitLength => tf(BaseType::Integer.into(), &[BaseType::String], &[]),
+        Function::Char => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..999, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            FullType::new(BaseType::String, false)
+        }
+        Function::Chr => tf(BaseType::String.into(), &[BaseType::Integer], &[]),
+        Function::ConcatWs => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..999, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::Conv => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::Integer, BaseType::Integer],
+            &[],
+        ),
+        Function::Crc32 | Function::Crc32c => tf(Type::U32, &[BaseType::String], &[]),
+        Function::CurrentCatalog
+        | Function::CurrentRole
+        | Function::CurrentUser
+        | Function::SessionUser => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, true)
+        }
+        Function::Elt => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..999, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            for (e, t) in typed.iter().skip(1) {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::String, false)
+        }
+        Function::Exists => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                type_expression(typer, arg, flags.without_values(), BaseType::Any);
+            }
+            FullType::new(BaseType::Bool, true)
+        }
+        Function::ExportSet => tf(
+            BaseType::String.into(),
+            &[BaseType::Integer, BaseType::String, BaseType::String],
+            &[BaseType::String, BaseType::Integer],
+        ),
+        Function::Field => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..999, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::Any);
+            }
+            FullType::new(BaseType::Integer, true)
+        }
+        Function::Format => tf(
+            BaseType::String.into(),
+            &[BaseType::Float, BaseType::Integer],
+            &[BaseType::String],
+        ),
+        Function::FromBase64 => tf(BaseType::Bytes.into(), &[BaseType::String], &[]),
+        Function::Hex => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::String | BaseType::Bytes
+                ) {
+                    typer.err(format!("Expected integer, string or bytes got {t}"), *e);
+                }
+                FullType::new(BaseType::String, t.not_null)
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Insert => tf(
+            BaseType::String.into(),
+            &[
+                BaseType::String,
+                BaseType::Integer,
+                BaseType::Integer,
+                BaseType::String,
+            ],
+            &[],
+        ),
+        Function::InStr => tf(
+            BaseType::Integer.into(),
+            &[BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::JsonArray => {
+            let typed = typed_args(typer, args, flags);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::Any);
+            }
+            FullType::new(Type::JSON, true)
+        }
+        Function::JsonArrayAgg => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                type_expression(typer, arg, flags.without_values(), BaseType::Any);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonArrayAppend | Function::JsonArrayInsert | Function::JsonInsert => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..999, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonArrayIntersect => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonCompact
+        | Function::JsonDetailed
+        | Function::JsonLoose
+        | Function::JsonNormalize
+        | Function::JsonPretty => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonDepth | Function::JsonLength => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::Integer, false)
+        }
+        Function::JsonEquals | Function::JsonValid | Function::JsonSchemaValid => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::Bool, false)
+        }
+        Function::JsonExists => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::Bool, false)
+        }
+        Function::JsonKeys => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonMerge | Function::JsonMergePath | Function::JsonMergePerserve => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..999, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonObject => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 0..999, args, span);
+            for (i, (e, t)) in typed.iter().enumerate() {
+                if i % 2 == 0 {
+                    typer.ensure_base(*e, t, BaseType::String);
+                } else {
+                    typer.ensure_base(*e, t, BaseType::Any);
+                }
+            }
+            FullType::new(Type::JSON, true)
+        }
+        Function::JsonObjectAgg => {
+            arg_cnt(typer, 2..2, args, span);
+            if let Some(key) = args.first() {
+                let key_t = type_expression(typer, key, flags.without_values(), BaseType::Any);
+                if !matches!(key_t.base(), BaseType::Any | BaseType::String) {
+                    typer.err(format!("Expected string key type got {key_t}"), key);
+                }
+            }
+            if let Some(value) = args.get(1) {
+                type_expression(typer, value, flags.without_values(), BaseType::Any);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonObjectFilterKeys => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonObjectToArray => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonQuote => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::JsonSearch => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..999, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::JsonTable => {
+            typer.err("JSON_TABLE typing not implemented", span);
+            FullType::invalid()
+        }
+        Function::JsonType => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::String, false)
+        }
+        Function::LCase | Function::Lower => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::LengthB | Function::OctetLength => {
+            tf(BaseType::Integer.into(), &[BaseType::String], &[])
+        }
+        Function::LoadFile => tf(BaseType::Bytes.into(), &[BaseType::String], &[]),
+        Function::Locate | Function::Position => tf(
+            BaseType::Integer.into(),
+            &[BaseType::String, BaseType::String],
+            &[BaseType::Integer],
+        ),
+        Function::LPad | Function::RPad => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::Integer, BaseType::String],
+            &[],
+        ),
+        Function::LTrim | Function::RTrim => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::MakeSet => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..999, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            for (e, t) in typed.iter().skip(1) {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::String, false)
+        }
+        Function::Mid => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::Integer],
+            &[BaseType::Integer],
+        ),
+        Function::NaturalSortkey => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::NullIf => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((_, t)) = typed.first() {
+                let mut v = t.clone();
+                v.not_null = false;
+                v
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::NVL2 => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..3, args, span);
+            if let Some((_, t)) = typed.get(1) {
+                t.clone()
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Oct => tf(BaseType::String.into(), &[BaseType::Integer], &[]),
+        Function::Ord => tf(BaseType::Integer.into(), &[BaseType::String], &[]),
+        Function::Quote => tf(BaseType::String.into(), &[BaseType::Any], &[]),
+        Function::Repeat => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::Integer],
+            &[],
+        ),
+        Function::Reverse => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::SFormat => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..999, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::String, false)
+        }
+        Function::SoundEx => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::Space => tf(BaseType::String.into(), &[BaseType::Integer], &[]),
+        Function::StrCmp => tf(
+            BaseType::Integer.into(),
+            &[BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::ToBase64 => tf(BaseType::String.into(), &[BaseType::Bytes], &[]),
+        Function::ToChar => tf(
+            BaseType::String.into(),
+            &[BaseType::Any, BaseType::String],
+            &[],
+        ),
+        Function::UCase | Function::Upper => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::UncompressedLength => tf(BaseType::Integer.into(), &[BaseType::Bytes], &[]),
+        Function::UnHex => tf(BaseType::Bytes.into(), &[BaseType::String], &[]),
+        Function::UpdateXml => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::WeekOfYear => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = if let Some((e, t)) = typed.first() {
+                typer.ensure_datetime(*e, t, Restrict::Require, Restrict::Allow);
+                t.not_null
+            } else {
+                true
+            };
+            FullType::new(BaseType::Integer, not_null)
+        }
+        Function::AesDecrypt | Function::AesEncrypt => tf(
+            BaseType::Bytes.into(),
+            &[BaseType::Bytes, BaseType::Bytes],
+            &[BaseType::Bytes],
+        ),
+        Function::AnyValue => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((_, t)) = typed.first() {
+                t.clone()
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Benchmark => tf(
+            BaseType::Integer.into(),
+            &[BaseType::Integer, BaseType::Any],
+            &[],
+        ),
+        Function::BinToUuid => tf(
+            BaseType::String.into(),
+            &[BaseType::Bytes],
+            &[BaseType::Integer],
+        ),
+        Function::BitCount => tf(Type::I64, &[BaseType::Integer], &[]),
+        Function::Charset | Function::Coercibility | Function::Collation => {
+            tf(BaseType::String.into(), &[BaseType::Any], &[])
+        }
+        Function::Compress => tf(BaseType::Bytes.into(), &[BaseType::Bytes], &[]),
+        Function::ConnectionId | Function::FoundRows | Function::RowCount => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(Type::I64, true)
+        }
+        Function::DatabaseFunc | Function::SchemaFunc => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, false)
+        }
+        Function::FirstValue | Function::LastValue => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((_, t)) = typed.first() {
+                let mut v = t.clone();
+                v.not_null = false;
+                v
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::FormatBytes | Function::FormatPicoTime => {
+            tf(BaseType::String.into(), &[BaseType::Integer], &[])
+        }
+        Function::GetFormat => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::GetLock => tf(
+            BaseType::Bool.into(),
+            &[BaseType::String, BaseType::Integer],
+            &[],
+        ),
+        Function::Grouping => {
+            arg_cnt(typer, 1..999, args, span);
+            for arg in args {
+                type_expression(typer, arg, flags.without_values(), BaseType::Any);
+            }
+            FullType::new(BaseType::Integer, true)
+        }
+        Function::IcuVersion => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, true)
+        }
+        Function::Inet6Aton | Function::InetAton => {
+            tf(BaseType::Bytes.into(), &[BaseType::String], &[])
+        }
+        Function::Inet6Ntoa | Function::InetNtoa => {
+            tf(BaseType::String.into(), &[BaseType::Bytes], &[])
+        }
+        Function::IsFreeLock | Function::IsUsedLock => {
+            tf(BaseType::Bool.into(), &[BaseType::String], &[])
+        }
+        Function::IsIPv4 | Function::IsIPv4Compat | Function::IsIPv4Mapped | Function::IsIPv6 => {
+            tf(BaseType::Bool.into(), &[BaseType::String], &[])
+        }
+        Function::IsUuid => tf(BaseType::Bool.into(), &[BaseType::String], &[]),
+        Function::LastInsertId => {
+            arg_cnt(typer, 0..1, args, span);
+            if let Some(arg) = args.first() {
+                type_expression(typer, arg, flags.without_values(), BaseType::Integer);
+            }
+            FullType::new(Type::U64, true)
+        }
+        Function::Md5 | Function::Sha | Function::Sha1 => {
+            tf(BaseType::String.into(), &[BaseType::Bytes], &[])
+        }
+        Function::Sha2 => tf(
+            BaseType::String.into(),
+            &[BaseType::Bytes, BaseType::Integer],
+            &[],
+        ),
+        Function::NameConst => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((_, t)) = typed.get(1) {
+                t.clone()
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::NthValue => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            if let Some((_, t)) = typed.first() {
+                let mut v = t.clone();
+                v.not_null = false;
+                v
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Ntile => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                type_expression(typer, arg, flags.without_values(), BaseType::Integer);
+            }
+            FullType::new(BaseType::Integer, true)
+        }
+        Function::PsCurrentThreadId => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(Type::U64, true)
+        }
+        Function::PsThreadId => tf(Type::U64, &[BaseType::Integer], &[]),
+        Function::RandomBytes => tf(BaseType::Bytes.into(), &[BaseType::Integer], &[]),
+        Function::RegexpInstr => tf(
+            BaseType::Integer.into(),
+            &[BaseType::String, BaseType::String],
+            &[
+                BaseType::Integer,
+                BaseType::Integer,
+                BaseType::Integer,
+                BaseType::String,
+            ],
+        ),
+        Function::RegexpLike => tf(
+            BaseType::Bool.into(),
+            &[BaseType::String, BaseType::String],
+            &[BaseType::String],
+        ),
+        Function::RegexpReplace => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::String, BaseType::String],
+            &[BaseType::Integer, BaseType::Integer, BaseType::String],
+        ),
+        Function::RegexpSubstr => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::String],
+            &[BaseType::Integer, BaseType::Integer, BaseType::String],
+        ),
+        Function::ReleaseAllLocks => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Integer, true)
+        }
+        Function::ReleaseLock => tf(BaseType::Bool.into(), &[BaseType::String], &[]),
+        Function::RolesGraphml => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, true)
+        }
+        Function::RowNumber | Function::CumeDist | Function::PercentRank => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(Type::F64, true)
+        }
+        Function::DenseRank | Function::Rank => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Integer, true)
+        }
+        Function::SessionUserFunc | Function::SystemUser | Function::UserFunc => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, true)
+        }
+        Function::StatementDigest | Function::StatementDigestText => {
+            tf(BaseType::String.into(), &[BaseType::String], &[])
+        }
+        Function::Uncompress => tf(BaseType::Bytes.into(), &[BaseType::Bytes], &[]),
+        Function::Uuid | Function::UuidShort => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, true)
+        }
+        Function::UuidToBin => tf(
+            BaseType::Bytes.into(),
+            &[BaseType::String],
+            &[BaseType::Integer],
+        ),
+        Function::ValidatePasswordStrength => {
+            tf(BaseType::Integer.into(), &[BaseType::String], &[])
+        }
+        Function::Version => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, true)
+        }
+        Function::WeightString => tf(BaseType::Bytes.into(), &[BaseType::String], &[]),
+        // Aggregate / window functions that may appear in non-aggregate context
+        Function::ArrayAgg | Function::JsonAgg | Function::JsonbAgg => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                type_expression(typer, arg, flags.without_values(), BaseType::Any);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::BitAnd | Function::BitOr | Function::BitXor => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            FullType::new(Type::U64, false)
+        }
+        Function::BoolAnd | Function::BoolOr => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::Bool);
+            }
+            FullType::new(BaseType::Bool, false)
+        }
+        Function::Corr
+        | Function::CovarPop
+        | Function::CovarSamp
+        | Function::RegrAvgx
+        | Function::RegrAvgy
+        | Function::RegrIntercept
+        | Function::RegrR2
+        | Function::RegrSlope
+        | Function::RegrSxx
+        | Function::RegrSxy
+        | Function::RegrSyy => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            FullType::new(Type::F64, false)
+        }
+        Function::RegrCount => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            FullType::new(Type::I64, false)
+        }
+        Function::JsonbObjectAgg => {
+            arg_cnt(typer, 2..2, args, span);
+            if let Some(key) = args.first() {
+                let key_t = type_expression(typer, key, flags.without_values(), BaseType::Any);
+                if !matches!(key_t.base(), BaseType::Any | BaseType::String) {
+                    typer.err(format!("Expected string key type got {key_t}"), key);
+                }
+            }
+            if let Some(value) = args.get(1) {
+                type_expression(typer, value, flags.without_values(), BaseType::Any);
+            }
+            FullType::new(Type::JSON, false)
+        }
+        Function::PercentileCont | Function::PercentileDisc => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            FullType::new(Type::F64, false)
+        }
+        Function::Mode
+        | Function::Std
+        | Function::Stddev
+        | Function::StddevPop
+        | Function::StddevSamp
+        | Function::Variance
+        | Function::VarPop
+        | Function::VarSamp => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first()
+                && !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                )
+            {
+                typer.err(format!("Expected numeric type got {t}"), *e);
+            }
+            FullType::new(Type::F64, false)
+        }
+        Function::StringAgg => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(BaseType::String, false)
+        }
+        Function::Xmlagg => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                type_expression(typer, arg, flags.without_values(), BaseType::String);
+            }
+            FullType::new(BaseType::String, false)
+        }
         _ => {
             typer.err("Typing for function not implemented", span);
             FullType::invalid()
