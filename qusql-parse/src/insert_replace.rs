@@ -20,7 +20,8 @@ use crate::{
     lexer::Token,
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name_unreserved,
-    select::{Select, SelectExpr, parse_select, parse_select_expr},
+    select::{SelectExpr, parse_select_expr},
+    statement::parse_compound_query,
 };
 
 /// Flags for insert
@@ -230,8 +231,8 @@ pub struct InsertReplace<'a> {
     pub columns: Vec<Identifier<'a>>,
     /// Span of values "VALUES" and list of tuples to insert if specified
     pub values: Option<(Span, Vec<Vec<Expression<'a>>>)>,
-    /// Select statement to insert if specified
-    pub select: Option<Select<'a>>,
+    /// Select statement (possibly compound with UNION/INTERSECT/EXCEPT) to insert if specified
+    pub select: Option<Statement<'a>>,
     /// Span of "SET" and list of key, value pairs to set if specified
     pub set: Option<InsertReplaceSet<'a>>,
     /// Updates to execute on duplicate key (mysql)
@@ -356,19 +357,14 @@ pub(crate) fn parse_insert_replace<'a>(
     let mut values = None;
     let mut set = None;
     match &parser.token {
-        Token::Ident(_, Keyword::SELECT) => {
-            select = Some(parse_select(parser)?);
+        Token::Ident(_, Keyword::SELECT) | Token::LParen => {
+            select = Some(parse_compound_query(parser)?);
         }
         Token::Ident(_, Keyword::WITH) => {
             // INSERT ... WITH [RECURSIVE] cte AS (...) SELECT ...
-            // Parse as a WithQuery and extract the inner SELECT.
             use crate::with_query::parse_with_query;
             let wq = parse_with_query(parser)?;
-            if let Statement::Select(s) = *wq.statement {
-                select = Some(*s);
-            } else {
-                parser.err("Expected SELECT after WITH", &wq.with_span);
-            }
+            select = Some(Statement::WithQuery(alloc::boxed::Box::new(wq)));
         }
         Token::Ident(_, Keyword::VALUE | Keyword::VALUES) => {
             let values_span = parser.consume();

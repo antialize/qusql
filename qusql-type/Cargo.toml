@@ -14,4 +14,4 @@ description = "Typer for sql"
 codespan-reporting = "0.13"
 
 [dependencies]
-qusql-parse = {path="../qusql-parse", version="0.2.0"}
+qusql-parse = {path="../qusql-parse", version="0.3.0"}

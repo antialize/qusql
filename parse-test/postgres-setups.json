@@ -27,5 +27,8 @@
   ],
   "test_table": [
     "CREATE TABLE test (id INTEGER, name TEXT, value TEXT, \"where\" TEXT, \"create\" TEXT, is_default BOOLEAN, classification TEXT, sort INTEGER)"
+  ],
+  "articles_table": [
+    "CREATE TABLE articles (id SERIAL PRIMARY KEY, word_count INT, publish_date DATE, category VARCHAR(100), location VARCHAR(100))"
   ]
 }

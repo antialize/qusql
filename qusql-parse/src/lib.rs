@@ -139,7 +139,7 @@ pub use expression::{
     FloatExpression, GroupConcatExpression, IdentifierExpression, IdentifierPart, InExpression,
     IntegerExpression, IntervalExpression, InvalidExpression, Is, IsExpression, ListHackExpression,
     MatchAgainstExpression, MatchMode, MemberOfExpression, NullExpression, Quantifier,
-    QuantifierExpression, SubqueryExpression, TimeUnit, TimestampAddExpression,
+    QuantifierExpression, RowExpression, SubqueryExpression, TimeUnit, TimestampAddExpression,
     TimestampDiffExpression, TrimDirection, TrimExpression, TypeCastExpression, UnaryExpression,
     UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
 };

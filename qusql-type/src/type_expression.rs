@@ -507,6 +507,18 @@ pub(crate) fn type_expression<'a>(
                 qusql_parse::TimeUnit::DayMinute => 3,
                 qusql_parse::TimeUnit::DayHour => 2,
                 qusql_parse::TimeUnit::YearMonth => 2,
+                qusql_parse::TimeUnit::Epoch
+                | qusql_parse::TimeUnit::Dow
+                | qusql_parse::TimeUnit::Doy
+                | qusql_parse::TimeUnit::Century
+                | qusql_parse::TimeUnit::Decade
+                | qusql_parse::TimeUnit::IsoDow
+                | qusql_parse::TimeUnit::IsoYear
+                | qusql_parse::TimeUnit::Julian
+                | qusql_parse::TimeUnit::Millennium
+                | qusql_parse::TimeUnit::Timezone
+                | qusql_parse::TimeUnit::TimezoneHour
+                | qusql_parse::TimeUnit::TimezoneMinute => 1,
             };
             if cnt != e.time_interval.0.len() {
                 typer.err(
@@ -584,6 +596,10 @@ pub(crate) fn type_expression<'a>(
             FullType::invalid()
         }
         Expression::Char(e) => {
+            issue_todo!(typer.issues, e);
+            FullType::invalid()
+        }
+        Expression::Row(e) => {
             issue_todo!(typer.issues, e);
             FullType::invalid()
         }

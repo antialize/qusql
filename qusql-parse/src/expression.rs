@@ -295,6 +295,57 @@ pub enum TimeUnit {
     DayHour,
     /// Years-Months
     YearMonth,
+    /// PostgreSQL: epoch (seconds since 1970-01-01)
+    Epoch,
+    /// PostgreSQL: day of week (0=Sunday)
+    Dow,
+    /// PostgreSQL: day of year
+    Doy,
+    /// PostgreSQL: century
+    Century,
+    /// PostgreSQL: decade
+    Decade,
+    /// PostgreSQL: ISO day of week (1=Monday)
+    IsoDow,
+    /// PostgreSQL: ISO year
+    IsoYear,
+    /// PostgreSQL: Julian day
+    Julian,
+    /// PostgreSQL: millennium
+    Millennium,
+    /// PostgreSQL: timezone offset in seconds
+    Timezone,
+    /// PostgreSQL: timezone hours component
+    TimezoneHour,
+    /// PostgreSQL: timezone minutes component
+    TimezoneMinute,
+}
+
+fn parse_time_unit_from_str(s: &str) -> Option<TimeUnit> {
+    match s.to_ascii_lowercase().trim_end_matches('s') {
+        "microsecond" => Some(TimeUnit::Microsecond),
+        "second" => Some(TimeUnit::Second),
+        "minute" => Some(TimeUnit::Minute),
+        "hour" => Some(TimeUnit::Hour),
+        "day" => Some(TimeUnit::Day),
+        "week" => Some(TimeUnit::Week),
+        "month" => Some(TimeUnit::Month),
+        "quarter" => Some(TimeUnit::Quarter),
+        "year" => Some(TimeUnit::Year),
+        "epoch" => Some(TimeUnit::Epoch),
+        "dow" => Some(TimeUnit::Dow),
+        "doy" => Some(TimeUnit::Doy),
+        "century" | "centurie" => Some(TimeUnit::Century),
+        "decade" => Some(TimeUnit::Decade),
+        "isodow" => Some(TimeUnit::IsoDow),
+        "isoyear" => Some(TimeUnit::IsoYear),
+        "julian" => Some(TimeUnit::Julian),
+        "millennium" | "millennia" | "millenniu" => Some(TimeUnit::Millennium),
+        "timezone" => Some(TimeUnit::Timezone),
+        "timezone_hour" => Some(TimeUnit::TimezoneHour),
+        "timezone_minute" => Some(TimeUnit::TimezoneMinute),
+        _ => None,
+    }
 }
 
 fn parse_time_unit(t: &Token<'_>) -> Option<TimeUnit> {
@@ -319,6 +370,7 @@ fn parse_time_unit(t: &Token<'_>) -> Option<TimeUnit> {
         Token::Ident(_, Keyword::DAY_MINUTE) => Some(TimeUnit::DayMinute),
         Token::Ident(_, Keyword::DAY_HOUR) => Some(TimeUnit::DayHour),
         Token::Ident(_, Keyword::YEAR_MONTH) => Some(TimeUnit::YearMonth),
+        Token::Ident(s, Keyword::NOT_A_KEYWORD) => parse_time_unit_from_str(s),
         _ => None,
     }
 }
@@ -981,6 +1033,21 @@ impl Spanned for QuantifierExpression<'_> {
     }
 }
 
+/// A row/tuple constructor expression: `(expr1, expr2, ...)`
+#[derive(Debug, Clone)]
+pub struct RowExpression<'a> {
+    /// Span of the surrounding parentheses
+    pub paren_span: Span,
+    /// Elements of the tuple
+    pub elements: Vec<Expression<'a>>,
+}
+
+impl Spanned for RowExpression<'_> {
+    fn span(&self) -> Span {
+        self.paren_span.clone()
+    }
+}
+
 /// Representation of an expression
 #[derive(Debug, Clone)]
 pub enum Expression<'a> {
@@ -1063,6 +1130,8 @@ pub enum Expression<'a> {
     FieldAccess(Box<FieldAccessExpression<'a>>),
     /// CHAR(N,... [USING charset_name]) expression
     Char(Box<CharFunctionExpression<'a>>),
+    /// Row / tuple constructor: `(expr1, expr2, ...)`
+    Row(Box<RowExpression<'a>>),
 }
 
 impl<'a> Spanned for Expression<'a> {
@@ -1107,6 +1176,7 @@ impl<'a> Spanned for Expression<'a> {
             Expression::Quantifier(e) => e.span(),
             Expression::FieldAccess(e) => e.span(),
             Expression::Char(e) => e.span(),
+            Expression::Row(e) => e.span(),
         }
     }
 }
@@ -1824,29 +1894,34 @@ pub(crate) fn parse_expression_restricted<'a>(
             }
             Token::Ident(_, Keyword::INTERVAL) => {
                 let interval_span = parser.consume();
-                let time_interval = match parser.token {
+                let (time_interval, embedded_unit) = match parser.token {
                     Token::String(..) => {
                         let v = parser.consume_string()?;
-                        let mut r = Vec::new();
+                        let str_span = v.span();
+                        let mut nums = Vec::new();
+                        let mut embedded: Option<TimeUnit> = None;
                         for part in v.split([':', '!', ',', '.', '-', ' ']) {
-                            let Ok(v) = part.parse() else {
-                                parser.err("Expected . separated integers in a string", &v);
-                                continue;
-                            };
-                            r.push(v);
+                            if let Ok(n) = part.parse::<i64>() {
+                                nums.push(n);
+                            } else if !part.is_empty() {
+                                embedded = parse_time_unit_from_str(part);
+                            }
                         }
-                        (r, v.span())
+                        ((nums, str_span), embedded)
                     }
                     Token::Integer(_) => {
                         let (v, s) = parser.consume_int()?;
-                        (vec![v], s)
+                        ((vec![v], s), None)
                     }
                     _ => parser.err_here("Expected integer or string")?,
                 };
-                let Some(u) = parse_time_unit(&parser.token) else {
+                let time_unit = if let Some(u) = parse_time_unit(&parser.token) {
+                    (u, parser.consume())
+                } else if let Some(u) = embedded_unit {
+                    (u, time_interval.1.clone())
+                } else {
                     parser.err_here("Expected time unit")?
                 };
-                let time_unit = (u, parser.consume());
                 let e = Expression::Interval(Box::new(IntervalExpression {
                     interval_span,
                     time_interval,
@@ -2447,10 +2522,36 @@ pub(crate) fn parse_expression_restricted<'a>(
                 })))
             }
             Token::LParen => {
-                parser.consume_token(Token::LParen)?;
-                let ans = parse_expression_paren(parser)?;
-                parser.consume_token(Token::RParen)?;
-                r.shift_expr(ans)
+                let paren_start = parser.consume_token(Token::LParen)?;
+                let first = parse_expression_paren(parser)?;
+                if parser.skip_token(Token::Comma).is_some() {
+                    // Row / tuple constructor: (expr1, expr2, ...)
+                    let mut elements = vec![first];
+                    loop {
+                        if matches!(parser.token, Token::RParen) {
+                            break;
+                        }
+                        parser.recovered(
+                            "')' or ','",
+                            &|t| matches!(t, Token::RParen | Token::Comma),
+                            |parser| {
+                                elements.push(parse_expression_paren(parser)?);
+                                Ok(())
+                            },
+                        )?;
+                        if parser.skip_token(Token::Comma).is_none() {
+                            break;
+                        }
+                    }
+                    let paren_end = parser.consume_token(Token::RParen)?;
+                    r.shift_expr(Expression::Row(Box::new(RowExpression {
+                        paren_span: paren_start.join_span(&paren_end),
+                        elements,
+                    })))
+                } else {
+                    parser.consume_token(Token::RParen)?;
+                    r.shift_expr(first)
+                }
             }
             Token::Ident(_, Keyword::EXISTS) => {
                 let exists_span = parser.consume_keyword(Keyword::EXISTS)?;

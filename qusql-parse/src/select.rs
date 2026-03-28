@@ -348,6 +348,8 @@ pub enum TableReference<'a> {
         as_span: Option<Span>,
         /// Alias for the result set if specified
         as_: Option<Identifier<'a>>,
+        /// Optional column alias list `(col1, col2, ...)` after the alias
+        col_list: Vec<Identifier<'a>>,
     },
     /// Join
     Join {
@@ -402,12 +404,14 @@ impl<'a> Spanned for TableReference<'a> {
                 with_ordinality,
                 as_span,
                 as_,
+                col_list,
             } => name
                 .span()
                 .join_span(args)
                 .join_span(with_ordinality)
                 .join_span(as_span)
-                .join_span(as_),
+                .join_span(as_)
+                .join_span(col_list),
             TableReference::Join {
                 join,
                 left,
@@ -467,6 +471,7 @@ pub(crate) fn parse_table_reference_inner<'a>(
                 && !matches!(
                     parser.peek(),
                     Token::Ident(_, Keyword::SELECT | Keyword::VALUES | Keyword::WITH)
+                        | Token::LParen
                 );
             if is_join_group {
                 parser.consume_token(Token::LParen)?;
@@ -645,12 +650,35 @@ fn parse_table_reference_named<'a>(
         } else {
             None
         };
+        // Parse optional column alias list `alias(col1, col2, ...)` (PostgreSQL table-function syntax)
+        let col_list = if as_.is_some() && matches!(parser.token, Token::LParen) {
+            parser.consume_token(Token::LParen)?;
+            let mut cols = Vec::new();
+            loop {
+                parser.recovered(
+                    "')' or ','",
+                    &|t| matches!(t, Token::RParen | Token::Comma),
+                    |parser| {
+                        cols.push(parser.consume_plain_identifier_unreserved()?);
+                        Ok(())
+                    },
+                )?;
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+            parser.consume_token(Token::RParen)?;
+            cols
+        } else {
+            Vec::new()
+        };
         return Ok(TableReference::Function {
             name: func_name,
             args,
             with_ordinality,
             as_span,
             as_,
+            col_list,
         });
     }
 
