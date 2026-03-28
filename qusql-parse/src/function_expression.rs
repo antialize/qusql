@@ -1113,6 +1113,55 @@ pub(crate) fn parse_function<'a>(
     };
 
     let mut args = Vec::new();
+
+    // SQL-standard SUBSTRING(str FROM pos [FOR len]) — PostgreSQL and ANSI SQL.
+    if matches!(func, Function::SubStr) && !matches!(parser.token, Token::RParen) {
+        let expr = parse_expression_outer(parser)?;
+        if let Some(_from) = parser.skip_keyword(Keyword::FROM) {
+            let pos = parse_expression_outer(parser)?;
+            args.push(expr);
+            args.push(pos);
+            if parser.skip_keyword(Keyword::FOR).is_some() {
+                args.push(parse_expression_outer(parser)?);
+            }
+            parser.consume_token(Token::RParen)?;
+            return Ok(Expression::Function(Box::new(FunctionCallExpression {
+                function: func,
+                args,
+                function_span: span,
+            })));
+        } else {
+            // Comma-style: push first arg and continue normally
+            args.push(expr);
+            while parser.skip_token(Token::Comma).is_some() {
+                parser.recovered(
+                    "')' or ','",
+                    &|t| matches!(t, Token::RParen | Token::Comma),
+                    |parser| {
+                        args.push(parse_expression_outer(parser)?);
+                        Ok(())
+                    },
+                )?;
+            }
+            parser.consume_token(Token::RParen)?;
+            if let Some(over) = parse_over_clause(parser)? {
+                return Ok(Expression::WindowFunction(Box::new(
+                    WindowFunctionCallExpression {
+                        function: func,
+                        args,
+                        function_span: span,
+                        over,
+                    },
+                )));
+            }
+            return Ok(Expression::Function(Box::new(FunctionCallExpression {
+                function: func,
+                args,
+                function_span: span,
+            })));
+        }
+    }
+
     if !matches!(parser.token, Token::RParen) {
         loop {
             parser.recovered(
