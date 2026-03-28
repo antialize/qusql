@@ -124,6 +124,11 @@ pub(crate) fn parse_delete<'a>(parser: &mut Parser<'a, '_>) -> Result<Delete<'a>
     let from_span = if let Some(from_span) = parser.skip_keyword(Keyword::FROM) {
         loop {
             tables.push(parse_qualified_name_unreserved(parser)?);
+            // Optional alias: DELETE FROM table alias WHERE ...
+            if matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | Restrict::EMPTY))
+            {
+                parser.consume();
+            }
             if parser.skip_token(Token::Comma).is_none() {
                 break;
             }
