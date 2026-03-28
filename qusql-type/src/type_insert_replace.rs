@@ -135,8 +135,10 @@ pub(crate) fn type_insert_replace<'a>(
         }
     }
 
-    if let Some(select) = &ior.select {
-        let select = type_select(typer, select, true);
+    if let Some(select_stmt) = &ior.select
+        && let qusql_parse::Statement::Select(select_inner) = select_stmt
+    {
+        let select = type_select(typer, select_inner, true);
         if let Some(s) = s {
             for i in 0..usize::max(s.len(), select.columns.len()) {
                 match (s.get(i), select.columns.get(i)) {
@@ -144,7 +146,7 @@ pub(crate) fn type_insert_replace<'a>(
                         if typer.matched_type(&t.type_, et).is_none() {
                             typer
                                 .err(format!("Got type {}", t.type_.t), &t.span)
-                                .frag(format!("Expected {}", et.t), ets);
+                                .frag(format!("Expected {}", et), ets);
                         }
                     }
                     (None, Some(t)) => {
@@ -160,6 +162,7 @@ pub(crate) fn type_insert_replace<'a>(
             }
         }
     }
+    // Compound queries (UNION/INTERSECT/EXCEPT) skip the column type check
 
     let mut guard = typer_stack(
         typer,
