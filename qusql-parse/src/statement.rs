@@ -2307,17 +2307,21 @@ pub(crate) fn parse_statements<'a>(parser: &mut Parser<'a, '_>) -> Vec<Statement
             ans.push(stmt);
         }
 
-        if !matches!(parser.token, Token::Delimiter) {
-            if !err {
-                parser.expected_error(parser.lexer.delimiter_name());
-            }
-            // We use a custom recovery here as ; is not allowed in sub expressions, it always terminates outer most statements
-            loop {
-                parser.next();
-                match &parser.token {
-                    Token::Delimiter => break,
-                    Token::Eof => return ans,
-                    _ => (),
+        match &parser.token {
+            Token::Delimiter => (),
+            Token::Eof => return ans,
+            _ => {
+                if !err {
+                    parser.expected_error(parser.lexer.delimiter_name());
+                }
+                // We use a custom recovery here as ; is not allowed in sub expressions, it always terminates outer most statements
+                loop {
+                    parser.next();
+                    match &parser.token {
+                        Token::Delimiter => break,
+                        Token::Eof => return ans,
+                        _ => (),
+                    }
                 }
             }
         }
