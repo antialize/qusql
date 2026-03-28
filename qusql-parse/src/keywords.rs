@@ -306,7 +306,6 @@ pub(crate) enum Keyword {
     UPDATE,              // reserved: mariadb, sqlite
     USAGE,               // reserved: mariadb
     USE,                 // reserved: mariadb
-    USER,                // reserved: postgres; expr_ident
     USING,               // reserved: mariadb, postgres, sqlite
     UTC_DATE,            // reserved: mariadb; expr_ident
     UTC_TIME,            // reserved: mariadb; expr_ident
@@ -1066,21 +1065,22 @@ pub(crate) enum Keyword {
     SUMMARY,
     UNCOMPRESSED_LENGTH,
     UNDEFINED,
-    UNDOFILE,
+    REFRESH,
     UNDO_BUFFER_SIZE,
+    UNDOFILE,
     UNHEX,
     UNICODE,
     UNINSTALL,
     UNIX_TIMESTAMP,
-    REFRESH,
     UNKNOWN,
     UNNEST,
     UNTIL,
     UPDATEXML,
     UPGRADE,
     UPPER,
-    UUID,
     USER_RESOURCES,
+    USER,
+    UUID,
     USE_FRM,
     VALID,
     VALIDATE,
