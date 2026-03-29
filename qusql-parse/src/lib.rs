@@ -63,6 +63,7 @@ mod drop;
 mod expression;
 mod flush;
 mod function_expression;
+mod grant;
 mod identifier;
 mod insert_replace;
 mod issue;
@@ -144,6 +145,11 @@ pub use expression::{
     UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
 };
 pub use flush::{Flush, FlushOption};
+pub use grant::{
+    AllRoutineKind, Grant, GrantKind, GrantObject, GrantPrivilege, MembershipOption,
+    MembershipOptionKind, MembershipOptionValue, PrivilegeItem, RoleSpec, RoutineArgType,
+    RoutineKind, RoutineName,
+};
 pub use function_expression::{
     AggregateFunctionCallExpression, CharFunctionExpression, Function, FunctionCallExpression,
     WindowClause, WindowFrame, WindowFrameBound, WindowFrameMode, WindowFunctionCallExpression,

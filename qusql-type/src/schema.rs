@@ -898,6 +898,7 @@ pub fn parse_schemas<'a>(
             qusql_parse::Statement::CreateFunction(_) => (),
             qusql_parse::Statement::CreateProcedure(_) => (),
             qusql_parse::Statement::Call(_) => (),
+            qusql_parse::Statement::Grant(_) => (),
             qusql_parse::Statement::DeclareVariable(_) => (),
             qusql_parse::Statement::DeclareCursorMariaDb(_) => (),
             qusql_parse::Statement::DeclareHandler(_) => (),

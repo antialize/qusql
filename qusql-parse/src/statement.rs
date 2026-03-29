@@ -33,6 +33,7 @@ use crate::{
     },
     expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     flush::{Flush, parse_flush},
+    grant::{Grant, parse_grant},
     insert_replace::{InsertReplace, parse_insert_replace},
     keywords::Keyword,
     kill::{Kill, parse_kill},
@@ -744,6 +745,7 @@ fn parse_call<'a>(parser: &mut Parser<'a, '_>) -> Result<Call<'a>, ParseError> {
     })
 }
 
+
 /// SQL statement
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
@@ -862,6 +864,8 @@ pub enum Statement<'a> {
     Prepare(Box<Prepare<'a>>),
     /// CALL statement for invoking stored procedures
     Call(Box<Call<'a>>),
+    /// GRANT privileges statement
+    Grant(Box<Grant<'a>>),
 }
 
 impl<'a> Spanned for Statement<'a> {
@@ -964,6 +968,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::RefreshMaterializedView(v) => v.span(),
             Statement::Prepare(v) => v.span(),
             Statement::Call(v) => v.span(),
+            Statement::Grant(v) => v.span(),
         }
     }
 }
@@ -1057,6 +1062,7 @@ pub(crate) fn parse_statement<'a>(
             parse_refresh_materialized_view(parser)?,
         ))),
         Token::Ident(_, Keyword::CALL) => Some(Statement::Call(Box::new(parse_call(parser)?))),
+        Token::Ident(_, Keyword::GRANT) => Some(Statement::Grant(Box::new(parse_grant(parser)?))),
         // MariaDB compound-block control statements
         Token::Ident(_, Keyword::OPEN)
             if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
