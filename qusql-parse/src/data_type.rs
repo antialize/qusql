@@ -807,7 +807,15 @@ pub(crate) fn parse_data_type<'a>(
         }
         Token::Ident(_, _) if parser.options.dialect.is_postgresql() => {
             let name = parser.consume();
-            (name.clone(), Type::Named(name))
+            // Handle schema-qualified type names like `public.geography`
+            if matches!(parser.token, Token::Period) {
+                let period = parser.consume();
+                let type_name = parser.consume();
+                let full_span = name.join_span(&period).join_span(&type_name);
+                (full_span.clone(), Type::Named(full_span))
+            } else {
+                (name.clone(), Type::Named(name))
+            }
         }
         _ => parser.expected_failure("type")?,
     };
