@@ -137,8 +137,8 @@ pub struct CreateTrigger<'a> {
     pub on_span: Span,
     /// Name of table to create the trigger on
     pub table: Identifier<'a>,
-    /// Span of "FOR EACH ROW"
-    pub for_each_row_span: Span,
+    /// Span of "FOR EACH ROW" or "FOR EACH STATEMENT" (None if omitted, PostgreSQL only)
+    pub for_each_row_span: Option<Span>,
     /// Optional REFERENCING NEW TABLE AS alias / OLD TABLE AS alias clauses
     pub referencing: Vec<TriggerReference<'a>>,
     /// Optional WHEN (condition)
@@ -214,8 +214,25 @@ pub(crate) fn parse_create_trigger<'a>(
 
     let table = parser.consume_plain_identifier_unreserved()?;
 
-    let for_each_row_span =
-        parser.consume_keywords(&[Keyword::FOR, Keyword::EACH, Keyword::ROW])?;
+    let for_each_row_span = if parser.options.dialect.is_postgresql() {
+        if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
+            let each_span = parser.skip_keyword(Keyword::EACH);
+            let clause_span = match &parser.token {
+                Token::Ident(_, Keyword::ROW) => {
+                    for_span.join_span(&each_span).join_span(&parser.consume_keyword(Keyword::ROW)?)
+                }
+                Token::Ident(_, Keyword::STATEMENT) => {
+                    for_span.join_span(&each_span).join_span(&parser.consume_keyword(Keyword::STATEMENT)?)
+                }
+                _ => for_span.join_span(&each_span),
+            };
+            Some(clause_span)
+        } else {
+            None
+        }
+    } else {
+        Some(parser.consume_keywords(&[Keyword::FOR, Keyword::EACH, Keyword::ROW])?)
+    };
 
     // Parse optional REFERENCING clause (PostgreSQL transition table aliases)
     let mut referencing = Vec::new();
