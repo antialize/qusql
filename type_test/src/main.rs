@@ -54,15 +54,20 @@ struct JsonColumn {
     name: String,
     #[serde(rename = "type")]
     type_: String,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     not_null: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     auto_increment: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     has_default: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     generated: bool,
 }
 
 #[derive(Serialize)]
 struct JsonTable {
     name: String,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     view: bool,
     columns: Vec<JsonColumn>,
 }
