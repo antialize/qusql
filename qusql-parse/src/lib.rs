@@ -189,7 +189,7 @@ pub use statement::{
     CursorScroll, CursorSensitivity, DeclareCursor, DeclareCursorMariaDb, DeclareHandler,
     DeclareVariable, Do, DoBody, End, Explain, ExplainFormat, ExplainOption, FetchCursor,
     HandlerAction, HandlerCondition, If, IfCondition, Invalid, Iterate, Leave, Loop, OpenCursor,
-    Prepare, RefreshMaterializedView, Repeat, Return, Set, Signal, SignalConditionInformationName,
+    Perform, Prepare, RefreshMaterializedView, Repeat, Return, Set, Signal, SignalConditionInformationName,
     StartTransaction, Statement, Stdin, WhenStatement, While,
 };
 pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
