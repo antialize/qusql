@@ -567,7 +567,12 @@ fn parse_add_foreign_key<'a>(
     let cols = parse_index_cols(parser)?;
     let references_span = parser.consume_keyword(Keyword::REFERENCES)?;
     let references_table = parser.consume_plain_identifier_unreserved()?;
-    let references_cols = parse_cols(parser)?;
+    // Reference columns are optional (omitting uses the referenced table's primary key)
+    let references_cols = if matches!(parser.token, Token::LParen) {
+        parse_cols(parser)?
+    } else {
+        Vec::new()
+    };
     let mut ons = Vec::new();
     while let Some(on) = parser.skip_keyword(Keyword::ON) {
         let type_ = match parser.token {
@@ -703,6 +708,8 @@ fn parse_modify_column<'a>(
 pub struct DropColumn<'a> {
     /// Span of "DROP COLUMN"
     pub drop_column_span: Span,
+    /// Span of "IF EXISTS" if specified (PostgreSQL)
+    pub if_exists: Option<Span>,
     /// Name of column to drop
     pub column: Identifier<'a>,
     /// Span of "CASCADE" if specified
@@ -712,6 +719,7 @@ pub struct DropColumn<'a> {
 impl<'a> Spanned for DropColumn<'a> {
     fn span(&self) -> Span {
         self.drop_column_span
+            .join_span(&self.if_exists)
             .join_span(&self.column)
             .join_span(&self.cascade)
     }
@@ -722,6 +730,13 @@ fn parse_drop_column<'a>(
     drop_span: Span,
 ) -> Result<DropColumn<'a>, ParseError> {
     let drop_column_span = drop_span.join_span(&parser.consume_keyword(Keyword::COLUMN)?);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        let exists_span = parser.consume_keyword(Keyword::EXISTS)?.join_span(&span);
+        parser.postgres_only(&exists_span);
+        Some(exists_span)
+    } else {
+        None
+    };
     let column = parser.consume_plain_identifier_unreserved()?;
     let cascade = parser.skip_keyword(Keyword::CASCADE);
     if let Some(span) = &cascade {
@@ -729,6 +744,7 @@ fn parse_drop_column<'a>(
     }
     Ok(DropColumn {
         drop_column_span,
+        if_exists,
         column,
         cascade,
     })
@@ -1944,8 +1960,9 @@ pub(crate) fn parse_alter_table<'a>(
     } else {
         None
     };
-    let only = if if_exists.is_some() {
-        parser.skip_keyword(Keyword::ONLY)
+    let only = if let Some(span) = parser.skip_keyword(Keyword::ONLY) {
+        parser.postgres_only(&span);
+        Some(span)
     } else {
         None
     };

@@ -55,6 +55,10 @@ struct Args {
     /// Whether to parse multiple statements
     #[arg(short, long, default_value_t = false)]
     multiple: bool,
+
+    /// Parse in function/procedure body mode (allows BEGIN...END blocks)
+    #[arg(long, default_value_t = false)]
+    function_body: bool,
 }
 
 /// Supported SQL dialects for parsing.
@@ -115,7 +119,8 @@ fn main() {
             qusql_parse::SQLArguments::Dollar
         } else {
             qusql_parse::SQLArguments::QuestionMark
-        });
+        })
+        .function_body(args.function_body);
     let mut issues = qusql_parse::Issues::new(&src);
 
     if args.benchmark {

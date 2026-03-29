@@ -1242,6 +1242,56 @@ fn parse_drop_operator_class<'a>(
     })
 }
 
+/// DROP TYPE statement (PostgreSQL)
+#[derive(Debug, Clone)]
+pub struct DropType<'a> {
+    /// Span of "DROP TYPE"
+    pub drop_type_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// List of type names to drop
+    pub names: Vec<QualifiedName<'a>>,
+    /// Span of "CASCADE" or "RESTRICT" if specified
+    pub restrict_or_cascade: Option<CascadeOrRestrict>,
+}
+
+impl<'a> Spanned for DropType<'a> {
+    fn span(&self) -> Span {
+        self.drop_type_span
+            .join_span(&self.if_exists)
+            .join_span(&self.names)
+            .join_span(&self.restrict_or_cascade)
+    }
+}
+
+fn parse_drop_type<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropType<'a>, ParseError> {
+    let type_span = parser.consume_keyword(Keyword::TYPE)?;
+    parser.postgres_only(&type_span);
+    let drop_type_span = drop_span.join_span(&type_span);
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let mut names = Vec::new();
+    loop {
+        names.push(parse_qualified_name_unreserved(parser)?);
+        if parser.skip_token(Token::Comma).is_none() {
+            break;
+        }
+    }
+    let restrict_or_cascade = parse_cascade_or_restrict(parser);
+    Ok(DropType {
+        drop_type_span,
+        if_exists,
+        names,
+        restrict_or_cascade,
+    })
+}
+
 pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, ParseError> {
     let drop_span = parser.consume_keyword(Keyword::DROP)?;
     let temporary = parser.skip_keyword(Keyword::TEMPORARY);
@@ -1309,6 +1359,9 @@ pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a
         Token::Ident(_, Keyword::TRIGGER) => Ok(Statement::DropTrigger(Box::new(
             parse_drop_trigger(parser, drop_span)?,
         ))),
+        Token::Ident(_, Keyword::TYPE) => Ok(Statement::DropType(Box::new(parse_drop_type(
+            parser, drop_span,
+        )?))),
         Token::Ident(_, Keyword::USER) => {
             // DROP USER [IF EXISTS] user_name [, user_name] ..
             parser.todo(file!(), line!())
