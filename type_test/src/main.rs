@@ -1,9 +1,6 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser, ValueEnum};
-use qusql_type::{
-    Issues, Level, SQLDialect, TypeOptions,
-    schema::parse_schemas,
-};
+use qusql_type::{Issues, Level, SQLDialect, TypeOptions, schema::parse_schemas};
 use serde::Serialize;
 use std::{fs, path::PathBuf, process};
 

@@ -144,9 +144,7 @@ pub struct RoutineArgType<'a> {
 
 impl<'a> Spanned for RoutineArgType<'a> {
     fn span(&self) -> Span {
-        self.type_
-            .join_span(&self.mode)
-            .join_span(&self.name)
+        self.type_.join_span(&self.mode).join_span(&self.name)
     }
 }
 
@@ -277,9 +275,15 @@ impl<'a> Spanned for GrantObject<'a> {
             } => all_span.join_span(schemas),
             GrantObject::Languages { language_kw, names } => language_kw.join_span(names),
             GrantObject::LargeObjects { span, oids } => span.join_span(oids),
-            GrantObject::Parameters { parameter_kw, names } => parameter_kw.join_span(names),
+            GrantObject::Parameters {
+                parameter_kw,
+                names,
+            } => parameter_kw.join_span(names),
             GrantObject::Schemas { schema_kw, names } => schema_kw.join_span(names),
-            GrantObject::Tablespaces { tablespace_kw, names } => tablespace_kw.join_span(names),
+            GrantObject::Tablespaces {
+                tablespace_kw,
+                names,
+            } => tablespace_kw.join_span(names),
             GrantObject::Types { type_kw, names } => type_kw.join_span(names),
         }
     }
@@ -471,48 +475,48 @@ fn is_privilege_keyword(token: &Token) -> bool {
 
 fn parse_privilege<'a>(parser: &mut Parser<'a, '_>) -> Result<GrantPrivilege, ParseError> {
     match &parser.token {
-        Token::Ident(_, Keyword::SELECT) => {
-            Ok(GrantPrivilege::Select(parser.consume_keyword(Keyword::SELECT)?))
-        }
-        Token::Ident(_, Keyword::INSERT) => {
-            Ok(GrantPrivilege::Insert(parser.consume_keyword(Keyword::INSERT)?))
-        }
-        Token::Ident(_, Keyword::UPDATE) => {
-            Ok(GrantPrivilege::Update(parser.consume_keyword(Keyword::UPDATE)?))
-        }
-        Token::Ident(_, Keyword::DELETE) => {
-            Ok(GrantPrivilege::Delete(parser.consume_keyword(Keyword::DELETE)?))
-        }
-        Token::Ident(_, Keyword::TRUNCATE) => {
-            Ok(GrantPrivilege::Truncate(parser.consume_keyword(Keyword::TRUNCATE)?))
-        }
-        Token::Ident(_, Keyword::REFERENCES) => {
-            Ok(GrantPrivilege::References(parser.consume_keyword(Keyword::REFERENCES)?))
-        }
-        Token::Ident(_, Keyword::TRIGGER) => {
-            Ok(GrantPrivilege::Trigger(parser.consume_keyword(Keyword::TRIGGER)?))
-        }
-        Token::Ident(_, Keyword::MAINTAIN) => {
-            Ok(GrantPrivilege::Maintain(parser.consume_keyword(Keyword::MAINTAIN)?))
-        }
-        Token::Ident(_, Keyword::USAGE) => {
-            Ok(GrantPrivilege::Usage(parser.consume_keyword(Keyword::USAGE)?))
-        }
-        Token::Ident(_, Keyword::CREATE) => {
-            Ok(GrantPrivilege::Create(parser.consume_keyword(Keyword::CREATE)?))
-        }
-        Token::Ident(_, Keyword::CONNECT) => {
-            Ok(GrantPrivilege::Connect(parser.consume_keyword(Keyword::CONNECT)?))
-        }
-        Token::Ident(_, Keyword::TEMPORARY) => {
-            Ok(GrantPrivilege::Temporary(parser.consume_keyword(Keyword::TEMPORARY)?))
-        }
-        Token::Ident(_, Keyword::TEMP) => {
-            Ok(GrantPrivilege::Temporary(parser.consume_keyword(Keyword::TEMP)?))
-        }
-        Token::Ident(_, Keyword::EXECUTE) => {
-            Ok(GrantPrivilege::Execute(parser.consume_keyword(Keyword::EXECUTE)?))
-        }
+        Token::Ident(_, Keyword::SELECT) => Ok(GrantPrivilege::Select(
+            parser.consume_keyword(Keyword::SELECT)?,
+        )),
+        Token::Ident(_, Keyword::INSERT) => Ok(GrantPrivilege::Insert(
+            parser.consume_keyword(Keyword::INSERT)?,
+        )),
+        Token::Ident(_, Keyword::UPDATE) => Ok(GrantPrivilege::Update(
+            parser.consume_keyword(Keyword::UPDATE)?,
+        )),
+        Token::Ident(_, Keyword::DELETE) => Ok(GrantPrivilege::Delete(
+            parser.consume_keyword(Keyword::DELETE)?,
+        )),
+        Token::Ident(_, Keyword::TRUNCATE) => Ok(GrantPrivilege::Truncate(
+            parser.consume_keyword(Keyword::TRUNCATE)?,
+        )),
+        Token::Ident(_, Keyword::REFERENCES) => Ok(GrantPrivilege::References(
+            parser.consume_keyword(Keyword::REFERENCES)?,
+        )),
+        Token::Ident(_, Keyword::TRIGGER) => Ok(GrantPrivilege::Trigger(
+            parser.consume_keyword(Keyword::TRIGGER)?,
+        )),
+        Token::Ident(_, Keyword::MAINTAIN) => Ok(GrantPrivilege::Maintain(
+            parser.consume_keyword(Keyword::MAINTAIN)?,
+        )),
+        Token::Ident(_, Keyword::USAGE) => Ok(GrantPrivilege::Usage(
+            parser.consume_keyword(Keyword::USAGE)?,
+        )),
+        Token::Ident(_, Keyword::CREATE) => Ok(GrantPrivilege::Create(
+            parser.consume_keyword(Keyword::CREATE)?,
+        )),
+        Token::Ident(_, Keyword::CONNECT) => Ok(GrantPrivilege::Connect(
+            parser.consume_keyword(Keyword::CONNECT)?,
+        )),
+        Token::Ident(_, Keyword::TEMPORARY) => Ok(GrantPrivilege::Temporary(
+            parser.consume_keyword(Keyword::TEMPORARY)?,
+        )),
+        Token::Ident(_, Keyword::TEMP) => Ok(GrantPrivilege::Temporary(
+            parser.consume_keyword(Keyword::TEMP)?,
+        )),
+        Token::Ident(_, Keyword::EXECUTE) => Ok(GrantPrivilege::Execute(
+            parser.consume_keyword(Keyword::EXECUTE)?,
+        )),
         Token::Ident(_, Keyword::SET) => {
             Ok(GrantPrivilege::Set(parser.consume_keyword(Keyword::SET)?))
         }
@@ -530,7 +534,9 @@ fn parse_privilege<'a>(parser: &mut Parser<'a, '_>) -> Result<GrantPrivilege, Pa
     }
 }
 
-fn parse_privilege_list<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<PrivilegeItem<'a>>, ParseError> {
+fn parse_privilege_list<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Vec<PrivilegeItem<'a>>, ParseError> {
     let mut items = Vec::new();
     loop {
         let privilege = parse_privilege(parser)?;
@@ -565,15 +571,15 @@ fn parse_role_spec<'a>(parser: &mut Parser<'a, '_>) -> Result<RoleSpec<'a>, Pars
         Token::Ident(_, Keyword::PUBLIC) => {
             Ok(RoleSpec::Public(parser.consume_keyword(Keyword::PUBLIC)?))
         }
-        Token::Ident(_, Keyword::CURRENT_ROLE) => {
-            Ok(RoleSpec::CurrentRole(parser.consume_keyword(Keyword::CURRENT_ROLE)?))
-        }
-        Token::Ident(_, Keyword::CURRENT_USER) => {
-            Ok(RoleSpec::CurrentUser(parser.consume_keyword(Keyword::CURRENT_USER)?))
-        }
-        Token::Ident(_, Keyword::SESSION_USER) => {
-            Ok(RoleSpec::SessionUser(parser.consume_keyword(Keyword::SESSION_USER)?))
-        }
+        Token::Ident(_, Keyword::CURRENT_ROLE) => Ok(RoleSpec::CurrentRole(
+            parser.consume_keyword(Keyword::CURRENT_ROLE)?,
+        )),
+        Token::Ident(_, Keyword::CURRENT_USER) => Ok(RoleSpec::CurrentUser(
+            parser.consume_keyword(Keyword::CURRENT_USER)?,
+        )),
+        Token::Ident(_, Keyword::SESSION_USER) => Ok(RoleSpec::SessionUser(
+            parser.consume_keyword(Keyword::SESSION_USER)?,
+        )),
         Token::Ident(_, Keyword::GROUP) => {
             let group_kw = Some(parser.consume_keyword(Keyword::GROUP)?);
             let name = parser.consume_plain_identifier_unreserved()?;
@@ -581,7 +587,10 @@ fn parse_role_spec<'a>(parser: &mut Parser<'a, '_>) -> Result<RoleSpec<'a>, Pars
         }
         _ => {
             let name = parser.consume_plain_identifier_unreserved()?;
-            Ok(RoleSpec::Named { group_kw: None, name })
+            Ok(RoleSpec::Named {
+                group_kw: None,
+                name,
+            })
         }
     }
 }
@@ -597,7 +606,9 @@ fn parse_role_spec_list<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<RoleSpec<
     Ok(list)
 }
 
-fn parse_granted_by<'a>(parser: &mut Parser<'a, '_>) -> Result<Option<(Span, RoleSpec<'a>)>, ParseError> {
+fn parse_granted_by<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Option<(Span, RoleSpec<'a>)>, ParseError> {
     if let Some(granted_span) = parser.skip_keyword(Keyword::GRANTED) {
         let by_span = parser.consume_keyword(Keyword::BY)?;
         let role = parse_role_spec(parser)?;
@@ -607,7 +618,9 @@ fn parse_granted_by<'a>(parser: &mut Parser<'a, '_>) -> Result<Option<(Span, Rol
     }
 }
 
-fn parse_routine_arg_list<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<RoutineArgType<'a>>, ParseError> {
+fn parse_routine_arg_list<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Vec<RoutineArgType<'a>>, ParseError> {
     let mut args = Vec::new();
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
         loop {
@@ -623,12 +636,12 @@ fn parse_routine_arg_list<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<Routine
                         Some(FunctionParamDirection::In(in_))
                     }
                 }
-                Token::Ident(_, Keyword::OUT) => {
-                    Some(FunctionParamDirection::Out(parser.consume_keyword(Keyword::OUT)?))
-                }
-                Token::Ident(_, Keyword::INOUT) => {
-                    Some(FunctionParamDirection::InOut(parser.consume_keyword(Keyword::INOUT)?))
-                }
+                Token::Ident(_, Keyword::OUT) => Some(FunctionParamDirection::Out(
+                    parser.consume_keyword(Keyword::OUT)?,
+                )),
+                Token::Ident(_, Keyword::INOUT) => Some(FunctionParamDirection::InOut(
+                    parser.consume_keyword(Keyword::INOUT)?,
+                )),
                 _ => None,
             };
             // Peek: if next token after this one looks like a type start, this is a name
@@ -654,7 +667,9 @@ fn parse_routine_arg_list<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<Routine
     Ok(args)
 }
 
-fn parse_routine_name_list<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<RoutineName<'a>>, ParseError> {
+fn parse_routine_name_list<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Vec<RoutineName<'a>>, ParseError> {
     let mut names = Vec::new();
     loop {
         let name = parse_qualified_name_unreserved(parser)?;
@@ -674,7 +689,9 @@ fn parse_routine_name_list<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<Routin
     Ok(names)
 }
 
-fn parse_qualified_name_list<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<QualifiedName<'a>>, ParseError> {
+fn parse_qualified_name_list<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<Vec<QualifiedName<'a>>, ParseError> {
     let mut names = Vec::new();
     loop {
         names.push(parse_qualified_name_unreserved(parser)?);
@@ -697,7 +714,8 @@ fn parse_grant_object<'a>(parser: &mut Parser<'a, '_>) -> Result<GrantObject<'a>
             match &parser.token {
                 Token::Ident(_, Keyword::TABLES) => {
                     let tables_span = parser.consume_keyword(Keyword::TABLES)?;
-                    let in_schema_span = parser.consume_keywords(&[Keyword::IN, Keyword::SCHEMA])?;
+                    let in_schema_span =
+                        parser.consume_keywords(&[Keyword::IN, Keyword::SCHEMA])?;
                     let schemas = parse_qualified_name_list(parser)?;
                     Ok(GrantObject::AllTablesInSchema {
                         span: all_span.join_span(&tables_span).join_span(&in_schema_span),
@@ -706,16 +724,20 @@ fn parse_grant_object<'a>(parser: &mut Parser<'a, '_>) -> Result<GrantObject<'a>
                 }
                 Token::Ident(_, Keyword::SEQUENCES) => {
                     let sequences_span = parser.consume_keyword(Keyword::SEQUENCES)?;
-                    let in_schema_span = parser.consume_keywords(&[Keyword::IN, Keyword::SCHEMA])?;
+                    let in_schema_span =
+                        parser.consume_keywords(&[Keyword::IN, Keyword::SCHEMA])?;
                     let schemas = parse_qualified_name_list(parser)?;
                     Ok(GrantObject::AllSequencesInSchema {
-                        span: all_span.join_span(&sequences_span).join_span(&in_schema_span),
+                        span: all_span
+                            .join_span(&sequences_span)
+                            .join_span(&in_schema_span),
                         schemas,
                     })
                 }
                 Token::Ident(_, Keyword::FUNCTIONS) => {
                     let kind_span = parser.consume_keyword(Keyword::FUNCTIONS)?;
-                    let in_schema_span = parser.consume_keywords(&[Keyword::IN, Keyword::SCHEMA])?;
+                    let in_schema_span =
+                        parser.consume_keywords(&[Keyword::IN, Keyword::SCHEMA])?;
                     let schemas = parse_qualified_name_list(parser)?;
                     Ok(GrantObject::AllRoutinesInSchema {
                         all_span,
@@ -726,7 +748,8 @@ fn parse_grant_object<'a>(parser: &mut Parser<'a, '_>) -> Result<GrantObject<'a>
                 }
                 Token::Ident(_, Keyword::PROCEDURES) => {
                     let kind_span = parser.consume_keyword(Keyword::PROCEDURES)?;
-                    let in_schema_span = parser.consume_keywords(&[Keyword::IN, Keyword::SCHEMA])?;
+                    let in_schema_span =
+                        parser.consume_keywords(&[Keyword::IN, Keyword::SCHEMA])?;
                     let schemas = parse_qualified_name_list(parser)?;
                     Ok(GrantObject::AllRoutinesInSchema {
                         all_span,
@@ -737,7 +760,8 @@ fn parse_grant_object<'a>(parser: &mut Parser<'a, '_>) -> Result<GrantObject<'a>
                 }
                 Token::Ident(_, Keyword::ROUTINES) => {
                     let kind_span = parser.consume_keyword(Keyword::ROUTINES)?;
-                    let in_schema_span = parser.consume_keywords(&[Keyword::IN, Keyword::SCHEMA])?;
+                    let in_schema_span =
+                        parser.consume_keywords(&[Keyword::IN, Keyword::SCHEMA])?;
                     let schemas = parse_qualified_name_list(parser)?;
                     Ok(GrantObject::AllRoutinesInSchema {
                         all_span,
@@ -746,7 +770,9 @@ fn parse_grant_object<'a>(parser: &mut Parser<'a, '_>) -> Result<GrantObject<'a>
                         schemas,
                     })
                 }
-                _ => parser.expected_failure("TABLES, SEQUENCES, FUNCTIONS, PROCEDURES, or ROUTINES after ALL"),
+                _ => parser.expected_failure(
+                    "TABLES, SEQUENCES, FUNCTIONS, PROCEDURES, or ROUTINES after ALL",
+                ),
             }
         }
         Token::Ident(_, Keyword::SEQUENCE) => {
@@ -834,7 +860,10 @@ fn parse_grant_object<'a>(parser: &mut Parser<'a, '_>) -> Result<GrantObject<'a>
         Token::Ident(_, Keyword::PARAMETER) => {
             let parameter_kw = parser.consume_keyword(Keyword::PARAMETER)?;
             let names = parse_qualified_name_list(parser)?;
-            Ok(GrantObject::Parameters { parameter_kw, names })
+            Ok(GrantObject::Parameters {
+                parameter_kw,
+                names,
+            })
         }
         Token::Ident(_, Keyword::SCHEMA) => {
             let schema_kw = parser.consume_keyword(Keyword::SCHEMA)?;
@@ -844,7 +873,10 @@ fn parse_grant_object<'a>(parser: &mut Parser<'a, '_>) -> Result<GrantObject<'a>
         Token::Ident(_, Keyword::TABLESPACE) => {
             let tablespace_kw = parser.consume_keyword(Keyword::TABLESPACE)?;
             let names = parse_qualified_name_list(parser)?;
-            Ok(GrantObject::Tablespaces { tablespace_kw, names })
+            Ok(GrantObject::Tablespaces {
+                tablespace_kw,
+                names,
+            })
         }
         Token::Ident(_, Keyword::TYPE) => {
             let type_kw = parser.consume_keyword(Keyword::TYPE)?;
@@ -929,7 +961,11 @@ pub(crate) fn parse_grant<'a>(parser: &mut Parser<'a, '_>) -> Result<Grant<'a>, 
                 }
                 _ => parser.expected_failure("OPTION, TRUE, or FALSE")?,
             };
-            Some(MembershipOption { with_span, kind, value })
+            Some(MembershipOption {
+                with_span,
+                kind,
+                value,
+            })
         } else {
             None
         };

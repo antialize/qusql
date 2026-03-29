@@ -15,9 +15,8 @@ use alloc::{boxed::Box, vec::Vec};
 use crate::{
     AlterOperator, AlterOperatorClass, AlterOperatorFamily, AlterRole, AlterTable, AlterType,
     CreateConstraintTrigger, CreateDomain, CreateExtension, CreateIndex, CreateOperator,
-    CreateOperatorClass, CreateOperatorFamily, CreateRole, CreateTrigger, ExecuteFunction,
-    DropOperatorClass,
-    DropOperatorFamily, QualifiedName, RenameTable, Span, Spanned, WithQuery,
+    CreateOperatorClass, CreateOperatorFamily, CreateRole, CreateTrigger, DropOperatorClass,
+    DropOperatorFamily, ExecuteFunction, QualifiedName, RenameTable, Span, Spanned, WithQuery,
     alter_role::parse_alter_role,
     alter_table::parse_alter_table,
     copy::{CopyFrom, CopyTo, parse_copy_statement},
@@ -329,10 +328,7 @@ impl<'a> Spanned for Perform<'a> {
 fn parse_perform<'a>(parser: &mut Parser<'a, '_>) -> Result<Perform<'a>, ParseError> {
     let perform_span = parser.consume_keyword(Keyword::PERFORM)?;
     let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
-    Ok(Perform {
-        perform_span,
-        expr,
-    })
+    Ok(Perform { perform_span, expr })
 }
 
 /// PL/pgSQL assignment statement: `target := expression`
@@ -500,12 +496,12 @@ fn parse_raise<'a>(parser: &mut Parser<'a, '_>) -> Result<Raise<'a>, ParseError>
         Token::Ident(_, Keyword::NOTICE) => {
             Some(RaiseLevel::Notice(parser.consume_keyword(Keyword::NOTICE)?))
         }
-        Token::Ident(_, Keyword::WARNING) => {
-            Some(RaiseLevel::Warning(parser.consume_keyword(Keyword::WARNING)?))
-        }
-        Token::Ident(_, Keyword::EXCEPTION) => {
-            Some(RaiseLevel::Exception(parser.consume_keyword(Keyword::EXCEPTION)?))
-        }
+        Token::Ident(_, Keyword::WARNING) => Some(RaiseLevel::Warning(
+            parser.consume_keyword(Keyword::WARNING)?,
+        )),
+        Token::Ident(_, Keyword::EXCEPTION) => Some(RaiseLevel::Exception(
+            parser.consume_keyword(Keyword::EXCEPTION)?,
+        )),
         _ => None,
     };
 
@@ -529,9 +525,14 @@ fn parse_raise<'a>(parser: &mut Parser<'a, '_>) -> Result<Raise<'a>, ParseError>
         Token::Ident(_, kw)
             if !matches!(
                 kw,
-                Keyword::USING | Keyword::NOT_A_KEYWORD | Keyword::EXCEPTION
-                    | Keyword::NOTICE | Keyword::WARNING | Keyword::LOG
-                    | Keyword::INFO | Keyword::DEBUG
+                Keyword::USING
+                    | Keyword::NOT_A_KEYWORD
+                    | Keyword::EXCEPTION
+                    | Keyword::NOTICE
+                    | Keyword::WARNING
+                    | Keyword::LOG
+                    | Keyword::INFO
+                    | Keyword::DEBUG
             ) => {}
         Token::Ident(_, Keyword::NOT_A_KEYWORD) => {
             // unquoted plain identifier used as condition name
@@ -1405,15 +1406,11 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::PERFORM) => {
             Some(Statement::Perform(Box::new(parse_perform(parser)?)))
         }
-        Token::Ident(_, Keyword::RAISE) => {
-            Some(Statement::Raise(Box::new(parse_raise(parser)?)))
-        }
+        Token::Ident(_, Keyword::RAISE) => Some(Statement::Raise(Box::new(parse_raise(parser)?))),
         // PL/pgSQL EXECUTE (dynamic SQL) — only inside function/procedure bodies
-        Token::Ident(_, Keyword::EXECUTE) if parser.permit_compound_statements => {
-            Some(Statement::PlpgsqlExecute(Box::new(
-                parse_plpgsql_execute(parser)?,
-            )))
-        }
+        Token::Ident(_, Keyword::EXECUTE) if parser.permit_compound_statements => Some(
+            Statement::PlpgsqlExecute(Box::new(parse_plpgsql_execute(parser)?)),
+        ),
         Token::Ident(_, Keyword::ALTER) => Some(parse_alter(parser)?),
         Token::Ident(_, Keyword::CASE) => {
             Some(Statement::Case(Box::new(parse_case_statement(parser)?)))

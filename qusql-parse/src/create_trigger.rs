@@ -250,12 +250,12 @@ pub(crate) fn parse_create_trigger<'a>(
         if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
             let each_span = parser.skip_keyword(Keyword::EACH);
             let clause_span = match &parser.token {
-                Token::Ident(_, Keyword::ROW) => {
-                    for_span.join_span(&each_span).join_span(&parser.consume_keyword(Keyword::ROW)?)
-                }
-                Token::Ident(_, Keyword::STATEMENT) => {
-                    for_span.join_span(&each_span).join_span(&parser.consume_keyword(Keyword::STATEMENT)?)
-                }
+                Token::Ident(_, Keyword::ROW) => for_span
+                    .join_span(&each_span)
+                    .join_span(&parser.consume_keyword(Keyword::ROW)?),
+                Token::Ident(_, Keyword::STATEMENT) => for_span
+                    .join_span(&each_span)
+                    .join_span(&parser.consume_keyword(Keyword::STATEMENT)?),
                 _ => for_span.join_span(&each_span),
             };
             Some(clause_span)

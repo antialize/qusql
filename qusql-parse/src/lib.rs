@@ -146,15 +146,15 @@ pub use expression::{
     UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
 };
 pub use flush::{Flush, FlushOption};
-pub use grant::{
-    AllRoutineKind, Grant, GrantKind, GrantObject, GrantPrivilege, MembershipOption,
-    MembershipOptionKind, MembershipOptionValue, PrivilegeItem, RoleSpec, RoutineArgType,
-    RoutineKind, RoutineName,
-};
 pub use function_expression::{
     AggregateFunctionCallExpression, CharFunctionExpression, Function, FunctionCallExpression,
     WindowClause, WindowFrame, WindowFrameBound, WindowFrameMode, WindowFunctionCallExpression,
     WindowSpec,
+};
+pub use grant::{
+    AllRoutineKind, Grant, GrantKind, GrantObject, GrantPrivilege, MembershipOption,
+    MembershipOptionKind, MembershipOptionValue, PrivilegeItem, RoleSpec, RoutineArgType,
+    RoutineKind, RoutineName,
 };
 pub use identifier::Identifier;
 pub use insert_replace::{
@@ -185,9 +185,9 @@ pub use show::{
 pub use span::{OptSpanned, Span, Spanned};
 pub use sstring::SString;
 pub use statement::{
-    AlterSchema, AlterSchemaAction, Begin, Block, Call, CaseStatement, CloseCursor, Commit,
-    CommentOn, CommentOnObjectType, CompoundOperator, CompoundQuantifier, CompoundQuery,
-    Assign, CompoundQueryBranch, CursorHold, CursorScroll, CursorSensitivity, DeclareCursor,
+    AlterSchema, AlterSchemaAction, Assign, Begin, Block, Call, CaseStatement, CloseCursor,
+    CommentOn, CommentOnObjectType, Commit, CompoundOperator, CompoundQuantifier, CompoundQuery,
+    CompoundQueryBranch, CursorHold, CursorScroll, CursorSensitivity, DeclareCursor,
     DeclareCursorMariaDb, DeclareHandler, DeclareVariable, Do, DoBody, End, Explain, ExplainFormat,
     ExplainOption, FetchCursor, HandlerAction, HandlerCondition, If, IfCondition, Invalid, Iterate,
     Leave, Loop, OpenCursor, Perform, PlpgsqlExecute, Prepare, Raise, RaiseLevel, RaiseOptionName,

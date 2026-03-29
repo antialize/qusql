@@ -946,7 +946,10 @@ pub(crate) fn parse_data_type<'a>(
                             }))
                         });
                         let stored_span = parser.skip_keyword(Keyword::STORED);
-                        let span = generated_span.join_span(&as_span).join_span(&expr).join_span(&stored_span);
+                        let span = generated_span
+                            .join_span(&as_span)
+                            .join_span(&expr)
+                            .join_span(&stored_span);
                         properties.push(DataTypeProperty::GeneratedAlwaysAsExpr {
                             span,
                             expr,
