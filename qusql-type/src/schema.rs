@@ -183,22 +183,6 @@ pub struct Schemas<'a> {
     pub indices: BTreeMap<IndexKey<'a>, Span>,
 }
 
-/// Transfer issues from `inner` into `outer`, adjusting all spans by `offset`.
-fn transfer_issues_with_offset<'a>(outer: &mut Issues<'a>, inner: Issues<'a>, offset: usize) {
-    for mut issue in inner.issues {
-        issue.span.start += offset;
-        issue.span.end += offset;
-        // Recompute sql_segment from the outer src so it matches the adjusted span
-        issue.sql_segment = &outer.src[issue.span.start..issue.span.end];
-        for frag in &mut issue.fragments {
-            frag.span.start += offset;
-            frag.span.end += offset;
-            frag.sql_segment = &outer.src[frag.span.start..frag.span.end];
-        }
-        outer.issues.push(issue);
-    }
-}
-
 /// Try to parse a borrowed string as SQL statements.
 /// Returns the parsed body if the string is a non-escaped borrow from `src`,
 /// or None if the string is escaped (Cow::Owned).
@@ -212,14 +196,12 @@ fn try_parse_body<'a>(
         return None;
     };
     let span_offset = borrowed.as_ptr() as usize - src.as_ptr() as usize;
-    let mut inner_issues = Issues::new(borrowed);
-    let body_options = options.clone().function_body(true);
-    let statements = parse_statements(borrowed, &mut inner_issues, &body_options);
-    transfer_issues_with_offset(issues, inner_issues, span_offset);
+    let body_options = options.clone().function_body(true).span_offset(span_offset);
+    let statements = parse_statements(borrowed, issues, &body_options);
     Some(FunctionDefBody {
         statements,
         src: borrowed,
-        span_offset,
+        span_offset: 0,
     })
 }
 
@@ -586,7 +568,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         }
         {
             let mut typer: crate::typer::Typer<'a, '_> = crate::typer::Typer {
-                schemas: &self.schemas,
+                schemas: self.schemas,
                 issues: self.issues,
                 reference_types: Vec::new(),
                 arg_types: Default::default(),
@@ -1034,13 +1016,14 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             qusql_parse::DoBody::Statements(stmts) => self.process_statements(stmts),
             qusql_parse::DoBody::String(s, _) => {
                 let span_offset = s.as_ptr() as usize - self.src.as_ptr() as usize;
-                let mut inner_issues = Issues::new(s);
-                let body_opts = self.options.parse_options.clone().function_body(true);
-                let stmts = parse_statements(s, &mut inner_issues, &body_opts);
-                let mut inner_ctx =
-                    SchemaCtx::new(self.schemas, &mut inner_issues, s, self.options);
-                inner_ctx.process_statements(stmts);
-                transfer_issues_with_offset(self.issues, inner_issues, span_offset);
+                let body_opts = self
+                    .options
+                    .parse_options
+                    .clone()
+                    .function_body(true)
+                    .span_offset(span_offset);
+                let stmts = parse_statements(s, self.issues, &body_opts);
+                self.process_statements(stmts);
             }
         }
     }
@@ -1069,13 +1052,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             qusql_parse::Expression::String(s) => {
                 if let Cow::Borrowed(borrowed) = &s.value {
                     let span_offset = borrowed.as_ptr() as usize - self.src.as_ptr() as usize;
-                    let mut nested_issues = Issues::new(borrowed);
-                    let stmts =
-                        parse_statements(borrowed, &mut nested_issues, &self.options.parse_options);
-                    let mut inner_ctx =
-                        SchemaCtx::new(self.schemas, &mut nested_issues, borrowed, self.options);
-                    inner_ctx.process_statements(stmts);
-                    transfer_issues_with_offset(self.issues, nested_issues, span_offset);
+                    let opts = self.options.parse_options.clone().span_offset(span_offset);
+                    let stmts = parse_statements(borrowed, self.issues, &opts);
+                    self.process_statements(stmts);
                 }
             }
             qusql_parse::Expression::Function(f) => {

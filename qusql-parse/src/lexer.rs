@@ -245,11 +245,15 @@ pub(crate) struct Lexer<'a> {
     /// individual statements are still terminated by `;`, while the outer `$$` delimiter is
     /// preserved for identifier-splitting (preventing `END$$` from being lexed as one token).
     pub(crate) semicolon_as_delimiter: bool,
+    /// Byte offset added to every span returned by this lexer. Used when lexing an embedded
+    /// sub-string (e.g. a dollar-quoted body) so that all returned spans are relative to the
+    /// outer, full-file source string rather than the sub-string.
+    span_offset: usize,
 }
 
 impl<'a> Lexer<'a> {
     /// Creates a new `Lexer` instance for the given source string and SQL dialect.
-    pub fn new(src: &'a str, dialect: &SQLDialect) -> Self {
+    pub fn new(src: &'a str, dialect: &SQLDialect, span_offset: usize) -> Self {
         Self {
             src,
             chars: CharsIter {
@@ -259,6 +263,7 @@ impl<'a> Lexer<'a> {
             dialect: dialect.clone(),
             delimiter: None,
             semicolon_as_delimiter: false,
+            span_offset,
         }
     }
 
@@ -326,8 +331,8 @@ impl<'a> Lexer<'a> {
         let start = match self.chars.peek() {
             Some((i, _)) => i,
             None => {
-                let span = self.src.len()..self.src.len();
-                return Err(span);
+                let eof = self.src.len() + self.span_offset;
+                return Err(eof..eof);
             }
         };
         // Skip none whitespace
@@ -344,11 +349,11 @@ impl<'a> Lexer<'a> {
             None => self.src.len(),
         };
         if start == end {
-            return Err(start..end);
+            return Err((start + self.span_offset)..(end + self.span_offset));
         }
         let s = self.s(start..end);
         self.delimiter = if s == ";" { None } else { Some(s) };
-        Ok(start..end)
+        Ok((start + self.span_offset)..(end + self.span_offset))
     }
 
     /// Returns the name of the current delimiter, used in error messages.
@@ -381,8 +386,11 @@ impl<'a> Lexer<'a> {
             Some((i, b'\n')) => i + 1,
             Some((i, _)) => i,
             None => {
-                let span = self.src.len()..self.src.len();
-                return (self.s(span.clone()), span);
+                let eof = self.src.len();
+                return (
+                    self.s(eof..eof),
+                    (eof + self.span_offset)..(eof + self.span_offset),
+                );
             }
         };
         while let Some((i, c)) = self.chars.next() {
@@ -408,12 +416,18 @@ impl<'a> Lexer<'a> {
             }
             // `i` is the character index of the first '\n',
             // so the data ends at character index i + 1.
-            let span = start..(i + 1);
-            return (self.s(span.clone()), span);
+            let end = i + 1;
+            return (
+                self.s(start..end),
+                (start + self.span_offset)..(end + self.span_offset),
+            );
         }
         // Data ends at EOF without NL '\' '.' [NL].
-        let span = start..self.src.len();
-        (self.s(span.clone()), span)
+        let end = self.src.len();
+        (
+            self.s(start..end),
+            (start + self.span_offset)..(end + self.span_offset),
+        )
     }
 
     /// In PostgreSQL, operators can be multiple characters long and can contain a wide range of special characters.
@@ -496,13 +510,17 @@ impl<'a> Lexer<'a> {
             {
                 let start = self.chars.idx;
                 self.chars.skip(delimiter.len());
-                return (Token::Delimiter, start..start + delimiter.len());
+                return (
+                    Token::Delimiter,
+                    (start + self.span_offset)..(start + delimiter.len() + self.span_offset),
+                );
             }
 
             let (start, c) = match self.chars.next() {
                 Some(v) => v,
                 None => {
-                    return (Token::Eof, self.src.len()..self.src.len());
+                    let eof = self.src.len() + self.span_offset;
+                    return (Token::Eof, eof..eof);
                 }
             };
             let t = match c {
@@ -1254,7 +1272,7 @@ impl<'a> Lexer<'a> {
                 Some((i, _)) => i,
                 None => self.src.len(),
             };
-            return (t, start..end);
+            return (t, (start + self.span_offset)..(end + self.span_offset));
         }
     }
 }
@@ -1274,13 +1292,13 @@ mod tests {
 
     /// Helper function to lex a single token from the input string. It returns the token without its span.
     fn lex_single<'a>(src: &'a str, dialect: &SQLDialect) -> Token<'a> {
-        let mut lexer = Lexer::new(src, dialect);
+        let mut lexer = Lexer::new(src, dialect, 0);
         lexer.next_token().0
     }
 
     /// Helper function to lex all tokens from the input string. It returns a vector of tokens without their spans.
     fn lex_all<'a>(src: &'a str, dialect: &SQLDialect) -> Vec<Token<'a>> {
-        let mut lexer = Lexer::new(src, dialect);
+        let mut lexer = Lexer::new(src, dialect, 0);
         let mut tokens = Vec::new();
         loop {
             let (token, _) = lexer.next_token();
