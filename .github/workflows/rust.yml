@@ -51,3 +51,5 @@ jobs:
         run: python3 check.py
       - name: Check qusql-parse pub struct exports
         run: python3 qusql-parse/check_exports.py
+      - name: Run type_test schema tests
+        run: python3 type_test/test.py

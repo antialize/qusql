@@ -327,14 +327,14 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
         print(f"\n{dialect_name} - Total failures: {failure_count} out of {len(tests)}")
 
 
-def test_mysql(args) -> None:
+def test_mysql(args) -> int:
     """Run MySQL/MariaDB dialect tests."""
-    test_dialect(args, "mysql-tests.json", "maria", "MySQL/MariaDB")
+    return test_dialect(args, "mysql-tests.json", "maria", "MySQL/MariaDB")
 
 
-def test_postgresql(args) -> None:
+def test_postgresql(args) -> int:
     """Run PostgreSQL dialect tests."""
-    test_dialect(args, "postgres-tests.json", "postgresql", "PostgreSQL")
+    return test_dialect(args, "postgres-tests.json", "postgresql", "PostgreSQL")
 
 
 def validate_database(
