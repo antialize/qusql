@@ -663,9 +663,14 @@ pub(crate) fn type_expression<'a>(
                 }
             }
             _ => {
-                // Array operand — not yet supported
-                issue_todo!(typer.issues, &e.operand);
-                FullType::invalid()
+                // Array operand: ANY($1) or ANY($1::type[])
+                let arr_type = type_expression(typer, &e.operand, flags, BaseType::Any);
+                let inner = if let Type::Array(inner) = arr_type.t {
+                    *inner
+                } else {
+                    Type::Base(BaseType::Any)
+                };
+                FullType::new(inner, false)
             }
         },
         Expression::FieldAccess(e) => {
