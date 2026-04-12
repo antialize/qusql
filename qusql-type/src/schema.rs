@@ -95,7 +95,7 @@ use qusql_parse::{
 };
 
 /// A column in a schema
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Column<'a> {
     pub identifier: Identifier<'a>,
     /// Type of the column
@@ -611,6 +611,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             identifier_span: id.span.clone(),
             columns: Default::default(),
         };
+        let mut like_tables: Vec<qusql_parse::QualifiedName<'a>> = Vec::new();
         for o in t.create_options {
             match o {
                 qusql_parse::CreateOption::OrReplace(_) => replace = true,
@@ -653,7 +654,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 qusql_parse::CreateDefinition::IndexDefinition { .. } => {}
                 qusql_parse::CreateDefinition::ForeignKeyDefinition { .. } => {}
                 qusql_parse::CreateDefinition::CheckConstraintDefinition { .. } => {}
-                qusql_parse::CreateDefinition::LikeTable { .. } => {}
+                qusql_parse::CreateDefinition::LikeTable { source_table, .. } => {
+                    like_tables.push(source_table);
+                }
             }
         }
         match self.schemas.schemas.entry(id.clone()) {
@@ -668,6 +671,30 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             }
             alloc::collections::btree_map::Entry::Vacant(e) => {
                 e.insert(schema);
+            }
+        }
+        // Copy columns from LIKE source tables (done after insert to allow self-like lookup
+        // if ever needed, and to satisfy the borrow checker).
+        for source_name in like_tables {
+            let source_id = unqualified_name(self.issues, &source_name);
+            let cols: Option<Vec<Column<'a>>> = self
+                .schemas
+                .schemas
+                .get(source_id)
+                .map(|src| src.columns.to_vec());
+            match cols {
+                Some(cols) => {
+                    if let Some(dst) = self.schemas.schemas.get_mut(id) {
+                        for col in cols {
+                            if dst.get_column(col.identifier.value).is_none() {
+                                dst.columns.push(col);
+                            }
+                        }
+                    }
+                }
+                None => {
+                    self.issues.err("Table not found", &source_name);
+                }
             }
         }
     }
