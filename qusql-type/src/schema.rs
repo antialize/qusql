@@ -367,7 +367,7 @@ pub(crate) fn parse_column<'a>(
         | qusql_parse::Type::Box
         | qusql_parse::Type::Path
         | qusql_parse::Type::Polygon
-        | qusql_parse::Type::Circle => BaseType::Bytes.into(),
+        | qusql_parse::Type::Circle => Type::Geometry,
     };
 
     Column {
