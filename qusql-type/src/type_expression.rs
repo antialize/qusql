@@ -619,8 +619,14 @@ pub(crate) fn type_expression<'a>(
             FullType::new(BaseType::String, value_type.not_null)
         }
         Expression::Char(e) => {
-            issue_todo!(typer.issues, e);
-            FullType::invalid()
+            let mut not_null = true;
+            for arg in &e.args {
+                let arg_type =
+                    type_expression(typer, arg, flags.without_values(), BaseType::Integer);
+                typer.ensure_base(arg, &arg_type, BaseType::Integer);
+                not_null &= arg_type.not_null;
+            }
+            FullType::new(BaseType::String, not_null)
         }
         Expression::Row(e) => {
             issue_todo!(typer.issues, e);
