@@ -309,6 +309,27 @@ fn parse_return<'a>(parser: &mut Parser<'a, '_>) -> Result<Return<'a>, ParseErro
     Ok(Return { return_span, expr })
 }
 
+/// PL/pgSQL PERFORM statement - executes an expression and discards the result.
+#[derive(Clone, Debug)]
+pub struct Perform<'a> {
+    /// Span of "PERFORM"
+    pub perform_span: Span,
+    /// Expression to evaluate
+    pub expr: Expression<'a>,
+}
+
+impl<'a> Spanned for Perform<'a> {
+    fn span(&self) -> Span {
+        self.perform_span.join_span(&self.expr)
+    }
+}
+
+fn parse_perform<'a>(parser: &mut Parser<'a, '_>) -> Result<Perform<'a>, ParseError> {
+    let perform_span = parser.consume_keyword(Keyword::PERFORM)?;
+    let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+    Ok(Perform { perform_span, expr })
+}
+
 #[derive(Clone, Debug)]
 pub enum SignalConditionInformationName {
     ClassOrigin(Span),
@@ -828,6 +849,8 @@ pub enum Statement<'a> {
     RenameTable(Box<RenameTable<'a>>),
     WithQuery(Box<WithQuery<'a>>),
     Return(Box<Return<'a>>),
+    /// PL/pgSQL PERFORM statement
+    Perform(Box<Perform<'a>>),
     Flush(Box<Flush<'a>>),
     /// PostgreSQL VALUES statement
     Values(Box<crate::values::Values<'a>>),
@@ -930,6 +953,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::RenameTable(v) => v.span(),
             Statement::WithQuery(v) => v.span(),
             Statement::Return(v) => v.span(),
+            Statement::Perform(v) => v.span(),
             Statement::Signal(v) => v.span(),
             Statement::Kill(v) => v.span(),
             Statement::ShowTables(v) => v.span(),
@@ -1023,6 +1047,9 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::IF) => Some(Statement::If(Box::new(parse_if(parser)?))),
         Token::Ident(_, Keyword::RETURN) => {
             Some(Statement::Return(Box::new(parse_return(parser)?)))
+        }
+        Token::Ident(_, Keyword::PERFORM) => {
+            Some(Statement::Perform(Box::new(parse_perform(parser)?)))
         }
         Token::Ident(_, Keyword::ALTER) => Some(parse_alter(parser)?),
         Token::Ident(_, Keyword::CASE) => {
