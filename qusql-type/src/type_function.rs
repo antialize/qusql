@@ -1439,6 +1439,17 @@ pub(crate) fn type_function<'a, 'b>(
             &[BaseType::Integer],
         ),
         Function::BitCount => tf(Type::I64, &[BaseType::Integer], &[]),
+        // PostgreSQL bit string functions
+        Function::GetBit => tf(
+            BaseType::Integer.into(),
+            &[BaseType::Any, BaseType::Integer],
+            &[],
+        ),
+        Function::SetBit => tf(
+            BaseType::Any.into(),
+            &[BaseType::Any, BaseType::Integer, BaseType::Integer],
+            &[],
+        ),
         Function::Charset | Function::Coercibility | Function::Collation => {
             tf(BaseType::String.into(), &[BaseType::Any], &[])
         }

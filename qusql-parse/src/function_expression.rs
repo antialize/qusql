@@ -207,6 +207,7 @@ pub enum Function<'a> {
     Second,
     SecToTime,
     SFormat,
+    SetBit,
     SetSeed,
     Sign,
     Sin,
@@ -282,6 +283,7 @@ pub enum Function<'a> {
     FormatBytes,
     FormatPicoTime,
     FoundRows,
+    GetBit,
     GetFormat,
     GetLock,
     Grouping,
@@ -1171,6 +1173,7 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::RANDOM_NORMAL) => Function::RandomNormal,
         Token::Ident(_, Keyword::ROUND) => Function::Round,
         Token::Ident(_, Keyword::SCALE) => Function::Scale,
+        Token::Ident(_, Keyword::SET_BIT) => Function::SetBit,
         Token::Ident(_, Keyword::SETSEED) => Function::SetSeed,
         Token::Ident(_, Keyword::SIGN) => Function::Sign,
         Token::Ident(_, Keyword::SIN) => Function::Sin,
@@ -1350,6 +1353,7 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::WEIGHT_STRING) => Function::WeightString,
 
         // MySQL 8.4 datetime
+        Token::Ident(_, Keyword::GET_BIT) => Function::GetBit,
         Token::Ident(_, Keyword::GET_FORMAT) => Function::GetFormat,
 
         // MySQL 8.4 window / analytics
