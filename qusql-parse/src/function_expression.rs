@@ -577,6 +577,12 @@ pub enum Function<'a> {
     StZMax,
     StZMin,
     StZmflag,
+    // PostgreSQL UUID functions
+    GenRandomUuid,
+    UuidExtractTimestamp,
+    UuidExtractVersion,
+    Uuidv4,
+    Uuidv7,
     // PostgreSQL text search functions
     ArrayToTsvector,
     GetCurrentTsConfig,
@@ -1417,6 +1423,13 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::NETMASK) => Function::NetMask,
         Token::Ident(_, Keyword::NETWORK) => Function::Network,
         Token::Ident(_, Keyword::SET_MASKLEN) => Function::SetMaskLen,
+
+        // PostgreSQL UUID functions
+        Token::Ident(_, Keyword::GEN_RANDOM_UUID) => Function::GenRandomUuid,
+        Token::Ident(_, Keyword::UUID_EXTRACT_TIMESTAMP) => Function::UuidExtractTimestamp,
+        Token::Ident(_, Keyword::UUID_EXTRACT_VERSION) => Function::UuidExtractVersion,
+        Token::Ident(_, Keyword::UUIDV4) => Function::Uuidv4,
+        Token::Ident(_, Keyword::UUIDV7) => Function::Uuidv7,
 
         // PostgreSQL text search functions
         Token::Ident(_, Keyword::ARRAY_TO_TSVECTOR) => Function::ArrayToTsvector,
