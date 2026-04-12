@@ -32,7 +32,9 @@ use crate::{
         DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropType, DropView,
         parse_drop,
     },
-    expression::{Expression, PRIORITY_CMP, PRIORITY_MAX, parse_expression_unreserved},
+    expression::{
+        Expression, NullExpression, PRIORITY_CMP, PRIORITY_MAX, parse_expression_unreserved,
+    },
     flush::{Flush, parse_flush},
     grant::{Grant, parse_grant},
     insert_replace::{InsertReplace, parse_insert_replace},
@@ -1561,6 +1563,15 @@ pub(crate) fn parse_statement<'a>(
             if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
         {
             Some(Statement::Repeat(Box::new(parse_repeat(parser, None)?)))
+        }
+        // PL/pgSQL NULL statement: `NULL;` — syntactic no-op, valid everywhere a statement is.
+        // Emit as Perform(NULL) so the evaluator can silently ignore it.
+        Token::Ident(_, Keyword::NULL) if parser.permit_compound_statements => {
+            let null_span = parser.consume_keyword(Keyword::NULL)?;
+            Some(Statement::Perform(Box::new(Perform {
+                perform_span: null_span.clone(),
+                expr: Expression::Null(Box::new(NullExpression { span: null_span })),
+            })))
         }
         // PL/pgSQL assignment: `target := expression` or `target = expression` (PostgreSQL)
         // Must come last — only active inside compound blocks and only when the

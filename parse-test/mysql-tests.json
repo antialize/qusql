@@ -479,10 +479,10 @@
     "input": "CREATE FUNCTION f(a INT NULL) RETURNS INT NULL RETURN a",
     "setup": "empty_setup",
     "should_fail": true,
-    "output": null,
+    "output": "CreateFunction(\n    CreateFunction {\n        create_span: 0..6,\n        create_options: [],\n        function_span: 7..15,\n        if_not_exists: None,\n        name: Identifier {\n            value: \"f\",\n            span: 16..17,\n        },\n        params: [\n            FunctionParam {\n                direction: None,\n                name: Some(\n                    Identifier {\n                        value: \"a\",\n                        span: 18..19,\n                    },\n                ),\n                type_: DataType {\n                    identifier: 20..23,\n                    type_: Int(\n                        None,\n                    ),\n                    properties: [],\n                },\n                default: None,\n            },\n        ],\n        returns_span: 30..37,\n        return_type: DataType {\n            identifier: 38..41,\n            type_: Int(\n                None,\n            ),\n            properties: [],\n        },\n        characteristics: [],\n        body: None,\n        return_: Some(\n            Perform(\n                Perform {\n                    perform_span: 42..46,\n                    expr: Null(\n                        NullExpression {\n                            span: 42..46,\n                        },\n                    ),\n                },\n            ),\n        ),\n    },\n)",
     "issues": [
       "Issue {\n    level: Error,\n    message: \"Expected '')'' here\",\n    span: 24..28,\n    sql_segment: \"NULL\",\n    fragments: [],\n}",
-      "Issue {\n    level: Error,\n    message: \"Expected '':='' here\",\n    span: 47..53,\n    sql_segment: \"RETURN\",\n    fragments: [],\n}"
+      "Issue {\n    level: Error,\n    message: \"Expected 'Unexpected token after statement' here\",\n    span: 47..53,\n    sql_segment: \"RETURN\",\n    fragments: [],\n}"
     ],
     "failure": true
   },
