@@ -1660,6 +1660,22 @@ pub(crate) fn type_function<'a, 'b>(
             arg_cnt(typer, 0..0, args, span);
             FullType::new(BaseType::String, true)
         }
+        // PostgreSQL network address functions
+        Function::Abbrev | Function::Host => tf(BaseType::String.into(), &[BaseType::Any], &[]),
+        Function::Broadcast | Function::HostMask | Function::NetMask | Function::Network => {
+            tf(BaseType::Any.into(), &[BaseType::Any], &[])
+        }
+        Function::Family | Function::MaskLen => {
+            tf(BaseType::Integer.into(), &[BaseType::Any], &[])
+        }
+        Function::InetMerge => tf(BaseType::Any.into(), &[BaseType::Any, BaseType::Any], &[]),
+        Function::InetSameFamily => {
+            tf(BaseType::Bool.into(), &[BaseType::Any, BaseType::Any], &[])
+        }
+        Function::Macaddr8Set7bit => tf(BaseType::Any.into(), &[BaseType::Any], &[]),
+        Function::SetMaskLen => {
+            tf(BaseType::Any.into(), &[BaseType::Any, BaseType::Integer], &[])
+        }
         // Aggregate / window functions that may appear in non-aggregate context
         Function::ArrayAgg | Function::JsonAgg | Function::JsonbAgg => {
             arg_cnt(typer, 1..1, args, span);
