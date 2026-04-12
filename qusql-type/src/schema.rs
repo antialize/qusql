@@ -170,6 +170,16 @@ pub struct IndexKey<'a> {
     pub index: Identifier<'a>,
 }
 
+/// A user-defined type registered via `CREATE TYPE`
+#[derive(Debug)]
+pub enum TypeDef<'a> {
+    /// A PostgreSQL enum type
+    Enum {
+        values: Arc<Vec<alloc::borrow::Cow<'a, str>>>,
+        span: Span,
+    },
+}
+
 /// A description of tables, view, procedures and function in a schemas definition file
 #[derive(Debug, Default)]
 pub struct Schemas<'a> {
@@ -181,6 +191,8 @@ pub struct Schemas<'a> {
     pub functions: BTreeMap<Identifier<'a>, FunctionDef<'a>>,
     /// Map from (table, index) to location
     pub indices: BTreeMap<IndexKey<'a>, Span>,
+    /// Map from type name to type definition (e.g. enums created with `CREATE TYPE ... AS ENUM`)
+    pub types: BTreeMap<Identifier<'a>, TypeDef<'a>>,
 }
 
 /// Try to parse a borrowed string as SQL statements.
@@ -210,6 +222,7 @@ pub(crate) fn parse_column<'a>(
     identifier: Identifier<'a>,
     _issues: &mut Issues<'a>,
     options: Option<&TypeOptions>,
+    types: Option<&BTreeMap<Identifier<'a>, TypeDef<'a>>>,
 ) -> Column<'a> {
     let mut not_null = false;
     let mut unsigned = false;
@@ -311,7 +324,19 @@ pub(crate) fn parse_column<'a>(
         qusql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
         qusql_parse::Type::VarBit(_) => BaseType::Bytes.into(),
         qusql_parse::Type::Bytea => BaseType::Bytes.into(),
-        qusql_parse::Type::Named(_) => BaseType::String.into(), // TODO lookup name??
+        qusql_parse::Type::Named(span) => {
+            // Look up user-defined types (e.g. enums created with CREATE TYPE ... AS ENUM)
+            if let Some(types) = types {
+                let type_name = &_issues.src[span.start..span.end];
+                if let Some(TypeDef::Enum { values, .. }) = types.get(type_name) {
+                    Type::Enum(values.clone())
+                } else {
+                    BaseType::String.into()
+                }
+            } else {
+                BaseType::String.into()
+            }
+        }
         qusql_parse::Type::Inet4 => BaseType::String.into(),
         qusql_parse::Type::Inet6 => BaseType::String.into(),
         qusql_parse::Type::InetAddr => BaseType::String.into(),
@@ -494,8 +519,8 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             }
             qusql_parse::Statement::CreateTrigger(_) => Ok(()),
             qusql_parse::Statement::CreateTypeEnum(s) => {
-                self.issues.err("not implemented", &s);
-                Err(())
+                self.process_create_type_enum(*s);
+                Ok(())
             }
             qusql_parse::Statement::AlterTable(a) => {
                 self.process_alter_table(*a);
@@ -531,8 +556,8 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             }
             qusql_parse::Statement::DropTrigger(_) => Ok(()),
             qusql_parse::Statement::DropType(s) => {
-                self.issues.err("not implemented", &s);
-                Err(())
+                self.process_drop_type(*s);
+                Ok(())
             }
             // Control-flow: recurse into all reachable branches.
             qusql_parse::Statement::Do(d) => self.process_do(*d),
@@ -615,6 +640,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                         identifier.clone(),
                         self.issues,
                         Some(self.options),
+                        Some(&self.schemas.types),
                     );
                     if let Some(oc) = schema.get_column(column.identifier.value) {
                         self.issues
@@ -823,6 +849,42 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         }
     }
 
+    fn process_create_type_enum(&mut self, s: qusql_parse::CreateTypeEnum<'a>) {
+        let name = unqualified_name(self.issues, &s.name);
+        let mut replace = false;
+        for o in &s.create_options {
+            if matches!(o, qusql_parse::CreateOption::OrReplace(_)) {
+                replace = true;
+            }
+        }
+        let values = Arc::new(s.values.into_iter().map(|v| v.value).collect());
+        let typedef = TypeDef::Enum {
+            values,
+            span: s.as_enum_span,
+        };
+        match self.schemas.types.entry(name.clone()) {
+            alloc::collections::btree_map::Entry::Occupied(mut e) => {
+                if replace {
+                    e.insert(typedef);
+                }
+                // Otherwise silently skip — SQL uses EXCEPTION WHEN duplicate_object to handle re-runs
+            }
+            alloc::collections::btree_map::Entry::Vacant(e) => {
+                e.insert(typedef);
+            }
+        }
+    }
+
+    fn process_drop_type(&mut self, s: qusql_parse::DropType<'a>) {
+        let if_exists = s.if_exists;
+        for name in s.names {
+            let id = unqualified_name(self.issues, &name);
+            if self.schemas.types.remove(id).is_none() && if_exists.is_none() {
+                self.issues.err("Type not found", &name);
+            }
+        }
+    }
+
     fn process_alter_table(&mut self, a: qusql_parse::AlterTable<'a>) {
         let e = match self
             .schemas
@@ -852,6 +914,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 self.issues,
                 &mut self.schemas.indices,
                 self.options,
+                &self.schemas.types,
             );
         }
     }
@@ -865,6 +928,7 @@ fn process_alter_specification<'a>(
     issues: &mut Issues<'a>,
     indices: &mut alloc::collections::BTreeMap<IndexKey<'a>, Span>,
     options: &TypeOptions,
+    types: &BTreeMap<Identifier<'a>, TypeDef<'a>>,
 ) {
     match s {
         qusql_parse::AlterSpecification::AddIndex(AddIndex {
@@ -911,7 +975,13 @@ fn process_alter_specification<'a>(
             ..
         }) => match e.get_column_mut(col.value) {
             Some(c) => {
-                let new_col = parse_column(definition, c.identifier.clone(), issues, Some(options));
+                let new_col = parse_column(
+                    definition,
+                    c.identifier.clone(),
+                    issues,
+                    Some(options),
+                    Some(types),
+                );
                 *c = new_col;
             }
             None if if_exists.is_none() => {
@@ -926,8 +996,13 @@ fn process_alter_specification<'a>(
             data_type,
             ..
         }) => {
-            e.columns
-                .push(parse_column(data_type, identifier, issues, Some(options)));
+            e.columns.push(parse_column(
+                data_type,
+                identifier,
+                issues,
+                Some(options),
+                Some(types),
+            ));
         }
         qusql_parse::AlterSpecification::OwnerTo { .. } => {}
         qusql_parse::AlterSpecification::DropColumn(DropColumn {
@@ -950,7 +1025,7 @@ fn process_alter_specification<'a>(
                 qusql_parse::AlterColumnAction::SetDefault { .. } => {}
                 qusql_parse::AlterColumnAction::DropDefault { .. } => {}
                 qusql_parse::AlterColumnAction::Type { type_, .. } => {
-                    *c = parse_column(type_, column, issues, Some(options));
+                    *c = parse_column(type_, column, issues, Some(options), Some(types));
                 }
                 qusql_parse::AlterColumnAction::SetNotNull { .. } => c.type_.not_null = true,
                 qusql_parse::AlterColumnAction::DropNotNull { .. } => c.type_.not_null = false,
@@ -1542,6 +1617,7 @@ pub fn parse_schemas<'a>(
         procedures: Default::default(),
         functions: Default::default(),
         indices: Default::default(),
+        types: Default::default(),
     };
 
     SchemaCtx::new(&mut schemas, issues, src, options).process_top_level_statements(statements);
