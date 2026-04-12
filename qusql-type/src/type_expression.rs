@@ -610,8 +610,13 @@ pub(crate) fn type_expression<'a>(
             FullType::invalid()
         }
         Expression::Trim(e) => {
-            issue_todo!(typer.issues, e);
-            FullType::invalid()
+            if let Some(what) = &e.what {
+                type_expression(typer, what, flags.without_values(), BaseType::String);
+            }
+            let value_type =
+                type_expression(typer, &e.value, flags.without_values(), BaseType::String);
+            typer.ensure_base(&e.value, &value_type, BaseType::String);
+            FullType::new(BaseType::String, value_type.not_null)
         }
         Expression::Char(e) => {
             issue_todo!(typer.issues, e);
