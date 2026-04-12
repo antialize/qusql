@@ -88,10 +88,10 @@ use crate::{
     type_statement,
     typer::unqualified_name,
 };
-use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
+use alloc::{borrow::Cow, collections::BTreeMap, sync::Arc, vec::Vec};
 use qusql_parse::{
     AddColumn, AddIndex, AlterColumn, DataType, DropColumn, Expression, Identifier, Issues,
-    ModifyColumn, Span, Spanned, parse_statements,
+    ModifyColumn, Span, Spanned, Statement, parse_statements,
 };
 
 /// A column in a schema
@@ -131,13 +131,38 @@ impl<'a> Schema<'a> {
     }
 }
 
-/// A procedure
+/// A stored procedure definition
 #[derive(Debug)]
-pub struct Procedure {}
+pub struct ProcedureDef<'a> {
+    pub name: Identifier<'a>,
+    pub params: Vec<qusql_parse::FunctionParam<'a>>,
+    pub span: Span,
+}
 
-/// A function
+/// Parsed body of a stored function, with an offset for mapping spans
+/// back to the outer source file.
 #[derive(Debug)]
-pub struct Functions {}
+pub struct FunctionDefBody<'a> {
+    /// Parsed statements from the function body
+    pub statements: Vec<Statement<'a>>,
+    /// The body source string (borrowed from the outer source)
+    pub src: &'a str,
+    /// Byte offset of `src` within the outer source file.
+    /// Add this to any span from `statements` to get the outer-file span.
+    pub span_offset: usize,
+}
+
+/// A stored function definition
+#[derive(Debug)]
+pub struct FunctionDef<'a> {
+    pub name: Identifier<'a>,
+    pub params: Vec<qusql_parse::FunctionParam<'a>>,
+    pub return_type: qusql_parse::DataType<'a>,
+    pub span: Span,
+    /// Parsed body, present when the function was defined with a
+    /// dollar-quoted (non-escaped) AS body string.
+    pub body: Option<FunctionDefBody<'a>>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IndexKey<'a> {
@@ -151,11 +176,50 @@ pub struct Schemas<'a> {
     /// Map from name to Tables or views
     pub schemas: BTreeMap<Identifier<'a>, Schema<'a>>,
     /// Map from name to procedure
-    pub procedures: BTreeMap<Identifier<'a>, Procedure>,
+    pub procedures: BTreeMap<Identifier<'a>, ProcedureDef<'a>>,
     /// Map from name to function
-    pub functions: BTreeMap<Identifier<'a>, Functions>,
+    pub functions: BTreeMap<Identifier<'a>, FunctionDef<'a>>,
     /// Map from (table, index) to location
     pub indices: BTreeMap<IndexKey<'a>, Span>,
+}
+
+/// Transfer issues from `inner` into `outer`, adjusting all spans by `offset`.
+fn transfer_issues_with_offset<'a>(outer: &mut Issues<'a>, inner: Issues<'a>, offset: usize) {
+    for mut issue in inner.issues {
+        issue.span.start += offset;
+        issue.span.end += offset;
+        // Recompute sql_segment from the outer src so it matches the adjusted span
+        issue.sql_segment = &outer.src[issue.span.start..issue.span.end];
+        for frag in &mut issue.fragments {
+            frag.span.start += offset;
+            frag.span.end += offset;
+            frag.sql_segment = &outer.src[frag.span.start..frag.span.end];
+        }
+        outer.issues.push(issue);
+    }
+}
+
+/// Try to parse a borrowed string as SQL statements.
+/// Returns the parsed body if the string is a non-escaped borrow from `src`,
+/// or None if the string is escaped (Cow::Owned).
+fn try_parse_body<'a>(
+    src: &'a str,
+    body_str: &qusql_parse::SString<'a>,
+    issues: &mut Issues<'a>,
+    options: &qusql_parse::ParseOptions,
+) -> Option<FunctionDefBody<'a>> {
+    let Cow::Borrowed(borrowed) = &body_str.value else {
+        return None;
+    };
+    let span_offset = borrowed.as_ptr() as usize - src.as_ptr() as usize;
+    let mut inner_issues = Issues::new(borrowed);
+    let statements = parse_statements(borrowed, &mut inner_issues, options);
+    transfer_issues_with_offset(issues, inner_issues, span_offset);
+    Some(FunctionDefBody {
+        statements,
+        src: borrowed,
+        span_offset,
+    })
 }
 
 pub(crate) fn parse_column<'a>(
@@ -542,10 +606,8 @@ pub fn parse_schemas<'a>(
                 }
             }
             qusql_parse::Statement::DropProcedure(p) => {
-                match schemas
-                    .procedures
-                    .entry(unqualified_name(issues, &p.procedure).clone())
-                {
+                let name = unqualified_name(issues, &p.procedure);
+                match schemas.procedures.entry(name.clone()) {
                     alloc::collections::btree_map::Entry::Occupied(e) => {
                         e.remove();
                     }
@@ -895,8 +957,70 @@ pub fn parse_schemas<'a>(
             }
             qusql_parse::Statement::Commit(_) => (),
             qusql_parse::Statement::Begin(_) => (),
-            qusql_parse::Statement::CreateFunction(_) => (),
-            qusql_parse::Statement::CreateProcedure(_) => (),
+            qusql_parse::Statement::CreateFunction(f) => {
+                let mut replace = false;
+                for o in &f.create_options {
+                    if matches!(o, qusql_parse::CreateOption::OrReplace(_)) {
+                        replace = true;
+                    }
+                }
+                // Try to parse the AS body if it's a single non-escaped string
+                let body = f
+                    .body
+                    .as_ref()
+                    .and_then(|b| b.strings.first())
+                    .and_then(|s| try_parse_body(src, s, issues, &options.parse_options));
+                let name = f.name.clone();
+                let def = FunctionDef {
+                    name: f.name.clone(),
+                    params: f.params,
+                    return_type: f.return_type,
+                    span: f.create_span.join_span(&f.function_span),
+                    body,
+                };
+                match schemas.functions.entry(name) {
+                    alloc::collections::btree_map::Entry::Occupied(mut e) => {
+                        if replace {
+                            e.insert(def);
+                        } else if f.if_not_exists.is_none() {
+                            issues
+                                .err("Function already defined", &f.name)
+                                .frag("Defined here", &e.get().span);
+                        }
+                    }
+                    alloc::collections::btree_map::Entry::Vacant(e) => {
+                        e.insert(def);
+                    }
+                }
+            }
+            qusql_parse::Statement::CreateProcedure(p) => {
+                let mut replace = false;
+                for o in &p.create_options {
+                    if matches!(o, qusql_parse::CreateOption::OrReplace(_)) {
+                        replace = true;
+                    }
+                }
+                let name = p.name.clone();
+                let def = ProcedureDef {
+                    name: p.name.clone(),
+                    params: p.params,
+                    span: p.create_span.join_span(&p.procedure_span),
+                };
+                match schemas.procedures.entry(name) {
+                    alloc::collections::btree_map::Entry::Occupied(mut e) => {
+                        if replace {
+                            e.insert(def);
+                        } else if p.if_not_exists.is_none() {
+                            issues
+                                .err("Procedure already defined", &p.name)
+                                .frag("Defined here", &e.get().span);
+                        }
+                    }
+                    alloc::collections::btree_map::Entry::Vacant(e) => {
+                        e.insert(def);
+                    }
+                }
+            }
             qusql_parse::Statement::Call(_) => (),
             qusql_parse::Statement::Grant(_) => (),
             qusql_parse::Statement::DeclareVariable(_) => (),
@@ -910,6 +1034,7 @@ pub fn parse_schemas<'a>(
             qusql_parse::Statement::Loop(_) => (),
             qusql_parse::Statement::While(_) => (),
             qusql_parse::Statement::Repeat(_) => (),
+            qusql_parse::Statement::Perform(_) => (),
             s => {
                 issues.err(
                     alloc::format!("Unsupported statement {s:?} in schema definition"),
