@@ -247,6 +247,10 @@ pub struct ParseOptions {
     /// allows `BEGIN ... END` blocks and other compound statements
     /// that are only valid inside a stored function or procedure body.
     function_body: bool,
+    /// Byte offset added to every span produced by the lexer. Set this when
+    /// parsing a sub-string that is embedded inside a larger source file so
+    /// that all spans are relative to the outer file rather than the sub-string.
+    span_offset: usize,
 }
 
 impl Default for ParseOptions {
@@ -258,6 +262,7 @@ impl Default for ParseOptions {
             warn_unquoted_identifiers: false,
             list_hack: false,
             function_body: false,
+            span_offset: 0,
         }
     }
 }
@@ -312,6 +317,20 @@ impl ParseOptions {
 
     pub fn get_function_body(&self) -> bool {
         self.function_body
+    }
+
+    /// Set the byte offset of the sub-string being parsed within the outer source file.
+    /// All spans produced by the lexer will be adjusted by this offset so they remain
+    /// relative to the outer file.
+    pub fn span_offset(self, span_offset: usize) -> Self {
+        Self {
+            span_offset,
+            ..self
+        }
+    }
+
+    pub fn get_span_offset(&self) -> usize {
+        self.span_offset
     }
 }
 
