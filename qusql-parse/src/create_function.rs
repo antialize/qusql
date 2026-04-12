@@ -251,6 +251,9 @@ pub(crate) fn parse_create_function<'a>(
     parser.consume_token(Token::LParen)?;
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
         loop {
+            if matches!(parser.token, Token::RParen) {
+                break;
+            }
             let direction = match &parser.token {
                 Token::Ident(_, Keyword::IN) => {
                     let in_ = parser.consume_keyword(Keyword::IN)?;
@@ -453,7 +456,7 @@ pub(crate) fn parse_create_function<'a>(
                     }
                 }
                 body = Some(FunctionBody { as_span, strings });
-                break;
+                continue;
             }
             _ => break,
         };
@@ -461,6 +464,7 @@ pub(crate) fn parse_create_function<'a>(
     }
 
     if parser.options.dialect.is_postgresql()
+        && body.is_some()
         && !characteristics
             .iter()
             .any(|c| matches!(c, FunctionCharacteristic::Language(_, _)))

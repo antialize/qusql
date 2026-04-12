@@ -31,7 +31,6 @@ DEFAULT_DIALECT = "postgre-sql"
 # Tests known not to work yet; excluded from the default run
 KNOWN_FAILING: set[str] = {
     "postgresql1",
-    "postgresql2",
 }
 
 
@@ -40,7 +39,7 @@ def run_type_test(sql_file: Path, dialect: str) -> tuple[int, str]:
     result = subprocess.run(
         [
             "cargo", "run", "-p", "type_test", "--",
-            str(sql_file), "--dialect", dialect, "--error-format", "json",
+            str(sql_file), "--dialect", dialect, "--error-format", "pretty",
         ],
         capture_output=True,
         text=True,
@@ -120,8 +119,10 @@ def run_test(name: str, *, update: bool) -> bool:
         # For known-failing tests without an expected file, a non-zero exit is expected
         if name in KNOWN_FAILING:
             print(f"[{name}] XFAIL (no expected output, exit={exit_code})")
+            print(output)
             return True
         print(f"[{name}] SKIP - no expected output (run --update to create)")
+        print(output)
         return True
 
     expected_text = json_file.read_text().strip()

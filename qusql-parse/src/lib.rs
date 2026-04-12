@@ -119,7 +119,8 @@ pub use create_table::{
     TableOption,
 };
 pub use create_trigger::{
-    CreateTrigger, TriggerEvent, TriggerReference, TriggerReferenceDirection, TriggerTime,
+    CreateTrigger, TriggerEvent, TriggerForEach, TriggerReference, TriggerReferenceDirection,
+    TriggerTime,
 };
 pub use create_view::CreateView;
 pub use data_type::{
