@@ -220,6 +220,7 @@ impl<'a> Tester<'a> {
                     StatementType::Call => (vec![], vec![]),
                     StatementType::Transaction => (vec![], vec![]),
                     StatementType::Set => (vec![], vec![]),
+                    StatementType::Lock => (vec![], vec![]),
                     StatementType::Invalid => return Err(Error::bail("Unexpected invalid")),
                 };
                 for i in 0..usize::max(our_cols.len(), columns.len()) {
