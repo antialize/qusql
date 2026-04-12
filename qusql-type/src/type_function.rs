@@ -1395,6 +1395,21 @@ pub(crate) fn type_function<'a, 'b>(
             &[BaseType::Any, BaseType::String],
             &[],
         ),
+        Function::ToDate => tf(
+            BaseType::Date.into(),
+            &[BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::ToNumber => tf(
+            BaseType::Float.into(),
+            &[BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::ToTimestamp => tf(
+            BaseType::DateTime.into(),
+            &[BaseType::String, BaseType::String],
+            &[],
+        ),
         Function::UCase | Function::Upper => tf(BaseType::String.into(), &[BaseType::String], &[]),
         Function::UncompressedLength => tf(BaseType::Integer.into(), &[BaseType::Bytes], &[]),
         Function::UnHex => tf(BaseType::Bytes.into(), &[BaseType::String], &[]),
