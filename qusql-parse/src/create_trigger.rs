@@ -20,6 +20,22 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 
+/// Whether the trigger fires once per row or once per statement
+#[derive(Clone, Debug)]
+pub enum TriggerForEach {
+    Row(Span),
+    Statement(Span),
+}
+
+impl Spanned for TriggerForEach {
+    fn span(&self) -> Span {
+        match self {
+            TriggerForEach::Row(s) => s.clone(),
+            TriggerForEach::Statement(s) => s.clone(),
+        }
+    }
+}
+
 /// When to fire the trigger
 #[derive(Clone, Debug)]
 pub enum TriggerTime {
@@ -137,8 +153,8 @@ pub struct CreateTrigger<'a> {
     pub on_span: Span,
     /// Name of table to create the trigger on
     pub table: Identifier<'a>,
-    /// Span of "FOR EACH ROW"
-    pub for_each_row_span: Span,
+    /// Whether the trigger fires once per row or once per statement (None if omitted, PostgreSQL only)
+    pub for_each: Option<TriggerForEach>,
     /// Optional REFERENCING NEW TABLE AS alias / OLD TABLE AS alias clauses
     pub referencing: Vec<TriggerReference<'a>>,
     /// Optional WHEN (condition)
@@ -158,7 +174,7 @@ impl<'a> Spanned for CreateTrigger<'a> {
             .join_span(&self.trigger_event)
             .join_span(&self.on_span)
             .join_span(&self.table)
-            .join_span(&self.for_each_row_span)
+            .join_span(&self.for_each)
             .join_span(&self.referencing)
             .join_span(&self.when_condition.as_ref().map(|(s, e)| s.join_span(e)))
             .join_span(&self.statement)
@@ -214,8 +230,32 @@ pub(crate) fn parse_create_trigger<'a>(
 
     let table = parser.consume_plain_identifier_unreserved()?;
 
-    let for_each_row_span =
-        parser.consume_keywords(&[Keyword::FOR, Keyword::EACH, Keyword::ROW])?;
+    let for_each = if parser.options.dialect.is_postgresql() {
+        if let Some(for_span) = parser.skip_keyword(Keyword::FOR) {
+            let each_span = parser.skip_keyword(Keyword::EACH);
+            match &parser.token {
+                Token::Ident(_, Keyword::ROW) => Some(TriggerForEach::Row(
+                    for_span
+                        .join_span(&each_span)
+                        .join_span(&parser.consume_keyword(Keyword::ROW)?),
+                )),
+                Token::Ident(_, Keyword::STATEMENT) => Some(TriggerForEach::Statement(
+                    for_span
+                        .join_span(&each_span)
+                        .join_span(&parser.consume_keyword(Keyword::STATEMENT)?),
+                )),
+                _ => Some(TriggerForEach::Row(for_span.join_span(&each_span))),
+            }
+        } else {
+            None
+        }
+    } else {
+        Some(TriggerForEach::Row(parser.consume_keywords(&[
+            Keyword::FOR,
+            Keyword::EACH,
+            Keyword::ROW,
+        ])?))
+    };
 
     // Parse optional REFERENCING clause (PostgreSQL transition table aliases)
     let mut referencing = Vec::new();
@@ -291,7 +331,7 @@ pub(crate) fn parse_create_trigger<'a>(
         trigger_event,
         on_span,
         table,
-        for_each_row_span,
+        for_each,
         referencing,
         when_condition,
         statement,

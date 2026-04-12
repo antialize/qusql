@@ -1,0 +1,477 @@
+{
+  "tables": [
+    {
+      "name": "archive_blobs",
+      "columns": [
+        {
+          "name": "archive_id",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "blob_id",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "metadata",
+          "type": "bytes",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "archive_updates",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "update_time",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "blobs",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "hash_a",
+          "type": "i64"
+        },
+        {
+          "name": "hash_b",
+          "type": "i64"
+        },
+        {
+          "name": "stored_bytes",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "tier",
+          "type": "i16",
+          "not_null": true
+        },
+        {
+          "name": "complete",
+          "type": "bool",
+          "not_null": true
+        },
+        {
+          "name": "creation_time",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "blobs_delete",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "blob_id",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "hash_a",
+          "type": "i64"
+        },
+        {
+          "name": "hash_b",
+          "type": "i64"
+        },
+        {
+          "name": "stored_bytes",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "tier",
+          "type": "i16",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "caption_tracks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "track_id",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "identifier",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "content_type",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "upload_status",
+          "type": "i16",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "deleted",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "ingest_queue",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "dir",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "job_blobs",
+      "columns": [
+        {
+          "name": "job_id",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "blob_id",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "direction",
+          "type": "i16",
+          "not_null": true
+        },
+        {
+          "name": "metadata",
+          "type": "bytes",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "local_files",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "dir",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "filename",
+          "type": "string"
+        },
+        {
+          "name": "size",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "upload_status",
+          "type": "i16",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "deleted",
+          "type": "bool",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "media_archives",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "path",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "i16",
+          "not_null": true
+        },
+        {
+          "name": "creation_time",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "previous_id",
+          "type": "i64"
+        },
+        {
+          "name": "manifest",
+          "type": "bytes",
+          "has_default": true
+        },
+        {
+          "name": "total_blob_bytes",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "config",
+          "type": "string",
+          "has_default": true
+        },
+        {
+          "name": "head_blob_id",
+          "type": "i64",
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "prediction_models",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "module",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "schema_version",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "parameters",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "ctime",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "model",
+          "type": "bytes",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "processing_jobs",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "hash_a",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "hash_b",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "last_used",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "render_queue",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "inprogress",
+          "type": "bool",
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "storage_tiers",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i16",
+          "not_null": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "tracks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "provider_id",
+          "type": "i32"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "identifier",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "content_type",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "license_type",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "manifest_ctime_nsec",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "file_mtime_nsec",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "source_file_name",
+          "type": "string"
+        },
+        {
+          "name": "size",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "upload_status",
+          "type": "i16",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "deleted",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "worker_checkpoint",
+      "columns": [
+        {
+          "name": "payload",
+          "type": "bytes",
+          "not_null": true
+        },
+        {
+          "name": "chunk",
+          "type": "i64",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "final",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    }
+  ]
+}
