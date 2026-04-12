@@ -592,6 +592,9 @@ pub(crate) fn type_expression<'a>(
                 None,
             );
             let inner = type_expression(typer, &e.expr, flags, col.type_.base());
+            // Constrain any argument placeholders (e.g. $2::jsonb) by matching
+            // inferred inner type against the cast target type.
+            typer.matched_type(&col.type_.t, &inner.t);
             FullType::new(col.type_.t, inner.not_null)
         }
         Expression::Array(e) => {

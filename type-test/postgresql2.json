@@ -155,6 +155,88 @@
       ]
     },
     {
+      "name": "geography_columns",
+      "view": true,
+      "columns": [
+        {
+          "name": "f_table_catalog",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_schema",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_geography_column",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "coord_dimension",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "srid",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "geometry_columns",
+      "view": true,
+      "columns": [
+        {
+          "name": "f_table_catalog",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_schema",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_geometry_column",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "coord_dimension",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "srid",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
       "name": "ingest_queue",
       "columns": [
         {
@@ -362,6 +444,32 @@
           "name": "inprogress",
           "type": "bool",
           "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "spatial_ref_sys",
+      "columns": [
+        {
+          "name": "srid",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "auth_name",
+          "type": "string"
+        },
+        {
+          "name": "auth_srid",
+          "type": "integer"
+        },
+        {
+          "name": "srtext",
+          "type": "string"
+        },
+        {
+          "name": "proj4text",
+          "type": "string"
         }
       ]
     },
