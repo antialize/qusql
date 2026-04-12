@@ -1479,7 +1479,31 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     Arc::make_mut(values).push(new_val);
                 }
             }
-            // Other ALTER TYPE actions (RENAME, OWNER TO, etc.) have no effect on
+            qusql_parse::AlterTypeAction::RenameTo { new_name, .. } => {
+                if let Some(typedef) = self.schemas.types.remove(name) {
+                    self.schemas.types.insert(new_name, typedef);
+                } else {
+                    self.issues.err("Type not found", &a.name);
+                }
+            }
+            qusql_parse::AlterTypeAction::RenameValue {
+                existing_enum_value,
+                new_enum_value,
+                ..
+            } => {
+                let Some(TypeDef::Enum { values, .. }) = self.schemas.types.get_mut(name) else {
+                    self.issues.err("Type not found", &a.name);
+                    return;
+                };
+                let old_val: alloc::borrow::Cow<'a, str> = existing_enum_value.value;
+                let new_val: alloc::borrow::Cow<'a, str> = new_enum_value.value;
+                if let Some(entry) = Arc::make_mut(values).iter_mut().find(|v| **v == old_val) {
+                    *entry = new_val;
+                } else {
+                    self.issues.err("Enum value not found", &a.name);
+                }
+            }
+            // Other ALTER TYPE actions (OWNER TO, SET SCHEMA, etc.) have no effect on
             // the parts of the schema we track.
             _ => {}
         }
