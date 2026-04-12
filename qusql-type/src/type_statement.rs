@@ -61,6 +61,7 @@ fn type_with_query<'a>(
             InnerStatementType::Select(v) => Some(v),
             InnerStatementType::Delete { returning } => returning,
             InnerStatementType::Insert { returning, .. } => returning,
+            InnerStatementType::Update { returning } => returning,
             _ => None,
         };
         if let Some(s) = s {
