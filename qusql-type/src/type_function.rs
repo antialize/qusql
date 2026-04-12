@@ -1717,6 +1717,38 @@ pub(crate) fn type_function<'a, 'b>(
         }
         Function::UuidExtractTimestamp => tf(BaseType::DateTime.into(), &[BaseType::Any], &[]),
         Function::UuidExtractVersion => tf(BaseType::Integer.into(), &[BaseType::Any], &[]),
+        // PostgreSQL XML functions
+        Function::XmlIsWellFormed
+        | Function::XmlIsWellFormedContent
+        | Function::XmlIsWellFormedDocument => {
+            tf(BaseType::Bool.into(), &[BaseType::String], &[])
+        }
+        Function::XpathExists => {
+            tf(BaseType::Bool.into(), &[BaseType::Any, BaseType::Any], &[BaseType::Any])
+        }
+        Function::XmlComment | Function::XmlText => {
+            tf(BaseType::Any.into(), &[BaseType::String], &[])
+        }
+        Function::XmlConcat => tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any]),
+        Function::Xpath => {
+            tf(BaseType::Any.into(), &[BaseType::Any, BaseType::Any], &[BaseType::Any])
+        }
+        Function::CursorToXml
+        | Function::CursorToXmlschema
+        | Function::DatabaseToXml
+        | Function::DatabaseToXmlAndXmlschema
+        | Function::DatabaseToXmlschema
+        | Function::QueryToXml
+        | Function::QueryToXmlAndXmlschema
+        | Function::QueryToXmlschema
+        | Function::SchemaToXml
+        | Function::SchemaToXmlAndXmlschema
+        | Function::SchemaToXmlschema
+        | Function::TableToXml
+        | Function::TableToXmlAndXmlschema
+        | Function::TableToXmlschema => {
+            tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any])
+        }
         // Aggregate / window functions that may appear in non-aggregate context
         Function::ArrayAgg | Function::JsonAgg | Function::JsonbAgg => {
             arg_cnt(typer, 1..1, args, span);
