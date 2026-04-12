@@ -32,7 +32,7 @@ use crate::{
         DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropType, DropView,
         parse_drop,
     },
-    expression::{Expression, PRIORITY_ASSIGN, PRIORITY_MAX, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_CMP, PRIORITY_MAX, parse_expression_unreserved},
     flush::{Flush, parse_flush},
     grant::{Grant, parse_grant},
     insert_replace::{InsertReplace, parse_insert_replace},
@@ -104,12 +104,12 @@ fn parse_plpgsql_declare_section<'a>(
         let name = parser.consume_plain_identifier_unreserved()?;
         let data_type = parse_data_type(parser, DataTypeContext::Column)?;
         let default = if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
-            let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
-            Some((default_span, expr))
+            let select = parse_select_body(parser, default_span.clone())?;
+            Some((default_span, select))
         } else if matches!(parser.token, Token::ColonEq | Token::Eq) {
             let assign_span = parser.consume();
-            let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
-            Some((assign_span, expr))
+            let select = parse_select_body(parser, assign_span.clone())?;
+            Some((assign_span, select))
         } else {
             None
         };
@@ -1562,7 +1562,7 @@ pub(crate) fn parse_statement<'a>(
         {
             Some(Statement::Repeat(Box::new(parse_repeat(parser, None)?)))
         }
-        // PL/pgSQL assignment: `target := expression`
+        // PL/pgSQL assignment: `target := expression` or `target = expression` (PostgreSQL)
         // Must come last — only active inside compound blocks and only when the
         // next token is not a block-terminating keyword (END, ELSE, EXCEPTION, …).
         _ if parser.permit_compound_statements
@@ -1581,10 +1581,16 @@ pub(crate) fn parse_statement<'a>(
                     | Token::Eof
             ) =>
         {
-            // Parse the LHS with a max_priority that stops before `:=` so the
-            // expression parser doesn't greedily consume it as Assignment binary op.
-            let target = parse_expression_unreserved(parser, PRIORITY_ASSIGN)?;
-            let assign_span = parser.consume_token(Token::ColonEq)?;
+            // Parse the LHS stopping before `=` / `:=` so the expression parser
+            // doesn't greedily consume either as a binary operator.
+            let target = parse_expression_unreserved(parser, PRIORITY_CMP)?;
+            let assign_span = if matches!(parser.token, Token::ColonEq) {
+                parser.consume_token(Token::ColonEq)?
+            } else if parser.options.dialect.is_postgresql() && matches!(parser.token, Token::Eq) {
+                parser.consume_token(Token::Eq)?
+            } else {
+                parser.consume_token(Token::ColonEq)? // will emit "Expected ':='" error
+            };
             let value = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             Some(Statement::Assign(Box::new(Assign {
                 target,
@@ -1824,7 +1830,7 @@ pub struct DeclareVariable<'a> {
     pub declare_span: Span,
     pub name: crate::Identifier<'a>,
     pub data_type: crate::DataType<'a>,
-    pub default: Option<(Span, Expression<'a>)>,
+    pub default: Option<(Span, Select<'a>)>,
 }
 
 impl<'a> Spanned for DeclareVariable<'a> {
@@ -2087,8 +2093,8 @@ fn parse_variable_body<'a>(
     use crate::data_type::{DataTypeContext, parse_data_type};
     let data_type = parse_data_type(parser, DataTypeContext::TypeRef)?;
     let default = if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
-        let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
-        Some((default_span, expr))
+        let select = parse_select_body(parser, default_span.clone())?;
+        Some((default_span, select))
     } else {
         None
     };
