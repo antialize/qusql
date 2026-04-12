@@ -576,10 +576,7 @@ pub(crate) fn type_expression<'a>(
                 FullType::new(BaseType::String, inner.not_null)
             }
         }
-        e @ Expression::UserVariable { .. } => {
-            issue_todo!(typer.issues, e);
-            FullType::invalid()
-        }
+        Expression::UserVariable(_) => FullType::new(BaseType::Any, false),
         Expression::TypeCast(e) => {
             let col = parse_column(
                 e.type_.clone(),
