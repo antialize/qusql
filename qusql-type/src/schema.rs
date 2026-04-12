@@ -213,7 +213,8 @@ fn try_parse_body<'a>(
     };
     let span_offset = borrowed.as_ptr() as usize - src.as_ptr() as usize;
     let mut inner_issues = Issues::new(borrowed);
-    let statements = parse_statements(borrowed, &mut inner_issues, options);
+    let body_options = options.clone().function_body(true);
+    let statements = parse_statements(borrowed, &mut inner_issues, &body_options);
     transfer_issues_with_offset(issues, inner_issues, span_offset);
     Some(FunctionDefBody {
         statements,
@@ -459,6 +460,7 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateDefinition::IndexDefinition { .. } => {}
                         qusql_parse::CreateDefinition::ForeignKeyDefinition { .. } => {}
                         qusql_parse::CreateDefinition::CheckConstraintDefinition { .. } => {}
+                        qusql_parse::CreateDefinition::LikeTable { .. } => {}
                     }
                 }
                 match schemas.schemas.entry(id.clone()) {
@@ -1023,6 +1025,9 @@ pub fn parse_schemas<'a>(
             }
             qusql_parse::Statement::Call(_) => (),
             qusql_parse::Statement::Grant(_) => (),
+            qusql_parse::Statement::CommentOn(_) => (),
+            qusql_parse::Statement::DropType(_) => (),
+            qusql_parse::Statement::ExecuteFunction(_) => (),
             qusql_parse::Statement::DeclareVariable(_) => (),
             qusql_parse::Statement::DeclareCursorMariaDb(_) => (),
             qusql_parse::Statement::DeclareHandler(_) => (),
@@ -1035,6 +1040,9 @@ pub fn parse_schemas<'a>(
             qusql_parse::Statement::While(_) => (),
             qusql_parse::Statement::Repeat(_) => (),
             qusql_parse::Statement::Perform(_) => (),
+            qusql_parse::Statement::Raise(_) => (),
+            qusql_parse::Statement::Assign(_) => (),
+            qusql_parse::Statement::PlpgsqlExecute(_) => (),
             s => {
                 issues.err(
                     alloc::format!("Unsupported statement {s:?} in schema definition"),

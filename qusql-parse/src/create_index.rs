@@ -237,6 +237,12 @@ pub(crate) fn parse_create_index<'a>(
             let expression = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             parser.consume_token(Token::RParen)?;
             IndexColExpr::Expression(expression)
+        } else if matches!(&parser.token, Token::Ident(_, _))
+            && matches!(parser.peek(), Token::LParen)
+            && parser.options.dialect.is_postgresql()
+        {
+            // Function call expression like upper(col) or func(a, b)
+            IndexColExpr::Expression(parse_expression_unreserved(parser, PRIORITY_MAX)?)
         } else {
             // Regular column name
             let name = parser.consume_plain_identifier_unreserved()?;

@@ -240,7 +240,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             issues,
             arg: 0,
             options,
-            permit_compound_statements: false,
+            permit_compound_statements: options.function_body,
         }
     }
 

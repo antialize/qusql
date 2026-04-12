@@ -16,7 +16,7 @@ use crate::{
     AlterOperator, AlterOperatorClass, AlterOperatorFamily, AlterRole, AlterTable, AlterType,
     CreateConstraintTrigger, CreateDomain, CreateExtension, CreateIndex, CreateOperator,
     CreateOperatorClass, CreateOperatorFamily, CreateRole, CreateTrigger, DropOperatorClass,
-    DropOperatorFamily, QualifiedName, RenameTable, Span, Spanned, WithQuery,
+    DropOperatorFamily, ExecuteFunction, QualifiedName, RenameTable, Span, Spanned, WithQuery,
     alter_role::parse_alter_role,
     alter_table::parse_alter_table,
     copy::{CopyFrom, CopyTo, parse_copy_statement},
@@ -29,9 +29,10 @@ use crate::{
     delete::{Delete, parse_delete},
     drop::{
         DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
-        DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropView, parse_drop,
+        DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropType, DropView,
+        parse_drop,
     },
-    expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
+    expression::{Expression, PRIORITY_ASSIGN, PRIORITY_MAX, parse_expression_unreserved},
     flush::{Flush, parse_flush},
     grant::{Grant, parse_grant},
     insert_replace::{InsertReplace, parse_insert_replace},
@@ -328,6 +329,268 @@ fn parse_perform<'a>(parser: &mut Parser<'a, '_>) -> Result<Perform<'a>, ParseEr
     let perform_span = parser.consume_keyword(Keyword::PERFORM)?;
     let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
     Ok(Perform { perform_span, expr })
+}
+
+/// PL/pgSQL assignment statement: `target := expression`
+#[derive(Clone, Debug)]
+pub struct Assign<'a> {
+    /// Left-hand side (assignment target)
+    pub target: Expression<'a>,
+    /// Span of `:=`
+    pub assign_span: Span,
+    /// Right-hand side value
+    pub value: Expression<'a>,
+}
+
+impl<'a> Spanned for Assign<'a> {
+    fn span(&self) -> Span {
+        self.target
+            .join_span(&self.assign_span)
+            .join_span(&self.value)
+    }
+}
+
+/// PL/pgSQL EXECUTE statement (dynamic SQL execution):
+/// `EXECUTE string [USING expression [, ...]]`
+#[derive(Clone, Debug)]
+pub struct PlpgsqlExecute<'a> {
+    /// Span of `EXECUTE`
+    pub execute_span: Span,
+    /// Dynamic SQL string expression
+    pub command: Expression<'a>,
+    /// Optional USING arguments
+    pub using: Vec<Expression<'a>>,
+}
+
+impl<'a> Spanned for PlpgsqlExecute<'a> {
+    fn span(&self) -> Span {
+        self.execute_span
+            .join_span(&self.command)
+            .join_span(&self.using)
+    }
+}
+
+fn parse_plpgsql_execute<'a>(
+    parser: &mut Parser<'a, '_>,
+) -> Result<PlpgsqlExecute<'a>, ParseError> {
+    let execute_span = parser.consume_keyword(Keyword::EXECUTE)?;
+    let command = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+    let mut using = Vec::new();
+    if parser.skip_keyword(Keyword::USING).is_some() {
+        loop {
+            using.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+    }
+    Ok(PlpgsqlExecute {
+        execute_span,
+        command,
+        using,
+    })
+}
+
+/// PL/pgSQL RAISE severity level
+#[derive(Clone, Debug)]
+pub enum RaiseLevel {
+    Debug(Span),
+    Log(Span),
+    Info(Span),
+    Notice(Span),
+    Warning(Span),
+    Exception(Span),
+}
+
+impl Spanned for RaiseLevel {
+    fn span(&self) -> Span {
+        match self {
+            RaiseLevel::Debug(s)
+            | RaiseLevel::Log(s)
+            | RaiseLevel::Info(s)
+            | RaiseLevel::Notice(s)
+            | RaiseLevel::Warning(s)
+            | RaiseLevel::Exception(s) => s.clone(),
+        }
+    }
+}
+
+/// Option name in `RAISE ... USING option = expr`
+#[derive(Clone, Debug)]
+pub enum RaiseOptionName {
+    Message(Span),
+    Detail(Span),
+    Hint(Span),
+    Errcode(Span),
+    Column(Span),
+    Constraint(Span),
+    Datatype(Span),
+    Table(Span),
+    Schema(Span),
+}
+
+impl Spanned for RaiseOptionName {
+    fn span(&self) -> Span {
+        match self {
+            RaiseOptionName::Message(s)
+            | RaiseOptionName::Detail(s)
+            | RaiseOptionName::Hint(s)
+            | RaiseOptionName::Errcode(s)
+            | RaiseOptionName::Column(s)
+            | RaiseOptionName::Constraint(s)
+            | RaiseOptionName::Datatype(s)
+            | RaiseOptionName::Table(s)
+            | RaiseOptionName::Schema(s) => s.clone(),
+        }
+    }
+}
+
+/// PL/pgSQL RAISE statement
+///
+/// Syntax:
+/// ```sql
+/// RAISE [ level ] 'format' [, expr, ...] [ USING option = expr, ... ];
+/// RAISE [ level ] condition_name [ USING option = expr, ... ];
+/// RAISE [ level ] SQLSTATE 'sqlstate' [ USING option = expr, ... ];
+/// RAISE [ level ] USING option = expr, ...;
+/// RAISE;
+/// ```
+#[derive(Clone, Debug)]
+pub struct Raise<'a> {
+    /// Span of RAISE keyword
+    pub raise_span: Span,
+    /// Optional severity level
+    pub level: Option<RaiseLevel>,
+    /// Format string (for `RAISE level 'format' [, args...]`)
+    pub message: Option<crate::SString<'a>>,
+    /// Positional format arguments
+    pub args: Vec<Expression<'a>>,
+    /// USING clause options
+    pub using: Vec<(RaiseOptionName, Span, Expression<'a>)>,
+}
+
+impl<'a> Spanned for Raise<'a> {
+    fn span(&self) -> Span {
+        self.raise_span
+            .join_span(&self.level)
+            .join_span(&self.message)
+            .join_span(&self.args)
+            .join_span(&self.using)
+    }
+}
+
+fn parse_raise<'a>(parser: &mut Parser<'a, '_>) -> Result<Raise<'a>, ParseError> {
+    let raise_span = parser.consume_keyword(Keyword::RAISE)?;
+
+    // Optional level keyword
+    let level = match &parser.token {
+        Token::Ident(_, Keyword::DEBUG) => {
+            Some(RaiseLevel::Debug(parser.consume_keyword(Keyword::DEBUG)?))
+        }
+        Token::Ident(_, Keyword::LOG) => {
+            Some(RaiseLevel::Log(parser.consume_keyword(Keyword::LOG)?))
+        }
+        Token::Ident(_, Keyword::INFO) => {
+            Some(RaiseLevel::Info(parser.consume_keyword(Keyword::INFO)?))
+        }
+        Token::Ident(_, Keyword::NOTICE) => {
+            Some(RaiseLevel::Notice(parser.consume_keyword(Keyword::NOTICE)?))
+        }
+        Token::Ident(_, Keyword::WARNING) => Some(RaiseLevel::Warning(
+            parser.consume_keyword(Keyword::WARNING)?,
+        )),
+        Token::Ident(_, Keyword::EXCEPTION) => Some(RaiseLevel::Exception(
+            parser.consume_keyword(Keyword::EXCEPTION)?,
+        )),
+        _ => None,
+    };
+
+    // Optional message: either a string literal, SQLSTATE 'code', or a condition name identifier
+    let (mut message, mut args) = (None, Vec::new());
+
+    match &parser.token {
+        // RAISE [level] 'format' [, arg, ...]
+        Token::String(_, _) => {
+            message = Some(parser.consume_string()?);
+            while parser.skip_token(Token::Comma).is_some() {
+                args.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
+            }
+        }
+        // RAISE [level] SQLSTATE 'code'
+        Token::Ident(_, Keyword::SQLSTATE) => {
+            parser.consume_keyword(Keyword::SQLSTATE)?;
+            message = Some(parser.consume_string()?);
+        }
+        // RAISE [level] condition_name  (plain identifier that is not USING / semicolon / EOF)
+        Token::Ident(_, kw)
+            if !matches!(
+                kw,
+                Keyword::USING
+                    | Keyword::NOT_A_KEYWORD
+                    | Keyword::EXCEPTION
+                    | Keyword::NOTICE
+                    | Keyword::WARNING
+                    | Keyword::LOG
+                    | Keyword::INFO
+                    | Keyword::DEBUG
+            ) => {}
+        Token::Ident(_, Keyword::NOT_A_KEYWORD) => {
+            // unquoted plain identifier used as condition name
+            parser.consume_plain_identifier_unreserved()?;
+        }
+        _ => {} // bare RAISE; or RAISE level;
+    }
+
+    // Optional USING clause
+    let mut using = Vec::new();
+    if parser.skip_keyword(Keyword::USING).is_some() {
+        loop {
+            let opt_name = match &parser.token {
+                Token::Ident(_, Keyword::MESSAGE) => {
+                    RaiseOptionName::Message(parser.consume_keyword(Keyword::MESSAGE)?)
+                }
+                Token::Ident(_, Keyword::DETAIL) => {
+                    RaiseOptionName::Detail(parser.consume_keyword(Keyword::DETAIL)?)
+                }
+                Token::Ident(_, Keyword::HINT) => {
+                    RaiseOptionName::Hint(parser.consume_keyword(Keyword::HINT)?)
+                }
+                Token::Ident(_, Keyword::ERRCODE) => {
+                    RaiseOptionName::Errcode(parser.consume_keyword(Keyword::ERRCODE)?)
+                }
+                Token::Ident(_, Keyword::COLUMN) => {
+                    RaiseOptionName::Column(parser.consume_keyword(Keyword::COLUMN)?)
+                }
+                Token::Ident(_, Keyword::CONSTRAINT) => {
+                    RaiseOptionName::Constraint(parser.consume_keyword(Keyword::CONSTRAINT)?)
+                }
+                Token::Ident(_, Keyword::DATATYPE) => {
+                    RaiseOptionName::Datatype(parser.consume_keyword(Keyword::DATATYPE)?)
+                }
+                Token::Ident(_, Keyword::TABLE) => {
+                    RaiseOptionName::Table(parser.consume_keyword(Keyword::TABLE)?)
+                }
+                Token::Ident(_, Keyword::SCHEMA) => {
+                    RaiseOptionName::Schema(parser.consume_keyword(Keyword::SCHEMA)?)
+                }
+                _ => parser.expected_failure("RAISE USING option name")?,
+            };
+            let eq_span = parser.consume_token(Token::Eq)?;
+            let val = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            using.push((opt_name, eq_span, val));
+            if parser.skip_token(Token::Comma).is_none() {
+                break;
+            }
+        }
+    }
+
+    Ok(Raise {
+        raise_span,
+        level,
+        message,
+        args,
+        using,
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -766,6 +1029,81 @@ fn parse_call<'a>(parser: &mut Parser<'a, '_>) -> Result<Call<'a>, ParseError> {
     })
 }
 
+/// Object type for COMMENT ON
+#[derive(Clone, Debug)]
+pub enum CommentOnObjectType {
+    Column(Span),
+    Table(Span),
+}
+
+impl Spanned for CommentOnObjectType {
+    fn span(&self) -> Span {
+        match self {
+            CommentOnObjectType::Column(s) => s.clone(),
+            CommentOnObjectType::Table(s) => s.clone(),
+        }
+    }
+}
+
+/// PostgreSQL COMMENT ON object IS 'text' statement
+#[derive(Clone, Debug)]
+pub struct CommentOn<'a> {
+    /// Span of "COMMENT ON"
+    pub comment_on_span: Span,
+    /// Type of object being commented
+    pub object_type: CommentOnObjectType,
+    /// Name of the object
+    pub name: QualifiedName<'a>,
+    /// Span of "IS"
+    pub is_span: Span,
+    /// Comment text, or None if NULL (clears comment)
+    pub comment: Option<crate::SString<'a>>,
+}
+
+impl<'a> Spanned for CommentOn<'a> {
+    fn span(&self) -> Span {
+        self.comment_on_span
+            .join_span(&self.object_type)
+            .join_span(&self.name)
+            .join_span(&self.is_span)
+            .join_span(&self.comment)
+    }
+}
+
+fn parse_comment_on<'a>(
+    parser: &mut Parser<'a, '_>,
+    comment_span: Span,
+) -> Result<Statement<'a>, ParseError> {
+    parser.postgres_only(&comment_span);
+    let on_span = parser.consume_keyword(Keyword::ON)?;
+    let comment_on_span = comment_span.join_span(&on_span);
+
+    let object_type = match &parser.token {
+        Token::Ident(_, Keyword::COLUMN) => {
+            CommentOnObjectType::Column(parser.consume_keyword(Keyword::COLUMN)?)
+        }
+        Token::Ident(_, Keyword::TABLE) => {
+            CommentOnObjectType::Table(parser.consume_keyword(Keyword::TABLE)?)
+        }
+        _ => parser.expected_failure("'COLUMN' or 'TABLE'")?,
+    };
+
+    let name = parse_qualified_name_unreserved(parser)?;
+    let is_span = parser.consume_keyword(Keyword::IS)?;
+    let comment = if parser.skip_keyword(Keyword::NULL).is_some() {
+        None
+    } else {
+        Some(parser.consume_string()?)
+    };
+    Ok(Statement::CommentOn(Box::new(CommentOn {
+        comment_on_span,
+        object_type,
+        name,
+        is_span,
+        comment,
+    })))
+}
+
 /// SQL statement
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
@@ -811,6 +1149,7 @@ pub enum Statement<'a> {
     DropOperatorFamily(Box<DropOperatorFamily<'a>>),
     DropOperatorClass(Box<DropOperatorClass<'a>>),
     DropDomain(Box<DropDomain<'a>>),
+    DropType(Box<DropType<'a>>),
     Set(Box<Set<'a>>),
     Signal(Box<Signal<'a>>),
     Kill(Box<Kill<'a>>),
@@ -851,6 +1190,12 @@ pub enum Statement<'a> {
     Return(Box<Return<'a>>),
     /// PL/pgSQL PERFORM statement
     Perform(Box<Perform<'a>>),
+    /// PL/pgSQL RAISE statement
+    Raise(Box<Raise<'a>>),
+    /// PL/pgSQL assignment: `target := value`
+    Assign(Box<Assign<'a>>),
+    /// PL/pgSQL EXECUTE for dynamic SQL
+    PlpgsqlExecute(Box<PlpgsqlExecute<'a>>),
     Flush(Box<Flush<'a>>),
     /// PostgreSQL VALUES statement
     Values(Box<crate::values::Values<'a>>),
@@ -888,6 +1233,10 @@ pub enum Statement<'a> {
     Call(Box<Call<'a>>),
     /// GRANT privileges statement
     Grant(Box<Grant<'a>>),
+    /// PostgreSQL COMMENT ON statement
+    CommentOn(Box<CommentOn<'a>>),
+    /// PostgreSQL EXECUTE FUNCTION in trigger body
+    ExecuteFunction(Box<ExecuteFunction<'a>>),
 }
 
 impl<'a> Spanned for Statement<'a> {
@@ -914,6 +1263,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Unlock(v) => v.span(),
             Statement::DropDatabase(v) => v.span(),
             Statement::DropDomain(v) => v.span(),
+            Statement::DropType(v) => v.span(),
             Statement::DropEvent(v) => v.span(),
             Statement::DropExtension(v) => v.span(),
             Statement::DropFunction(v) => v.span(),
@@ -954,6 +1304,9 @@ impl<'a> Spanned for Statement<'a> {
             Statement::WithQuery(v) => v.span(),
             Statement::Return(v) => v.span(),
             Statement::Perform(v) => v.span(),
+            Statement::Raise(v) => v.span(),
+            Statement::Assign(v) => v.span(),
+            Statement::PlpgsqlExecute(v) => v.span(),
             Statement::Signal(v) => v.span(),
             Statement::Kill(v) => v.span(),
             Statement::ShowTables(v) => v.span(),
@@ -992,6 +1345,8 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Prepare(v) => v.span(),
             Statement::Call(v) => v.span(),
             Statement::Grant(v) => v.span(),
+            Statement::CommentOn(v) => v.span(),
+            Statement::ExecuteFunction(v) => v.span(),
         }
     }
 }
@@ -1051,6 +1406,11 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::PERFORM) => {
             Some(Statement::Perform(Box::new(parse_perform(parser)?)))
         }
+        Token::Ident(_, Keyword::RAISE) => Some(Statement::Raise(Box::new(parse_raise(parser)?))),
+        // PL/pgSQL EXECUTE (dynamic SQL) — only inside function/procedure bodies
+        Token::Ident(_, Keyword::EXECUTE) if parser.permit_compound_statements => Some(
+            Statement::PlpgsqlExecute(Box::new(parse_plpgsql_execute(parser)?)),
+        ),
         Token::Ident(_, Keyword::ALTER) => Some(parse_alter(parser)?),
         Token::Ident(_, Keyword::CASE) => {
             Some(Statement::Case(Box::new(parse_case_statement(parser)?)))
@@ -1089,6 +1449,10 @@ pub(crate) fn parse_statement<'a>(
         ))),
         Token::Ident(_, Keyword::CALL) => Some(Statement::Call(Box::new(parse_call(parser)?))),
         Token::Ident(_, Keyword::GRANT) => Some(Statement::Grant(Box::new(parse_grant(parser)?))),
+        Token::Ident(_, Keyword::COMMENT) => {
+            let comment_span = parser.consume_keyword(Keyword::COMMENT)?;
+            Some(parse_comment_on(parser, comment_span)?)
+        }
         // MariaDB compound-block control statements
         Token::Ident(_, Keyword::OPEN)
             if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
@@ -1133,6 +1497,36 @@ pub(crate) fn parse_statement<'a>(
             if parser.permit_compound_statements && parser.options.dialect.is_maria() =>
         {
             Some(Statement::Repeat(Box::new(parse_repeat(parser, None)?)))
+        }
+        // PL/pgSQL assignment: `target := expression`
+        // Must come last — only active inside compound blocks and only when the
+        // next token is not a block-terminating keyword (END, ELSE, EXCEPTION, …).
+        _ if parser.permit_compound_statements
+            && !matches!(
+                parser.token,
+                Token::Ident(
+                    _,
+                    Keyword::END
+                        | Keyword::EXCEPTION
+                        | Keyword::ELSE
+                        | Keyword::ELSEIF
+                        | Keyword::ELSIF
+                        | Keyword::WHEN
+                        | Keyword::UNTIL
+                ) | Token::Delimiter
+                    | Token::Eof
+            ) =>
+        {
+            // Parse the LHS with a max_priority that stops before `:=` so the
+            // expression parser doesn't greedily consume it as Assignment binary op.
+            let target = parse_expression_unreserved(parser, PRIORITY_ASSIGN)?;
+            let assign_span = parser.consume_token(Token::ColonEq)?;
+            let value = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            Some(Statement::Assign(Box::new(Assign {
+                target,
+                assign_span,
+                value,
+            })))
         }
         _ => None,
     })

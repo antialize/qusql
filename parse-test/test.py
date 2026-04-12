@@ -26,6 +26,7 @@ class TestCase(TypedDict):
     - issues: Expected parse issues/warnings (optional)
     - should_fail: Whether the test is expected to fail parsing (optional)
     - failure: Whether the test actually failed (optional)
+    - function_body: Whether to parse in function/procedure body mode (optional)
     """
 
     input: str
@@ -33,6 +34,7 @@ class TestCase(TypedDict):
     issues: NotRequired[list[str]]
     should_fail: NotRequired[bool]
     failure: NotRequired[bool]
+    function_body: NotRequired[bool]
 
 
 def read_tests(path: str) -> dict[str, TestCase]:
@@ -152,25 +154,29 @@ def import_postgresql_tests(args) -> None:
     )
 
 
-def run_parser(sql: str, dialect: str, not_pretty: bool) -> subprocess.CompletedProcess:
+def run_parser(sql: str, dialect: str, not_pretty: bool, function_body: bool = False) -> subprocess.CompletedProcess:
     """
     Run the parse-test binary with the given SQL and dialect.
 
     Args:
         sql: The SQL statement to parse
         dialect: The SQL dialect to use ('maria', 'postgresql', or 'sqlite')
+        function_body: Whether to parse in function/procedure body mode
 
     Returns:
         CompletedProcess object with stdout/stderr/returncode
     """
+    cmd = [
+        "../target/release/parse-test",
+        "--dialect",
+        dialect,
+        "--output-format",
+        "json" if not_pretty else "pretty-json",
+    ]
+    if function_body:
+        cmd.append("--function-body")
     return subprocess.run(
-        [
-            "../target/release/parse-test",
-            "--dialect",
-            dialect,
-            "--output-format",
-            "json" if not_pretty else "pretty-json",
-        ],
+        cmd,
         capture_output=True,
         input=sql.encode(),
     )
@@ -200,7 +206,8 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> int:
 
         # Run the parser on this test case
         result = run_parser(
-            test["input"], dialect, args.interactive or args.update_output
+            test["input"], dialect, args.interactive or args.update_output,
+            function_body=test.get("function_body", False),
         )
 
         if args.update_output:
