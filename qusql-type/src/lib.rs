@@ -1373,7 +1373,7 @@ mod tests {
 
         {
             let name = "q41";
-            let src = "SET `time_zone` = 'UTC'";
+            let src = "SET @var = 42";
             let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
@@ -1385,7 +1385,19 @@ mod tests {
 
         {
             let name = "q42";
-            let src = "SET `x` = 1, `y` = 2";
+            let src = "SET @@session.time_zone = 'UTC'";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Set) {
+                println!("{name} should be set");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q42b";
+            let src = "SET @@time_zone = '+00:00'";
             let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);

@@ -5,8 +5,7 @@
       "columns": [
         {
           "name": "id",
-          "type": "uuid",
-          "not_null": true,
+          "type": "string",
           "has_default": true
         },
         {
@@ -23,7 +22,7 @@
         },
         {
           "name": "change_count",
-          "type": "i32",
+          "type": "integer",
           "not_null": true,
           "has_default": true
         },
@@ -35,13 +34,13 @@
         },
         {
           "name": "min_change_count",
-          "type": "i32",
+          "type": "integer",
           "not_null": true,
           "has_default": true
         },
         {
           "name": "epsg_code",
-          "type": "i32",
+          "type": "integer",
           "not_null": true,
           "has_default": true
         }
@@ -52,13 +51,12 @@
       "columns": [
         {
           "name": "id",
-          "type": "uuid",
-          "not_null": true,
+          "type": "string",
           "has_default": true
         },
         {
           "name": "board_id",
-          "type": "uuid",
+          "type": "string",
           "not_null": true
         },
         {
@@ -80,94 +78,11 @@
       ]
     },
     {
-      "name": "geography_columns",
-      "view": true,
-      "columns": [
-        {
-          "name": "f_table_catalog",
-          "type": "string",
-          "not_null": true
-        },
-        {
-          "name": "f_table_schema",
-          "type": "string",
-          "not_null": true
-        },
-        {
-          "name": "f_table_name",
-          "type": "string",
-          "not_null": true
-        },
-        {
-          "name": "f_geography_column",
-          "type": "string",
-          "not_null": true
-        },
-        {
-          "name": "coord_dimension",
-          "type": "integer",
-          "not_null": true
-        },
-        {
-          "name": "srid",
-          "type": "integer",
-          "not_null": true
-        },
-        {
-          "name": "type",
-          "type": "string",
-          "not_null": true
-        }
-      ]
-    },
-    {
-      "name": "geometry_columns",
-      "view": true,
-      "columns": [
-        {
-          "name": "f_table_catalog",
-          "type": "string",
-          "not_null": true
-        },
-        {
-          "name": "f_table_schema",
-          "type": "string",
-          "not_null": true
-        },
-        {
-          "name": "f_table_name",
-          "type": "string",
-          "not_null": true
-        },
-        {
-          "name": "f_geometry_column",
-          "type": "string",
-          "not_null": true
-        },
-        {
-          "name": "coord_dimension",
-          "type": "integer",
-          "not_null": true
-        },
-        {
-          "name": "srid",
-          "type": "integer",
-          "not_null": true
-        },
-        {
-          "name": "type",
-          "type": "string",
-          "not_null": true
-        }
-      ]
-    },
-    {
       "name": "schema_revisions",
       "columns": [
         {
           "name": "id",
-          "type": "i32",
-          "not_null": true,
+          "type": "integer",
           "generated": true
         },
         {
@@ -177,7 +92,7 @@
         },
         {
           "name": "sequence_index",
-          "type": "i32",
+          "type": "integer",
           "not_null": true
         },
         {
@@ -193,8 +108,7 @@
       "columns": [
         {
           "name": "id",
-          "type": "uuid",
-          "not_null": true,
+          "type": "string",
           "has_default": true
         },
         {
@@ -211,38 +125,11 @@
       ]
     },
     {
-      "name": "spatial_ref_sys",
-      "columns": [
-        {
-          "name": "srid",
-          "type": "i32",
-          "not_null": true
-        },
-        {
-          "name": "auth_name",
-          "type": "string"
-        },
-        {
-          "name": "auth_srid",
-          "type": "i32"
-        },
-        {
-          "name": "srtext",
-          "type": "string"
-        },
-        {
-          "name": "proj4text",
-          "type": "string"
-        }
-      ]
-    },
-    {
       "name": "tag_definitions",
       "columns": [
         {
           "name": "id",
-          "type": "i32",
-          "not_null": true,
+          "type": "integer",
           "generated": true
         },
         {
@@ -269,13 +156,12 @@
       "columns": [
         {
           "name": "id",
-          "type": "i32",
-          "not_null": true,
+          "type": "integer",
           "generated": true
         },
         {
           "name": "board_id",
-          "type": "uuid",
+          "type": "string",
           "not_null": true
         },
         {
@@ -286,13 +172,13 @@
         },
         {
           "name": "sys_period",
-          "type": "range(timestamp)",
+          "type": "bytes",
           "not_null": true,
           "has_default": true
         },
         {
           "name": "change_index",
-          "type": "i32",
+          "type": "integer",
           "not_null": true
         },
         {
@@ -308,25 +194,22 @@
         },
         {
           "name": "bounding_box",
-          "type": "geometry"
+          "type": "bytes"
         },
         {
           "name": "sort_order",
-          "type": "i32",
-          "not_null": true,
-          "generated": true
+          "type": "integer",
+          "not_null": true
         },
         {
           "name": "created_by",
           "type": "string",
-          "not_null": true,
-          "generated": true
+          "not_null": true
         },
         {
           "name": "status",
           "type": "string",
-          "not_null": true,
-          "generated": true
+          "not_null": true
         },
         {
           "name": "display_kind",
@@ -335,7 +218,7 @@
         },
         {
           "name": "coord_system_id",
-          "type": "uuid",
+          "type": "string",
           "not_null": true
         }
       ]
@@ -345,18 +228,17 @@
       "columns": [
         {
           "name": "id",
-          "type": "i32",
-          "not_null": true,
+          "type": "integer",
           "generated": true
         },
         {
           "name": "board_id",
-          "type": "uuid",
+          "type": "string",
           "not_null": true
         },
         {
           "name": "sort_order",
-          "type": "i32",
+          "type": "integer",
           "not_null": true
         },
         {
@@ -376,13 +258,13 @@
         },
         {
           "name": "sys_period",
-          "type": "range(timestamp)",
+          "type": "bytes",
           "not_null": true,
           "has_default": true
         },
         {
           "name": "change_index",
-          "type": "i32",
+          "type": "integer",
           "not_null": true
         },
         {
@@ -398,7 +280,7 @@
         },
         {
           "name": "bounding_box",
-          "type": "geometry"
+          "type": "bytes"
         },
         {
           "name": "display_kind",
@@ -407,7 +289,7 @@
         },
         {
           "name": "coord_system_id",
-          "type": "uuid",
+          "type": "string",
           "not_null": true
         }
       ]

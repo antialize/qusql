@@ -73,7 +73,7 @@ impl<'a> Spanned for Analyze<'a> {
 #[derive(Clone, Debug)]
 pub struct Set<'a> {
     pub set_span: Span,
-    pub values: Vec<(QualifiedName<'a>, Expression<'a>)>,
+    pub values: Vec<(SetVariable<'a>, Expression<'a>)>,
 }
 
 impl<'a> Spanned for Set<'a> {
@@ -82,11 +82,90 @@ impl<'a> Spanned for Set<'a> {
     }
 }
 
+/// The target name of a `SET` assignment
+#[derive(Clone, Debug)]
+pub enum SetVariable<'a> {
+    /// Plain (possibly qualified) identifier, e.g. `SET \`x\` = 1` inside stored routines
+    Named(QualifiedName<'a>),
+    /// User-defined variable: `SET @name = expr`
+    User {
+        at_span: Span,
+        name: crate::Identifier<'a>,
+    },
+    /// System variable with explicit scope qualifier: `SET @@GLOBAL.name = expr` or `SET @@SESSION.name = expr`
+    System {
+        global: Option<Span>,
+        session: Option<Span>,
+        dot_span: Span,
+        name: crate::Identifier<'a>,
+    },
+    /// System variable without explicit scope: `SET @@name = expr`
+    SystemBare {
+        at_at_span: Span,
+        name: crate::Identifier<'a>,
+    },
+}
+
+impl Spanned for SetVariable<'_> {
+    fn span(&self) -> Span {
+        match self {
+            SetVariable::Named(q) => q.span(),
+            SetVariable::User { at_span, name } => at_span.join_span(name),
+            SetVariable::System {
+                global,
+                session,
+                dot_span,
+                name,
+            } => name
+                .span()
+                .join_span(global)
+                .join_span(session)
+                .join_span(dot_span),
+            SetVariable::SystemBare { at_at_span, name } => at_at_span.join_span(name),
+        }
+    }
+}
+
+fn parse_set_variable<'a>(parser: &mut Parser<'a, '_>) -> Result<SetVariable<'a>, ParseError> {
+    match parser.token {
+        Token::At => {
+            let at_span = parser.consume_token(Token::At)?;
+            let name = parser.consume_plain_identifier_unreserved()?;
+            Ok(SetVariable::User { at_span, name })
+        }
+        Token::AtAtGlobal | Token::AtAtSession => {
+            let global = parser.skip_token(Token::AtAtGlobal);
+            let session = if global.is_none() {
+                Some(parser.consume_token(Token::AtAtSession)?)
+            } else {
+                None
+            };
+            let dot_span = parser.consume_token(Token::Period)?;
+            let name = parser.consume_plain_identifier_unreserved()?;
+            Ok(SetVariable::System {
+                global,
+                session,
+                dot_span,
+                name,
+            })
+        }
+        Token::AtAt => {
+            let at_at_span = parser.consume_token(Token::AtAt)?;
+            let name = parser.consume_plain_identifier_unreserved()?;
+            Ok(SetVariable::SystemBare { at_at_span, name })
+        }
+        _ => {
+            let name = parse_qualified_name_unreserved(parser)?;
+            Ok(SetVariable::Named(name))
+        }
+    }
+}
+
 fn parse_set<'a>(parser: &mut Parser<'a, '_>) -> Result<Set<'a>, ParseError> {
     let set_span = parser.consume_keyword(Keyword::SET)?;
     let mut values = Vec::new();
     loop {
-        let name = parse_qualified_name_unreserved(parser)?;
+        let name = parse_set_variable(parser)?;
         parser.consume_token(Token::Eq)?;
         let val = parse_expression_unreserved(parser, PRIORITY_MAX)?;
         values.push((name, val));
