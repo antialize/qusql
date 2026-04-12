@@ -11,10 +11,11 @@
 // limitations under the License.
 
 use alloc::{format, vec::Vec};
-use qusql_parse::{Expression, Function, Span};
+use qusql_parse::{Expression, Function, Identifier, Span};
 
 use crate::{
     Type,
+    schema::parse_column,
     type_::{BaseType, FullType},
     type_expression::{ExpressionFlags, type_expression},
     typer::{Restrict, Typer},
@@ -1525,6 +1526,32 @@ pub(crate) fn type_function<'a, 'b>(
                 type_expression(typer, arg, flags.without_values(), BaseType::String);
             }
             FullType::new(BaseType::String, false)
+        }
+        Function::Other(parts) => {
+            // Type all arguments regardless of whether we know the function
+            typed_args(typer, args, flags);
+            // Look up by the unqualified name (last part)
+            let fn_name = parts.last().map(|id| id.value).unwrap_or_default();
+            let lookup_key = Identifier {
+                value: fn_name,
+                span: parts
+                    .last()
+                    .map(|id| id.span.clone())
+                    .unwrap_or_else(|| span.clone()),
+            };
+            if let Some(def) = typer.schemas.functions.get(&lookup_key) {
+                let col = parse_column(
+                    def.return_type.clone(),
+                    def.name.clone(),
+                    typer.issues,
+                    Some(typer.options),
+                    Some(&typer.schemas.types),
+                );
+                col.type_
+            } else {
+                typer.err(format!("Unknown function '{fn_name}'"), span);
+                FullType::invalid()
+            }
         }
         _ => {
             typer.err("Typing for function not implemented", span);
