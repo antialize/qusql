@@ -70,6 +70,8 @@ pub enum BinaryOperator<'a> {
     JsonExtract(Span),
     JsonExtractUnquote(Span),
     Assignment(Span),
+    /// String/array concatenation `||`
+    Concat(Span),
     // PostgreSQL-specific binary operators
     /// @>
     Contains(Span),
@@ -139,6 +141,7 @@ impl<'a> Spanned for BinaryOperator<'a> {
             | BinaryOperator::JsonExtract(s)
             | BinaryOperator::JsonExtractUnquote(s)
             | BinaryOperator::Assignment(s)
+            | BinaryOperator::Concat(s)
             | BinaryOperator::Contains(s)
             | BinaryOperator::ContainedBy(s)
             | BinaryOperator::JsonPathMatch(s)
@@ -1211,6 +1214,7 @@ impl<'a> Priority for BinaryOperator<'a> {
         match self {
             BinaryOperator::Assignment(_) => PRIORITY_ASSIGN,
             BinaryOperator::Or(_) => PRIORITY_OR,
+            BinaryOperator::Concat(_) => PRIORITY_ADD,
             BinaryOperator::Xor(_) => PRIORITY_XOR,
             BinaryOperator::And(_) => PRIORITY_AND,
             BinaryOperator::Eq(_) => PRIORITY_CMP,
@@ -1417,8 +1421,11 @@ pub(crate) fn parse_expression_restricted<'a>(
             Token::ColonEq if PRIORITY_ASSIGN < max_priority => {
                 r.shift_binop(BinaryOperator::Assignment(parser.consume()))
             }
-            Token::Ident(_, Keyword::OR) | Token::DoublePipe if PRIORITY_OR < max_priority => {
+            Token::Ident(_, Keyword::OR) if PRIORITY_OR < max_priority => {
                 r.shift_binop(BinaryOperator::Or(parser.consume()))
+            }
+            Token::DoublePipe if PRIORITY_ADD < max_priority => {
+                r.shift_binop(BinaryOperator::Concat(parser.consume()))
             }
             Token::Ident(_, Keyword::XOR) if PRIORITY_XOR < max_priority => {
                 r.shift_binop(BinaryOperator::Xor(parser.consume()))
