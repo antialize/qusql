@@ -368,6 +368,7 @@ pub(crate) fn parse_column<'a>(
             qusql_parse::DataTypeProperty::As((_, e)) => _as = Some(e),
             qusql_parse::DataTypeProperty::Default(_) => default = true,
             qusql_parse::DataTypeProperty::GeneratedAlways(_) => generated = true,
+            qusql_parse::DataTypeProperty::GeneratedAlwaysAsExpr { .. } => generated = true,
             qusql_parse::DataTypeProperty::PrimaryKey(_) => primary_key = true,
             _ => {}
         }
