@@ -1676,6 +1676,36 @@ pub(crate) fn type_function<'a, 'b>(
         Function::SetMaskLen => {
             tf(BaseType::Any.into(), &[BaseType::Any, BaseType::Integer], &[])
         }
+        // PostgreSQL text search functions
+        Function::ArrayToTsvector | Function::JsonToTsvector | Function::JsonbToTsvector
+        | Function::Setweight | Function::Strip | Function::TsDelete | Function::TsFilter => {
+            tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::GetCurrentTsConfig => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Any, false)
+        }
+        Function::Numnode => tf(BaseType::Integer.into(), &[BaseType::Any], &[]),
+        Function::PhraseToTsquery
+        | Function::PlainToTsquery
+        | Function::ToTsquery
+        | Function::ToTsvector
+        | Function::TsRewrite
+        | Function::TsqueryPhrase
+        | Function::WebsearchToTsquery => {
+            tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::Querytree | Function::TsHeadline => {
+            tf(BaseType::String.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::TsRank | Function::TsRankCd => {
+            tf(BaseType::Float.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::TsvectorToArray => tf(BaseType::Any.into(), &[BaseType::Any], &[]),
+        Function::Unnest => tf(BaseType::Any.into(), &[BaseType::Any], &[]),
+        // Text search debug functions
+        Function::TsDebug | Function::TsLexize | Function::TsParse | Function::TsTokenType
+        | Function::TsStat => tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any]),
         // Aggregate / window functions that may appear in non-aggregate context
         Function::ArrayAgg | Function::JsonAgg | Function::JsonbAgg => {
             arg_cnt(typer, 1..1, args, span);
