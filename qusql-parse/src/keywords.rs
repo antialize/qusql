@@ -869,6 +869,7 @@ pub(crate) enum Keyword {
     PERIOD_ADD,
     PERIOD_DIFF,
     PERIOD,
+    PERFORM,
     PERSISTENT,
     PHASE,
     PI,
