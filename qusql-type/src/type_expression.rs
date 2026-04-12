@@ -596,10 +596,7 @@ pub(crate) fn type_expression<'a>(
             issue_todo!(typer.issues, e);
             FullType::invalid()
         }
-        e @ Expression::Default(_) => {
-            issue_todo!(typer.issues, e);
-            FullType::invalid()
-        }
+        Expression::Default(_) => FullType::new(BaseType::Any, false),
         Expression::Between(e) => {
             let lhs_type = type_expression(typer, &e.lhs, flags.without_values(), BaseType::Any);
             let low_type = type_expression(typer, &e.low, flags.without_values(), BaseType::Any);
