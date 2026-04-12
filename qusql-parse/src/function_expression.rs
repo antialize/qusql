@@ -685,6 +685,45 @@ pub enum Function<'a> {
     StZMax,
     StZMin,
     StZmflag,
+    // PostGIS additional functions
+    StMakeValid,
+    StIsValidDetail,
+    StDump,
+    StDumpPoints,
+    StDumpRings,
+    StDumpSegments,
+    StSnap,
+    StNode,
+    StSplit,
+    StSharedPaths,
+    StExpand,
+    StEstimatedExtent,
+    StFlipCoordinates,
+    StForceCw,
+    StForceCcw,
+    StForcePolygonCw,
+    StForcePolygonCcw,
+    StConcaveHull,
+    StVoronoiPolygons,
+    StVoronoiLines,
+    StDelaunayTriangles,
+    StSubdivide,
+    StGeneratePoints,
+    StBoundingDiagonal,
+    StMaximumInscribedCircle,
+    StChaikinSmoothing,
+    StFrechetDistance,
+    StProject,
+    StLocateAlong,
+    StLocateBetween,
+    StInterpolatePoint,
+    StMakeBox2D,
+    St3DMakeBox,
+    St3DDistance,
+    St3DMaxDistance,
+    St3DIntersects,
+    StExtent,
+    St3DExtent,
     // PostgreSQL UUID functions
     GenRandomUuid,
     UuidExtractTimestamp,
@@ -1364,26 +1403,66 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::SFORMAT) => Function::SFormat,
 
         // PostgreSQL string functions
-        Token::Ident(_, Keyword::BTRIM) => Function::Btrim,
-        Token::Ident(_, Keyword::CASEFOLD) => Function::Casefold,
-        Token::Ident(_, Keyword::INITCAP) => Function::Initcap,
-        Token::Ident(_, Keyword::NORMALIZE) => Function::Normalize,
-        Token::Ident(_, Keyword::PARSE_IDENT) => Function::ParseIdent,
-        Token::Ident(_, Keyword::PG_CLIENT_ENCODING) => Function::PgClientEncoding,
-        Token::Ident(_, Keyword::QUOTE_IDENT) => Function::QuoteIdent,
-        Token::Ident(_, Keyword::QUOTE_LITERAL) => Function::QuoteLiteral,
-        Token::Ident(_, Keyword::QUOTE_NULLABLE) => Function::QuoteNullable,
-        Token::Ident(_, Keyword::SPLIT_PART) => Function::SplitPart,
-        Token::Ident(_, Keyword::STRING_TO_ARRAY) => Function::StringToArray,
-        Token::Ident(_, Keyword::STRING_TO_TABLE) => Function::StringToTable,
-        Token::Ident(_, Keyword::STRPOS) => Function::Strpos,
-        Token::Ident(_, Keyword::TO_ASCII) => Function::ToAscii,
-        Token::Ident(_, Keyword::TO_BIN) => Function::ToBin,
-        Token::Ident(_, Keyword::TO_HEX) => Function::ToHex,
-        Token::Ident(_, Keyword::TO_OCT) => Function::ToOct,
-        Token::Ident(_, Keyword::TRANSLATE) => Function::Translate,
-        Token::Ident(_, Keyword::UNICODE_ASSIGNED) => Function::UnicodeAssigned,
-        Token::Ident(_, Keyword::UNISTR) => Function::Unistr,
+        Token::Ident(_, Keyword::BTRIM) if parser.options.dialect.is_postgresql() => {
+            Function::Btrim
+        }
+        Token::Ident(_, Keyword::CASEFOLD) if parser.options.dialect.is_postgresql() => {
+            Function::Casefold
+        }
+        Token::Ident(_, Keyword::INITCAP) if parser.options.dialect.is_postgresql() => {
+            Function::Initcap
+        }
+        Token::Ident(_, Keyword::NORMALIZE) if parser.options.dialect.is_postgresql() => {
+            Function::Normalize
+        }
+        Token::Ident(_, Keyword::PARSE_IDENT) if parser.options.dialect.is_postgresql() => {
+            Function::ParseIdent
+        }
+        Token::Ident(_, Keyword::PG_CLIENT_ENCODING) if parser.options.dialect.is_postgresql() => {
+            Function::PgClientEncoding
+        }
+        Token::Ident(_, Keyword::QUOTE_IDENT) if parser.options.dialect.is_postgresql() => {
+            Function::QuoteIdent
+        }
+        Token::Ident(_, Keyword::QUOTE_LITERAL) if parser.options.dialect.is_postgresql() => {
+            Function::QuoteLiteral
+        }
+        Token::Ident(_, Keyword::QUOTE_NULLABLE) if parser.options.dialect.is_postgresql() => {
+            Function::QuoteNullable
+        }
+        Token::Ident(_, Keyword::SPLIT_PART) if parser.options.dialect.is_postgresql() => {
+            Function::SplitPart
+        }
+        Token::Ident(_, Keyword::STRING_TO_ARRAY) if parser.options.dialect.is_postgresql() => {
+            Function::StringToArray
+        }
+        Token::Ident(_, Keyword::STRING_TO_TABLE) if parser.options.dialect.is_postgresql() => {
+            Function::StringToTable
+        }
+        Token::Ident(_, Keyword::STRPOS) if parser.options.dialect.is_postgresql() => {
+            Function::Strpos
+        }
+        Token::Ident(_, Keyword::TO_ASCII) if parser.options.dialect.is_postgresql() => {
+            Function::ToAscii
+        }
+        Token::Ident(_, Keyword::TO_BIN) if parser.options.dialect.is_postgresql() => {
+            Function::ToBin
+        }
+        Token::Ident(_, Keyword::TO_HEX) if parser.options.dialect.is_postgresql() => {
+            Function::ToHex
+        }
+        Token::Ident(_, Keyword::TO_OCT) if parser.options.dialect.is_postgresql() => {
+            Function::ToOct
+        }
+        Token::Ident(_, Keyword::TRANSLATE) if parser.options.dialect.is_postgresql() => {
+            Function::Translate
+        }
+        Token::Ident(_, Keyword::UNICODE_ASSIGNED) if parser.options.dialect.is_postgresql() => {
+            Function::UnicodeAssigned
+        }
+        Token::Ident(_, Keyword::UNISTR) if parser.options.dialect.is_postgresql() => {
+            Function::Unistr
+        }
 
         // TODO uncat
         Token::Ident(_, Keyword::EXISTS) => Function::Exists,
@@ -1569,567 +1648,1783 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::JSON_VALUE) => Function::JsonValue,
 
         // Sqlite
-        Token::Ident(_, Keyword::STRFTIME) => Function::Strftime,
-        Token::Ident(_, Keyword::DATETIME) => Function::Datetime,
+        Token::Ident(_, Keyword::STRFTIME) if parser.options.dialect.is_sqlite() => {
+            Function::Strftime
+        }
+        Token::Ident(_, Keyword::DATETIME) if parser.options.dialect.is_sqlite() => {
+            Function::Datetime
+        }
 
         // MySQL 8.4 encryption / compression
-        Token::Ident(_, Keyword::AES_DECRYPT) => Function::AesDecrypt,
-        Token::Ident(_, Keyword::AES_ENCRYPT) => Function::AesEncrypt,
-        Token::Ident(_, Keyword::COMPRESS) => Function::Compress,
-        Token::Ident(_, Keyword::MD5) => Function::Md5,
-        Token::Ident(_, Keyword::RANDOM_BYTES) => Function::RandomBytes,
-        Token::Ident(_, Keyword::SHA) => Function::Sha,
-        Token::Ident(_, Keyword::SHA1) => Function::Sha1,
-        Token::Ident(_, Keyword::SHA2) => Function::Sha2,
-        Token::Ident(_, Keyword::STATEMENT_DIGEST) => Function::StatementDigest,
-        Token::Ident(_, Keyword::STATEMENT_DIGEST_TEXT) => Function::StatementDigestText,
-        Token::Ident(_, Keyword::UNCOMPRESS) => Function::Uncompress,
-        Token::Ident(_, Keyword::VALIDATE_PASSWORD_STRENGTH) => Function::ValidatePasswordStrength,
+        Token::Ident(_, Keyword::AES_DECRYPT) if parser.options.dialect.is_maria() => {
+            Function::AesDecrypt
+        }
+        Token::Ident(_, Keyword::AES_ENCRYPT) if parser.options.dialect.is_maria() => {
+            Function::AesEncrypt
+        }
+        Token::Ident(_, Keyword::COMPRESS) if parser.options.dialect.is_maria() => {
+            Function::Compress
+        }
+        Token::Ident(_, Keyword::MD5) if parser.options.dialect.is_maria() => Function::Md5,
+        Token::Ident(_, Keyword::RANDOM_BYTES) if parser.options.dialect.is_maria() => {
+            Function::RandomBytes
+        }
+        Token::Ident(_, Keyword::SHA) if parser.options.dialect.is_maria() => Function::Sha,
+        Token::Ident(_, Keyword::SHA1) if parser.options.dialect.is_maria() => Function::Sha1,
+        Token::Ident(_, Keyword::SHA2) if parser.options.dialect.is_maria() => Function::Sha2,
+        Token::Ident(_, Keyword::STATEMENT_DIGEST) if parser.options.dialect.is_maria() => {
+            Function::StatementDigest
+        }
+        Token::Ident(_, Keyword::STATEMENT_DIGEST_TEXT) if parser.options.dialect.is_maria() => {
+            Function::StatementDigestText
+        }
+        Token::Ident(_, Keyword::UNCOMPRESS) if parser.options.dialect.is_maria() => {
+            Function::Uncompress
+        }
+        Token::Ident(_, Keyword::VALIDATE_PASSWORD_STRENGTH)
+            if parser.options.dialect.is_maria() =>
+        {
+            Function::ValidatePasswordStrength
+        }
 
         // MySQL 8.4 locking
-        Token::Ident(_, Keyword::GET_LOCK) => Function::GetLock,
-        Token::Ident(_, Keyword::IS_FREE_LOCK) => Function::IsFreeLock,
-        Token::Ident(_, Keyword::IS_USED_LOCK) => Function::IsUsedLock,
-        Token::Ident(_, Keyword::RELEASE_ALL_LOCKS) => Function::ReleaseAllLocks,
-        Token::Ident(_, Keyword::RELEASE_LOCK) => Function::ReleaseLock,
+        Token::Ident(_, Keyword::GET_LOCK) if parser.options.dialect.is_maria() => {
+            Function::GetLock
+        }
+        Token::Ident(_, Keyword::IS_FREE_LOCK) if parser.options.dialect.is_maria() => {
+            Function::IsFreeLock
+        }
+        Token::Ident(_, Keyword::IS_USED_LOCK) if parser.options.dialect.is_maria() => {
+            Function::IsUsedLock
+        }
+        Token::Ident(_, Keyword::RELEASE_ALL_LOCKS) if parser.options.dialect.is_maria() => {
+            Function::ReleaseAllLocks
+        }
+        Token::Ident(_, Keyword::RELEASE_LOCK) if parser.options.dialect.is_maria() => {
+            Function::ReleaseLock
+        }
 
         // MySQL 8.4 information
-        Token::Ident(_, Keyword::BENCHMARK) => Function::Benchmark,
-        Token::Ident(_, Keyword::CHARSET) => Function::Charset,
-        Token::Ident(_, Keyword::COERCIBILITY) => Function::Coercibility,
-        Token::Ident(_, Keyword::COLLATION) => Function::Collation,
-        Token::Ident(_, Keyword::CONNECTION_ID) => Function::ConnectionId,
+        Token::Ident(_, Keyword::BENCHMARK) if parser.options.dialect.is_maria() => {
+            Function::Benchmark
+        }
+        Token::Ident(_, Keyword::CHARSET) if parser.options.dialect.is_maria() => Function::Charset,
+        Token::Ident(_, Keyword::COERCIBILITY) if parser.options.dialect.is_maria() => {
+            Function::Coercibility
+        }
+        Token::Ident(_, Keyword::COLLATION) if parser.options.dialect.is_maria() => {
+            Function::Collation
+        }
+        Token::Ident(_, Keyword::CONNECTION_ID) if parser.options.dialect.is_maria() => {
+            Function::ConnectionId
+        }
         Token::Ident(_, Keyword::CURRENT_ROLE) => Function::CurrentRole,
         Token::Ident(_, Keyword::CURRENT_USER) => Function::CurrentUser,
-        Token::Ident(_, Keyword::DATABASE) => Function::DatabaseFunc,
-        Token::Ident(_, Keyword::FOUND_ROWS) => Function::FoundRows,
-        Token::Ident(_, Keyword::ICU_VERSION) => Function::IcuVersion,
-        Token::Ident(_, Keyword::LAST_INSERT_ID) => Function::LastInsertId,
-        Token::Ident(_, Keyword::ROLES_GRAPHML) => Function::RolesGraphml,
-        Token::Ident(_, Keyword::ROW_COUNT) => Function::RowCount,
-        Token::Ident(_, Keyword::SCHEMA) => Function::SchemaFunc,
+        Token::Ident(_, Keyword::DATABASE) if parser.options.dialect.is_maria() => {
+            Function::DatabaseFunc
+        }
+        Token::Ident(_, Keyword::FOUND_ROWS) if parser.options.dialect.is_maria() => {
+            Function::FoundRows
+        }
+        Token::Ident(_, Keyword::ICU_VERSION) if parser.options.dialect.is_maria() => {
+            Function::IcuVersion
+        }
+        Token::Ident(_, Keyword::LAST_INSERT_ID) if parser.options.dialect.is_maria() => {
+            Function::LastInsertId
+        }
+        Token::Ident(_, Keyword::ROLES_GRAPHML) if parser.options.dialect.is_maria() => {
+            Function::RolesGraphml
+        }
+        Token::Ident(_, Keyword::ROW_COUNT) if parser.options.dialect.is_maria() => {
+            Function::RowCount
+        }
+        Token::Ident(_, Keyword::SCHEMA) if parser.options.dialect.is_maria() => {
+            Function::SchemaFunc
+        }
         Token::Ident(_, Keyword::SESSION_USER) => Function::SessionUserFunc,
-        Token::Ident(_, Keyword::SYSTEM_USER) => Function::SystemUser,
-        Token::Ident(_, Keyword::USER) => Function::UserFunc,
+        Token::Ident(_, Keyword::SYSTEM_USER) if parser.options.dialect.is_maria() => {
+            Function::SystemUser
+        }
+        Token::Ident(_, Keyword::USER) if parser.options.dialect.is_maria() => Function::UserFunc,
         Token::Ident(_, Keyword::VERSION) => Function::Version,
         // PostgreSQL system functions
-        Token::Ident(_, Keyword::INET_SERVER_ADDR) => Function::InetServerAddr,
-        Token::Ident(_, Keyword::INET_SERVER_PORT) => Function::InetServerPort,
-        Token::Ident(_, Keyword::JSON_BUILD_OBJECT) => Function::JsonBuildObject,
-        Token::Ident(_, Keyword::JSONB_SET) => Function::JsonbSet,
-        Token::Ident(_, Keyword::PG_POSTMASTER_START_TIME) => Function::PgPostmasterStartTime,
-        Token::Ident(_, Keyword::POSTGIS_FULL_VERSION) => Function::PostgisFullVersion,
+        Token::Ident(_, Keyword::INET_SERVER_ADDR) if parser.options.dialect.is_postgresql() => {
+            Function::InetServerAddr
+        }
+        Token::Ident(_, Keyword::INET_SERVER_PORT) if parser.options.dialect.is_postgresql() => {
+            Function::InetServerPort
+        }
+        Token::Ident(_, Keyword::JSON_BUILD_OBJECT) if parser.options.dialect.is_postgresql() => {
+            Function::JsonBuildObject
+        }
+        Token::Ident(_, Keyword::JSONB_SET) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbSet
+        }
+        Token::Ident(_, Keyword::PG_POSTMASTER_START_TIME)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgPostmasterStartTime
+        }
+        Token::Ident(_, Keyword::POSTGIS_FULL_VERSION) if parser.options.dialect.is_postgis() => {
+            Function::PostgisFullVersion
+        }
         // PostgreSQL system information functions (9.27)
-        Token::Ident(_, Keyword::COL_DESCRIPTION) => Function::ColDescription,
-        Token::Ident(_, Keyword::CURRENT_DATABASE) => Function::CurrentDatabase,
-        Token::Ident(_, Keyword::CURRENT_QUERY) => Function::CurrentQuery,
-        Token::Ident(_, Keyword::CURRENT_SCHEMAS) => Function::CurrentSchemas,
-        Token::Ident(_, Keyword::FORMAT_TYPE) => Function::FormatType,
-        Token::Ident(_, Keyword::HAS_ANY_COLUMN_PRIVILEGE) => Function::HasAnyColumnPrivilege,
-        Token::Ident(_, Keyword::HAS_COLUMN_PRIVILEGE) => Function::HasColumnPrivilege,
-        Token::Ident(_, Keyword::HAS_DATABASE_PRIVILEGE) => Function::HasDatabasePrivilege,
-        Token::Ident(_, Keyword::HAS_FOREIGN_DATA_WRAPPER_PRIVILEGE) => {
+        Token::Ident(_, Keyword::COL_DESCRIPTION) if parser.options.dialect.is_postgresql() => {
+            Function::ColDescription
+        }
+        Token::Ident(_, Keyword::CURRENT_DATABASE) if parser.options.dialect.is_postgresql() => {
+            Function::CurrentDatabase
+        }
+        Token::Ident(_, Keyword::CURRENT_QUERY) if parser.options.dialect.is_postgresql() => {
+            Function::CurrentQuery
+        }
+        Token::Ident(_, Keyword::CURRENT_SCHEMAS) if parser.options.dialect.is_postgresql() => {
+            Function::CurrentSchemas
+        }
+        Token::Ident(_, Keyword::FORMAT_TYPE) if parser.options.dialect.is_postgresql() => {
+            Function::FormatType
+        }
+        Token::Ident(_, Keyword::HAS_ANY_COLUMN_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasAnyColumnPrivilege
+        }
+        Token::Ident(_, Keyword::HAS_COLUMN_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasColumnPrivilege
+        }
+        Token::Ident(_, Keyword::HAS_DATABASE_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasDatabasePrivilege
+        }
+        Token::Ident(_, Keyword::HAS_FOREIGN_DATA_WRAPPER_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
             Function::HasForeignDataWrapperPrivilege
         }
-        Token::Ident(_, Keyword::HAS_FUNCTION_PRIVILEGE) => Function::HasFunctionPrivilege,
-        Token::Ident(_, Keyword::HAS_LANGUAGE_PRIVILEGE) => Function::HasLanguagePrivilege,
-        Token::Ident(_, Keyword::HAS_LARGEOBJECT_PRIVILEGE) => Function::HasLargeobjectPrivilege,
-        Token::Ident(_, Keyword::HAS_PARAMETER_PRIVILEGE) => Function::HasParameterPrivilege,
-        Token::Ident(_, Keyword::HAS_SCHEMA_PRIVILEGE) => Function::HasSchemaPrivilege,
-        Token::Ident(_, Keyword::HAS_SEQUENCE_PRIVILEGE) => Function::HasSequencePrivilege,
-        Token::Ident(_, Keyword::HAS_SERVER_PRIVILEGE) => Function::HasServerPrivilege,
-        Token::Ident(_, Keyword::HAS_TABLE_PRIVILEGE) => Function::HasTablePrivilege,
-        Token::Ident(_, Keyword::HAS_TABLESPACE_PRIVILEGE) => Function::HasTablespacePrivilege,
-        Token::Ident(_, Keyword::HAS_TYPE_PRIVILEGE) => Function::HasTypePrivilege,
-        Token::Ident(_, Keyword::ICU_UNICODE_VERSION) => Function::IcuUnicodeVersion,
-        Token::Ident(_, Keyword::INET_CLIENT_ADDR) => Function::InetClientAddr,
-        Token::Ident(_, Keyword::INET_CLIENT_PORT) => Function::InetClientPort,
-        Token::Ident(_, Keyword::MAKEACLITEM) => Function::Makeaclitem,
-        Token::Ident(_, Keyword::MXID_AGE) => Function::MxidAge,
-        Token::Ident(_, Keyword::OBJ_DESCRIPTION) => Function::ObjDescription,
-        Token::Ident(_, Keyword::PG_AVAILABLE_WAL_SUMMARIES) => Function::PgAvailableWalSummaries,
-        Token::Ident(_, Keyword::PG_BACKEND_PID) => Function::PgBackendPid,
-        Token::Ident(_, Keyword::PG_BLOCKING_PIDS) => Function::PgBlockingPids,
-        Token::Ident(_, Keyword::PG_CHAR_TO_ENCODING) => Function::PgCharToEncoding,
-        Token::Ident(_, Keyword::PG_COLLATION_IS_VISIBLE) => Function::PgCollationIsVisible,
-        Token::Ident(_, Keyword::PG_CONF_LOAD_TIME) => Function::PgConfLoadTime,
-        Token::Ident(_, Keyword::PG_CONTROL_CHECKPOINT) => Function::PgControlCheckpoint,
-        Token::Ident(_, Keyword::PG_CONTROL_INIT) => Function::PgControlInit,
-        Token::Ident(_, Keyword::PG_CONTROL_RECOVERY) => Function::PgControlRecovery,
-        Token::Ident(_, Keyword::PG_CONTROL_SYSTEM) => Function::PgControlSystem,
-        Token::Ident(_, Keyword::PG_CONVERSION_IS_VISIBLE) => Function::PgConversionIsVisible,
-        Token::Ident(_, Keyword::PG_CURRENT_LOGFILE) => Function::PgCurrentLogfile,
-        Token::Ident(_, Keyword::PG_CURRENT_SNAPSHOT) => Function::PgCurrentSnapshot,
-        Token::Ident(_, Keyword::PG_CURRENT_XACT_ID) => Function::PgCurrentXactId,
-        Token::Ident(_, Keyword::PG_CURRENT_XACT_ID_IF_ASSIGNED) => {
+        Token::Ident(_, Keyword::HAS_FUNCTION_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasFunctionPrivilege
+        }
+        Token::Ident(_, Keyword::HAS_LANGUAGE_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasLanguagePrivilege
+        }
+        Token::Ident(_, Keyword::HAS_LARGEOBJECT_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasLargeobjectPrivilege
+        }
+        Token::Ident(_, Keyword::HAS_PARAMETER_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasParameterPrivilege
+        }
+        Token::Ident(_, Keyword::HAS_SCHEMA_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasSchemaPrivilege
+        }
+        Token::Ident(_, Keyword::HAS_SEQUENCE_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasSequencePrivilege
+        }
+        Token::Ident(_, Keyword::HAS_SERVER_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasServerPrivilege
+        }
+        Token::Ident(_, Keyword::HAS_TABLE_PRIVILEGE) if parser.options.dialect.is_postgresql() => {
+            Function::HasTablePrivilege
+        }
+        Token::Ident(_, Keyword::HAS_TABLESPACE_PRIVILEGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::HasTablespacePrivilege
+        }
+        Token::Ident(_, Keyword::HAS_TYPE_PRIVILEGE) if parser.options.dialect.is_postgresql() => {
+            Function::HasTypePrivilege
+        }
+        Token::Ident(_, Keyword::ICU_UNICODE_VERSION) if parser.options.dialect.is_postgresql() => {
+            Function::IcuUnicodeVersion
+        }
+        Token::Ident(_, Keyword::INET_CLIENT_ADDR) if parser.options.dialect.is_postgresql() => {
+            Function::InetClientAddr
+        }
+        Token::Ident(_, Keyword::INET_CLIENT_PORT) if parser.options.dialect.is_postgresql() => {
+            Function::InetClientPort
+        }
+        Token::Ident(_, Keyword::MAKEACLITEM) if parser.options.dialect.is_postgresql() => {
+            Function::Makeaclitem
+        }
+        Token::Ident(_, Keyword::MXID_AGE) if parser.options.dialect.is_postgresql() => {
+            Function::MxidAge
+        }
+        Token::Ident(_, Keyword::OBJ_DESCRIPTION) if parser.options.dialect.is_postgresql() => {
+            Function::ObjDescription
+        }
+        Token::Ident(_, Keyword::PG_AVAILABLE_WAL_SUMMARIES)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgAvailableWalSummaries
+        }
+        Token::Ident(_, Keyword::PG_BACKEND_PID) if parser.options.dialect.is_postgresql() => {
+            Function::PgBackendPid
+        }
+        Token::Ident(_, Keyword::PG_BLOCKING_PIDS) if parser.options.dialect.is_postgresql() => {
+            Function::PgBlockingPids
+        }
+        Token::Ident(_, Keyword::PG_CHAR_TO_ENCODING) if parser.options.dialect.is_postgresql() => {
+            Function::PgCharToEncoding
+        }
+        Token::Ident(_, Keyword::PG_COLLATION_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgCollationIsVisible
+        }
+        Token::Ident(_, Keyword::PG_CONF_LOAD_TIME) if parser.options.dialect.is_postgresql() => {
+            Function::PgConfLoadTime
+        }
+        Token::Ident(_, Keyword::PG_CONTROL_CHECKPOINT)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgControlCheckpoint
+        }
+        Token::Ident(_, Keyword::PG_CONTROL_INIT) if parser.options.dialect.is_postgresql() => {
+            Function::PgControlInit
+        }
+        Token::Ident(_, Keyword::PG_CONTROL_RECOVERY) if parser.options.dialect.is_postgresql() => {
+            Function::PgControlRecovery
+        }
+        Token::Ident(_, Keyword::PG_CONTROL_SYSTEM) if parser.options.dialect.is_postgresql() => {
+            Function::PgControlSystem
+        }
+        Token::Ident(_, Keyword::PG_CONVERSION_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgConversionIsVisible
+        }
+        Token::Ident(_, Keyword::PG_CURRENT_LOGFILE) if parser.options.dialect.is_postgresql() => {
+            Function::PgCurrentLogfile
+        }
+        Token::Ident(_, Keyword::PG_CURRENT_SNAPSHOT) if parser.options.dialect.is_postgresql() => {
+            Function::PgCurrentSnapshot
+        }
+        Token::Ident(_, Keyword::PG_CURRENT_XACT_ID) if parser.options.dialect.is_postgresql() => {
+            Function::PgCurrentXactId
+        }
+        Token::Ident(_, Keyword::PG_CURRENT_XACT_ID_IF_ASSIGNED)
+            if parser.options.dialect.is_postgresql() =>
+        {
             Function::PgCurrentXactIdIfAssigned
         }
-        Token::Ident(_, Keyword::PG_DESCRIBE_OBJECT) => Function::PgDescribeObject,
-        Token::Ident(_, Keyword::PG_ENCODING_TO_CHAR) => Function::PgEncodingToChar,
-        Token::Ident(_, Keyword::PG_FUNCTION_IS_VISIBLE) => Function::PgFunctionIsVisible,
-        Token::Ident(_, Keyword::PG_GET_ACL) => Function::PgGetAcl,
-        Token::Ident(_, Keyword::PG_GET_CONSTRAINTDEF) => Function::PgGetConstraintdef,
-        Token::Ident(_, Keyword::PG_GET_EXPR) => Function::PgGetExpr,
-        Token::Ident(_, Keyword::PG_GET_FUNCTIONDEF) => Function::PgGetFunctiondef,
-        Token::Ident(_, Keyword::PG_GET_FUNCTION_ARGUMENTS) => Function::PgGetFunctionArguments,
-        Token::Ident(_, Keyword::PG_GET_FUNCTION_IDENTITY_ARGUMENTS) => {
+        Token::Ident(_, Keyword::PG_DESCRIBE_OBJECT) if parser.options.dialect.is_postgresql() => {
+            Function::PgDescribeObject
+        }
+        Token::Ident(_, Keyword::PG_ENCODING_TO_CHAR) if parser.options.dialect.is_postgresql() => {
+            Function::PgEncodingToChar
+        }
+        Token::Ident(_, Keyword::PG_FUNCTION_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgFunctionIsVisible
+        }
+        Token::Ident(_, Keyword::PG_GET_ACL) if parser.options.dialect.is_postgresql() => {
+            Function::PgGetAcl
+        }
+        Token::Ident(_, Keyword::PG_GET_CONSTRAINTDEF)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgGetConstraintdef
+        }
+        Token::Ident(_, Keyword::PG_GET_EXPR) if parser.options.dialect.is_postgresql() => {
+            Function::PgGetExpr
+        }
+        Token::Ident(_, Keyword::PG_GET_FUNCTIONDEF) if parser.options.dialect.is_postgresql() => {
+            Function::PgGetFunctiondef
+        }
+        Token::Ident(_, Keyword::PG_GET_FUNCTION_ARGUMENTS)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgGetFunctionArguments
+        }
+        Token::Ident(_, Keyword::PG_GET_FUNCTION_IDENTITY_ARGUMENTS)
+            if parser.options.dialect.is_postgresql() =>
+        {
             Function::PgGetFunctionIdentityArguments
         }
-        Token::Ident(_, Keyword::PG_GET_FUNCTION_RESULT) => Function::PgGetFunctionResult,
-        Token::Ident(_, Keyword::PG_GET_INDEXDEF) => Function::PgGetIndexdef,
-        Token::Ident(_, Keyword::PG_GET_OBJECT_ADDRESS) => Function::PgGetObjectAddress,
-        Token::Ident(_, Keyword::PG_GET_PARTITION_CONSTRAINTDEF) => {
+        Token::Ident(_, Keyword::PG_GET_FUNCTION_RESULT)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgGetFunctionResult
+        }
+        Token::Ident(_, Keyword::PG_GET_INDEXDEF) if parser.options.dialect.is_postgresql() => {
+            Function::PgGetIndexdef
+        }
+        Token::Ident(_, Keyword::PG_GET_OBJECT_ADDRESS)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgGetObjectAddress
+        }
+        Token::Ident(_, Keyword::PG_GET_PARTITION_CONSTRAINTDEF)
+            if parser.options.dialect.is_postgresql() =>
+        {
             Function::PgGetPartitionConstraintdef
         }
-        Token::Ident(_, Keyword::PG_GET_PARTKEYDEF) => Function::PgGetPartkeydef,
-        Token::Ident(_, Keyword::PG_GET_RULEDEF) => Function::PgGetRuledef,
-        Token::Ident(_, Keyword::PG_GET_SERIAL_SEQUENCE) => Function::PgGetSerialSequence,
-        Token::Ident(_, Keyword::PG_GET_STATISTICSOBJDEF) => Function::PgGetStatisticsobjdef,
-        Token::Ident(_, Keyword::PG_GET_TRIGGERDEF) => Function::PgGetTriggerdef,
-        Token::Ident(_, Keyword::PG_GET_USERBYID) => Function::PgGetUserbyid,
-        Token::Ident(_, Keyword::PG_GET_VIEWDEF) => Function::PgGetViewdef,
-        Token::Ident(_, Keyword::PG_GET_WAL_SUMMARIZER_STATE) => Function::PgGetWalSummarizerState,
-        Token::Ident(_, Keyword::PG_HAS_ROLE) => Function::PgHasRole,
-        Token::Ident(_, Keyword::PG_INDEX_COLUMN_HAS_PROPERTY) => {
+        Token::Ident(_, Keyword::PG_GET_PARTKEYDEF) if parser.options.dialect.is_postgresql() => {
+            Function::PgGetPartkeydef
+        }
+        Token::Ident(_, Keyword::PG_GET_RULEDEF) if parser.options.dialect.is_postgresql() => {
+            Function::PgGetRuledef
+        }
+        Token::Ident(_, Keyword::PG_GET_SERIAL_SEQUENCE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgGetSerialSequence
+        }
+        Token::Ident(_, Keyword::PG_GET_STATISTICSOBJDEF)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgGetStatisticsobjdef
+        }
+        Token::Ident(_, Keyword::PG_GET_TRIGGERDEF) if parser.options.dialect.is_postgresql() => {
+            Function::PgGetTriggerdef
+        }
+        Token::Ident(_, Keyword::PG_GET_USERBYID) if parser.options.dialect.is_postgresql() => {
+            Function::PgGetUserbyid
+        }
+        Token::Ident(_, Keyword::PG_GET_VIEWDEF) if parser.options.dialect.is_postgresql() => {
+            Function::PgGetViewdef
+        }
+        Token::Ident(_, Keyword::PG_GET_WAL_SUMMARIZER_STATE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgGetWalSummarizerState
+        }
+        Token::Ident(_, Keyword::PG_HAS_ROLE) if parser.options.dialect.is_postgresql() => {
+            Function::PgHasRole
+        }
+        Token::Ident(_, Keyword::PG_INDEX_COLUMN_HAS_PROPERTY)
+            if parser.options.dialect.is_postgresql() =>
+        {
             Function::PgIndexColumnHasProperty
         }
-        Token::Ident(_, Keyword::PG_INDEX_HAS_PROPERTY) => Function::PgIndexHasProperty,
-        Token::Ident(_, Keyword::PG_INDEXAM_HAS_PROPERTY) => Function::PgIndexamHasProperty,
-        Token::Ident(_, Keyword::PG_INPUT_ERROR_INFO) => Function::PgInputErrorInfo,
-        Token::Ident(_, Keyword::PG_INPUT_IS_VALID) => Function::PgInputIsValid,
-        Token::Ident(_, Keyword::PG_IS_OTHER_TEMP_SCHEMA) => Function::PgIsOtherTempSchema,
-        Token::Ident(_, Keyword::PG_JIT_AVAILABLE) => Function::PgJitAvailable,
-        Token::Ident(_, Keyword::PG_LAST_COMMITTED_XACT) => Function::PgLastCommittedXact,
-        Token::Ident(_, Keyword::PG_LISTENING_CHANNELS) => Function::PgListeningChannels,
-        Token::Ident(_, Keyword::PG_MY_TEMP_SCHEMA) => Function::PgMyTempSchema,
-        Token::Ident(_, Keyword::PG_NOTIFICATION_QUEUE_USAGE) => Function::PgNotificationQueueUsage,
-        Token::Ident(_, Keyword::PG_OPCLASS_IS_VISIBLE) => Function::PgOpclassIsVisible,
-        Token::Ident(_, Keyword::PG_OPERATOR_IS_VISIBLE) => Function::PgOperatorIsVisible,
-        Token::Ident(_, Keyword::PG_OPFAMILY_IS_VISIBLE) => Function::PgOpfamilyIsVisible,
-        Token::Ident(_, Keyword::PG_SAFE_SNAPSHOT_BLOCKING_PIDS) => {
+        Token::Ident(_, Keyword::PG_INDEX_HAS_PROPERTY)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgIndexHasProperty
+        }
+        Token::Ident(_, Keyword::PG_INDEXAM_HAS_PROPERTY)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgIndexamHasProperty
+        }
+        Token::Ident(_, Keyword::PG_INPUT_ERROR_INFO) if parser.options.dialect.is_postgresql() => {
+            Function::PgInputErrorInfo
+        }
+        Token::Ident(_, Keyword::PG_INPUT_IS_VALID) if parser.options.dialect.is_postgresql() => {
+            Function::PgInputIsValid
+        }
+        Token::Ident(_, Keyword::PG_IS_OTHER_TEMP_SCHEMA)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgIsOtherTempSchema
+        }
+        Token::Ident(_, Keyword::PG_JIT_AVAILABLE) if parser.options.dialect.is_postgresql() => {
+            Function::PgJitAvailable
+        }
+        Token::Ident(_, Keyword::PG_LAST_COMMITTED_XACT)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgLastCommittedXact
+        }
+        Token::Ident(_, Keyword::PG_LISTENING_CHANNELS)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgListeningChannels
+        }
+        Token::Ident(_, Keyword::PG_MY_TEMP_SCHEMA) if parser.options.dialect.is_postgresql() => {
+            Function::PgMyTempSchema
+        }
+        Token::Ident(_, Keyword::PG_NOTIFICATION_QUEUE_USAGE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgNotificationQueueUsage
+        }
+        Token::Ident(_, Keyword::PG_OPCLASS_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgOpclassIsVisible
+        }
+        Token::Ident(_, Keyword::PG_OPERATOR_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgOperatorIsVisible
+        }
+        Token::Ident(_, Keyword::PG_OPFAMILY_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgOpfamilyIsVisible
+        }
+        Token::Ident(_, Keyword::PG_SAFE_SNAPSHOT_BLOCKING_PIDS)
+            if parser.options.dialect.is_postgresql() =>
+        {
             Function::PgSafeSnapshotBlockingPids
         }
-        Token::Ident(_, Keyword::PG_SETTINGS_GET_FLAGS) => Function::PgSettingsGetFlags,
-        Token::Ident(_, Keyword::PG_SNAPSHOT_XIP) => Function::PgSnapshotXip,
-        Token::Ident(_, Keyword::PG_SNAPSHOT_XMAX) => Function::PgSnapshotXmax,
-        Token::Ident(_, Keyword::PG_SNAPSHOT_XMIN) => Function::PgSnapshotXmin,
-        Token::Ident(_, Keyword::PG_STATISTICS_OBJ_IS_VISIBLE) => {
+        Token::Ident(_, Keyword::PG_SETTINGS_GET_FLAGS)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgSettingsGetFlags
+        }
+        Token::Ident(_, Keyword::PG_SNAPSHOT_XIP) if parser.options.dialect.is_postgresql() => {
+            Function::PgSnapshotXip
+        }
+        Token::Ident(_, Keyword::PG_SNAPSHOT_XMAX) if parser.options.dialect.is_postgresql() => {
+            Function::PgSnapshotXmax
+        }
+        Token::Ident(_, Keyword::PG_SNAPSHOT_XMIN) if parser.options.dialect.is_postgresql() => {
+            Function::PgSnapshotXmin
+        }
+        Token::Ident(_, Keyword::PG_STATISTICS_OBJ_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
             Function::PgStatisticsObjIsVisible
         }
-        Token::Ident(_, Keyword::PG_TABLE_IS_VISIBLE) => Function::PgTableIsVisible,
-        Token::Ident(_, Keyword::PG_TABLESPACE_LOCATION) => Function::PgTablespaceLocation,
-        Token::Ident(_, Keyword::PG_TRIGGER_DEPTH) => Function::PgTriggerDepth,
-        Token::Ident(_, Keyword::PG_TS_CONFIG_IS_VISIBLE) => Function::PgTsConfigIsVisible,
-        Token::Ident(_, Keyword::PG_TS_DICT_IS_VISIBLE) => Function::PgTsDictIsVisible,
-        Token::Ident(_, Keyword::PG_TS_PARSER_IS_VISIBLE) => Function::PgTsParserIsVisible,
-        Token::Ident(_, Keyword::PG_TS_TEMPLATE_IS_VISIBLE) => Function::PgTsTemplateIsVisible,
-        Token::Ident(_, Keyword::PG_TYPE_IS_VISIBLE) => Function::PgTypeIsVisible,
-        Token::Ident(_, Keyword::PG_TYPEOF) => Function::PgTypeof,
-        Token::Ident(_, Keyword::PG_VISIBLE_IN_SNAPSHOT) => Function::PgVisibleInSnapshot,
-        Token::Ident(_, Keyword::PG_XACT_COMMIT_TIMESTAMP) => Function::PgXactCommitTimestamp,
-        Token::Ident(_, Keyword::PG_XACT_STATUS) => Function::PgXactStatus,
-        Token::Ident(_, Keyword::ROW_SECURITY_ACTIVE) => Function::RowSecurityActive,
-        Token::Ident(_, Keyword::SHOBJ_DESCRIPTION) => Function::ShobjDescription,
-        Token::Ident(_, Keyword::TO_REGCLASS) => Function::ToRegclass,
-        Token::Ident(_, Keyword::TO_REGCOLLATION) => Function::ToRegcollation,
-        Token::Ident(_, Keyword::TO_REGNAMESPACE) => Function::ToRegnamespace,
-        Token::Ident(_, Keyword::TO_REGOPER) => Function::ToRegoper,
-        Token::Ident(_, Keyword::TO_REGOPERATOR) => Function::ToRegoperator,
-        Token::Ident(_, Keyword::TO_REGPROC) => Function::ToRegproc,
-        Token::Ident(_, Keyword::TO_REGPROCEDURE) => Function::ToRegprocedure,
-        Token::Ident(_, Keyword::TO_REGROLE) => Function::ToRegrole,
-        Token::Ident(_, Keyword::TO_REGTYPE) => Function::ToRegtype,
-        Token::Ident(_, Keyword::TO_REGTYPEMOD) => Function::ToRegtypemod,
-        Token::Ident(_, Keyword::UNICODE_VERSION) => Function::UnicodeVersion,
+        Token::Ident(_, Keyword::PG_TABLE_IS_VISIBLE) if parser.options.dialect.is_postgresql() => {
+            Function::PgTableIsVisible
+        }
+        Token::Ident(_, Keyword::PG_TABLESPACE_LOCATION)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgTablespaceLocation
+        }
+        Token::Ident(_, Keyword::PG_TRIGGER_DEPTH) if parser.options.dialect.is_postgresql() => {
+            Function::PgTriggerDepth
+        }
+        Token::Ident(_, Keyword::PG_TS_CONFIG_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgTsConfigIsVisible
+        }
+        Token::Ident(_, Keyword::PG_TS_DICT_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgTsDictIsVisible
+        }
+        Token::Ident(_, Keyword::PG_TS_PARSER_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgTsParserIsVisible
+        }
+        Token::Ident(_, Keyword::PG_TS_TEMPLATE_IS_VISIBLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgTsTemplateIsVisible
+        }
+        Token::Ident(_, Keyword::PG_TYPE_IS_VISIBLE) if parser.options.dialect.is_postgresql() => {
+            Function::PgTypeIsVisible
+        }
+        Token::Ident(_, Keyword::PG_TYPEOF) if parser.options.dialect.is_postgresql() => {
+            Function::PgTypeof
+        }
+        Token::Ident(_, Keyword::PG_VISIBLE_IN_SNAPSHOT)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgVisibleInSnapshot
+        }
+        Token::Ident(_, Keyword::PG_XACT_COMMIT_TIMESTAMP)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::PgXactCommitTimestamp
+        }
+        Token::Ident(_, Keyword::PG_XACT_STATUS) if parser.options.dialect.is_postgresql() => {
+            Function::PgXactStatus
+        }
+        Token::Ident(_, Keyword::ROW_SECURITY_ACTIVE) if parser.options.dialect.is_postgresql() => {
+            Function::RowSecurityActive
+        }
+        Token::Ident(_, Keyword::SHOBJ_DESCRIPTION) if parser.options.dialect.is_postgresql() => {
+            Function::ShobjDescription
+        }
+        Token::Ident(_, Keyword::TO_REGCLASS) if parser.options.dialect.is_postgresql() => {
+            Function::ToRegclass
+        }
+        Token::Ident(_, Keyword::TO_REGCOLLATION) if parser.options.dialect.is_postgresql() => {
+            Function::ToRegcollation
+        }
+        Token::Ident(_, Keyword::TO_REGNAMESPACE) if parser.options.dialect.is_postgresql() => {
+            Function::ToRegnamespace
+        }
+        Token::Ident(_, Keyword::TO_REGOPER) if parser.options.dialect.is_postgresql() => {
+            Function::ToRegoper
+        }
+        Token::Ident(_, Keyword::TO_REGOPERATOR) if parser.options.dialect.is_postgresql() => {
+            Function::ToRegoperator
+        }
+        Token::Ident(_, Keyword::TO_REGPROC) if parser.options.dialect.is_postgresql() => {
+            Function::ToRegproc
+        }
+        Token::Ident(_, Keyword::TO_REGPROCEDURE) if parser.options.dialect.is_postgresql() => {
+            Function::ToRegprocedure
+        }
+        Token::Ident(_, Keyword::TO_REGROLE) if parser.options.dialect.is_postgresql() => {
+            Function::ToRegrole
+        }
+        Token::Ident(_, Keyword::TO_REGTYPE) if parser.options.dialect.is_postgresql() => {
+            Function::ToRegtype
+        }
+        Token::Ident(_, Keyword::TO_REGTYPEMOD) if parser.options.dialect.is_postgresql() => {
+            Function::ToRegtypemod
+        }
+        Token::Ident(_, Keyword::UNICODE_VERSION) if parser.options.dialect.is_postgresql() => {
+            Function::UnicodeVersion
+        }
 
         // PostgreSQL network address functions
-        Token::Ident(_, Keyword::ABBREV) => Function::Abbrev,
-        Token::Ident(_, Keyword::BROADCAST) => Function::Broadcast,
-        Token::Ident(_, Keyword::FAMILY) => Function::Family,
-        Token::Ident(_, Keyword::HOST) => Function::Host,
-        Token::Ident(_, Keyword::HOSTMASK) => Function::HostMask,
-        Token::Ident(_, Keyword::INET_MERGE) => Function::InetMerge,
-        Token::Ident(_, Keyword::INET_SAME_FAMILY) => Function::InetSameFamily,
-        Token::Ident(_, Keyword::MACADDR8_SET7BIT) => Function::Macaddr8Set7bit,
-        Token::Ident(_, Keyword::MASKLEN) => Function::MaskLen,
-        Token::Ident(_, Keyword::NETMASK) => Function::NetMask,
-        Token::Ident(_, Keyword::NETWORK) => Function::Network,
-        Token::Ident(_, Keyword::SET_MASKLEN) => Function::SetMaskLen,
+        Token::Ident(_, Keyword::ABBREV) if parser.options.dialect.is_postgresql() => {
+            Function::Abbrev
+        }
+        Token::Ident(_, Keyword::BROADCAST) if parser.options.dialect.is_postgresql() => {
+            Function::Broadcast
+        }
+        Token::Ident(_, Keyword::FAMILY) if parser.options.dialect.is_postgresql() => {
+            Function::Family
+        }
+        Token::Ident(_, Keyword::HOST) if parser.options.dialect.is_postgresql() => Function::Host,
+        Token::Ident(_, Keyword::HOSTMASK) if parser.options.dialect.is_postgresql() => {
+            Function::HostMask
+        }
+        Token::Ident(_, Keyword::INET_MERGE) if parser.options.dialect.is_postgresql() => {
+            Function::InetMerge
+        }
+        Token::Ident(_, Keyword::INET_SAME_FAMILY) if parser.options.dialect.is_postgresql() => {
+            Function::InetSameFamily
+        }
+        Token::Ident(_, Keyword::MACADDR8_SET7BIT) if parser.options.dialect.is_postgresql() => {
+            Function::Macaddr8Set7bit
+        }
+        Token::Ident(_, Keyword::MASKLEN) if parser.options.dialect.is_postgresql() => {
+            Function::MaskLen
+        }
+        Token::Ident(_, Keyword::NETMASK) if parser.options.dialect.is_postgresql() => {
+            Function::NetMask
+        }
+        Token::Ident(_, Keyword::NETWORK) if parser.options.dialect.is_postgresql() => {
+            Function::Network
+        }
+        Token::Ident(_, Keyword::SET_MASKLEN) if parser.options.dialect.is_postgresql() => {
+            Function::SetMaskLen
+        }
 
         // PostgreSQL UUID functions
-        Token::Ident(_, Keyword::GEN_RANDOM_UUID) => Function::GenRandomUuid,
-        Token::Ident(_, Keyword::UUID_EXTRACT_TIMESTAMP) => Function::UuidExtractTimestamp,
-        Token::Ident(_, Keyword::UUID_EXTRACT_VERSION) => Function::UuidExtractVersion,
-        Token::Ident(_, Keyword::UUIDV4) => Function::Uuidv4,
-        Token::Ident(_, Keyword::UUIDV7) => Function::Uuidv7,
+        Token::Ident(_, Keyword::GEN_RANDOM_UUID) if parser.options.dialect.is_postgresql() => {
+            Function::GenRandomUuid
+        }
+        Token::Ident(_, Keyword::UUID_EXTRACT_TIMESTAMP)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::UuidExtractTimestamp
+        }
+        Token::Ident(_, Keyword::UUID_EXTRACT_VERSION)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::UuidExtractVersion
+        }
+        Token::Ident(_, Keyword::UUIDV4) if parser.options.dialect.is_postgresql() => {
+            Function::Uuidv4
+        }
+        Token::Ident(_, Keyword::UUIDV7) if parser.options.dialect.is_postgresql() => {
+            Function::Uuidv7
+        }
 
         // PostgreSQL XML functions
-        Token::Ident(_, Keyword::CURSOR_TO_XML) => Function::CursorToXml,
-        Token::Ident(_, Keyword::CURSOR_TO_XMLSCHEMA) => Function::CursorToXmlschema,
-        Token::Ident(_, Keyword::DATABASE_TO_XML) => Function::DatabaseToXml,
-        Token::Ident(_, Keyword::DATABASE_TO_XML_AND_XMLSCHEMA) => {
+        Token::Ident(_, Keyword::CURSOR_TO_XML) if parser.options.dialect.is_postgresql() => {
+            Function::CursorToXml
+        }
+        Token::Ident(_, Keyword::CURSOR_TO_XMLSCHEMA) if parser.options.dialect.is_postgresql() => {
+            Function::CursorToXmlschema
+        }
+        Token::Ident(_, Keyword::DATABASE_TO_XML) if parser.options.dialect.is_postgresql() => {
+            Function::DatabaseToXml
+        }
+        Token::Ident(_, Keyword::DATABASE_TO_XML_AND_XMLSCHEMA)
+            if parser.options.dialect.is_postgresql() =>
+        {
             Function::DatabaseToXmlAndXmlschema
         }
-        Token::Ident(_, Keyword::DATABASE_TO_XMLSCHEMA) => Function::DatabaseToXmlschema,
-        Token::Ident(_, Keyword::QUERY_TO_XML) => Function::QueryToXml,
-        Token::Ident(_, Keyword::QUERY_TO_XML_AND_XMLSCHEMA) => Function::QueryToXmlAndXmlschema,
-        Token::Ident(_, Keyword::QUERY_TO_XMLSCHEMA) => Function::QueryToXmlschema,
-        Token::Ident(_, Keyword::SCHEMA_TO_XML) => Function::SchemaToXml,
-        Token::Ident(_, Keyword::SCHEMA_TO_XML_AND_XMLSCHEMA) => Function::SchemaToXmlAndXmlschema,
-        Token::Ident(_, Keyword::SCHEMA_TO_XMLSCHEMA) => Function::SchemaToXmlschema,
-        Token::Ident(_, Keyword::TABLE_TO_XML) => Function::TableToXml,
-        Token::Ident(_, Keyword::TABLE_TO_XML_AND_XMLSCHEMA) => Function::TableToXmlAndXmlschema,
-        Token::Ident(_, Keyword::TABLE_TO_XMLSCHEMA) => Function::TableToXmlschema,
-        Token::Ident(_, Keyword::XML_IS_WELL_FORMED) => Function::XmlIsWellFormed,
-        Token::Ident(_, Keyword::XML_IS_WELL_FORMED_CONTENT) => Function::XmlIsWellFormedContent,
-        Token::Ident(_, Keyword::XML_IS_WELL_FORMED_DOCUMENT) => Function::XmlIsWellFormedDocument,
-        Token::Ident(_, Keyword::XMLCOMMENT) => Function::XmlComment,
-        Token::Ident(_, Keyword::XMLCONCAT) => Function::XmlConcat,
-        Token::Ident(_, Keyword::XMLTEXT) => Function::XmlText,
-        Token::Ident(_, Keyword::XPATH) => Function::Xpath,
-        Token::Ident(_, Keyword::XPATH_EXISTS) => Function::XpathExists,
+        Token::Ident(_, Keyword::DATABASE_TO_XMLSCHEMA)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::DatabaseToXmlschema
+        }
+        Token::Ident(_, Keyword::QUERY_TO_XML) if parser.options.dialect.is_postgresql() => {
+            Function::QueryToXml
+        }
+        Token::Ident(_, Keyword::QUERY_TO_XML_AND_XMLSCHEMA)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::QueryToXmlAndXmlschema
+        }
+        Token::Ident(_, Keyword::QUERY_TO_XMLSCHEMA) if parser.options.dialect.is_postgresql() => {
+            Function::QueryToXmlschema
+        }
+        Token::Ident(_, Keyword::SCHEMA_TO_XML) if parser.options.dialect.is_postgresql() => {
+            Function::SchemaToXml
+        }
+        Token::Ident(_, Keyword::SCHEMA_TO_XML_AND_XMLSCHEMA)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::SchemaToXmlAndXmlschema
+        }
+        Token::Ident(_, Keyword::SCHEMA_TO_XMLSCHEMA) if parser.options.dialect.is_postgresql() => {
+            Function::SchemaToXmlschema
+        }
+        Token::Ident(_, Keyword::TABLE_TO_XML) if parser.options.dialect.is_postgresql() => {
+            Function::TableToXml
+        }
+        Token::Ident(_, Keyword::TABLE_TO_XML_AND_XMLSCHEMA)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::TableToXmlAndXmlschema
+        }
+        Token::Ident(_, Keyword::TABLE_TO_XMLSCHEMA) if parser.options.dialect.is_postgresql() => {
+            Function::TableToXmlschema
+        }
+        Token::Ident(_, Keyword::XML_IS_WELL_FORMED) if parser.options.dialect.is_postgresql() => {
+            Function::XmlIsWellFormed
+        }
+        Token::Ident(_, Keyword::XML_IS_WELL_FORMED_CONTENT)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::XmlIsWellFormedContent
+        }
+        Token::Ident(_, Keyword::XML_IS_WELL_FORMED_DOCUMENT)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::XmlIsWellFormedDocument
+        }
+        Token::Ident(_, Keyword::XMLCOMMENT) if parser.options.dialect.is_postgresql() => {
+            Function::XmlComment
+        }
+        Token::Ident(_, Keyword::XMLCONCAT) if parser.options.dialect.is_postgresql() => {
+            Function::XmlConcat
+        }
+        Token::Ident(_, Keyword::XMLTEXT) if parser.options.dialect.is_postgresql() => {
+            Function::XmlText
+        }
+        Token::Ident(_, Keyword::XPATH) if parser.options.dialect.is_postgresql() => {
+            Function::Xpath
+        }
+        Token::Ident(_, Keyword::XPATH_EXISTS) if parser.options.dialect.is_postgresql() => {
+            Function::XpathExists
+        }
 
         // PostgreSQL JSON functions
-        Token::Ident(_, Keyword::ARRAY_TO_JSON) => Function::ArrayToJson,
-        Token::Ident(_, Keyword::JSON_ARRAY_ELEMENTS) => Function::JsonArrayElements,
-        Token::Ident(_, Keyword::JSON_ARRAY_ELEMENTS_TEXT) => Function::JsonArrayElementsText,
-        Token::Ident(_, Keyword::JSON_ARRAY_LENGTH) => Function::JsonArrayLength,
-        Token::Ident(_, Keyword::JSON_BUILD_ARRAY) => Function::JsonBuildArray,
-        Token::Ident(_, Keyword::JSON_EACH) => Function::JsonEach,
-        Token::Ident(_, Keyword::JSON_EACH_TEXT) => Function::JsonEachText,
-        Token::Ident(_, Keyword::JSON_EXTRACT_PATH) => Function::JsonExtractPath,
-        Token::Ident(_, Keyword::JSON_EXTRACT_PATH_TEXT) => Function::JsonExtractPathText,
-        Token::Ident(_, Keyword::JSON_OBJECT_KEYS) => Function::JsonObjectKeys,
-        Token::Ident(_, Keyword::JSON_POPULATE_RECORD) => Function::JsonPopulateRecord,
-        Token::Ident(_, Keyword::JSON_POPULATE_RECORDSET) => Function::JsonPopulateRecordset,
-        Token::Ident(_, Keyword::JSON_SCALAR) => Function::JsonScalar,
-        Token::Ident(_, Keyword::JSON_SERIALIZE) => Function::JsonSerialize,
-        Token::Ident(_, Keyword::JSON_STRIP_NULLS) => Function::JsonStripNulls,
-        Token::Ident(_, Keyword::JSON_TO_RECORD) => Function::JsonToRecord,
-        Token::Ident(_, Keyword::JSON_TO_RECORDSET) => Function::JsonToRecordset,
-        Token::Ident(_, Keyword::JSON_TYPEOF) => Function::JsonTypeof,
-        Token::Ident(_, Keyword::JSONB_ARRAY_ELEMENTS) => Function::JsonbArrayElements,
-        Token::Ident(_, Keyword::JSONB_ARRAY_ELEMENTS_TEXT) => Function::JsonbArrayElementsText,
-        Token::Ident(_, Keyword::JSONB_ARRAY_LENGTH) => Function::JsonbArrayLength,
-        Token::Ident(_, Keyword::JSONB_BUILD_ARRAY) => Function::JsonbBuildArray,
-        Token::Ident(_, Keyword::JSONB_BUILD_OBJECT) => Function::JsonbBuildObject,
-        Token::Ident(_, Keyword::JSONB_EACH) => Function::JsonbEach,
-        Token::Ident(_, Keyword::JSONB_EACH_TEXT) => Function::JsonbEachText,
-        Token::Ident(_, Keyword::JSONB_EXTRACT_PATH) => Function::JsonbExtractPath,
-        Token::Ident(_, Keyword::JSONB_EXTRACT_PATH_TEXT) => Function::JsonbExtractPathText,
-        Token::Ident(_, Keyword::JSONB_INSERT) => Function::JsonbInsert,
-        Token::Ident(_, Keyword::JSONB_OBJECT) => Function::JsonbObject,
-        Token::Ident(_, Keyword::JSONB_OBJECT_KEYS) => Function::JsonbObjectKeys,
-        Token::Ident(_, Keyword::JSONB_PATH_EXISTS) => Function::JsonbPathExists,
-        Token::Ident(_, Keyword::JSONB_PATH_EXISTS_TZ) => Function::JsonbPathExistsTz,
-        Token::Ident(_, Keyword::JSONB_PATH_MATCH) => Function::JsonbPathMatch,
-        Token::Ident(_, Keyword::JSONB_PATH_MATCH_TZ) => Function::JsonbPathMatchTz,
-        Token::Ident(_, Keyword::JSONB_PATH_QUERY) => Function::JsonbPathQuery,
-        Token::Ident(_, Keyword::JSONB_PATH_QUERY_ARRAY) => Function::JsonbPathQueryArray,
-        Token::Ident(_, Keyword::JSONB_PATH_QUERY_ARRAY_TZ) => Function::JsonbPathQueryArrayTz,
-        Token::Ident(_, Keyword::JSONB_PATH_QUERY_FIRST) => Function::JsonbPathQueryFirst,
-        Token::Ident(_, Keyword::JSONB_PATH_QUERY_FIRST_TZ) => Function::JsonbPathQueryFirstTz,
-        Token::Ident(_, Keyword::JSONB_PATH_QUERY_TZ) => Function::JsonbPathQueryTz,
-        Token::Ident(_, Keyword::JSONB_POPULATE_RECORD) => Function::JsonbPopulateRecord,
-        Token::Ident(_, Keyword::JSONB_POPULATE_RECORD_VALID) => Function::JsonbPopulateRecordValid,
-        Token::Ident(_, Keyword::JSONB_POPULATE_RECORDSET) => Function::JsonbPopulateRecordset,
-        Token::Ident(_, Keyword::JSONB_PRETTY) => Function::JsonbPretty,
-        Token::Ident(_, Keyword::JSONB_SET_LAX) => Function::JsonbSetLax,
-        Token::Ident(_, Keyword::JSONB_STRIP_NULLS) => Function::JsonbStripNulls,
-        Token::Ident(_, Keyword::JSONB_TO_RECORD) => Function::JsonbToRecord,
-        Token::Ident(_, Keyword::JSONB_TO_RECORDSET) => Function::JsonbToRecordset,
-        Token::Ident(_, Keyword::JSONB_TYPEOF) => Function::JsonbTypeof,
-        Token::Ident(_, Keyword::ROW_TO_JSON) => Function::RowToJson,
-        Token::Ident(_, Keyword::TO_JSON) => Function::ToJson,
-        Token::Ident(_, Keyword::TO_JSONB) => Function::ToJsonb,
+        Token::Ident(_, Keyword::ARRAY_TO_JSON) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayToJson
+        }
+        Token::Ident(_, Keyword::JSON_ARRAY_ELEMENTS) if parser.options.dialect.is_postgresql() => {
+            Function::JsonArrayElements
+        }
+        Token::Ident(_, Keyword::JSON_ARRAY_ELEMENTS_TEXT)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonArrayElementsText
+        }
+        Token::Ident(_, Keyword::JSON_ARRAY_LENGTH) if parser.options.dialect.is_postgresql() => {
+            Function::JsonArrayLength
+        }
+        Token::Ident(_, Keyword::JSON_BUILD_ARRAY) if parser.options.dialect.is_postgresql() => {
+            Function::JsonBuildArray
+        }
+        Token::Ident(_, Keyword::JSON_EACH) if parser.options.dialect.is_postgresql() => {
+            Function::JsonEach
+        }
+        Token::Ident(_, Keyword::JSON_EACH_TEXT) if parser.options.dialect.is_postgresql() => {
+            Function::JsonEachText
+        }
+        Token::Ident(_, Keyword::JSON_EXTRACT_PATH) if parser.options.dialect.is_postgresql() => {
+            Function::JsonExtractPath
+        }
+        Token::Ident(_, Keyword::JSON_EXTRACT_PATH_TEXT)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonExtractPathText
+        }
+        Token::Ident(_, Keyword::JSON_OBJECT_KEYS) if parser.options.dialect.is_postgresql() => {
+            Function::JsonObjectKeys
+        }
+        Token::Ident(_, Keyword::JSON_POPULATE_RECORD)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonPopulateRecord
+        }
+        Token::Ident(_, Keyword::JSON_POPULATE_RECORDSET)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonPopulateRecordset
+        }
+        Token::Ident(_, Keyword::JSON_SCALAR) if parser.options.dialect.is_postgresql() => {
+            Function::JsonScalar
+        }
+        Token::Ident(_, Keyword::JSON_SERIALIZE) if parser.options.dialect.is_postgresql() => {
+            Function::JsonSerialize
+        }
+        Token::Ident(_, Keyword::JSON_STRIP_NULLS) if parser.options.dialect.is_postgresql() => {
+            Function::JsonStripNulls
+        }
+        Token::Ident(_, Keyword::JSON_TO_RECORD) if parser.options.dialect.is_postgresql() => {
+            Function::JsonToRecord
+        }
+        Token::Ident(_, Keyword::JSON_TO_RECORDSET) if parser.options.dialect.is_postgresql() => {
+            Function::JsonToRecordset
+        }
+        Token::Ident(_, Keyword::JSON_TYPEOF) if parser.options.dialect.is_postgresql() => {
+            Function::JsonTypeof
+        }
+        Token::Ident(_, Keyword::JSONB_ARRAY_ELEMENTS)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbArrayElements
+        }
+        Token::Ident(_, Keyword::JSONB_ARRAY_ELEMENTS_TEXT)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbArrayElementsText
+        }
+        Token::Ident(_, Keyword::JSONB_ARRAY_LENGTH) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbArrayLength
+        }
+        Token::Ident(_, Keyword::JSONB_BUILD_ARRAY) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbBuildArray
+        }
+        Token::Ident(_, Keyword::JSONB_BUILD_OBJECT) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbBuildObject
+        }
+        Token::Ident(_, Keyword::JSONB_EACH) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbEach
+        }
+        Token::Ident(_, Keyword::JSONB_EACH_TEXT) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbEachText
+        }
+        Token::Ident(_, Keyword::JSONB_EXTRACT_PATH) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbExtractPath
+        }
+        Token::Ident(_, Keyword::JSONB_EXTRACT_PATH_TEXT)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbExtractPathText
+        }
+        Token::Ident(_, Keyword::JSONB_INSERT) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbInsert
+        }
+        Token::Ident(_, Keyword::JSONB_OBJECT) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbObject
+        }
+        Token::Ident(_, Keyword::JSONB_OBJECT_KEYS) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbObjectKeys
+        }
+        Token::Ident(_, Keyword::JSONB_PATH_EXISTS) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbPathExists
+        }
+        Token::Ident(_, Keyword::JSONB_PATH_EXISTS_TZ)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbPathExistsTz
+        }
+        Token::Ident(_, Keyword::JSONB_PATH_MATCH) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbPathMatch
+        }
+        Token::Ident(_, Keyword::JSONB_PATH_MATCH_TZ) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbPathMatchTz
+        }
+        Token::Ident(_, Keyword::JSONB_PATH_QUERY) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbPathQuery
+        }
+        Token::Ident(_, Keyword::JSONB_PATH_QUERY_ARRAY)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbPathQueryArray
+        }
+        Token::Ident(_, Keyword::JSONB_PATH_QUERY_ARRAY_TZ)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbPathQueryArrayTz
+        }
+        Token::Ident(_, Keyword::JSONB_PATH_QUERY_FIRST)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbPathQueryFirst
+        }
+        Token::Ident(_, Keyword::JSONB_PATH_QUERY_FIRST_TZ)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbPathQueryFirstTz
+        }
+        Token::Ident(_, Keyword::JSONB_PATH_QUERY_TZ) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbPathQueryTz
+        }
+        Token::Ident(_, Keyword::JSONB_POPULATE_RECORD)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbPopulateRecord
+        }
+        Token::Ident(_, Keyword::JSONB_POPULATE_RECORD_VALID)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbPopulateRecordValid
+        }
+        Token::Ident(_, Keyword::JSONB_POPULATE_RECORDSET)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::JsonbPopulateRecordset
+        }
+        Token::Ident(_, Keyword::JSONB_PRETTY) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbPretty
+        }
+        Token::Ident(_, Keyword::JSONB_SET_LAX) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbSetLax
+        }
+        Token::Ident(_, Keyword::JSONB_STRIP_NULLS) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbStripNulls
+        }
+        Token::Ident(_, Keyword::JSONB_TO_RECORD) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbToRecord
+        }
+        Token::Ident(_, Keyword::JSONB_TO_RECORDSET) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbToRecordset
+        }
+        Token::Ident(_, Keyword::JSONB_TYPEOF) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbTypeof
+        }
+        Token::Ident(_, Keyword::ROW_TO_JSON) if parser.options.dialect.is_postgresql() => {
+            Function::RowToJson
+        }
+        Token::Ident(_, Keyword::TO_JSON) if parser.options.dialect.is_postgresql() => {
+            Function::ToJson
+        }
+        Token::Ident(_, Keyword::TO_JSONB) if parser.options.dialect.is_postgresql() => {
+            Function::ToJsonb
+        }
 
         // PostgreSQL sequence functions
-        Token::Ident(_, Keyword::CURRVAL) => Function::Currval,
-        Token::Ident(_, Keyword::LASTVAL) => Function::Lastval,
-        Token::Ident(_, Keyword::NEXTVAL) => Function::Nextval,
-        Token::Ident(_, Keyword::SETVAL) => Function::Setval,
+        Token::Ident(_, Keyword::CURRVAL) if parser.options.dialect.is_postgresql() => {
+            Function::Currval
+        }
+        Token::Ident(_, Keyword::LASTVAL) if parser.options.dialect.is_postgresql() => {
+            Function::Lastval
+        }
+        Token::Ident(_, Keyword::NEXTVAL) if parser.options.dialect.is_postgresql() => {
+            Function::Nextval
+        }
+        Token::Ident(_, Keyword::SETVAL) if parser.options.dialect.is_postgresql() => {
+            Function::Setval
+        }
 
         // PostgreSQL array functions
-        Token::Ident(_, Keyword::ARRAY_APPEND) => Function::ArrayAppend,
-        Token::Ident(_, Keyword::ARRAY_CAT) => Function::ArrayCat,
-        Token::Ident(_, Keyword::ARRAY_DIMS) => Function::ArrayDims,
-        Token::Ident(_, Keyword::ARRAY_FILL) => Function::ArrayFill,
-        Token::Ident(_, Keyword::ARRAY_LENGTH) => Function::ArrayLength,
-        Token::Ident(_, Keyword::ARRAY_LOWER) => Function::ArrayLower,
-        Token::Ident(_, Keyword::ARRAY_NDIMS) => Function::ArrayNdims,
-        Token::Ident(_, Keyword::ARRAY_POSITION) => Function::ArrayPosition,
-        Token::Ident(_, Keyword::ARRAY_POSITIONS) => Function::ArrayPositions,
-        Token::Ident(_, Keyword::ARRAY_PREPEND) => Function::ArrayPrepend,
-        Token::Ident(_, Keyword::ARRAY_REMOVE) => Function::ArrayRemove,
-        Token::Ident(_, Keyword::ARRAY_REPLACE) => Function::ArrayReplace,
-        Token::Ident(_, Keyword::ARRAY_REVERSE) => Function::ArrayReverse,
-        Token::Ident(_, Keyword::ARRAY_SAMPLE) => Function::ArraySample,
-        Token::Ident(_, Keyword::ARRAY_SHUFFLE) => Function::ArrayShuffle,
-        Token::Ident(_, Keyword::ARRAY_SORT) => Function::ArraySort,
-        Token::Ident(_, Keyword::ARRAY_TO_STRING) => Function::ArrayToString,
-        Token::Ident(_, Keyword::ARRAY_UPPER) => Function::ArrayUpper,
-        Token::Ident(_, Keyword::CARDINALITY) => Function::Cardinality,
-        Token::Ident(_, Keyword::TRIM_ARRAY) => Function::TrimArray,
+        Token::Ident(_, Keyword::ARRAY_APPEND) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayAppend
+        }
+        Token::Ident(_, Keyword::ARRAY_CAT) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayCat
+        }
+        Token::Ident(_, Keyword::ARRAY_DIMS) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayDims
+        }
+        Token::Ident(_, Keyword::ARRAY_FILL) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayFill
+        }
+        Token::Ident(_, Keyword::ARRAY_LENGTH) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayLength
+        }
+        Token::Ident(_, Keyword::ARRAY_LOWER) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayLower
+        }
+        Token::Ident(_, Keyword::ARRAY_NDIMS) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayNdims
+        }
+        Token::Ident(_, Keyword::ARRAY_POSITION) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayPosition
+        }
+        Token::Ident(_, Keyword::ARRAY_POSITIONS) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayPositions
+        }
+        Token::Ident(_, Keyword::ARRAY_PREPEND) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayPrepend
+        }
+        Token::Ident(_, Keyword::ARRAY_REMOVE) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayRemove
+        }
+        Token::Ident(_, Keyword::ARRAY_REPLACE) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayReplace
+        }
+        Token::Ident(_, Keyword::ARRAY_REVERSE) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayReverse
+        }
+        Token::Ident(_, Keyword::ARRAY_SAMPLE) if parser.options.dialect.is_postgresql() => {
+            Function::ArraySample
+        }
+        Token::Ident(_, Keyword::ARRAY_SHUFFLE) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayShuffle
+        }
+        Token::Ident(_, Keyword::ARRAY_SORT) if parser.options.dialect.is_postgresql() => {
+            Function::ArraySort
+        }
+        Token::Ident(_, Keyword::ARRAY_TO_STRING) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayToString
+        }
+        Token::Ident(_, Keyword::ARRAY_UPPER) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayUpper
+        }
+        Token::Ident(_, Keyword::CARDINALITY) if parser.options.dialect.is_postgresql() => {
+            Function::Cardinality
+        }
+        Token::Ident(_, Keyword::TRIM_ARRAY) if parser.options.dialect.is_postgresql() => {
+            Function::TrimArray
+        }
 
         // PostgreSQL text search functions
-        Token::Ident(_, Keyword::ARRAY_TO_TSVECTOR) => Function::ArrayToTsvector,
-        Token::Ident(_, Keyword::GET_CURRENT_TS_CONFIG) => Function::GetCurrentTsConfig,
-        Token::Ident(_, Keyword::JSON_TO_TSVECTOR) => Function::JsonToTsvector,
-        Token::Ident(_, Keyword::JSONB_TO_TSVECTOR) => Function::JsonbToTsvector,
-        Token::Ident(_, Keyword::NUMNODE) => Function::Numnode,
-        Token::Ident(_, Keyword::PHRASETO_TSQUERY) => Function::PhraseToTsquery,
-        Token::Ident(_, Keyword::PLAINTO_TSQUERY) => Function::PlainToTsquery,
-        Token::Ident(_, Keyword::QUERYTREE) => Function::Querytree,
-        Token::Ident(_, Keyword::SETWEIGHT) => Function::Setweight,
-        Token::Ident(_, Keyword::STRIP) => Function::Strip,
-        Token::Ident(_, Keyword::TO_TSQUERY) => Function::ToTsquery,
-        Token::Ident(_, Keyword::TO_TSVECTOR) => Function::ToTsvector,
-        Token::Ident(_, Keyword::TS_DEBUG) => Function::TsDebug,
-        Token::Ident(_, Keyword::TS_DELETE) => Function::TsDelete,
-        Token::Ident(_, Keyword::TS_FILTER) => Function::TsFilter,
-        Token::Ident(_, Keyword::TS_HEADLINE) => Function::TsHeadline,
-        Token::Ident(_, Keyword::TS_LEXIZE) => Function::TsLexize,
-        Token::Ident(_, Keyword::TS_PARSE) => Function::TsParse,
-        Token::Ident(_, Keyword::TS_RANK) => Function::TsRank,
-        Token::Ident(_, Keyword::TS_RANK_CD) => Function::TsRankCd,
-        Token::Ident(_, Keyword::TS_REWRITE) => Function::TsRewrite,
-        Token::Ident(_, Keyword::TS_STAT) => Function::TsStat,
-        Token::Ident(_, Keyword::TS_TOKEN_TYPE) => Function::TsTokenType,
-        Token::Ident(_, Keyword::TSQUERY_PHRASE) => Function::TsqueryPhrase,
-        Token::Ident(_, Keyword::TSVECTOR_TO_ARRAY) => Function::TsvectorToArray,
-        Token::Ident(_, Keyword::UNNEST) => Function::Unnest,
-        Token::Ident(_, Keyword::WEBSEARCH_TO_TSQUERY) => Function::WebsearchToTsquery,
+        Token::Ident(_, Keyword::ARRAY_TO_TSVECTOR) if parser.options.dialect.is_postgresql() => {
+            Function::ArrayToTsvector
+        }
+        Token::Ident(_, Keyword::GET_CURRENT_TS_CONFIG)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::GetCurrentTsConfig
+        }
+        Token::Ident(_, Keyword::JSON_TO_TSVECTOR) if parser.options.dialect.is_postgresql() => {
+            Function::JsonToTsvector
+        }
+        Token::Ident(_, Keyword::JSONB_TO_TSVECTOR) if parser.options.dialect.is_postgresql() => {
+            Function::JsonbToTsvector
+        }
+        Token::Ident(_, Keyword::NUMNODE) if parser.options.dialect.is_postgresql() => {
+            Function::Numnode
+        }
+        Token::Ident(_, Keyword::PHRASETO_TSQUERY) if parser.options.dialect.is_postgresql() => {
+            Function::PhraseToTsquery
+        }
+        Token::Ident(_, Keyword::PLAINTO_TSQUERY) if parser.options.dialect.is_postgresql() => {
+            Function::PlainToTsquery
+        }
+        Token::Ident(_, Keyword::QUERYTREE) if parser.options.dialect.is_postgresql() => {
+            Function::Querytree
+        }
+        Token::Ident(_, Keyword::SETWEIGHT) if parser.options.dialect.is_postgresql() => {
+            Function::Setweight
+        }
+        Token::Ident(_, Keyword::STRIP) if parser.options.dialect.is_postgresql() => {
+            Function::Strip
+        }
+        Token::Ident(_, Keyword::TO_TSQUERY) if parser.options.dialect.is_postgresql() => {
+            Function::ToTsquery
+        }
+        Token::Ident(_, Keyword::TO_TSVECTOR) if parser.options.dialect.is_postgresql() => {
+            Function::ToTsvector
+        }
+        Token::Ident(_, Keyword::TS_DEBUG) if parser.options.dialect.is_postgresql() => {
+            Function::TsDebug
+        }
+        Token::Ident(_, Keyword::TS_DELETE) if parser.options.dialect.is_postgresql() => {
+            Function::TsDelete
+        }
+        Token::Ident(_, Keyword::TS_FILTER) if parser.options.dialect.is_postgresql() => {
+            Function::TsFilter
+        }
+        Token::Ident(_, Keyword::TS_HEADLINE) if parser.options.dialect.is_postgresql() => {
+            Function::TsHeadline
+        }
+        Token::Ident(_, Keyword::TS_LEXIZE) if parser.options.dialect.is_postgresql() => {
+            Function::TsLexize
+        }
+        Token::Ident(_, Keyword::TS_PARSE) if parser.options.dialect.is_postgresql() => {
+            Function::TsParse
+        }
+        Token::Ident(_, Keyword::TS_RANK) if parser.options.dialect.is_postgresql() => {
+            Function::TsRank
+        }
+        Token::Ident(_, Keyword::TS_RANK_CD) if parser.options.dialect.is_postgresql() => {
+            Function::TsRankCd
+        }
+        Token::Ident(_, Keyword::TS_REWRITE) if parser.options.dialect.is_postgresql() => {
+            Function::TsRewrite
+        }
+        Token::Ident(_, Keyword::TS_STAT) if parser.options.dialect.is_postgresql() => {
+            Function::TsStat
+        }
+        Token::Ident(_, Keyword::TS_TOKEN_TYPE) if parser.options.dialect.is_postgresql() => {
+            Function::TsTokenType
+        }
+        Token::Ident(_, Keyword::TSQUERY_PHRASE) if parser.options.dialect.is_postgresql() => {
+            Function::TsqueryPhrase
+        }
+        Token::Ident(_, Keyword::TSVECTOR_TO_ARRAY) if parser.options.dialect.is_postgresql() => {
+            Function::TsvectorToArray
+        }
+        Token::Ident(_, Keyword::UNNEST) if parser.options.dialect.is_postgresql() => {
+            Function::Unnest
+        }
+        Token::Ident(_, Keyword::WEBSEARCH_TO_TSQUERY)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::WebsearchToTsquery
+        }
 
         // MySQL 8.4 regexp
-        Token::Ident(_, Keyword::REGEXP_COUNT) => Function::RegexpCount,
-        Token::Ident(_, Keyword::REGEXP_INSTR) => Function::RegexpInstr,
-        Token::Ident(_, Keyword::REGEXP_LIKE) => Function::RegexpLike,
-        Token::Ident(_, Keyword::REGEXP_MATCH) => Function::RegexpMatch,
-        Token::Ident(_, Keyword::REGEXP_MATCHES) => Function::RegexpMatches,
+        Token::Ident(_, Keyword::REGEXP_COUNT) if parser.options.dialect.is_maria() => {
+            Function::RegexpCount
+        }
+        Token::Ident(_, Keyword::REGEXP_INSTR) if parser.options.dialect.is_maria() => {
+            Function::RegexpInstr
+        }
+        Token::Ident(_, Keyword::REGEXP_LIKE) if parser.options.dialect.is_maria() => {
+            Function::RegexpLike
+        }
+        Token::Ident(_, Keyword::REGEXP_MATCH) if parser.options.dialect.is_postgresql() => {
+            Function::RegexpMatch
+        }
+        Token::Ident(_, Keyword::REGEXP_MATCHES) if parser.options.dialect.is_postgresql() => {
+            Function::RegexpMatches
+        }
         Token::Ident(_, Keyword::REGEXP_REPLACE) => Function::RegexpReplace,
-        Token::Ident(_, Keyword::REGEXP_SPLIT_TO_ARRAY) => Function::RegexpSplitToArray,
-        Token::Ident(_, Keyword::REGEXP_SPLIT_TO_TABLE) => Function::RegexpSplitToTable,
-        Token::Ident(_, Keyword::REGEXP_SUBSTR) => Function::RegexpSubstr,
-        Token::Ident(_, Keyword::WEIGHT_STRING) => Function::WeightString,
+        Token::Ident(_, Keyword::REGEXP_SPLIT_TO_ARRAY)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::RegexpSplitToArray
+        }
+        Token::Ident(_, Keyword::REGEXP_SPLIT_TO_TABLE)
+            if parser.options.dialect.is_postgresql() =>
+        {
+            Function::RegexpSplitToTable
+        }
+        Token::Ident(_, Keyword::REGEXP_SUBSTR) if parser.options.dialect.is_maria() => {
+            Function::RegexpSubstr
+        }
+        Token::Ident(_, Keyword::WEIGHT_STRING) if parser.options.dialect.is_maria() => {
+            Function::WeightString
+        }
 
         // MySQL 8.4 datetime
-        Token::Ident(_, Keyword::GET_BIT) => Function::GetBit,
-        Token::Ident(_, Keyword::GET_FORMAT) => Function::GetFormat,
+        Token::Ident(_, Keyword::GET_BIT) if parser.options.dialect.is_maria() => Function::GetBit,
+        Token::Ident(_, Keyword::GET_FORMAT) if parser.options.dialect.is_maria() => {
+            Function::GetFormat
+        }
 
         // MySQL 8.4 window / analytics
-        Token::Ident(_, Keyword::FIRST_VALUE) => Function::FirstValue,
-        Token::Ident(_, Keyword::LAST_VALUE) => Function::LastValue,
-        Token::Ident(_, Keyword::NTH_VALUE) => Function::NthValue,
-        Token::Ident(_, Keyword::NTILE) => Function::Ntile,
+        Token::Ident(_, Keyword::FIRST_VALUE) if parser.options.dialect.is_maria() => {
+            Function::FirstValue
+        }
+        Token::Ident(_, Keyword::LAST_VALUE) if parser.options.dialect.is_maria() => {
+            Function::LastValue
+        }
+        Token::Ident(_, Keyword::NTH_VALUE) if parser.options.dialect.is_maria() => {
+            Function::NthValue
+        }
+        Token::Ident(_, Keyword::NTILE) if parser.options.dialect.is_maria() => Function::Ntile,
         Token::Ident(_, Keyword::ROW_NUMBER) => Function::RowNumber,
 
         // MySQL 8.4 performance schema
-        Token::Ident(_, Keyword::FORMAT_BYTES) => Function::FormatBytes,
-        Token::Ident(_, Keyword::FORMAT_PICO_TIME) => Function::FormatPicoTime,
-        Token::Ident(_, Keyword::PS_CURRENT_THREAD_ID) => Function::PsCurrentThreadId,
-        Token::Ident(_, Keyword::PS_THREAD_ID) => Function::PsThreadId,
+        Token::Ident(_, Keyword::FORMAT_BYTES) if parser.options.dialect.is_maria() => {
+            Function::FormatBytes
+        }
+        Token::Ident(_, Keyword::FORMAT_PICO_TIME) if parser.options.dialect.is_maria() => {
+            Function::FormatPicoTime
+        }
+        Token::Ident(_, Keyword::PS_CURRENT_THREAD_ID) if parser.options.dialect.is_maria() => {
+            Function::PsCurrentThreadId
+        }
+        Token::Ident(_, Keyword::PS_THREAD_ID) if parser.options.dialect.is_maria() => {
+            Function::PsThreadId
+        }
 
         // MySQL 8.4 miscellaneous
-        Token::Ident(_, Keyword::ANY_VALUE) => Function::AnyValue,
-        Token::Ident(_, Keyword::BIN_TO_UUID) => Function::BinToUuid,
-        Token::Ident(_, Keyword::BIT_COUNT) => Function::BitCount,
+        Token::Ident(_, Keyword::ANY_VALUE) if parser.options.dialect.is_maria() => {
+            Function::AnyValue
+        }
+        Token::Ident(_, Keyword::BIN_TO_UUID) if parser.options.dialect.is_maria() => {
+            Function::BinToUuid
+        }
+        Token::Ident(_, Keyword::BIT_COUNT) if parser.options.dialect.is_maria() => {
+            Function::BitCount
+        }
         Token::Ident(_, Keyword::GROUPING) => Function::Grouping,
-        Token::Ident(_, Keyword::INET6_ATON) => Function::Inet6Aton,
-        Token::Ident(_, Keyword::INET6_NTOA) => Function::Inet6Ntoa,
-        Token::Ident(_, Keyword::INET_ATON) => Function::InetAton,
-        Token::Ident(_, Keyword::INET_NTOA) => Function::InetNtoa,
-        Token::Ident(_, Keyword::IS_IPV4) => Function::IsIPv4,
-        Token::Ident(_, Keyword::IS_IPV4_COMPAT) => Function::IsIPv4Compat,
-        Token::Ident(_, Keyword::IS_IPV4_MAPPED) => Function::IsIPv4Mapped,
-        Token::Ident(_, Keyword::IS_IPV6) => Function::IsIPv6,
-        Token::Ident(_, Keyword::IS_UUID) => Function::IsUuid,
-        Token::Ident(_, Keyword::NAME_CONST) => Function::NameConst,
+        Token::Ident(_, Keyword::INET6_ATON) if parser.options.dialect.is_maria() => {
+            Function::Inet6Aton
+        }
+        Token::Ident(_, Keyword::INET6_NTOA) if parser.options.dialect.is_maria() => {
+            Function::Inet6Ntoa
+        }
+        Token::Ident(_, Keyword::INET_ATON) if parser.options.dialect.is_maria() => {
+            Function::InetAton
+        }
+        Token::Ident(_, Keyword::INET_NTOA) if parser.options.dialect.is_maria() => {
+            Function::InetNtoa
+        }
+        Token::Ident(_, Keyword::IS_IPV4) if parser.options.dialect.is_maria() => Function::IsIPv4,
+        Token::Ident(_, Keyword::IS_IPV4_COMPAT) if parser.options.dialect.is_maria() => {
+            Function::IsIPv4Compat
+        }
+        Token::Ident(_, Keyword::IS_IPV4_MAPPED) if parser.options.dialect.is_maria() => {
+            Function::IsIPv4Mapped
+        }
+        Token::Ident(_, Keyword::IS_IPV6) if parser.options.dialect.is_maria() => Function::IsIPv6,
+        Token::Ident(_, Keyword::IS_UUID) if parser.options.dialect.is_maria() => Function::IsUuid,
+        Token::Ident(_, Keyword::NAME_CONST) if parser.options.dialect.is_maria() => {
+            Function::NameConst
+        }
         Token::Ident(_, Keyword::UUID) => Function::Uuid,
-        Token::Ident(_, Keyword::UUID_SHORT) => Function::UuidShort,
-        Token::Ident(_, Keyword::UUID_TO_BIN) => Function::UuidToBin,
+        Token::Ident(_, Keyword::UUID_SHORT) if parser.options.dialect.is_maria() => {
+            Function::UuidShort
+        }
+        Token::Ident(_, Keyword::UUID_TO_BIN) if parser.options.dialect.is_maria() => {
+            Function::UuidToBin
+        }
 
         // PostgreSQL geometric functions (non-PostGIS) - Table 9.37
-        Token::Ident(_, Keyword::AREA) => Function::Area,
-        Token::Ident(_, Keyword::BOUND_BOX) => Function::BoundBox,
-        Token::Ident(_, Keyword::CENTER) => Function::Center,
-        Token::Ident(_, Keyword::DIAGONAL) => Function::Diagonal,
-        Token::Ident(_, Keyword::DIAMETER) => Function::Diameter,
-        Token::Ident(_, Keyword::HEIGHT) => Function::Height,
-        Token::Ident(_, Keyword::ISCLOSED) => Function::Isclosed,
-        Token::Ident(_, Keyword::ISOPEN) => Function::IsOpen,
-        Token::Ident(_, Keyword::NPOINTS) => Function::Npoints,
-        Token::Ident(_, Keyword::PCLOSE) => Function::Pclose,
-        Token::Ident(_, Keyword::POPEN) => Function::Popen,
-        Token::Ident(_, Keyword::RADIUS) => Function::Radius,
-        Token::Ident(_, Keyword::SLOPE) => Function::Slope,
-        Token::Ident(_, Keyword::WIDTH) => Function::Width,
+        Token::Ident(_, Keyword::AREA) if parser.options.dialect.is_postgresql() => Function::Area,
+        Token::Ident(_, Keyword::BOUND_BOX) if parser.options.dialect.is_postgresql() => {
+            Function::BoundBox
+        }
+        Token::Ident(_, Keyword::CENTER) if parser.options.dialect.is_postgresql() => {
+            Function::Center
+        }
+        Token::Ident(_, Keyword::DIAGONAL) if parser.options.dialect.is_postgresql() => {
+            Function::Diagonal
+        }
+        Token::Ident(_, Keyword::DIAMETER) if parser.options.dialect.is_postgresql() => {
+            Function::Diameter
+        }
+        Token::Ident(_, Keyword::HEIGHT) if parser.options.dialect.is_postgresql() => {
+            Function::Height
+        }
+        Token::Ident(_, Keyword::ISCLOSED) if parser.options.dialect.is_postgresql() => {
+            Function::Isclosed
+        }
+        Token::Ident(_, Keyword::ISOPEN) if parser.options.dialect.is_postgresql() => {
+            Function::IsOpen
+        }
+        Token::Ident(_, Keyword::NPOINTS) if parser.options.dialect.is_postgresql() => {
+            Function::Npoints
+        }
+        Token::Ident(_, Keyword::PCLOSE) if parser.options.dialect.is_postgresql() => {
+            Function::Pclose
+        }
+        Token::Ident(_, Keyword::POPEN) if parser.options.dialect.is_postgresql() => {
+            Function::Popen
+        }
+        Token::Ident(_, Keyword::RADIUS) if parser.options.dialect.is_postgresql() => {
+            Function::Radius
+        }
+        Token::Ident(_, Keyword::SLOPE) if parser.options.dialect.is_postgresql() => {
+            Function::Slope
+        }
+        Token::Ident(_, Keyword::WIDTH) if parser.options.dialect.is_postgresql() => {
+            Function::Width
+        }
 
         // PostgreSQL enum support functions
-        Token::Ident(_, Keyword::ENUM_FIRST) => Function::EnumFirst,
-        Token::Ident(_, Keyword::ENUM_LAST) => Function::EnumLast,
-        Token::Ident(_, Keyword::ENUM_RANGE) => Function::EnumRange,
+        Token::Ident(_, Keyword::ENUM_FIRST) if parser.options.dialect.is_postgresql() => {
+            Function::EnumFirst
+        }
+        Token::Ident(_, Keyword::ENUM_LAST) if parser.options.dialect.is_postgresql() => {
+            Function::EnumLast
+        }
+        Token::Ident(_, Keyword::ENUM_RANGE) if parser.options.dialect.is_postgresql() => {
+            Function::EnumRange
+        }
 
         // PostGIS / geometry functions
-        Token::Ident(_, Keyword::BOX2D) => Function::Box2D,
-        Token::Ident(_, Keyword::BOX3D) => Function::Box3D,
-        Token::Ident(_, Keyword::GEOMETRYTYPE) => Function::GeometryType,
-        Token::Ident(_, Keyword::ST_ADDMEASURE) => Function::StAddMeasure,
-        Token::Ident(_, Keyword::ST_ADDPOINT) => Function::StAddPoint,
-        Token::Ident(_, Keyword::ST_AFFINE) => Function::StAffine,
-        Token::Ident(_, Keyword::ST_AREA) => Function::StArea,
-        Token::Ident(_, Keyword::ST_ASBINARY) => Function::StAsBinary,
-        Token::Ident(_, Keyword::ST_ASEWKB) => Function::StAsEwkb,
-        Token::Ident(_, Keyword::ST_ASEWKT) => Function::StAsEwkt,
-        Token::Ident(_, Keyword::ST_ASGEOJSON) => Function::StAsGeoJson,
-        Token::Ident(_, Keyword::ST_ASGML) => Function::StAsGml,
-        Token::Ident(_, Keyword::ST_ASHEXEWKB) => Function::StAsHexEwkb,
-        Token::Ident(_, Keyword::ST_ASKML) => Function::StAsKml,
-        Token::Ident(_, Keyword::ST_ASSVG) => Function::StAsSvg,
-        Token::Ident(_, Keyword::ST_ASTEXT) => Function::StAsText,
-        Token::Ident(_, Keyword::ST_AZIMUTH) => Function::StAzimuth,
-        Token::Ident(_, Keyword::ST_BOUNDARY) => Function::StBoundary,
-        Token::Ident(_, Keyword::ST_BUFFER) => Function::StBuffer,
-        Token::Ident(_, Keyword::ST_BUILDAREA) => Function::StBuildArea,
-        Token::Ident(_, Keyword::ST_CENTROID) => Function::StCentroid,
-        Token::Ident(_, Keyword::ST_CLOSESTPOINT) => Function::StClosestPoint,
-        Token::Ident(_, Keyword::ST_COLLECT) => Function::StCollect,
-        Token::Ident(_, Keyword::ST_COLLECTIONEXTRACT) => Function::StCollectionExtract,
-        Token::Ident(_, Keyword::ST_CONTAINS) => Function::StContains,
-        Token::Ident(_, Keyword::ST_CONTAINSPROPERLY) => Function::StContainsProperly,
-        Token::Ident(_, Keyword::ST_CONVEXHULL) => Function::StConvexHull,
-        Token::Ident(_, Keyword::ST_COORDDIM) => Function::StCoordDim,
-        Token::Ident(_, Keyword::ST_COVEREDBY) => Function::StCoveredBy,
-        Token::Ident(_, Keyword::ST_COVERS) => Function::StCovers,
-        Token::Ident(_, Keyword::ST_CROSSES) => Function::StCrosses,
-        Token::Ident(_, Keyword::ST_CURVETOLINE) => Function::StCurveToLine,
-        Token::Ident(_, Keyword::ST_DFULLWITHIN) => Function::StDFullyWithin,
-        Token::Ident(_, Keyword::ST_DIFFERENCE) => Function::StDifference,
-        Token::Ident(_, Keyword::ST_DIMENSION) => Function::StDimension,
-        Token::Ident(_, Keyword::ST_DISJOINT) => Function::StDisjoint,
-        Token::Ident(_, Keyword::ST_DISTANCE) => Function::StDistance,
-        Token::Ident(_, Keyword::ST_DISTANCE_SPHERE) => Function::StDistanceSphere,
-        Token::Ident(_, Keyword::ST_DISTANCE_SPHEROID) => Function::StDistanceSpheroidal,
-        Token::Ident(_, Keyword::ST_DWITHIN) => Function::StDWithin,
-        Token::Ident(_, Keyword::ST_ENDPOINT) => Function::StEndPoint,
-        Token::Ident(_, Keyword::ST_ENVELOPE) => Function::StEnvelope,
-        Token::Ident(_, Keyword::ST_EQUALS) => Function::StEquals,
-        Token::Ident(_, Keyword::ST_EXTERIORRING) => Function::StExteriorRing,
-        Token::Ident(_, Keyword::ST_FORCE_2D) => Function::StForce2D,
-        Token::Ident(_, Keyword::ST_FORCE_3D) => Function::StForce3D,
-        Token::Ident(_, Keyword::ST_FORCE_3DM) => Function::StForce3DM,
-        Token::Ident(_, Keyword::ST_FORCE_3DZ) => Function::StForce3DZ,
-        Token::Ident(_, Keyword::ST_FORCE_4D) => Function::StForce4D,
-        Token::Ident(_, Keyword::ST_FORCE_COLLECTION) => Function::StForceCollection,
-        Token::Ident(_, Keyword::ST_FORCERHR) => Function::StForceRHR,
-        Token::Ident(_, Keyword::ST_GEOHASH) => Function::StGeoHash,
-        Token::Ident(_, Keyword::ST_GEOMCOLLFROMTEXT) => Function::StGeomCollFromText,
-        Token::Ident(_, Keyword::ST_GEOMFROMEWKB) => Function::StGeomFromEwkb,
-        Token::Ident(_, Keyword::ST_GEOMFROMEWKT) => Function::StGeomFromEwkt,
-        Token::Ident(_, Keyword::ST_GEOMFROMGEOJSON) => Function::StGeomFromGeoJson,
-        Token::Ident(_, Keyword::ST_GEOMFROMGML) => Function::StGeomFromGml,
-        Token::Ident(_, Keyword::ST_GEOMFROMKML) => Function::StGeomFromKml,
-        Token::Ident(_, Keyword::ST_GEOMFROMTEXT) => Function::StGeomFromText,
-        Token::Ident(_, Keyword::ST_GEOMFROMWKB) => Function::StGeomFromWkb,
-        Token::Ident(_, Keyword::ST_GEOMETRYFROMTEXT) => Function::StGeometryFromText,
-        Token::Ident(_, Keyword::ST_GEOMETRYN) => Function::StGeometryN,
-        Token::Ident(_, Keyword::ST_GEOMETRYTYPE) => Function::StGeometryType,
-        Token::Ident(_, Keyword::ST_GMLTOSQL) => Function::StGmlToSQL,
-        Token::Ident(_, Keyword::ST_HASARC) => Function::StHasArc,
-        Token::Ident(_, Keyword::ST_HAUSDORFFDISTANCE) => Function::StHausdorffDistance,
-        Token::Ident(_, Keyword::ST_INTERIORRINGN) => Function::StInteriorRingN,
-        Token::Ident(_, Keyword::ST_INTERSECTION) => Function::StIntersection,
-        Token::Ident(_, Keyword::ST_INTERSECTS) => Function::StIntersects,
-        Token::Ident(_, Keyword::ST_ISCLOSED) => Function::StIsClosed,
-        Token::Ident(_, Keyword::ST_ISEMPTY) => Function::StIsEmpty,
-        Token::Ident(_, Keyword::ST_ISRING) => Function::StIsRing,
-        Token::Ident(_, Keyword::ST_ISSIMPLE) => Function::StIsSimple,
-        Token::Ident(_, Keyword::ST_ISVALID) => Function::StIsValid,
-        Token::Ident(_, Keyword::ST_ISVALIDREASON) => Function::StIsValidReason,
-        Token::Ident(_, Keyword::ST_LENGTH) => Function::StLength,
-        Token::Ident(_, Keyword::ST_LENGTH2D) => Function::StLength2D,
-        Token::Ident(_, Keyword::ST_LENGTH3D) => Function::StLength3D,
-        Token::Ident(_, Keyword::ST_LINECROSSINGDIRECTION) => Function::StLineCrossingDirection,
-        Token::Ident(_, Keyword::ST_LINEFROMMULTIPOINT) => Function::StLineFromMultiPoint,
-        Token::Ident(_, Keyword::ST_LINEFROMTEXT) => Function::StLineFromText,
-        Token::Ident(_, Keyword::ST_LINEFROMWKB) => Function::StLineFromWkb,
-        Token::Ident(_, Keyword::ST_LINEMERGE) => Function::StLineMerge,
-        Token::Ident(_, Keyword::ST_LINESTRINGFROMWKB) => Function::StLinestringFromWkb,
-        Token::Ident(_, Keyword::ST_LINETOCURVE) => Function::StLineToCurve,
-        Token::Ident(_, Keyword::ST_LINE_INTERPOLATE_POINT) => Function::StLineInterpolatePoint,
-        Token::Ident(_, Keyword::ST_LINE_LOCATE_POINT) => Function::StLineLocatePoint,
-        Token::Ident(_, Keyword::ST_LINE_SUBSTRING) => Function::StLineSubstring,
-        Token::Ident(_, Keyword::ST_LONGESTLINE) => Function::StLongestLine,
-        Token::Ident(_, Keyword::ST_M) => Function::StM,
-        Token::Ident(_, Keyword::ST_MAKEENVELOPE) => Function::StMakeEnvelope,
-        Token::Ident(_, Keyword::ST_MAKELINE) => Function::StMakeLine,
-        Token::Ident(_, Keyword::ST_MAKEPOINT) => Function::StMakePoint,
-        Token::Ident(_, Keyword::ST_MAKEPOINTM) => Function::StMakePointM,
-        Token::Ident(_, Keyword::ST_MAKEPOLYGON) => Function::StMakePolygon,
-        Token::Ident(_, Keyword::ST_MAXDISTANCE) => Function::StMaxDistance,
-        Token::Ident(_, Keyword::ST_MEM_SIZE) => Function::StMemSize,
-        Token::Ident(_, Keyword::ST_MINIMUMBOUNDINGCIRCLE) => Function::StMinimumBoundingCircle,
-        Token::Ident(_, Keyword::ST_MULTI) => Function::StMulti,
-        Token::Ident(_, Keyword::ST_NDIMS) => Function::StNDims,
-        Token::Ident(_, Keyword::ST_NPOINTS) => Function::StNPoints,
-        Token::Ident(_, Keyword::ST_NRINGS) => Function::StNRings,
-        Token::Ident(_, Keyword::ST_NUMGEOMETRIES) => Function::StNumGeometries,
-        Token::Ident(_, Keyword::ST_NUMINTERIORRING) => Function::StNumInteriorRing,
-        Token::Ident(_, Keyword::ST_NUMINTERIORRINGS) => Function::StNumInteriorRings,
-        Token::Ident(_, Keyword::ST_NUMPOINTS) => Function::StNumPoints,
-        Token::Ident(_, Keyword::ST_ORDERINGEQUALS) => Function::StOrderingEquals,
-        Token::Ident(_, Keyword::ST_OVERLAPS) => Function::StOverlaps,
-        Token::Ident(_, Keyword::ST_PERIMETER) => Function::StPerimeter,
-        Token::Ident(_, Keyword::ST_PERIMETER2D) => Function::StPerimeter2D,
-        Token::Ident(_, Keyword::ST_PERIMETER3D) => Function::StPerimeter3D,
-        Token::Ident(_, Keyword::ST_POINT) => Function::StPoint,
-        Token::Ident(_, Keyword::ST_POINTFROMTEXT) => Function::StPointFromText,
-        Token::Ident(_, Keyword::ST_POINTFROMWKB) => Function::StPointFromWkb,
-        Token::Ident(_, Keyword::ST_POINTN) => Function::StPointN,
-        Token::Ident(_, Keyword::ST_POINTONSURFACE) => Function::StPointOnSurface,
-        Token::Ident(_, Keyword::ST_POINT_INSIDE_CIRCLE) => Function::StPointInsideCircle,
-        Token::Ident(_, Keyword::ST_POLYGON) => Function::StPolygon,
-        Token::Ident(_, Keyword::ST_POLYGONFROMTEXT) => Function::StPolygonFromText,
-        Token::Ident(_, Keyword::ST_POLYGONIZE) => Function::StPolygonize,
-        Token::Ident(_, Keyword::ST_RELATE) => Function::StRelate,
-        Token::Ident(_, Keyword::ST_REMOVEPOINT) => Function::StRemovePoint,
-        Token::Ident(_, Keyword::ST_REVERSE) => Function::StReverse,
-        Token::Ident(_, Keyword::ST_ROTATE) => Function::StRotate,
-        Token::Ident(_, Keyword::ST_ROTATEX) => Function::StRotateX,
-        Token::Ident(_, Keyword::ST_ROTATEY) => Function::StRotateY,
-        Token::Ident(_, Keyword::ST_ROTATEZ) => Function::StRotateZ,
-        Token::Ident(_, Keyword::ST_SCALE) => Function::StScale,
-        Token::Ident(_, Keyword::ST_SEGMENTIZE) => Function::StSegmentize,
-        Token::Ident(_, Keyword::ST_SETPOINT) => Function::StSetPoint,
-        Token::Ident(_, Keyword::ST_SETSRID) => Function::StSetSrid,
-        Token::Ident(_, Keyword::ST_SHIFT_LONGITUDE) => Function::StShiftLongitude,
-        Token::Ident(_, Keyword::ST_SHORTESTLINE) => Function::StShortestLine,
-        Token::Ident(_, Keyword::ST_SIMPLIFY) => Function::StSimplify,
-        Token::Ident(_, Keyword::ST_SIMPLIFYPRESERVETOPOLOGY) => {
+        Token::Ident(_, Keyword::BOX2D) if parser.options.dialect.is_postgis() => Function::Box2D,
+        Token::Ident(_, Keyword::BOX3D) if parser.options.dialect.is_postgis() => Function::Box3D,
+        Token::Ident(_, Keyword::GEOMETRYTYPE) if parser.options.dialect.is_postgis() => {
+            Function::GeometryType
+        }
+        Token::Ident(_, Keyword::ST_ADDMEASURE) if parser.options.dialect.is_postgis() => {
+            Function::StAddMeasure
+        }
+        Token::Ident(_, Keyword::ST_ADDPOINT) if parser.options.dialect.is_postgis() => {
+            Function::StAddPoint
+        }
+        Token::Ident(_, Keyword::ST_AFFINE) if parser.options.dialect.is_postgis() => {
+            Function::StAffine
+        }
+        Token::Ident(_, Keyword::ST_AREA) if parser.options.dialect.is_postgis() => {
+            Function::StArea
+        }
+        Token::Ident(_, Keyword::ST_ASBINARY) if parser.options.dialect.is_postgis() => {
+            Function::StAsBinary
+        }
+        Token::Ident(_, Keyword::ST_ASEWKB) if parser.options.dialect.is_postgis() => {
+            Function::StAsEwkb
+        }
+        Token::Ident(_, Keyword::ST_ASEWKT) if parser.options.dialect.is_postgis() => {
+            Function::StAsEwkt
+        }
+        Token::Ident(_, Keyword::ST_ASGEOJSON) if parser.options.dialect.is_postgis() => {
+            Function::StAsGeoJson
+        }
+        Token::Ident(_, Keyword::ST_ASGML) if parser.options.dialect.is_postgis() => {
+            Function::StAsGml
+        }
+        Token::Ident(_, Keyword::ST_ASHEXEWKB) if parser.options.dialect.is_postgis() => {
+            Function::StAsHexEwkb
+        }
+        Token::Ident(_, Keyword::ST_ASKML) if parser.options.dialect.is_postgis() => {
+            Function::StAsKml
+        }
+        Token::Ident(_, Keyword::ST_ASSVG) if parser.options.dialect.is_postgis() => {
+            Function::StAsSvg
+        }
+        Token::Ident(_, Keyword::ST_ASTEXT) if parser.options.dialect.is_postgis() => {
+            Function::StAsText
+        }
+        Token::Ident(_, Keyword::ST_AZIMUTH) if parser.options.dialect.is_postgis() => {
+            Function::StAzimuth
+        }
+        Token::Ident(_, Keyword::ST_BOUNDARY) if parser.options.dialect.is_postgis() => {
+            Function::StBoundary
+        }
+        Token::Ident(_, Keyword::ST_BUFFER) if parser.options.dialect.is_postgis() => {
+            Function::StBuffer
+        }
+        Token::Ident(_, Keyword::ST_BUILDAREA) if parser.options.dialect.is_postgis() => {
+            Function::StBuildArea
+        }
+        Token::Ident(_, Keyword::ST_CENTROID) if parser.options.dialect.is_postgis() => {
+            Function::StCentroid
+        }
+        Token::Ident(_, Keyword::ST_CLOSESTPOINT) if parser.options.dialect.is_postgis() => {
+            Function::StClosestPoint
+        }
+        Token::Ident(_, Keyword::ST_COLLECT) if parser.options.dialect.is_postgis() => {
+            Function::StCollect
+        }
+        Token::Ident(_, Keyword::ST_COLLECTIONEXTRACT) if parser.options.dialect.is_postgis() => {
+            Function::StCollectionExtract
+        }
+        Token::Ident(_, Keyword::ST_CONTAINS) if parser.options.dialect.is_postgis() => {
+            Function::StContains
+        }
+        Token::Ident(_, Keyword::ST_CONTAINSPROPERLY) if parser.options.dialect.is_postgis() => {
+            Function::StContainsProperly
+        }
+        Token::Ident(_, Keyword::ST_CONVEXHULL) if parser.options.dialect.is_postgis() => {
+            Function::StConvexHull
+        }
+        Token::Ident(_, Keyword::ST_COORDDIM) if parser.options.dialect.is_postgis() => {
+            Function::StCoordDim
+        }
+        Token::Ident(_, Keyword::ST_COVEREDBY) if parser.options.dialect.is_postgis() => {
+            Function::StCoveredBy
+        }
+        Token::Ident(_, Keyword::ST_COVERS) if parser.options.dialect.is_postgis() => {
+            Function::StCovers
+        }
+        Token::Ident(_, Keyword::ST_CROSSES) if parser.options.dialect.is_postgis() => {
+            Function::StCrosses
+        }
+        Token::Ident(_, Keyword::ST_CURVETOLINE) if parser.options.dialect.is_postgis() => {
+            Function::StCurveToLine
+        }
+        Token::Ident(_, Keyword::ST_DFULLWITHIN) if parser.options.dialect.is_postgis() => {
+            Function::StDFullyWithin
+        }
+        Token::Ident(_, Keyword::ST_DIFFERENCE) if parser.options.dialect.is_postgis() => {
+            Function::StDifference
+        }
+        Token::Ident(_, Keyword::ST_DIMENSION) if parser.options.dialect.is_postgis() => {
+            Function::StDimension
+        }
+        Token::Ident(_, Keyword::ST_DISJOINT) if parser.options.dialect.is_postgis() => {
+            Function::StDisjoint
+        }
+        Token::Ident(_, Keyword::ST_DISTANCE) if parser.options.dialect.is_postgis() => {
+            Function::StDistance
+        }
+        Token::Ident(_, Keyword::ST_DISTANCE_SPHERE) if parser.options.dialect.is_postgis() => {
+            Function::StDistanceSphere
+        }
+        Token::Ident(_, Keyword::ST_DISTANCE_SPHEROID) if parser.options.dialect.is_postgis() => {
+            Function::StDistanceSpheroidal
+        }
+        Token::Ident(_, Keyword::ST_DWITHIN) if parser.options.dialect.is_postgis() => {
+            Function::StDWithin
+        }
+        Token::Ident(_, Keyword::ST_ENDPOINT) if parser.options.dialect.is_postgis() => {
+            Function::StEndPoint
+        }
+        Token::Ident(_, Keyword::ST_ENVELOPE) if parser.options.dialect.is_postgis() => {
+            Function::StEnvelope
+        }
+        Token::Ident(_, Keyword::ST_EQUALS) if parser.options.dialect.is_postgis() => {
+            Function::StEquals
+        }
+        Token::Ident(_, Keyword::ST_EXTERIORRING) if parser.options.dialect.is_postgis() => {
+            Function::StExteriorRing
+        }
+        Token::Ident(_, Keyword::ST_FORCE_2D) if parser.options.dialect.is_postgis() => {
+            Function::StForce2D
+        }
+        Token::Ident(_, Keyword::ST_FORCE_3D) if parser.options.dialect.is_postgis() => {
+            Function::StForce3D
+        }
+        Token::Ident(_, Keyword::ST_FORCE_3DM) if parser.options.dialect.is_postgis() => {
+            Function::StForce3DM
+        }
+        Token::Ident(_, Keyword::ST_FORCE_3DZ) if parser.options.dialect.is_postgis() => {
+            Function::StForce3DZ
+        }
+        Token::Ident(_, Keyword::ST_FORCE_4D) if parser.options.dialect.is_postgis() => {
+            Function::StForce4D
+        }
+        Token::Ident(_, Keyword::ST_FORCE_COLLECTION) if parser.options.dialect.is_postgis() => {
+            Function::StForceCollection
+        }
+        Token::Ident(_, Keyword::ST_FORCERHR) if parser.options.dialect.is_postgis() => {
+            Function::StForceRHR
+        }
+        Token::Ident(_, Keyword::ST_GEOHASH) if parser.options.dialect.is_postgis() => {
+            Function::StGeoHash
+        }
+        Token::Ident(_, Keyword::ST_GEOMCOLLFROMTEXT) if parser.options.dialect.is_postgis() => {
+            Function::StGeomCollFromText
+        }
+        Token::Ident(_, Keyword::ST_GEOMFROMEWKB) if parser.options.dialect.is_postgis() => {
+            Function::StGeomFromEwkb
+        }
+        Token::Ident(_, Keyword::ST_GEOMFROMEWKT) if parser.options.dialect.is_postgis() => {
+            Function::StGeomFromEwkt
+        }
+        Token::Ident(_, Keyword::ST_GEOMFROMGEOJSON) if parser.options.dialect.is_postgis() => {
+            Function::StGeomFromGeoJson
+        }
+        Token::Ident(_, Keyword::ST_GEOMFROMGML) if parser.options.dialect.is_postgis() => {
+            Function::StGeomFromGml
+        }
+        Token::Ident(_, Keyword::ST_GEOMFROMKML) if parser.options.dialect.is_postgis() => {
+            Function::StGeomFromKml
+        }
+        Token::Ident(_, Keyword::ST_GEOMFROMTEXT) if parser.options.dialect.is_postgis() => {
+            Function::StGeomFromText
+        }
+        Token::Ident(_, Keyword::ST_GEOMFROMWKB) if parser.options.dialect.is_postgis() => {
+            Function::StGeomFromWkb
+        }
+        Token::Ident(_, Keyword::ST_GEOMETRYFROMTEXT) if parser.options.dialect.is_postgis() => {
+            Function::StGeometryFromText
+        }
+        Token::Ident(_, Keyword::ST_GEOMETRYN) if parser.options.dialect.is_postgis() => {
+            Function::StGeometryN
+        }
+        Token::Ident(_, Keyword::ST_GEOMETRYTYPE) if parser.options.dialect.is_postgis() => {
+            Function::StGeometryType
+        }
+        Token::Ident(_, Keyword::ST_GMLTOSQL) if parser.options.dialect.is_postgis() => {
+            Function::StGmlToSQL
+        }
+        Token::Ident(_, Keyword::ST_HASARC) if parser.options.dialect.is_postgis() => {
+            Function::StHasArc
+        }
+        Token::Ident(_, Keyword::ST_HAUSDORFFDISTANCE) if parser.options.dialect.is_postgis() => {
+            Function::StHausdorffDistance
+        }
+        Token::Ident(_, Keyword::ST_INTERIORRINGN) if parser.options.dialect.is_postgis() => {
+            Function::StInteriorRingN
+        }
+        Token::Ident(_, Keyword::ST_INTERSECTION) if parser.options.dialect.is_postgis() => {
+            Function::StIntersection
+        }
+        Token::Ident(_, Keyword::ST_INTERSECTS) if parser.options.dialect.is_postgis() => {
+            Function::StIntersects
+        }
+        Token::Ident(_, Keyword::ST_ISCLOSED) if parser.options.dialect.is_postgis() => {
+            Function::StIsClosed
+        }
+        Token::Ident(_, Keyword::ST_ISEMPTY) if parser.options.dialect.is_postgis() => {
+            Function::StIsEmpty
+        }
+        Token::Ident(_, Keyword::ST_ISRING) if parser.options.dialect.is_postgis() => {
+            Function::StIsRing
+        }
+        Token::Ident(_, Keyword::ST_ISSIMPLE) if parser.options.dialect.is_postgis() => {
+            Function::StIsSimple
+        }
+        Token::Ident(_, Keyword::ST_ISVALID) if parser.options.dialect.is_postgis() => {
+            Function::StIsValid
+        }
+        Token::Ident(_, Keyword::ST_ISVALIDREASON) if parser.options.dialect.is_postgis() => {
+            Function::StIsValidReason
+        }
+        Token::Ident(_, Keyword::ST_LENGTH) if parser.options.dialect.is_postgis() => {
+            Function::StLength
+        }
+        Token::Ident(_, Keyword::ST_LENGTH2D) if parser.options.dialect.is_postgis() => {
+            Function::StLength2D
+        }
+        Token::Ident(_, Keyword::ST_LENGTH3D) if parser.options.dialect.is_postgis() => {
+            Function::StLength3D
+        }
+        Token::Ident(_, Keyword::ST_LINECROSSINGDIRECTION)
+            if parser.options.dialect.is_postgis() =>
+        {
+            Function::StLineCrossingDirection
+        }
+        Token::Ident(_, Keyword::ST_LINEFROMMULTIPOINT) if parser.options.dialect.is_postgis() => {
+            Function::StLineFromMultiPoint
+        }
+        Token::Ident(_, Keyword::ST_LINEFROMTEXT) if parser.options.dialect.is_postgis() => {
+            Function::StLineFromText
+        }
+        Token::Ident(_, Keyword::ST_LINEFROMWKB) if parser.options.dialect.is_postgis() => {
+            Function::StLineFromWkb
+        }
+        Token::Ident(_, Keyword::ST_LINEMERGE) if parser.options.dialect.is_postgis() => {
+            Function::StLineMerge
+        }
+        Token::Ident(_, Keyword::ST_LINESTRINGFROMWKB) if parser.options.dialect.is_postgis() => {
+            Function::StLinestringFromWkb
+        }
+        Token::Ident(_, Keyword::ST_LINETOCURVE) if parser.options.dialect.is_postgis() => {
+            Function::StLineToCurve
+        }
+        Token::Ident(_, Keyword::ST_LINE_INTERPOLATE_POINT)
+            if parser.options.dialect.is_postgis() =>
+        {
+            Function::StLineInterpolatePoint
+        }
+        Token::Ident(_, Keyword::ST_LINE_LOCATE_POINT) if parser.options.dialect.is_postgis() => {
+            Function::StLineLocatePoint
+        }
+        Token::Ident(_, Keyword::ST_LINE_SUBSTRING) if parser.options.dialect.is_postgis() => {
+            Function::StLineSubstring
+        }
+        Token::Ident(_, Keyword::ST_LONGESTLINE) if parser.options.dialect.is_postgis() => {
+            Function::StLongestLine
+        }
+        Token::Ident(_, Keyword::ST_M) if parser.options.dialect.is_postgis() => Function::StM,
+        Token::Ident(_, Keyword::ST_MAKEENVELOPE) if parser.options.dialect.is_postgis() => {
+            Function::StMakeEnvelope
+        }
+        Token::Ident(_, Keyword::ST_MAKELINE) if parser.options.dialect.is_postgis() => {
+            Function::StMakeLine
+        }
+        Token::Ident(_, Keyword::ST_MAKEPOINT) if parser.options.dialect.is_postgis() => {
+            Function::StMakePoint
+        }
+        Token::Ident(_, Keyword::ST_MAKEPOINTM) if parser.options.dialect.is_postgis() => {
+            Function::StMakePointM
+        }
+        Token::Ident(_, Keyword::ST_MAKEPOLYGON) if parser.options.dialect.is_postgis() => {
+            Function::StMakePolygon
+        }
+        Token::Ident(_, Keyword::ST_MAXDISTANCE) if parser.options.dialect.is_postgis() => {
+            Function::StMaxDistance
+        }
+        Token::Ident(_, Keyword::ST_MEM_SIZE) if parser.options.dialect.is_postgis() => {
+            Function::StMemSize
+        }
+        Token::Ident(_, Keyword::ST_MINIMUMBOUNDINGCIRCLE)
+            if parser.options.dialect.is_postgis() =>
+        {
+            Function::StMinimumBoundingCircle
+        }
+        Token::Ident(_, Keyword::ST_MULTI) if parser.options.dialect.is_postgis() => {
+            Function::StMulti
+        }
+        Token::Ident(_, Keyword::ST_NDIMS) if parser.options.dialect.is_postgis() => {
+            Function::StNDims
+        }
+        Token::Ident(_, Keyword::ST_NPOINTS) if parser.options.dialect.is_postgis() => {
+            Function::StNPoints
+        }
+        Token::Ident(_, Keyword::ST_NRINGS) if parser.options.dialect.is_postgis() => {
+            Function::StNRings
+        }
+        Token::Ident(_, Keyword::ST_NUMGEOMETRIES) if parser.options.dialect.is_postgis() => {
+            Function::StNumGeometries
+        }
+        Token::Ident(_, Keyword::ST_NUMINTERIORRING) if parser.options.dialect.is_postgis() => {
+            Function::StNumInteriorRing
+        }
+        Token::Ident(_, Keyword::ST_NUMINTERIORRINGS) if parser.options.dialect.is_postgis() => {
+            Function::StNumInteriorRings
+        }
+        Token::Ident(_, Keyword::ST_NUMPOINTS) if parser.options.dialect.is_postgis() => {
+            Function::StNumPoints
+        }
+        Token::Ident(_, Keyword::ST_ORDERINGEQUALS) if parser.options.dialect.is_postgis() => {
+            Function::StOrderingEquals
+        }
+        Token::Ident(_, Keyword::ST_OVERLAPS) if parser.options.dialect.is_postgis() => {
+            Function::StOverlaps
+        }
+        Token::Ident(_, Keyword::ST_PERIMETER) if parser.options.dialect.is_postgis() => {
+            Function::StPerimeter
+        }
+        Token::Ident(_, Keyword::ST_PERIMETER2D) if parser.options.dialect.is_postgis() => {
+            Function::StPerimeter2D
+        }
+        Token::Ident(_, Keyword::ST_PERIMETER3D) if parser.options.dialect.is_postgis() => {
+            Function::StPerimeter3D
+        }
+        Token::Ident(_, Keyword::ST_POINT) if parser.options.dialect.is_postgis() => {
+            Function::StPoint
+        }
+        Token::Ident(_, Keyword::ST_POINTFROMTEXT) if parser.options.dialect.is_postgis() => {
+            Function::StPointFromText
+        }
+        Token::Ident(_, Keyword::ST_POINTFROMWKB) if parser.options.dialect.is_postgis() => {
+            Function::StPointFromWkb
+        }
+        Token::Ident(_, Keyword::ST_POINTN) if parser.options.dialect.is_postgis() => {
+            Function::StPointN
+        }
+        Token::Ident(_, Keyword::ST_POINTONSURFACE) if parser.options.dialect.is_postgis() => {
+            Function::StPointOnSurface
+        }
+        Token::Ident(_, Keyword::ST_POINT_INSIDE_CIRCLE) if parser.options.dialect.is_postgis() => {
+            Function::StPointInsideCircle
+        }
+        Token::Ident(_, Keyword::ST_POLYGON) if parser.options.dialect.is_postgis() => {
+            Function::StPolygon
+        }
+        Token::Ident(_, Keyword::ST_POLYGONFROMTEXT) if parser.options.dialect.is_postgis() => {
+            Function::StPolygonFromText
+        }
+        Token::Ident(_, Keyword::ST_POLYGONIZE) if parser.options.dialect.is_postgis() => {
+            Function::StPolygonize
+        }
+        Token::Ident(_, Keyword::ST_RELATE) if parser.options.dialect.is_postgis() => {
+            Function::StRelate
+        }
+        Token::Ident(_, Keyword::ST_REMOVEPOINT) if parser.options.dialect.is_postgis() => {
+            Function::StRemovePoint
+        }
+        Token::Ident(_, Keyword::ST_REVERSE) if parser.options.dialect.is_postgis() => {
+            Function::StReverse
+        }
+        Token::Ident(_, Keyword::ST_ROTATE) if parser.options.dialect.is_postgis() => {
+            Function::StRotate
+        }
+        Token::Ident(_, Keyword::ST_ROTATEX) if parser.options.dialect.is_postgis() => {
+            Function::StRotateX
+        }
+        Token::Ident(_, Keyword::ST_ROTATEY) if parser.options.dialect.is_postgis() => {
+            Function::StRotateY
+        }
+        Token::Ident(_, Keyword::ST_ROTATEZ) if parser.options.dialect.is_postgis() => {
+            Function::StRotateZ
+        }
+        Token::Ident(_, Keyword::ST_SCALE) if parser.options.dialect.is_postgis() => {
+            Function::StScale
+        }
+        Token::Ident(_, Keyword::ST_SEGMENTIZE) if parser.options.dialect.is_postgis() => {
+            Function::StSegmentize
+        }
+        Token::Ident(_, Keyword::ST_SETPOINT) if parser.options.dialect.is_postgis() => {
+            Function::StSetPoint
+        }
+        Token::Ident(_, Keyword::ST_SETSRID) if parser.options.dialect.is_postgis() => {
+            Function::StSetSrid
+        }
+        Token::Ident(_, Keyword::ST_SHIFT_LONGITUDE) if parser.options.dialect.is_postgis() => {
+            Function::StShiftLongitude
+        }
+        Token::Ident(_, Keyword::ST_SHORTESTLINE) if parser.options.dialect.is_postgis() => {
+            Function::StShortestLine
+        }
+        Token::Ident(_, Keyword::ST_SIMPLIFY) if parser.options.dialect.is_postgis() => {
+            Function::StSimplify
+        }
+        Token::Ident(_, Keyword::ST_SIMPLIFYPRESERVETOPOLOGY)
+            if parser.options.dialect.is_postgis() =>
+        {
             Function::StSimplifyPreserveTopology
         }
-        Token::Ident(_, Keyword::ST_SNAPTOGRID) => Function::StSnapToGrid,
-        Token::Ident(_, Keyword::ST_SRID) => Function::StSRID,
-        Token::Ident(_, Keyword::ST_STARTPOINT) => Function::StStartPoint,
-        Token::Ident(_, Keyword::ST_SUMMARY) => Function::StSummary,
-        Token::Ident(_, Keyword::ST_SYMDIFFERENCE) => Function::StSymDifference,
-        Token::Ident(_, Keyword::ST_TOUCHES) => Function::StTouches,
-        Token::Ident(_, Keyword::ST_TRANSFORM) => Function::StTransform,
-        Token::Ident(_, Keyword::ST_TRANSLATE) => Function::StTranslate,
-        Token::Ident(_, Keyword::ST_TRANSSCALE) => Function::StTransScale,
-        Token::Ident(_, Keyword::ST_UNION) => Function::StUnion,
-        Token::Ident(_, Keyword::ST_WITHIN) => Function::StWithin,
-        Token::Ident(_, Keyword::ST_WKBTOSQL) => Function::StWkbToSQL,
-        Token::Ident(_, Keyword::ST_WKTTOSQL) => Function::StWktToSQL,
-        Token::Ident(_, Keyword::ST_X) => Function::StX,
-        Token::Ident(_, Keyword::ST_XMAX) => Function::StXMax,
-        Token::Ident(_, Keyword::ST_XMIN) => Function::StXMin,
-        Token::Ident(_, Keyword::ST_Y) => Function::StY,
-        Token::Ident(_, Keyword::ST_YMAX) => Function::StYMax,
-        Token::Ident(_, Keyword::ST_YMIN) => Function::StYMin,
-        Token::Ident(_, Keyword::ST_Z) => Function::StZ,
-        Token::Ident(_, Keyword::ST_ZMAX) => Function::StZMax,
-        Token::Ident(_, Keyword::ST_ZMIN) => Function::StZMin,
-        Token::Ident(_, Keyword::ST_ZMFLAG) => Function::StZmflag,
+        Token::Ident(_, Keyword::ST_SNAPTOGRID) if parser.options.dialect.is_postgis() => {
+            Function::StSnapToGrid
+        }
+        Token::Ident(_, Keyword::ST_SRID) if parser.options.dialect.is_postgis() => {
+            Function::StSRID
+        }
+        Token::Ident(_, Keyword::ST_STARTPOINT) if parser.options.dialect.is_postgis() => {
+            Function::StStartPoint
+        }
+        Token::Ident(_, Keyword::ST_SUMMARY) if parser.options.dialect.is_postgis() => {
+            Function::StSummary
+        }
+        Token::Ident(_, Keyword::ST_SYMDIFFERENCE) if parser.options.dialect.is_postgis() => {
+            Function::StSymDifference
+        }
+        Token::Ident(_, Keyword::ST_TOUCHES) if parser.options.dialect.is_postgis() => {
+            Function::StTouches
+        }
+        Token::Ident(_, Keyword::ST_TRANSFORM) if parser.options.dialect.is_postgis() => {
+            Function::StTransform
+        }
+        Token::Ident(_, Keyword::ST_TRANSLATE) if parser.options.dialect.is_postgis() => {
+            Function::StTranslate
+        }
+        Token::Ident(_, Keyword::ST_TRANSSCALE) if parser.options.dialect.is_postgis() => {
+            Function::StTransScale
+        }
+        Token::Ident(_, Keyword::ST_UNION) if parser.options.dialect.is_postgis() => {
+            Function::StUnion
+        }
+        Token::Ident(_, Keyword::ST_WITHIN) if parser.options.dialect.is_postgis() => {
+            Function::StWithin
+        }
+        Token::Ident(_, Keyword::ST_WKBTOSQL) if parser.options.dialect.is_postgis() => {
+            Function::StWkbToSQL
+        }
+        Token::Ident(_, Keyword::ST_WKTTOSQL) if parser.options.dialect.is_postgis() => {
+            Function::StWktToSQL
+        }
+        Token::Ident(_, Keyword::ST_X) if parser.options.dialect.is_postgis() => Function::StX,
+        Token::Ident(_, Keyword::ST_XMAX) if parser.options.dialect.is_postgis() => {
+            Function::StXMax
+        }
+        Token::Ident(_, Keyword::ST_XMIN) if parser.options.dialect.is_postgis() => {
+            Function::StXMin
+        }
+        Token::Ident(_, Keyword::ST_Y) if parser.options.dialect.is_postgis() => Function::StY,
+        Token::Ident(_, Keyword::ST_YMAX) if parser.options.dialect.is_postgis() => {
+            Function::StYMax
+        }
+        Token::Ident(_, Keyword::ST_YMIN) if parser.options.dialect.is_postgis() => {
+            Function::StYMin
+        }
+        Token::Ident(_, Keyword::ST_Z) if parser.options.dialect.is_postgis() => Function::StZ,
+        Token::Ident(_, Keyword::ST_ZMAX) if parser.options.dialect.is_postgis() => {
+            Function::StZMax
+        }
+        Token::Ident(_, Keyword::ST_ZMIN) if parser.options.dialect.is_postgis() => {
+            Function::StZMin
+        }
+        Token::Ident(_, Keyword::ST_ZMFLAG) if parser.options.dialect.is_postgis() => {
+            Function::StZmflag
+        }
+        Token::Ident(_, Keyword::ST_3DDISTANCE) if parser.options.dialect.is_postgis() => {
+            Function::St3DDistance
+        }
+        Token::Ident(_, Keyword::ST_3DMAXDISTANCE) if parser.options.dialect.is_postgis() => {
+            Function::St3DMaxDistance
+        }
+        Token::Ident(_, Keyword::ST_3DINTERSECTS) if parser.options.dialect.is_postgis() => {
+            Function::St3DIntersects
+        }
+        Token::Ident(_, Keyword::ST_MAKEVALID) if parser.options.dialect.is_postgis() => {
+            Function::StMakeValid
+        }
+        Token::Ident(_, Keyword::ST_ISVALIDDETAIL) if parser.options.dialect.is_postgis() => {
+            Function::StIsValidDetail
+        }
+        Token::Ident(_, Keyword::ST_DUMP) if parser.options.dialect.is_postgis() => {
+            Function::StDump
+        }
+        Token::Ident(_, Keyword::ST_DUMPPOINTS) if parser.options.dialect.is_postgis() => {
+            Function::StDumpPoints
+        }
+        Token::Ident(_, Keyword::ST_DUMPRINGS) if parser.options.dialect.is_postgis() => {
+            Function::StDumpRings
+        }
+        Token::Ident(_, Keyword::ST_DUMPSEGMENTS) if parser.options.dialect.is_postgis() => {
+            Function::StDumpSegments
+        }
+        Token::Ident(_, Keyword::ST_SNAP) if parser.options.dialect.is_postgis() => {
+            Function::StSnap
+        }
+        Token::Ident(_, Keyword::ST_NODE) if parser.options.dialect.is_postgis() => {
+            Function::StNode
+        }
+        Token::Ident(_, Keyword::ST_SPLIT) if parser.options.dialect.is_postgis() => {
+            Function::StSplit
+        }
+        Token::Ident(_, Keyword::ST_SHAREDPATHS) if parser.options.dialect.is_postgis() => {
+            Function::StSharedPaths
+        }
+        Token::Ident(_, Keyword::ST_EXPAND) if parser.options.dialect.is_postgis() => {
+            Function::StExpand
+        }
+        Token::Ident(_, Keyword::ST_ESTIMATEDEXTENT) if parser.options.dialect.is_postgis() => {
+            Function::StEstimatedExtent
+        }
+        Token::Ident(_, Keyword::ST_FLIPCOORDINATES) if parser.options.dialect.is_postgis() => {
+            Function::StFlipCoordinates
+        }
+        Token::Ident(_, Keyword::ST_FORCECW) if parser.options.dialect.is_postgis() => {
+            Function::StForceCw
+        }
+        Token::Ident(_, Keyword::ST_FORCECCW) if parser.options.dialect.is_postgis() => {
+            Function::StForceCcw
+        }
+        Token::Ident(_, Keyword::ST_FORCEPOLYGONCW) if parser.options.dialect.is_postgis() => {
+            Function::StForcePolygonCw
+        }
+        Token::Ident(_, Keyword::ST_FORCEPOLYGONCCW) if parser.options.dialect.is_postgis() => {
+            Function::StForcePolygonCcw
+        }
+        Token::Ident(_, Keyword::ST_CONCAVEHULL) if parser.options.dialect.is_postgis() => {
+            Function::StConcaveHull
+        }
+        Token::Ident(_, Keyword::ST_VORONOIPOLYGONS) if parser.options.dialect.is_postgis() => {
+            Function::StVoronoiPolygons
+        }
+        Token::Ident(_, Keyword::ST_VORONOILINES) if parser.options.dialect.is_postgis() => {
+            Function::StVoronoiLines
+        }
+        Token::Ident(_, Keyword::ST_DELAUNAYTRIANGLES) if parser.options.dialect.is_postgis() => {
+            Function::StDelaunayTriangles
+        }
+        Token::Ident(_, Keyword::ST_SUBDIVIDE) if parser.options.dialect.is_postgis() => {
+            Function::StSubdivide
+        }
+        Token::Ident(_, Keyword::ST_GENERATEPOINTS) if parser.options.dialect.is_postgis() => {
+            Function::StGeneratePoints
+        }
+        Token::Ident(_, Keyword::ST_BOUNDINGDIAGONAL) if parser.options.dialect.is_postgis() => {
+            Function::StBoundingDiagonal
+        }
+        Token::Ident(_, Keyword::ST_MAXIMUMINSCRIBEDCIRCLE)
+            if parser.options.dialect.is_postgis() =>
+        {
+            Function::StMaximumInscribedCircle
+        }
+        Token::Ident(_, Keyword::ST_CHAIKINSMOOTHING) if parser.options.dialect.is_postgis() => {
+            Function::StChaikinSmoothing
+        }
+        Token::Ident(_, Keyword::ST_FRECHETDISTANCE) if parser.options.dialect.is_postgis() => {
+            Function::StFrechetDistance
+        }
+        Token::Ident(_, Keyword::ST_PROJECT) if parser.options.dialect.is_postgis() => {
+            Function::StProject
+        }
+        Token::Ident(_, Keyword::ST_LOCATEALONG) if parser.options.dialect.is_postgis() => {
+            Function::StLocateAlong
+        }
+        Token::Ident(_, Keyword::ST_LOCATEBETWEEN) if parser.options.dialect.is_postgis() => {
+            Function::StLocateBetween
+        }
+        Token::Ident(_, Keyword::ST_INTERPOLATEPOINT) if parser.options.dialect.is_postgis() => {
+            Function::StInterpolatePoint
+        }
+        Token::Ident(_, Keyword::ST_MAKEBOX2D) if parser.options.dialect.is_postgis() => {
+            Function::StMakeBox2D
+        }
+        Token::Ident(_, Keyword::ST_3DMAKEBOX) if parser.options.dialect.is_postgis() => {
+            Function::St3DMakeBox
+        }
+        Token::Ident(_, Keyword::ST_EXTENT) if parser.options.dialect.is_postgis() => {
+            Function::StExtent
+        }
+        Token::Ident(_, Keyword::ST_3DEXTENT) if parser.options.dialect.is_postgis() => {
+            Function::St3DExtent
+        }
 
         Token::Ident(v, k) if !k.restricted(parser.reserved()) => {
             Function::Other(alloc::vec![Identifier {
