@@ -63,6 +63,7 @@ mod drop;
 mod expression;
 mod flush;
 mod function_expression;
+mod grant;
 mod identifier;
 mod insert_replace;
 mod issue;
@@ -149,6 +150,11 @@ pub use function_expression::{
     AggregateFunctionCallExpression, CharFunctionExpression, Function, FunctionCallExpression,
     WindowClause, WindowFrame, WindowFrameBound, WindowFrameMode, WindowFunctionCallExpression,
     WindowSpec,
+};
+pub use grant::{
+    AllRoutineKind, Grant, GrantKind, GrantObject, GrantPrivilege, MembershipOption,
+    MembershipOptionKind, MembershipOptionValue, PrivilegeItem, RoleSpec, RoutineArgType,
+    RoutineKind, RoutineName,
 };
 pub use identifier::Identifier;
 pub use insert_replace::{
