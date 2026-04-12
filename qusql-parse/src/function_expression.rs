@@ -1081,6 +1081,7 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::INET_SERVER_ADDR) => Function::InetServerAddr,
         Token::Ident(_, Keyword::INET_SERVER_PORT) => Function::InetServerPort,
         Token::Ident(_, Keyword::JSON_BUILD_OBJECT) => Function::JsonBuildObject,
+        Token::Ident(_, Keyword::JSONB_SET) => Function::JsonbSet,
         Token::Ident(_, Keyword::PG_POSTMASTER_START_TIME) => Function::PgPostmasterStartTime,
         Token::Ident(_, Keyword::POSTGIS_FULL_VERSION) => Function::PostgisFullVersion,
 
