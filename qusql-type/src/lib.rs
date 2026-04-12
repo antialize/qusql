@@ -56,6 +56,7 @@ use schema::Schemas;
 
 mod type_;
 mod type_binary_expression;
+mod type_call;
 mod type_delete;
 mod type_expression;
 mod type_function;
@@ -201,6 +202,8 @@ pub enum StatementType<'a> {
     },
     /// The statement is a truncate statement
     Truncate,
+    /// The statement is a call statement
+    Call,
     /// The query was not valid, errors are preset in issues
     Invalid,
 }
@@ -249,6 +252,7 @@ pub fn type_statement<'a>(
                 returning: returning.map(|r| r.columns),
             },
             type_statement::InnerStatementType::Truncate => StatementType::Truncate,
+            type_statement::InnerStatementType::Call => StatementType::Call,
             type_statement::InnerStatementType::Invalid => StatementType::Invalid,
         }
     } else {
@@ -542,6 +546,10 @@ mod tests {
             `d` date NOT NULL,
             `dt` datetime NOT NULL,
             `t` time NOT NULL);
+
+        CREATE PROCEDURE `p1`(IN `a` int, IN `b` varchar(100))
+        BEGIN
+        END;
         ";
 
         let options = TypeOptions::new().dialect(SQLDialect::MariaDB);
@@ -1290,6 +1298,40 @@ mod tests {
             type_statement(&schema, src, &mut issues, &options);
             if issues.is_ok() {
                 println!("{name} should fail");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q36";
+            let src = "CALL p1(42, 'hello')";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Call) {
+                println!("{name} should be call");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q37";
+            let src = "CALL p1(42)";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail (wrong arg count)");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q38";
+            let src = "CALL unknown_proc(1)";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail (unknown procedure)");
                 errors += 1;
             }
         }

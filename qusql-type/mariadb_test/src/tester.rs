@@ -217,6 +217,7 @@ impl<'a> Tester<'a> {
                         returning,
                     } => (returning.unwrap_or_default(), arguments),
                     StatementType::Truncate => (vec![], vec![]),
+                    StatementType::Call => (vec![], vec![]),
                     StatementType::Invalid => return Err(Error::bail("Unexpected invalid")),
                 };
                 for i in 0..usize::max(our_cols.len(), columns.len()) {
