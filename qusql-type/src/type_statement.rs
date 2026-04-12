@@ -86,8 +86,12 @@ fn type_with_query<'a>(
 
             let mut schemas = typer.with_schemas.clone();
             schemas.insert(block.identifier.as_str(), &schema);
-            let mut typer = typer.with_schemas(schemas);
-            type_with_query(&mut typer, rem_blocks, inner)
+            let mut child = typer.with_schemas(schemas);
+            let result = type_with_query(&mut child, rem_blocks, inner);
+            // Propagate any argument constraints discovered inside the CTE scope back
+            // to the outer typer so they are visible to the caller.
+            typer.arg_types = child.arg_types;
+            result
         } else {
             type_with_query(typer, rem_blocks, inner)
         }
