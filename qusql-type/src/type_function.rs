@@ -258,6 +258,12 @@ pub(crate) fn type_function<'a, 'b>(
             let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
             FullType::new(Type::JSON, not_null)
         }
+        Function::JsonBuildObject => {
+            // json_build_object(key, value, key, value, ...) -> json
+            // accepts any number of alternating key/value pairs (even count)
+            typed_args(typer, args, flags);
+            FullType::new(Type::JSON, true)
+        }
         Function::JsonUnquote => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
