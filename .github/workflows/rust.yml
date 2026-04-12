@@ -51,5 +51,9 @@ jobs:
         run: python3 check.py
       - name: Check qusql-parse pub struct exports
         run: python3 qusql-parse/check_exports.py
-      - name: Run type_test schema tests
-        run: python3 type_test/test.py
+      - name: Run type-test schema tests
+        run: python3 type-test/test.py
+      - name: Run parse-test MySQL tests
+        run: cd parse-test && python3 test.py test-mysql --failures-only
+      - name: Run parse-test PostgreSQL tests
+        run: cd parse-test && python3 test.py test-postgresql --failures-only

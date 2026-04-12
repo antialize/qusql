@@ -10,6 +10,7 @@ both interactive and automated testing modes.
 import rust_lexer
 import subprocess
 import json
+import sys
 from typing import TypedDict, NotRequired, Optional
 import argparse
 import time
@@ -175,7 +176,7 @@ def run_parser(sql: str, dialect: str, not_pretty: bool) -> subprocess.Completed
     )
 
 
-def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None:
+def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> int:
     """
     Run tests for a specific SQL dialect.
 
@@ -184,6 +185,9 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
         tests_file: Path to the JSON file containing test cases
         dialect: Dialect identifier for the parser ('maria', 'postgresql', 'sqlite')
         dialect_name: Human-readable dialect name for output
+
+    Returns:
+        Number of failed tests
     """
     tests = read_tests(tests_file)
 
@@ -325,6 +329,7 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
         write_tests(tests_file, tests)
     elif not args.filter and not getattr(args, "limit", None):
         print(f"\n{dialect_name} - Total failures: {failure_count} out of {len(tests)}")
+    return failure_count
 
 
 def test_mysql(args) -> None:
@@ -868,13 +873,15 @@ if __name__ == "__main__":
     if args.command == "import-mysql":
         import_mysql_tests(args)
     elif args.command == "test-mysql":
-        test_mysql(args)
+        if test_mysql(args):
+            sys.exit(1)
     elif args.command == "validate-mysql":
         validate_mysql(args)
     elif args.command == "import-postgresql":
         import_postgresql_tests(args)
     elif args.command == "test-postgresql":
-        test_postgresql(args)
+        if test_postgresql(args):
+            sys.exit(1)
     elif args.command == "validate-postgresql":
         validate_postgresql(args)
     elif args.command == "set-should-fail":
