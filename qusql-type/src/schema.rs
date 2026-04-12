@@ -1420,25 +1420,29 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
 
     fn process_alter_type(&mut self, a: qusql_parse::AlterType<'a>) {
         let name = unqualified_name(self.issues, &a.name);
-        if let qusql_parse::AlterTypeAction::AddValue {
-            if_not_exists_span,
-            new_enum_value,
-            ..
-        } = a.action
-        {
-            let Some(TypeDef::Enum { values, .. }) = self.schemas.types.get_mut(name) else {
-                self.issues.err("Type not found", &a.name);
-                return;
-            };
-            let new_val: alloc::borrow::Cow<'a, str> = new_enum_value.value;
-            if values.contains(&new_val) {
-                if if_not_exists_span.is_none() {
-                    self.issues.err("Enum value already exists", &a.name);
+        match a.action {
+            qusql_parse::AlterTypeAction::AddValue {
+                if_not_exists_span,
+                new_enum_value,
+                ..
+            } => {
+                let Some(TypeDef::Enum { values, .. }) = self.schemas.types.get_mut(name) else {
+                    self.issues.err("Type not found", &a.name);
+                    return;
+                };
+                let new_val: alloc::borrow::Cow<'a, str> = new_enum_value.value;
+                if values.contains(&new_val) {
+                    if if_not_exists_span.is_none() {
+                        self.issues.err("Enum value already exists", &a.name);
+                    }
+                    // IF NOT EXISTS: silently skip
+                } else {
+                    Arc::make_mut(values).push(new_val);
                 }
-                // IF NOT EXISTS: silently skip
-            } else {
-                Arc::make_mut(values).push(new_val);
             }
+            // Other ALTER TYPE actions (RENAME, OWNER TO, etc.) have no effect on
+            // the parts of the schema we track.
+            _ => {}
         }
     }
 
