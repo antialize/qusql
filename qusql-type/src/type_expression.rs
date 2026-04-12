@@ -108,7 +108,7 @@ pub(crate) fn type_expression<'a>(
     typer: &mut Typer<'a, '_>,
     expression: &Expression<'a>,
     flags: ExpressionFlags,
-    _context: BaseType,
+    context: BaseType,
 ) -> FullType<'a> {
     match expression {
         Expression::Binary(e) => type_binary_expression(typer, &e.op, &e.lhs, &e.rhs, flags),
@@ -133,9 +133,14 @@ pub(crate) fn type_expression<'a>(
         Expression::String(_) => FullType::new(BaseType::String, true),
         Expression::Integer(_) => FullType::new(BaseType::Integer, true),
         Expression::Float(_) => FullType::new(BaseType::Float, true),
-        Expression::Function(e) => {
-            type_function(typer, &e.function, &e.args, &e.function_span, flags)
-        }
+        Expression::Function(e) => type_function(
+            typer,
+            &e.function,
+            &e.args,
+            &e.function_span,
+            flags,
+            context,
+        ),
         Expression::WindowFunction(e) => {
             if let Some((_, partition_by)) = &e.over.window_spec.partition_by {
                 for e in partition_by {
@@ -147,7 +152,14 @@ pub(crate) fn type_expression<'a>(
                     type_expression(typer, e, ExpressionFlags::default(), BaseType::Any);
                 }
             }
-            type_function(typer, &e.function, &e.args, &e.function_span, flags)
+            type_function(
+                typer,
+                &e.function,
+                &e.args,
+                &e.function_span,
+                flags,
+                context,
+            )
         }
         Expression::AggregateFunction(e) => {
             if let Some((_, filter)) = &e.filter {

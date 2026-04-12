@@ -78,6 +78,7 @@ pub(crate) fn type_function<'a, 'b>(
     args: &[Expression<'a>],
     span: &Span,
     flags: ExpressionFlags,
+    context: BaseType,
 ) -> FullType<'a> {
     let mut tf = |return_type: Type<'a>,
                   required_args: &[BaseType],
@@ -365,7 +366,14 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::Integer, true)
         }
-        Function::Now => tf(BaseType::DateTime.into(), &[], &[BaseType::Integer]),
+        Function::Now => {
+            let ret = if context == BaseType::TimeStamp {
+                BaseType::TimeStamp
+            } else {
+                BaseType::DateTime
+            };
+            tf(ret.into(), &[], &[BaseType::Integer])
+        }
         Function::CurDate | Function::UtcDate => tf(BaseType::Date.into(), &[], &[]),
         Function::CurTime | Function::UtcTime => tf(BaseType::Time.into(), &[], &[]),
         Function::UtcTimeStamp => tf(BaseType::DateTime.into(), &[], &[]),
