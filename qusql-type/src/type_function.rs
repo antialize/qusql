@@ -1536,6 +1536,48 @@ pub(crate) fn type_function<'a, 'b>(
             let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
             FullType::new(BaseType::String, not_null)
         }
+        Function::Box2D => {
+            // Box2D(geom) -> geometry bounding box (represented as Geometry)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StAsEwkb => {
+            // ST_AsEWKB(geom) -> bytes
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::Bytes, not_null)
+        }
+        Function::StAsGeoJson => {
+            // ST_AsGeoJSON(geom) -> text (JSON)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::StGeomFromEwkb => {
+            // ST_GeomFromEWKB(bytes) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::Bytes);
+            }
+            FullType::new(Type::Geometry, false)
+        }
+        Function::StGeomFromText => {
+            // ST_GeomFromText(text[, srid]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            FullType::new(Type::Geometry, false)
+        }
         Function::StGeomFromGeoJson => {
             // ST_GeomFromGeoJSON(json) -> geometry
             let typed = typed_args(typer, args, flags);

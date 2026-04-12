@@ -324,8 +324,13 @@ pub enum Function<'a> {
     Xmlagg,
     Coalesce,
     // PostGIS / geometry functions
+    Box2D,
     GeometryType,
+    StAsEwkb,
+    StAsGeoJson,
+    StGeomFromEwkb,
     StGeomFromGeoJson,
+    StGeomFromText,
     StSetSrid,
     StSimplifyPreserveTopology,
     Other(Vec<Identifier<'a>>),
@@ -1108,8 +1113,13 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::UUID_TO_BIN) => Function::UuidToBin,
 
         // PostGIS / geometry functions
+        Token::Ident(_, Keyword::BOX2D) => Function::Box2D,
         Token::Ident(_, Keyword::GEOMETRYTYPE) => Function::GeometryType,
+        Token::Ident(_, Keyword::ST_ASEWKB) => Function::StAsEwkb,
+        Token::Ident(_, Keyword::ST_ASGEOJSON) => Function::StAsGeoJson,
+        Token::Ident(_, Keyword::ST_GEOMFROMEWKB) => Function::StGeomFromEwkb,
         Token::Ident(_, Keyword::ST_GEOMFROMGEOJSON) => Function::StGeomFromGeoJson,
+        Token::Ident(_, Keyword::ST_GEOMFROMTEXT) => Function::StGeomFromText,
         Token::Ident(_, Keyword::ST_SETSRID) => Function::StSetSrid,
         Token::Ident(_, Keyword::ST_SIMPLIFYPRESERVETOPOLOGY) => {
             Function::StSimplifyPreserveTopology
