@@ -123,6 +123,13 @@ impl<'a, 'b> Typer<'a, 'b> {
             t2b = t1b;
         }
         if t1b != t2b {
+            // UUID is compatible with String (PostgreSQL implicit cast from text literals)
+            if matches!(
+                (t1b, t2b),
+                (BaseType::Uuid, BaseType::String) | (BaseType::String, BaseType::Uuid)
+            ) {
+                return Some(BaseType::Uuid.into());
+            }
             return None;
         }
 
@@ -186,7 +193,8 @@ impl<'a, 'b> Typer<'a, 'b> {
             | BaseType::Bytes
             | BaseType::Float
             | BaseType::Integer
-            | BaseType::TimeInterval => {
+            | BaseType::TimeInterval
+            | BaseType::Uuid => {
                 self.issues
                     .err(format!("Expected time like type got {}", given.t), span);
                 return Type::Invalid;

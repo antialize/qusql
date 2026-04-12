@@ -84,6 +84,10 @@ pub struct Time;
 #[doc(hidden)]
 pub struct Any;
 
+/// Tag type for UUID input/output
+#[doc(hidden)]
+pub struct Uuid;
+
 /// If ArgIn<T> is implemented for J, it means that J can be used as for arguments of type T
 #[doc(hidden)]
 pub trait ArgIn<T> {}
@@ -161,6 +165,8 @@ arg_io!(DateTime, chrono::NaiveDateTime);
 arg_io!(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>);
 arg_io!(Timestamp, chrono::DateTime<chrono::Utc>);
 arg_io!(Date, chrono::NaiveDate);
+arg_io!(Uuid, String);
+arg_io!(Uuid, &str);
 
 #[doc(hidden)]
 pub fn check_arg<T, T2: ArgIn<T>>(_: &T2) {}
