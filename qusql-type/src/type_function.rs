@@ -1749,6 +1749,71 @@ pub(crate) fn type_function<'a, 'b>(
         | Function::TableToXmlschema => {
             tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any])
         }
+        // PostgreSQL JSON functions
+        Function::ToJson | Function::ToJsonb | Function::ArrayToJson | Function::RowToJson => {
+            tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::JsonBuildArray
+        | Function::JsonbBuildArray
+        | Function::JsonbBuildObject
+        | Function::JsonbInsert
+        | Function::JsonbObject
+        | Function::JsonbSetLax
+        | Function::JsonbStripNulls
+        | Function::JsonStripNulls
+        | Function::JsonScalar
+        | Function::JsonExtractPath
+        | Function::JsonbExtractPath => {
+            tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::JsonSerialize => tf(BaseType::String.into(), &[BaseType::Any], &[]),
+        Function::JsonbPretty => tf(BaseType::String.into(), &[BaseType::Any], &[]),
+        Function::JsonTypeof | Function::JsonbTypeof => {
+            tf(BaseType::String.into(), &[BaseType::Any], &[])
+        }
+        Function::JsonExtractPathText | Function::JsonbExtractPathText => {
+            tf(BaseType::String.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::JsonArrayLength | Function::JsonbArrayLength => {
+            tf(BaseType::Integer.into(), &[BaseType::Any], &[])
+        }
+        Function::JsonbPopulateRecordValid => {
+            tf(BaseType::Bool.into(), &[BaseType::Any, BaseType::Any], &[])
+        }
+        Function::JsonbPathExists | Function::JsonbPathExistsTz => {
+            tf(BaseType::Bool.into(), &[BaseType::Any, BaseType::Any], &[BaseType::Any])
+        }
+        Function::JsonbPathMatch | Function::JsonbPathMatchTz => {
+            tf(BaseType::Bool.into(), &[BaseType::Any, BaseType::Any], &[BaseType::Any])
+        }
+        Function::JsonArrayElements
+        | Function::JsonArrayElementsText
+        | Function::JsonbArrayElements
+        | Function::JsonbArrayElementsText
+        | Function::JsonEach
+        | Function::JsonEachText
+        | Function::JsonbEach
+        | Function::JsonbEachText
+        | Function::JsonObjectKeys
+        | Function::JsonbObjectKeys
+        | Function::JsonPopulateRecord
+        | Function::JsonbPopulateRecord
+        | Function::JsonPopulateRecordset
+        | Function::JsonbPopulateRecordset
+        | Function::JsonToRecord
+        | Function::JsonbToRecord
+        | Function::JsonToRecordset
+        | Function::JsonbToRecordset => {
+            tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::JsonbPathQuery
+        | Function::JsonbPathQueryTz
+        | Function::JsonbPathQueryArray
+        | Function::JsonbPathQueryArrayTz
+        | Function::JsonbPathQueryFirst
+        | Function::JsonbPathQueryFirstTz => {
+            tf(BaseType::Any.into(), &[BaseType::Any, BaseType::Any], &[BaseType::Any])
+        }
         // Aggregate / window functions that may appear in non-aggregate context
         Function::ArrayAgg | Function::JsonAgg | Function::JsonbAgg => {
             arg_cnt(typer, 1..1, args, span);
