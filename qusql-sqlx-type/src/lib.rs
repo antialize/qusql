@@ -100,6 +100,10 @@ macro_rules! arg_io {
     ( $dst: ty, $t: ty ) => {
         impl ArgIn<$dst> for $t {}
         impl ArgIn<$dst> for &$t {}
+        impl ArgIn<$dst> for Option<$t> {}
+        impl ArgIn<$dst> for Option<&$t> {}
+        impl ArgIn<$dst> for &Option<$t> {}
+        impl ArgIn<$dst> for &Option<&$t> {}
         impl ArgIn<Option<$dst>> for $t {}
         impl ArgIn<Option<$dst>> for &$t {}
         impl ArgIn<Option<$dst>> for Option<$t> {}
@@ -110,6 +114,7 @@ macro_rules! arg_io {
         impl<const IDX: usize> ArgOut<$dst, IDX> for $t {}
         impl<const IDX: usize> ArgOut<Option<$dst>, IDX> for Option<$t> {}
         impl<const IDX: usize> ArgOut<$dst, IDX> for Option<$t> {}
+        impl<const IDX: usize> ArgOut<Option<$dst>, IDX> for $t {}
     };
 }
 
@@ -160,6 +165,29 @@ arg_io!(&[u8], &[u8]);
 arg_io!(&[u8], Vec<u8>);
 arg_io!(Vec<u8>, Vec<u8>);
 
+arg_io!(Any, Vec<u8>);
+arg_io!(Any, Vec<i32>);
+arg_io!(Any, Vec<i64>);
+arg_io!(Any, Vec<String>);
+arg_io!(Any, Vec<Vec<u8>>);
+
+/// Slice ArgIn impls for `Any` array arguments.
+impl ArgIn<Any> for &[u8] {}
+impl ArgIn<Option<Any>> for &[u8] {}
+impl ArgIn<Any> for &[i32] {}
+impl ArgIn<Option<Any>> for &[i32] {}
+impl ArgIn<Any> for &[i64] {}
+impl ArgIn<Option<Any>> for &[i64] {}
+impl ArgIn<Any> for &[String] {}
+impl ArgIn<Option<Any>> for &[String] {}
+impl ArgIn<Option<Any>> for Option<&[String]> {}
+impl ArgIn<Option<Any>> for Option<&[i32]> {}
+impl ArgIn<Option<Any>> for Option<&[i64]> {}
+
+/// Blanket impls: any `Infallible` argument.
+impl<T> ArgIn<std::convert::Infallible> for T {}
+impl<T> ArgIn<Option<std::convert::Infallible>> for T {}
+
 arg_io!(Timestamp, chrono::NaiveDateTime);
 arg_io!(DateTime, chrono::NaiveDateTime);
 arg_io!(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>);
@@ -167,6 +195,48 @@ arg_io!(Timestamp, chrono::DateTime<chrono::Utc>);
 arg_io!(Date, chrono::NaiveDate);
 arg_io!(Uuid, String);
 arg_io!(Uuid, &str);
+
+#[cfg(feature = "uuid")]
+mod uuid_support {
+    //! UUID bindings when the `uuid` feature is enabled.
+    use super::*;
+    arg_io!(Uuid, uuid::Uuid);
+    arg_io!(uuid::Uuid, uuid::Uuid);
+    arg_io!(Any, Vec<uuid::Uuid>);
+    arg_io!(Any, Vec<Option<uuid::Uuid>>);
+    impl ArgIn<Any> for &[uuid::Uuid] {}
+    impl ArgIn<Option<Any>> for &[uuid::Uuid] {}
+    impl ArgIn<Option<Any>> for Option<&[uuid::Uuid]> {}
+}
+
+/// Re-export of [`uuid::Uuid`] when the `uuid` feature is enabled,
+/// or [`String`] otherwise.
+#[cfg(feature = "uuid")]
+#[doc(hidden)]
+pub type UuidValue = uuid::Uuid;
+
+/// Re-export of [`uuid::Uuid`] when the `uuid` feature is enabled,
+/// or [`String`] otherwise.
+#[cfg(not(feature = "uuid"))]
+#[doc(hidden)]
+pub type UuidValue = String;
+
+#[cfg(feature = "json")]
+mod json_support {
+    //! JSON bindings when the `json` feature is enabled.
+    use super::*;
+    arg_io!(String, serde_json::Value);
+    arg_io!(serde_json::Value, serde_json::Value);
+    arg_io!(&str, serde_json::Value);
+    arg_io!(Any, Vec<serde_json::Value>);
+    impl ArgIn<Any> for &[serde_json::Value] {}
+    impl ArgIn<Option<Any>> for &[serde_json::Value] {}
+}
+
+/// Re-export of [`serde_json::Value`] when the `json` feature is enabled.
+#[cfg(feature = "json")]
+#[doc(hidden)]
+pub type JsonValue = serde_json::Value;
 
 #[doc(hidden)]
 pub fn check_arg<T, T2: ArgIn<T>>(_: &T2) {}
