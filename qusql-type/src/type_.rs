@@ -38,6 +38,7 @@ pub enum BaseType {
     Time,
     TimeStamp,
     TimeInterval,
+    Uuid,
 }
 
 impl Display for BaseType {
@@ -54,6 +55,7 @@ impl Display for BaseType {
             BaseType::Time => f.write_str("time"),
             BaseType::TimeStamp => f.write_str("timestamp"),
             BaseType::TimeInterval => f.write_str("timeinterval"),
+            BaseType::Uuid => f.write_str("uuid"),
         }
     }
 }

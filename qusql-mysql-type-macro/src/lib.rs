@@ -214,6 +214,7 @@ fn map_type(ta: &FullType<'_>) -> proc_macro2::TokenStream {
         qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
             quote! {qusql_mysql_type::Timestamp}
         }
+        qusql_type::Type::Base(qusql_type::BaseType::Uuid) => quote! {&str},
         qusql_type::Type::Null => todo!("null"),
         qusql_type::Type::Invalid => quote! {std::convert::Infallible},
         qusql_type::Type::Enum(_) => quote! {&str},
@@ -384,6 +385,11 @@ fn construct_row(
             }
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {chrono::DateTime<chrono::Utc>}
+            }
+            qusql_type::Type::Base(qusql_type::BaseType::Uuid) if owned => quote! {String},
+            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => {
+                has_borrowed = true;
+                quote! {&'a str}
             }
             qusql_type::Type::Null => todo!("from_null"),
             qusql_type::Type::Invalid => quote! {i64},

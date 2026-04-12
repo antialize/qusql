@@ -331,7 +331,7 @@ fn type_kind_from_parse<'a>(
         qusql_parse::Type::Interval(_) => BaseType::TimeInterval.into(),
         qusql_parse::Type::TsQuery => BaseType::String.into(),
         qusql_parse::Type::TsVector => BaseType::String.into(),
-        qusql_parse::Type::Uuid => BaseType::String.into(),
+        qusql_parse::Type::Uuid => BaseType::Uuid.into(),
         qusql_parse::Type::Xml => BaseType::String.into(),
         qusql_parse::Type::Range(_) => BaseType::Bytes.into(),
         qusql_parse::Type::MultiRange(_) => BaseType::Bytes.into(),

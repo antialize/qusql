@@ -252,6 +252,7 @@ fn map_type(t: &qusql_type::FullType<'_>) -> Type {
             qusql_type::BaseType::Time => Type::Any,
             qusql_type::BaseType::TimeStamp => Type::Any,
             qusql_type::BaseType::TimeInterval => Type::Any,
+            qusql_type::BaseType::Uuid => Type::String,
         },
         qusql_type::Type::Enum(v) => Type::Enum(v.iter().map(|v| v.to_string()).collect()),
         qusql_type::Type::F32 => Type::Float,

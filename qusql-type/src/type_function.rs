@@ -1709,14 +1709,14 @@ pub(crate) fn type_function<'a, 'b>(
         // PostgreSQL UUID functions
         Function::GenRandomUuid | Function::Uuidv4 => {
             arg_cnt(typer, 0..0, args, span);
-            FullType::new(BaseType::Any, false)
+            FullType::new(BaseType::Uuid, true)
         }
         Function::Uuidv7 => {
             arg_cnt(typer, 0..1, args, span);
-            FullType::new(BaseType::Any, false)
+            FullType::new(BaseType::Uuid, true)
         }
-        Function::UuidExtractTimestamp => tf(BaseType::DateTime.into(), &[BaseType::Any], &[]),
-        Function::UuidExtractVersion => tf(BaseType::Integer.into(), &[BaseType::Any], &[]),
+        Function::UuidExtractTimestamp => tf(BaseType::DateTime.into(), &[BaseType::Uuid], &[]),
+        Function::UuidExtractVersion => tf(BaseType::Integer.into(), &[BaseType::Uuid], &[]),
         // PostgreSQL sequence functions
         Function::Nextval | Function::Currval | Function::Setval => {
             tf(BaseType::Integer.into(), &[BaseType::Any], &[BaseType::Any])

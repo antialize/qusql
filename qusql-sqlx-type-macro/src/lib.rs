@@ -269,6 +269,7 @@ fn quote_args(
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {qusql_sqlx_type::Timestamp}
             }
+            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => quote! {qusql_sqlx_type::Uuid},
             qusql_type::Type::Null => todo!("null"),
             qusql_type::Type::Invalid => quote! {std::convert::Infallible},
             qusql_type::Type::Enum(_) => quote! {&str},
@@ -396,6 +397,7 @@ fn construct_row(
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
+            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => quote! {String},
             qusql_type::Type::Null => todo!("from_null"),
             qusql_type::Type::Invalid => quote! {i64},
             qusql_type::Type::Enum(_) => quote! {String},
@@ -784,6 +786,7 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
+            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => quote! {String},
             qusql_type::Type::Null => todo!("from_null"),
             qusql_type::Type::Invalid => quote! {i64},
             qusql_type::Type::Enum(_) => quote! {String},
