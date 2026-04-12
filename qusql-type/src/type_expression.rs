@@ -559,9 +559,22 @@ pub(crate) fn type_expression<'a>(
             type_expression(typer, &e.expr, flags.without_values(), BaseType::String);
             FullType::new(BaseType::Float, true)
         }
-        e @ Expression::Convert { .. } => {
-            issue_todo!(typer.issues, e);
-            FullType::invalid()
+        Expression::Convert(e) => {
+            if let Some(type_) = &e.type_ {
+                let col = parse_column(
+                    type_.clone(),
+                    Identifier::new("", e.convert_span.clone()),
+                    typer.issues,
+                    None,
+                    None,
+                );
+                let inner = type_expression(typer, &e.expr, flags, col.type_.base());
+                FullType::new(col.type_.t, inner.not_null)
+            } else {
+                // CONVERT(expr USING charset) — returns a string
+                let inner = type_expression(typer, &e.expr, flags, BaseType::String);
+                FullType::new(BaseType::String, inner.not_null)
+            }
         }
         e @ Expression::UserVariable { .. } => {
             issue_todo!(typer.issues, e);
