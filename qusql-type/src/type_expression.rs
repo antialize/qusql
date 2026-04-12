@@ -564,9 +564,16 @@ pub(crate) fn type_expression<'a>(
             issue_todo!(typer.issues, e);
             FullType::invalid()
         }
-        e @ Expression::TypeCast(..) => {
-            issue_todo!(typer.issues, e);
-            FullType::invalid()
+        Expression::TypeCast(e) => {
+            let col = parse_column(
+                e.type_.clone(),
+                Identifier::new("", e.doublecolon_span.clone()),
+                typer.issues,
+                None,
+                None,
+            );
+            let inner = type_expression(typer, &e.expr, flags, col.type_.base());
+            FullType::new(col.type_.t, inner.not_null)
         }
         e @ Expression::Array(..) => {
             issue_todo!(typer.issues, e);
