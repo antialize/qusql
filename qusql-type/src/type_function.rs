@@ -1725,6 +1725,31 @@ pub(crate) fn type_function<'a, 'b>(
             arg_cnt(typer, 0..0, args, span);
             FullType::new(BaseType::Integer, false)
         }
+        // PostgreSQL array functions
+        Function::ArrayAppend
+        | Function::ArrayCat
+        | Function::ArrayFill
+        | Function::ArrayPrepend
+        | Function::ArrayRemove
+        | Function::ArrayReplace
+        | Function::ArrayReverse
+        | Function::ArraySample
+        | Function::ArrayShuffle
+        | Function::ArraySort
+        | Function::TrimArray => tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any]),
+        Function::ArrayDims => tf(BaseType::String.into(), &[BaseType::Any], &[]),
+        Function::ArrayToString => {
+            tf(BaseType::String.into(), &[BaseType::Any, BaseType::String], &[BaseType::String])
+        }
+        Function::ArrayLength
+        | Function::ArrayLower
+        | Function::ArrayNdims
+        | Function::ArrayPosition
+        | Function::ArrayUpper
+        | Function::Cardinality => {
+            tf(BaseType::Integer.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::ArrayPositions => tf(BaseType::Any.into(), &[BaseType::Any, BaseType::Any], &[]),
         // PostgreSQL XML functions
         Function::XmlIsWellFormed
         | Function::XmlIsWellFormedContent
