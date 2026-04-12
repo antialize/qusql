@@ -202,7 +202,7 @@ pub(crate) fn type_select<'a>(
 ) -> SelectType<'a> {
     let mut guard = typer_stack(
         typer,
-        |t| t.reference_types.clone(),
+        |t| core::mem::take(&mut t.reference_types),
         |t, v| t.reference_types = v,
     );
     let typer = &mut guard.typer;
