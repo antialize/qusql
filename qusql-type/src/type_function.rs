@@ -1126,6 +1126,25 @@ pub(crate) fn type_function<'a, 'b>(
             &[BaseType::Integer],
         ),
         Function::NaturalSortkey => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::Coalesce => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..9999, args, span);
+            let mut t: Option<Type<'a>> = None;
+            for (e, et) in &typed {
+                if let Some(ref prev) = t {
+                    if let Some(merged) = typer.matched_type(prev, &et.t) {
+                        t = Some(merged);
+                    } else {
+                        typer
+                            .err("Incompatible types in COALESCE", span)
+                            .frag(format!("Of type {}", prev), *e);
+                    }
+                } else {
+                    t = Some(et.t.clone());
+                }
+            }
+            FullType::new(t.unwrap_or(Type::Invalid), false)
+        }
         Function::NullIf => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..2, args, span);
