@@ -37,7 +37,8 @@ pub(crate) fn type_binary_expression<'a>(
                 (flags, BaseType::Bool)
             }
         }
-        BinaryOperator::Or(_) | BinaryOperator::Xor(_) => (flags.without_values(), BaseType::Bool),
+        BinaryOperator::Or(_) => (flags.without_values(), BaseType::Bool),
+        BinaryOperator::Xor(_) => (flags.without_values(), BaseType::Bool),
         BinaryOperator::NullSafeEq(_) => (flags.without_values(), BaseType::Any),
         BinaryOperator::Eq(_)
         | BinaryOperator::GtEq(_)
@@ -84,6 +85,7 @@ pub(crate) fn type_binary_expression<'a>(
             }
         }
         BinaryOperator::Collate(_) => (flags, BaseType::String),
+        BinaryOperator::Concat(_) => (flags.without_values(), BaseType::String),
         BinaryOperator::JsonExtract(_) => (flags, BaseType::String), // JSON value returned
         BinaryOperator::JsonExtractUnquote(_) => (flags, BaseType::String), // Unquoted string
         BinaryOperator::User(_, _) => (flags, BaseType::Any),
@@ -107,7 +109,21 @@ pub(crate) fn type_binary_expression<'a>(
     let lhs_type = type_expression(typer, lhs, flags, context);
     let rhs_type = type_expression(typer, rhs, flags, context);
     match op {
-        BinaryOperator::Or(_) | BinaryOperator::Xor(_) | BinaryOperator::And(_) => {
+        BinaryOperator::Or(_) => {
+            typer.ensure_base(lhs, &lhs_type, BaseType::Bool);
+            typer.ensure_base(rhs, &rhs_type, BaseType::Bool);
+            FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::Concat(_) => {
+            // `||` is string/array/jsonb concatenation (PostgreSQL and ANSI SQL).
+            if let Some(t) = typer.matched_type(&lhs_type, &rhs_type) {
+                return FullType::new(t, lhs_type.not_null && rhs_type.not_null);
+            }
+            typer.ensure_base(lhs, &lhs_type, BaseType::String);
+            typer.ensure_base(rhs, &rhs_type, BaseType::String);
+            FullType::new(BaseType::String, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::Xor(_) | BinaryOperator::And(_) => {
             typer.ensure_base(lhs, &lhs_type, BaseType::Bool);
             typer.ensure_base(rhs, &rhs_type, BaseType::Bool);
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)

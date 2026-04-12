@@ -27,3 +27,9 @@ sqlx = { version = "0.8", default-features = false, features = ["chrono", "runti
 [dependencies]
 qusql-sqlx-type-macro = { version = "0.1.2", path = "../qusql-sqlx-type-macro"}
 chrono = "0.4"
+uuid = { version = "1", optional = true }
+serde_json = { version = "1", optional = true }
+
+[features]
+uuid = ["dep:uuid"]
+json = ["dep:serde_json"]

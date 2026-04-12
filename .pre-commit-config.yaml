@@ -1,0 +1,13 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 1a1f58ba4c35362efe8fed2279715a905baee93d  # v0.14.8
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: eeee35a89e69d5772bdee97db1a6a898467b686e  # v1.0
+    hooks:
+      - id: fmt
+        args: [--all, --]

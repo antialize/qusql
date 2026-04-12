@@ -50,19 +50,23 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-pub use qusql_parse::{Fragment, Issue, Issues, Level};
+pub use qusql_parse::{ByteToChar, Fragment, Issue, Issues, Level};
 use qusql_parse::{ParseOptions, parse_statement};
 use schema::Schemas;
 
 mod type_;
 mod type_binary_expression;
+mod type_call;
 mod type_delete;
 mod type_expression;
 mod type_function;
 mod type_insert_replace;
+mod type_lock;
 mod type_reference;
 mod type_select;
+mod type_set;
 mod type_statement;
+mod type_truncate;
 mod type_update;
 mod typer;
 
@@ -198,6 +202,19 @@ pub enum StatementType<'a> {
         /// If present, the types and names of the columns returned from the replace
         returning: Option<Vec<SelectTypeColumn<'a>>>,
     },
+    /// The statement is a truncate statement
+    Truncate,
+    /// The statement is a call statement
+    Call {
+        /// The key and type of arguments to the query
+        arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
+    },
+    /// The statement is a transaction control statement (BEGIN, COMMIT, END, START TRANSACTION)
+    Transaction,
+    /// The statement is a set statement
+    Set,
+    /// The statement is a table lock/unlock statement
+    Lock,
     /// The query was not valid, errors are preset in issues
     Invalid,
 }
@@ -245,6 +262,11 @@ pub fn type_statement<'a>(
                 arguments,
                 returning: returning.map(|r| r.columns),
             },
+            type_statement::InnerStatementType::Truncate => StatementType::Truncate,
+            type_statement::InnerStatementType::Call => StatementType::Call { arguments },
+            type_statement::InnerStatementType::Transaction => StatementType::Transaction,
+            type_statement::InnerStatementType::Set => StatementType::Set,
+            type_statement::InnerStatementType::Lock => StatementType::Lock,
             type_statement::InnerStatementType::Invalid => StatementType::Invalid,
         }
     } else {
@@ -538,6 +560,10 @@ mod tests {
             `d` date NOT NULL,
             `dt` datetime NOT NULL,
             `t` time NOT NULL);
+
+        CREATE PROCEDURE `p1`(IN `a` int, IN `b` varchar(100))
+        BEGIN
+        END;
         ";
 
         let options = TypeOptions::new().dialect(SQLDialect::MariaDB);
@@ -1267,6 +1293,158 @@ mod tests {
             t("YEARWEEK(`d`)", "i!");
             t("YEARWEEK(`d`, 3)", "i!");
         }
+        {
+            let name = "q34";
+            let src = "TRUNCATE TABLE `t1`";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Truncate) {
+                println!("{name} should be truncate");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q35";
+            let src = "TRUNCATE TABLE `unknown_table`";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q36";
+            let src = "CALL p1(42, 'hello')";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Call { .. }) {
+                println!("{name} should be call");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q37";
+            let src = "CALL p1(42)";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail (wrong arg count)");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q38";
+            let src = "CALL unknown_proc(1)";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail (unknown procedure)");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q39";
+            let src = "BEGIN";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Transaction) {
+                println!("{name} should be transaction");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q40";
+            let src = "COMMIT";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Transaction) {
+                println!("{name} should be transaction");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q41";
+            let src = "SET @var = 42";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Set) {
+                println!("{name} should be set");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q42";
+            let src = "SET @@session.time_zone = 'UTC'";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Set) {
+                println!("{name} should be set");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q42b";
+            let src = "SET @@time_zone = '+00:00'";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Set) {
+                println!("{name} should be set");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q43";
+            let src = "LOCK TABLES `t1` READ";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Lock) {
+                println!("{name} should be lock");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q44";
+            let src = "LOCK TABLES `unknown_table` WRITE";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail (unknown table)");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q45";
+            let src = "UNLOCK TABLES";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Lock) {
+                println!("{name} should be lock");
+                errors += 1;
+            }
+        }
+
         if errors != 0 {
             panic!("{errors} errors in test");
         }
@@ -1465,6 +1643,40 @@ mod tests {
                 check_columns(name, src, &columns, "k:str!", &mut errors);
             } else {
                 println!("{name} should be select");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "pg_set1";
+            let src = "SET search_path = 'myschema'";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Set) {
+                println!("{name} should be set");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "pg_set2";
+            let src = "SET @user_var = 42";
+            let mut issues = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail: @var not valid in PostgreSQL");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "pg_set3";
+            let src = "SET @@session.time_zone = 'UTC'";
+            let mut issues = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail: @@var not valid in PostgreSQL");
                 errors += 1;
             }
         }

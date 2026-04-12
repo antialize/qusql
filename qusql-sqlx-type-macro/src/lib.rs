@@ -13,7 +13,9 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote, quote_spanned};
 use qusql_type::schema::{parse_schemas, Schemas};
-use qusql_type::{type_statement, Issue, SQLArguments, SQLDialect, SelectTypeColumn, TypeOptions};
+use qusql_type::{
+    type_statement, ByteToChar, Issue, SQLArguments, SQLDialect, SelectTypeColumn, TypeOptions,
+};
 use syn::spanned::Spanned;
 use syn::{parse::Parse, punctuated::Punctuated, Expr, Ident, LitStr, Token};
 
@@ -72,38 +74,44 @@ static SCHEMA_SRC: Lazy<String> =
     });
 
 /// Construct a none color report for an issue
-fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
+fn issue_to_report(issue: Issue, b2c: &ByteToChar) -> Report<'static, std::ops::Range<usize>> {
+    let span = b2c.map_span(issue.span);
     let mut builder = Report::build(
         match issue.level {
             qusql_type::Level::Warning => ReportKind::Warning,
             qusql_type::Level::Error => ReportKind::Error,
         },
-        issue.span.clone(),
+        span.clone(),
     )
     .with_config(ariadne::Config::default().with_color(false))
     .with_label(
-        Label::new(issue.span)
+        Label::new(span)
             .with_order(-1)
             .with_priority(-1)
             .with_message(issue.message),
     );
     for frag in issue.fragments {
-        builder = builder.with_label(Label::new(frag.span).with_message(frag.message));
+        builder =
+            builder.with_label(Label::new(b2c.map_span(frag.span)).with_message(frag.message));
     }
     builder.finish()
 }
 
 /// Construct a color report for an issue
-fn issue_to_report_color(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
+fn issue_to_report_color(
+    issue: Issue,
+    b2c: &ByteToChar,
+) -> Report<'static, std::ops::Range<usize>> {
+    let span = b2c.map_span(issue.span);
     let mut builder = Report::build(
         match issue.level {
             qusql_type::Level::Warning => ReportKind::Warning,
             qusql_type::Level::Error => ReportKind::Error,
         },
-        issue.span.clone(),
+        span.clone(),
     )
     .with_label(
-        Label::new(issue.span)
+        Label::new(span)
             .with_color(match issue.level {
                 qusql_type::Level::Warning => Color::Yellow,
                 qusql_type::Level::Error => Color::Red,
@@ -114,7 +122,7 @@ fn issue_to_report_color(issue: Issue) -> Report<'static, std::ops::Range<usize>
     );
     for frag in issue.fragments {
         builder = builder.with_label(
-            Label::new(frag.span)
+            Label::new(b2c.map_span(frag.span))
                 .with_color(Color::Blue)
                 .with_message(frag.message),
         );
@@ -137,17 +145,20 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
     }
 }
 
-/// Parsed version of the sqlx-type-schema.sql
+/// Parsed version of the sqlx-type-schema.sql.
+/// Built-in dialect tables (e.g. `spatial_ref_sys`) are injected automatically
+/// by `parse_schemas` based on the dialect detected from the schema header.
 static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
     let schema_src = SCHEMA_SRC.as_str();
-    let dialect = if let Some(first_line) = schema_src.lines().next() {
-        if first_line.contains("sql-product: postgres") {
-            SQLDialect::PostgreSQL
-        } else if first_line.contains("sql-product: sqlite") {
-            SQLDialect::Sqlite
-        } else {
-            SQLDialect::MariaDB
-        }
+    let header: String = schema_src.lines().take(2).collect::<Vec<_>>().join(" ");
+    let dialect = if header.contains("qusql-type-variant: postgis")
+        || header.contains("sql-product: postgis")
+    {
+        SQLDialect::PostGIS
+    } else if header.contains("sql-product: postgres") {
+        SQLDialect::PostgreSQL
+    } else if header.contains("sql-product: sqlite") {
+        SQLDialect::Sqlite
     } else {
         SQLDialect::MariaDB
     };
@@ -156,13 +167,14 @@ static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
     let mut issues = qusql_type::Issues::new(schema_src);
     let schemas = parse_schemas(schema_src, &mut issues, &options);
     if !issues.is_ok() {
+        let b2c = ByteToChar::new(schema_src.as_bytes());
         let source = NamedSource("sqlx-type-schema.sql", Source::from(schema_src));
         let mut err = false;
         for issue in issues.into_vec() {
             if issue.level == qusql_type::Level::Error {
                 err = true;
             }
-            let r = issue_to_report_color(issue);
+            let r = issue_to_report_color(issue, &b2c);
             r.eprint(&source).unwrap();
         }
         if err {
@@ -184,7 +196,7 @@ fn quote_args(
     let cls = match dialect {
         SQLDialect::MariaDB => quote!(sqlx::mysql::MySql),
         SQLDialect::Sqlite => quote!(sqlx::sqlite::Sqlite),
-        SQLDialect::PostgreSQL => quote!(sqlx::postgres::Postgres),
+        SQLDialect::PostgreSQL | SQLDialect::PostGIS => quote!(sqlx::postgres::Postgres),
     };
 
     let mut at = Vec::new();
@@ -260,6 +272,7 @@ fn quote_args(
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {qusql_sqlx_type::Timestamp}
             }
+            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => quote! {qusql_sqlx_type::Uuid},
             qusql_type::Type::Null => todo!("null"),
             qusql_type::Type::Invalid => quote! {std::convert::Infallible},
             qusql_type::Type::Enum(_) => quote! {&str},
@@ -268,6 +281,9 @@ fn quote_args(
             qusql_type::Type::F32 => quote! {f32},
             qusql_type::Type::F64 => quote! {f64},
             qusql_type::Type::JSON => quote! {qusql_sqlx_type::Any},
+            qusql_type::Type::Geometry => quote! {qusql_sqlx_type::Any},
+            qusql_type::Type::Range(_) => quote! {qusql_sqlx_type::Any},
+            qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},
         };
         if !ta.not_null {
             t = quote! {Option<#t>}
@@ -332,6 +348,7 @@ fn quote_args(
 /// Output an [Issue] as a compile error
 fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_macro2::TokenStream> {
     if !issues.is_empty() {
+        let b2c = ByteToChar::new(source.as_bytes());
         let source = NamedSource("", Source::from(source));
         let mut err = false;
         let mut out = Vec::new();
@@ -339,7 +356,7 @@ fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_ma
             if issue.level == qusql_type::Level::Error {
                 err = true;
             }
-            let r = issue_to_report(issue);
+            let r = issue_to_report(issue, &b2c);
             r.write(&source, &mut out).unwrap();
         }
         if err {
@@ -384,6 +401,9 @@ fn construct_row(
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
+            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => {
+                quote! {qusql_sqlx_type::UuidValue}
+            }
             qusql_type::Type::Null => todo!("from_null"),
             qusql_type::Type::Invalid => quote! {i64},
             qusql_type::Type::Enum(_) => quote! {String},
@@ -392,13 +412,24 @@ fn construct_row(
             qusql_type::Type::F32 => quote! {f32},
             qusql_type::Type::F64 => quote! {f64},
             qusql_type::Type::JSON => quote! {String},
+            qusql_type::Type::Geometry => quote! {Vec<u8>},
+            qusql_type::Type::Range(_) => quote! {Vec<u8>},
+            qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},
         };
         let name = match &c.name {
             Some(v) => v,
             None => continue,
         };
 
-        let ident = String::from("r#") + name.value;
+        // Handle sqlx "column!" convention: strip trailing ! and force not_null
+        let name_str = name.value;
+        let (name_str, force_not_null) = if let Some(stripped) = name_str.strip_suffix('!') {
+            (stripped, true)
+        } else {
+            (name_str, false)
+        };
+
+        let ident = String::from("r#") + name_str;
         let ident: Ident = if let Ok(ident) = syn::parse_str(&ident) {
             ident
         } else {
@@ -407,7 +438,7 @@ fn construct_row(
             continue;
         };
 
-        if !c.type_.not_null {
+        if !c.type_.not_null && !force_not_null {
             t = quote! {Option<#t>};
         }
         row_members.push(quote! {
@@ -469,7 +500,7 @@ pub fn query(input: TokenStream) -> TokenStream {
         .arguments(match &dialect {
             SQLDialect::MariaDB => SQLArguments::QuestionMark,
             SQLDialect::Sqlite => SQLArguments::QuestionMark,
-            SQLDialect::PostgreSQL => SQLArguments::Dollar,
+            SQLDialect::PostgreSQL | SQLDialect::PostGIS => SQLArguments::Dollar,
         })
         .list_hack(true);
     let mut issues = qusql_type::Issues::new(&query.query);
@@ -671,6 +702,63 @@ pub fn query(input: TokenStream) -> TokenStream {
             };
             s.into()
         }
+        qusql_type::StatementType::Truncate => {
+            errors.push(
+                syn::Error::new(query.query_span, "TRUNCATE not supported in query!")
+                    .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("truncate")
+            }}
+            .into()
+        }
+        qusql_type::StatementType::Call { .. } => {
+            errors.push(
+                syn::Error::new(query.query_span, "CALL not supported in query!")
+                    .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("call")
+            }}
+            .into()
+        }
+        qusql_type::StatementType::Transaction => {
+            errors.push(
+                syn::Error::new(
+                    query.query_span,
+                    "Transaction control not supported in query!",
+                )
+                .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("transaction")
+            }}
+            .into()
+        }
+        qusql_type::StatementType::Set => {
+            errors.push(
+                syn::Error::new(query.query_span, "SET not supported in query!").to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("set")
+            }}
+            .into()
+        }
+        qusql_type::StatementType::Lock => {
+            errors.push(
+                syn::Error::new(query.query_span, "LOCK not supported in query!")
+                    .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("lock")
+            }}
+            .into()
+        }
         qusql_type::StatementType::Invalid => {
             let s = quote! { {
                 #(#errors; )*;
@@ -713,6 +801,9 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
+            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => {
+                quote! {qusql_sqlx_type::UuidValue}
+            }
             qusql_type::Type::Null => todo!("from_null"),
             qusql_type::Type::Invalid => quote! {i64},
             qusql_type::Type::Enum(_) => quote! {String},
@@ -721,13 +812,24 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             qusql_type::Type::F32 => quote! {f32},
             qusql_type::Type::F64 => quote! {f64},
             qusql_type::Type::JSON => quote! {String},
+            qusql_type::Type::Geometry => quote! {Vec<u8>},
+            qusql_type::Type::Range(_) => quote! {Vec<u8>},
+            qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},
         };
         let name = match &c.name {
             Some(v) => v,
             None => continue,
         };
 
-        let ident = String::from("r#") + name.value;
+        // Handle sqlx "column!" convention: strip trailing ! and force not_null
+        let name_str = name.value;
+        let (name_str, force_not_null) = if let Some(stripped) = name_str.strip_suffix('!') {
+            (stripped, true)
+        } else {
+            (name_str, false)
+        };
+
+        let ident = String::from("r#") + name_str;
         let ident: Ident = if let Ok(ident) = syn::parse_str(&ident) {
             ident
         } else {
@@ -736,7 +838,7 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             continue;
         };
 
-        if !c.type_.not_null {
+        if !c.type_.not_null && !force_not_null {
             t = quote! {Option<#t>};
         }
         row_construct.push(quote! {
@@ -802,7 +904,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
         .arguments(match &dialect {
             SQLDialect::MariaDB => SQLArguments::QuestionMark,
             SQLDialect::Sqlite => SQLArguments::QuestionMark,
-            SQLDialect::PostgreSQL => SQLArguments::Dollar,
+            SQLDialect::PostgreSQL | SQLDialect::PostGIS => SQLArguments::Dollar,
         })
         .list_hack(true);
     let mut issues = qusql_type::Issues::new(&query_as.query);
@@ -944,6 +1046,64 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 )
             }};
             s.into()
+        }
+        qusql_type::StatementType::Truncate => {
+            errors.push(
+                syn::Error::new(query_as.query_span, "TRUNCATE not supported in query_as!")
+                    .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("truncate")
+            }}
+            .into()
+        }
+        qusql_type::StatementType::Call { .. } => {
+            errors.push(
+                syn::Error::new(query_as.query_span, "CALL not supported in query_as!")
+                    .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("call")
+            }}
+            .into()
+        }
+        qusql_type::StatementType::Transaction => {
+            errors.push(
+                syn::Error::new(
+                    query_as.query_span,
+                    "Transaction control not supported in query_as!",
+                )
+                .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("transaction")
+            }}
+            .into()
+        }
+        qusql_type::StatementType::Set => {
+            errors.push(
+                syn::Error::new(query_as.query_span, "SET not supported in query_as!")
+                    .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("set")
+            }}
+            .into()
+        }
+        qusql_type::StatementType::Lock => {
+            errors.push(
+                syn::Error::new(query_as.query_span, "LOCK not supported in query_as!")
+                    .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("lock")
+            }}
+            .into()
         }
         qusql_type::StatementType::Invalid => quote! { {
             #(#errors; )*;

@@ -1,0 +1,15 @@
+[package]
+name = "type_test"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "type_test"
+path = "src/main.rs"
+
+[dependencies]
+qusql-type = { path = "../qusql-type" }
+ariadne = "0.5"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

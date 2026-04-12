@@ -1,0 +1,298 @@
+{
+  "tables": [
+    {
+      "name": "boards",
+      "columns": [
+        {
+          "name": "id",
+          "type": "string",
+          "has_default": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "last_modified",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "change_count",
+          "type": "integer",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "is_open",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "min_change_count",
+          "type": "integer",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "epsg_code",
+          "type": "integer",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "coordinate_systems",
+      "columns": [
+        {
+          "name": "id",
+          "type": "string",
+          "has_default": true
+        },
+        {
+          "name": "board_id",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "origin_x",
+          "type": "f64",
+          "not_null": true
+        },
+        {
+          "name": "origin_y",
+          "type": "f64",
+          "not_null": true
+        },
+        {
+          "name": "scale",
+          "type": "f64",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "schema_revisions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "generated": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "sequence_index",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "applied_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "snapshots",
+      "columns": [
+        {
+          "name": "id",
+          "type": "string",
+          "has_default": true
+        },
+        {
+          "name": "content",
+          "type": "bytes",
+          "not_null": true
+        },
+        {
+          "name": "recorded_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "tag_definitions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "generated": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "last_modified",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "tasks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "generated": true
+        },
+        {
+          "name": "board_id",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "sys_period",
+          "type": "bytes",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "change_index",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "properties",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "bounding_box",
+          "type": "bytes"
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "created_by",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "display_kind",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "coord_system_id",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_history",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "generated": true
+        },
+        {
+          "name": "board_id",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "created_by",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "sys_period",
+          "type": "bytes",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "change_index",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "properties",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "bounding_box",
+          "type": "bytes"
+        },
+        {
+          "name": "display_kind",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "coord_system_id",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    }
+  ]
+}

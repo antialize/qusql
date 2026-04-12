@@ -464,22 +464,48 @@ pub(crate) fn parse_table_reference_inner<'a>(
             })
         }
         Token::Ident(_, Keyword::SELECT) | Token::LParen => {
-            // If the token after '(' is an identifier (table name) or another '('
-            // (for nested groups like ((t1 join t2) join t3)), rather than
-            // SELECT/VALUES/WITH, treat it as a MySQL parenthesized join group.
-            let is_join_group = matches!(parser.token, Token::LParen)
+            // Consume the outer '(' if present. By doing this first we only need
+            // one level of peek to distinguish a parenthesised join group from a
+            // parenthesised subquery when the contents themselves start with '(':
+            //   ((t1 JOIN t2) JOIN t3)  – join group  (peek after inner ( is an ident)
+            //   ((SELECT …) UNION …)    – subquery    (peek after inner ( is SELECT)
+            let outer_paren = if matches!(parser.token, Token::LParen) {
+                Some(parser.consume_token(Token::LParen)?)
+            } else {
+                None
+            };
+
+            // A join group is only possible when we consumed an outer '(' and
+            // what follows is NOT a subquery start (SELECT/VALUES/WITH directly,
+            // or '(' whose own first token is SELECT/VALUES/WITH).
+            let is_join_group = outer_paren.is_some()
                 && !matches!(
-                    parser.peek(),
+                    parser.token,
                     Token::Ident(_, Keyword::SELECT | Keyword::VALUES | Keyword::WITH)
-                        | Token::LParen
-                );
+                )
+                && !(matches!(parser.token, Token::LParen)
+                    && matches!(
+                        parser.peek(),
+                        Token::Ident(_, Keyword::SELECT | Keyword::VALUES | Keyword::WITH)
+                    ));
+
             if is_join_group {
-                parser.consume_token(Token::LParen)?;
                 let inner = parse_table_reference(parser, additional_restrict)?;
                 parser.consume_token(Token::RParen)?;
                 return Ok(inner);
             }
+
+            // Subquery path. parse_compound_query sees either SELECT (when
+            // outer_paren is None) or '(' / SELECT (when outer_paren is Some).
+            // Either way it returns with the matching closing ')' already consumed.
+            // We then consume the outer ')' we pre-consumed above (if any), and
+            // only after that do we look for the alias.
             let query = parse_compound_query(parser)?;
+
+            if outer_paren.is_some() {
+                parser.consume_token(Token::RParen)?;
+            }
+
             let as_span = parser.skip_keyword(Keyword::AS);
             let as_ = if as_span.is_some()
                 || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
@@ -1241,8 +1267,12 @@ impl<'a> Spanned for Select<'a> {
     }
 }
 
-pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>, ParseError> {
-    let select_span = parser.consume_keyword(Keyword::SELECT)?;
+/// Parse a SELECT body starting after the `SELECT` keyword has already been consumed.
+/// `select_span` is the span of the keyword (or a synthetic span standing in for it).
+pub(crate) fn parse_select_body<'a>(
+    parser: &mut Parser<'a, '_>,
+    select_span: Span,
+) -> Result<Select<'a>, ParseError> {
     let mut flags = Vec::new();
     let mut select_exprs = Vec::new();
 
@@ -1570,4 +1600,9 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         fetch,
         locking,
     })
+}
+
+pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>, ParseError> {
+    let select_span = parser.consume_keyword(Keyword::SELECT)?;
+    parse_select_body(parser, select_span)
 }

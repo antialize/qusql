@@ -18,4 +18,5 @@ members = [
     "qusql-type",
     "qusql-type/mariadb_test",
     "parse-test",
+    "type-test",
 ]

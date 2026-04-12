@@ -230,7 +230,7 @@ pub(crate) fn decode_binary_string(s: &str) -> Cow<'_, str> {
 
 impl<'a, 'b> Parser<'a, 'b> {
     pub(crate) fn new(src: &'a str, issues: &'b mut Issues<'a>, options: &'b ParseOptions) -> Self {
-        let mut lexer = Lexer::new(src, &options.dialect);
+        let mut lexer = Lexer::new(src, &options.dialect, options.get_span_offset());
         let (token, span) = lexer.next_token();
         Self {
             token,
@@ -240,7 +240,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             issues,
             arg: 0,
             options,
-            permit_compound_statements: false,
+            permit_compound_statements: options.function_body,
         }
     }
 
@@ -373,7 +373,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     pub(crate) fn reserved(&self) -> Restrict {
         match self.options.dialect {
             crate::SQLDialect::MariaDB => Restrict::MARIADB,
-            crate::SQLDialect::PostgreSQL => Restrict::POSTGRES,
+            crate::SQLDialect::PostgreSQL | crate::SQLDialect::PostGIS => Restrict::POSTGRES,
             crate::SQLDialect::Sqlite => Restrict::SQLITE,
         }
     }

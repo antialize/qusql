@@ -16,9 +16,13 @@ use alloc::vec::Vec;
 
 use crate::{
     schema::{Column, Schema},
+    type_call::type_call,
     type_delete::type_delete,
     type_insert_replace::{AutoIncrementId, type_insert_replace},
+    type_lock::{type_lock, type_unlock},
     type_select::{SelectType, type_compound_query},
+    type_set::type_set,
+    type_truncate::type_truncate,
     type_update::type_update,
     typer::Typer,
 };
@@ -38,6 +42,11 @@ pub(crate) enum InnerStatementType<'a> {
     Replace {
         returning: Option<SelectType<'a>>,
     },
+    Truncate,
+    Call,
+    Transaction,
+    Set,
+    Lock,
     Invalid,
 }
 
@@ -52,6 +61,7 @@ fn type_with_query<'a>(
             InnerStatementType::Select(v) => Some(v),
             InnerStatementType::Delete { returning } => returning,
             InnerStatementType::Insert { returning, .. } => returning,
+            InnerStatementType::Update { returning } => returning,
             _ => None,
         };
         if let Some(s) = s {
@@ -76,8 +86,12 @@ fn type_with_query<'a>(
 
             let mut schemas = typer.with_schemas.clone();
             schemas.insert(block.identifier.as_str(), &schema);
-            let mut typer = typer.with_schemas(schemas);
-            type_with_query(&mut typer, rem_blocks, inner)
+            let mut child = typer.with_schemas(schemas);
+            let result = type_with_query(&mut child, rem_blocks, inner);
+            // Propagate any argument constraints discovered inside the CTE scope back
+            // to the outer typer so they are visible to the caller.
+            typer.arg_types = child.arg_types;
+            result
         } else {
             type_with_query(typer, rem_blocks, inner)
         }
@@ -116,6 +130,30 @@ pub(crate) fn type_statement<'a>(
         }
         Statement::CompoundQuery(u) => InnerStatementType::Select(type_compound_query(typer, u)),
         Statement::WithQuery(w) => type_with_query(typer, &w.with_blocks, &w.statement),
+        Statement::TruncateTable(t) => {
+            type_truncate(typer, t);
+            InnerStatementType::Truncate
+        }
+        Statement::Call(c) => {
+            type_call(typer, c);
+            InnerStatementType::Call
+        }
+        Statement::Begin(_)
+        | Statement::Commit(_)
+        | Statement::StartTransaction(_)
+        | Statement::End(_) => InnerStatementType::Transaction,
+        Statement::Set(s) => {
+            type_set(typer, s);
+            InnerStatementType::Set
+        }
+        Statement::Lock(l) => {
+            type_lock(typer, l);
+            InnerStatementType::Lock
+        }
+        Statement::Unlock(u) => {
+            type_unlock(typer, u);
+            InnerStatementType::Lock
+        }
         s => {
             typer.issues.err("Cannot type statement of this type", s);
             InnerStatementType::Invalid
