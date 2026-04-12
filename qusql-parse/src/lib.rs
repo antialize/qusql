@@ -207,12 +207,18 @@ pub enum SQLDialect {
     /// Parse MariaDB/Mysql SQL
     MariaDB,
     PostgreSQL,
+    /// PostgreSQL with PostGIS extension functions enabled
+    PostGIS,
     Sqlite,
 }
 
 impl SQLDialect {
     pub fn is_postgresql(&self) -> bool {
-        matches!(self, SQLDialect::PostgreSQL)
+        matches!(self, SQLDialect::PostgreSQL | SQLDialect::PostGIS)
+    }
+
+    pub fn is_postgis(&self) -> bool {
+        matches!(self, SQLDialect::PostGIS)
     }
 
     pub fn is_maria(&self) -> bool {

@@ -193,7 +193,7 @@ fn quote_args(
     let cls = match dialect {
         SQLDialect::MariaDB => quote!(sqlx::mysql::MySql),
         SQLDialect::Sqlite => quote!(sqlx::sqlite::Sqlite),
-        SQLDialect::PostgreSQL => quote!(sqlx::postgres::Postgres),
+        SQLDialect::PostgreSQL | SQLDialect::PostGIS => quote!(sqlx::postgres::Postgres),
     };
 
     let mut at = Vec::new();
@@ -483,7 +483,7 @@ pub fn query(input: TokenStream) -> TokenStream {
         .arguments(match &dialect {
             SQLDialect::MariaDB => SQLArguments::QuestionMark,
             SQLDialect::Sqlite => SQLArguments::QuestionMark,
-            SQLDialect::PostgreSQL => SQLArguments::Dollar,
+            SQLDialect::PostgreSQL | SQLDialect::PostGIS => SQLArguments::Dollar,
         })
         .list_hack(true);
     let mut issues = qusql_type::Issues::new(&query.query);
@@ -875,7 +875,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
         .arguments(match &dialect {
             SQLDialect::MariaDB => SQLArguments::QuestionMark,
             SQLDialect::Sqlite => SQLArguments::QuestionMark,
-            SQLDialect::PostgreSQL => SQLArguments::Dollar,
+            SQLDialect::PostgreSQL | SQLDialect::PostGIS => SQLArguments::Dollar,
         })
         .list_hack(true);
     let mut issues = qusql_type::Issues::new(&query_as.query);

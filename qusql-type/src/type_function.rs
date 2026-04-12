@@ -2805,6 +2805,140 @@ pub(crate) fn type_function<'a, 'b>(
             arg_cnt(typer, 1..1, args, span);
             FullType::new(Type::Geometry, false)
         }
+        // --- Additional PostGIS functions ---
+        Function::StMakeValid => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StIsValidDetail => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            FullType::new(BaseType::Any, false)
+        }
+        Function::StDump | Function::StDumpPoints | Function::StDumpRings | Function::StDumpSegments => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            FullType::new(BaseType::Any, false)
+        }
+        Function::StSnap => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StNode | Function::StSplit | Function::StSharedPaths | Function::StExpand => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StEstimatedExtent => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            FullType::new(Type::Geometry, false)
+        }
+        Function::StFlipCoordinates
+        | Function::StForceCw
+        | Function::StForceCcw
+        | Function::StForcePolygonCw
+        | Function::StForcePolygonCcw => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StConcaveHull => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StVoronoiPolygons | Function::StVoronoiLines => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StDelaunayTriangles => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StSubdivide => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StGeneratePoints => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StBoundingDiagonal => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StMaximumInscribedCircle => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            FullType::new(BaseType::Any, false)
+        }
+        Function::StChaikinSmoothing => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StFrechetDistance => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            FullType::new(Type::F64, false)
+        }
+        Function::StProject => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StLocateAlong | Function::StLocateBetween => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StInterpolatePoint => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            FullType::new(Type::F64, false)
+        }
+        Function::StMakeBox2D | Function::St3DMakeBox => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            FullType::new(Type::Geometry, false)
+        }
+        Function::St3DDistance | Function::St3DMaxDistance => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            FullType::new(Type::F64, false)
+        }
+        Function::St3DIntersects => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            FullType::new(BaseType::Bool, false)
+        }
+        Function::StExtent | Function::St3DExtent => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            FullType::new(Type::Geometry, false)
+        }
         Function::Other(parts) => {
             // Type all arguments regardless of whether we know the function
             typed_args(typer, args, flags);

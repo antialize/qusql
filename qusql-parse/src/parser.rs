@@ -373,7 +373,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     pub(crate) fn reserved(&self) -> Restrict {
         match self.options.dialect {
             crate::SQLDialect::MariaDB => Restrict::MARIADB,
-            crate::SQLDialect::PostgreSQL => Restrict::POSTGRES,
+            crate::SQLDialect::PostgreSQL | crate::SQLDialect::PostGIS => Restrict::POSTGRES,
             crate::SQLDialect::Sqlite => Restrict::SQLITE,
         }
     }
