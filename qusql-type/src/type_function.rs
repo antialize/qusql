@@ -245,6 +245,19 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(Type::JSON, false)
         }
+        Function::JsonbSet => {
+            // jsonb_set(target jsonb, path text[], new_value jsonb[, create_missing bool]) -> jsonb
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..4, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Any); // text[] path
+            }
+            if let Some((e, t)) = typed.get(3) {
+                typer.ensure_base(*e, t, BaseType::Bool);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::JSON, not_null)
+        }
         Function::JsonUnquote => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);

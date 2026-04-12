@@ -697,6 +697,7 @@ pub(crate) enum Keyword {
     JSON,
     JSONB_AGG,
     JSONB_OBJECT_AGG,
+    JSONB_SET,
     JSONB,
     KEY_BLOCK_SIZE,
     LAG,
