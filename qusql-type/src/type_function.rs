@@ -1527,6 +1527,44 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::String, false)
         }
+        // PostGIS / geometry functions
+        // Geometry type is represented as Any since the type system has no geometry type yet
+        Function::GeometryType => {
+            // GeometryType(geom) -> text
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::StGeomFromGeoJson => {
+            // ST_GeomFromGeoJSON(json) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::Geometry, false)
+        }
+        Function::StSetSrid => {
+            // ST_SetSRID(geom, srid) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StSimplifyPreserveTopology => {
+            // ST_SimplifyPreserveTopology(geom, tolerance) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
         Function::Other(parts) => {
             // Type all arguments regardless of whether we know the function
             typed_args(typer, args, flags);

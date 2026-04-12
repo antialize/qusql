@@ -323,6 +323,11 @@ pub enum Function<'a> {
     VarSamp,
     Xmlagg,
     Coalesce,
+    // PostGIS / geometry functions
+    GeometryType,
+    StGeomFromGeoJson,
+    StSetSrid,
+    StSimplifyPreserveTopology,
     Other(Vec<Identifier<'a>>),
 }
 
@@ -1101,6 +1106,14 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::UUID) => Function::Uuid,
         Token::Ident(_, Keyword::UUID_SHORT) => Function::UuidShort,
         Token::Ident(_, Keyword::UUID_TO_BIN) => Function::UuidToBin,
+
+        // PostGIS / geometry functions
+        Token::Ident(_, Keyword::GEOMETRYTYPE) => Function::GeometryType,
+        Token::Ident(_, Keyword::ST_GEOMFROMGEOJSON) => Function::StGeomFromGeoJson,
+        Token::Ident(_, Keyword::ST_SETSRID) => Function::StSetSrid,
+        Token::Ident(_, Keyword::ST_SIMPLIFYPRESERVETOPOLOGY) => {
+            Function::StSimplifyPreserveTopology
+        }
 
         Token::Ident(v, k) if !k.restricted(parser.reserved()) => {
             Function::Other(alloc::vec![Identifier {

@@ -76,7 +76,12 @@ fn type_unary_expression<'a>(
                 | Type::Invalid
                 | Type::Base(BaseType::Integer)
                 | Type::Base(BaseType::Float) => op_type.t,
-                Type::Args(..) | Type::Base(..) | Type::Enum(..) | Type::JSON | Type::Set(..) => {
+                Type::Args(..)
+                | Type::Base(..)
+                | Type::Enum(..)
+                | Type::JSON
+                | Type::Geometry
+                | Type::Set(..) => {
                     typer.err(format!("Expected numeric type got {}", op_type.t), &op_span);
                     Type::Invalid
                 }
