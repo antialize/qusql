@@ -28,11 +28,6 @@ DIALECT: dict[str, str] = {
 }
 DEFAULT_DIALECT = "postgre-sql"
 
-# Tests known not to work yet; excluded from the default run
-KNOWN_FAILING: set[str] = {
-    "postgresql1",
-}
-
 
 def run_type_test(sql_file: Path, dialect: str) -> tuple[int, str]:
     """Run type_test via cargo run and return (exit_code, stdout)."""
@@ -117,10 +112,6 @@ def run_test(name: str, *, update: bool) -> bool:
     # ---- test mode ----
     if not json_file.exists():
         # For known-failing tests without an expected file, a non-zero exit is expected
-        if name in KNOWN_FAILING:
-            print(f"[{name}] XFAIL (no expected output, exit={exit_code})")
-            print(output)
-            return True
         print(f"[{name}] SKIP - no expected output (run --update to create)")
         print(output)
         return True
@@ -159,10 +150,8 @@ def run_test(name: str, *, update: bool) -> bool:
     return False
 
 
-def discover_tests(*, include_known_failing: bool) -> list[str]:
+def discover_tests() -> list[str]:
     names = [sql.stem for sql in sorted(SCRIPT_DIR.glob("*.sql"))]
-    if not include_known_failing:
-        names = [n for n in names if n not in KNOWN_FAILING]
     return names
 
 
@@ -172,14 +161,13 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("tests", nargs="*", help="test names to run (default: all passing tests)")
-    parser.add_argument("--all", dest="all_tests", action="store_true", help="include known-failing tests")
     parser.add_argument("--update", action="store_true", help="overwrite expected outputs with current output")
     args = parser.parse_args()
 
     if args.tests:
         names = [Path(t).stem for t in args.tests]
     else:
-        names = discover_tests(include_known_failing=args.all_tests)
+        names = discover_tests()
 
     passed = failed = 0
     for name in names:
