@@ -1644,6 +1644,40 @@ mod tests {
             }
         }
 
+        {
+            let name = "pg_set1";
+            let src = "SET search_path = 'myschema'";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Set) {
+                println!("{name} should be set");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "pg_set2";
+            let src = "SET @user_var = 42";
+            let mut issues = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail: @var not valid in PostgreSQL");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "pg_set3";
+            let src = "SET @@session.time_zone = 'UTC'";
+            let mut issues = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail: @@var not valid in PostgreSQL");
+                errors += 1;
+            }
+        }
+
         if errors != 0 {
             panic!("{errors} errors in test");
         }

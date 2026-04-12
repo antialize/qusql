@@ -130,6 +130,7 @@ fn parse_set_variable<'a>(parser: &mut Parser<'a, '_>) -> Result<SetVariable<'a>
     match parser.token {
         Token::At => {
             let at_span = parser.consume_token(Token::At)?;
+            parser.maria_only(&at_span);
             let name = parser.consume_plain_identifier_unreserved()?;
             Ok(SetVariable::User { at_span, name })
         }
@@ -140,6 +141,7 @@ fn parse_set_variable<'a>(parser: &mut Parser<'a, '_>) -> Result<SetVariable<'a>
             } else {
                 None
             };
+            parser.maria_only(&global.clone().or_else(|| session.clone()));
             let dot_span = parser.consume_token(Token::Period)?;
             let name = parser.consume_plain_identifier_unreserved()?;
             Ok(SetVariable::System {
@@ -151,6 +153,7 @@ fn parse_set_variable<'a>(parser: &mut Parser<'a, '_>) -> Result<SetVariable<'a>
         }
         Token::AtAt => {
             let at_at_span = parser.consume_token(Token::AtAt)?;
+            parser.maria_only(&at_at_span);
             let name = parser.consume_plain_identifier_unreserved()?;
             Ok(SetVariable::SystemBare { at_at_span, name })
         }
