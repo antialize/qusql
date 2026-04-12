@@ -148,16 +148,18 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
 /// Parsed version of the sqlx-type-schema.sql
 static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
     let schema_src = SCHEMA_SRC.as_str();
-    let dialect = if let Some(first_line) = schema_src.lines().next() {
-        if first_line.contains("sql-product: postgres") {
+    let dialect = {
+        let header: String = schema_src.lines().take(2).collect::<Vec<_>>().join(" ");
+        if header.contains("qusql-type-variant: postgis") || header.contains("sql-product: postgis")
+        {
+            SQLDialect::PostGIS
+        } else if header.contains("sql-product: postgres") {
             SQLDialect::PostgreSQL
-        } else if first_line.contains("sql-product: sqlite") {
+        } else if header.contains("sql-product: sqlite") {
             SQLDialect::Sqlite
         } else {
             SQLDialect::MariaDB
         }
-    } else {
-        SQLDialect::MariaDB
     };
 
     let options = TypeOptions::new().dialect(dialect.clone());
