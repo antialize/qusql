@@ -618,10 +618,27 @@ pub(crate) fn type_expression<'a>(
                 lhs_type.not_null && low_type.not_null && high_type.not_null,
             )
         }
-        Expression::Quantifier(e) => {
-            issue_todo!(typer.issues, e);
-            FullType::invalid()
-        }
+        Expression::Quantifier(e) => match &e.operand {
+            Expression::Subquery(q) => {
+                let select_type = type_union_select(typer, &q.expression, false);
+                if let [v] = select_type.columns.as_slice() {
+                    let mut r = v.type_.clone();
+                    r.not_null = false;
+                    r
+                } else {
+                    typer.err(
+                        "Subquery in quantifier should yield one column",
+                        &q.expression,
+                    );
+                    FullType::invalid()
+                }
+            }
+            _ => {
+                // Array operand — not yet supported
+                issue_todo!(typer.issues, &e.operand);
+                FullType::invalid()
+            }
+        },
         Expression::FieldAccess(e) => {
             issue_todo!(typer.issues, e);
             FullType::invalid()
