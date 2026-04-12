@@ -264,6 +264,7 @@ fn map_type(t: &qusql_type::FullType<'_>) -> Type {
         qusql_type::Type::Invalid => Type::Any,
         qusql_type::Type::JSON => Type::Any,
         qusql_type::Type::Geometry => Type::Any,
+        qusql_type::Type::Array(_) => Type::Any,
         qusql_type::Type::Set(_) => Type::String,
         qusql_type::Type::U16 => Type::Integer,
         qusql_type::Type::U24 => Type::Integer,

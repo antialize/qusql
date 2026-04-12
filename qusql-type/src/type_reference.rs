@@ -12,13 +12,13 @@
 
 use crate::{
     schema::IndexKey,
-    type_::BaseType,
+    type_::{BaseType, FullType},
     type_expression::{ExpressionFlags, type_expression},
     type_select::type_union_select,
     typer::{ReferenceType, Typer, unqualified_name},
 };
 use alloc::vec::Vec;
-use qusql_parse::{OptSpanned, Spanned, TableReference, issue_todo};
+use qusql_parse::{Identifier, OptSpanned, Spanned, TableReference, issue_todo};
 
 pub(crate) fn type_reference<'a>(
     typer: &mut Typer<'a, '_>,
@@ -124,8 +124,69 @@ pub(crate) fn type_reference<'a>(
         qusql_parse::TableReference::JsonTable { .. } => {
             issue_todo!(typer.issues, reference);
         }
-        TableReference::Function { .. } => {
-            issue_todo!(typer.issues, reference);
+        TableReference::Function {
+            name,
+            args,
+            with_ordinality,
+            as_,
+            col_list,
+            ..
+        } => {
+            match name {
+                qusql_parse::TableFunctionName::Unnest(unnest_span) => {
+                    // Each argument to UNNEST expands to one column.
+                    // The column type is the element type of the array argument.
+                    let mut columns: Vec<(Identifier<'a>, FullType<'a>)> = Vec::new();
+                    for (idx, arg) in args.iter().enumerate() {
+                        let arr_type =
+                            type_expression(typer, arg, ExpressionFlags::default(), BaseType::Any);
+                        let elem_type = if let crate::type_::Type::Array(inner) = arr_type.t {
+                            FullType::new(*inner, false)
+                        } else {
+                            // If we can't determine it's an array, use Any/nullable
+                            FullType::new(BaseType::Any, false)
+                        };
+                        // Use col_list alias if provided, otherwise generate "unnest1", "unnest2", ...
+                        let col_name = if let Some(alias) = col_list.get(idx) {
+                            alias.clone()
+                        } else {
+                            static UNNEST_NAMES: [&str; 8] = [
+                                "unnest1", "unnest2", "unnest3", "unnest4", "unnest5", "unnest6",
+                                "unnest7", "unnest8",
+                            ];
+                            let name = UNNEST_NAMES.get(idx).copied().unwrap_or("unnest");
+                            Identifier::new(name, unnest_span.clone())
+                        };
+                        columns.push((col_name, elem_type));
+                    }
+                    // WITH ORDINALITY appends a bigint ordinality column
+                    if with_ordinality.is_some() {
+                        let ord_name = if let Some(alias) = col_list.get(args.len()) {
+                            alias.clone()
+                        } else {
+                            Identifier::new("ordinality", unnest_span.clone())
+                        };
+                        columns.push((ord_name, FullType::new(BaseType::Integer, true)));
+                    }
+                    let span = if let Some(as_) = as_ {
+                        as_.span.clone()
+                    } else {
+                        unnest_span.clone()
+                    };
+                    typer.reference_types.push(ReferenceType {
+                        name: as_.clone(),
+                        span,
+                        columns,
+                    });
+                }
+                qusql_parse::TableFunctionName::GenerateSeries(s)
+                | qusql_parse::TableFunctionName::StringToTable(s) => {
+                    issue_todo!(typer.issues, s);
+                }
+                qusql_parse::TableFunctionName::Other(n) => {
+                    issue_todo!(typer.issues, n);
+                }
+            }
         }
     }
 

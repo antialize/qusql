@@ -11,6 +11,7 @@
 // limitations under the License.
 
 use alloc::borrow::Cow;
+use alloc::boxed::Box;
 
 use crate::{
     ArgumentKey, Type, TypeOptions,
@@ -99,6 +100,18 @@ impl<'a, 'b> Typer<'a, 'b> {
         }
         if t2 == &Type::Null {
             return Some(t1.clone());
+        }
+
+        // Arrays match recursively; an array never matches a non-array concrete type
+        match (t1, t2) {
+            (Type::Array(i1), Type::Array(i2)) => {
+                return self
+                    .matched_type(i1, i2)
+                    .map(|inner| Type::Array(Box::new(inner)));
+            }
+            (Type::Array(_), other) if other.base() != BaseType::Any => return None,
+            (other, Type::Array(_)) if other.base() != BaseType::Any => return None,
+            _ => {}
         }
 
         let mut t1b = t1.base();
