@@ -10,8 +10,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Facility for parsing SQL schemas into a terse format that can be used
-//! for typing statements.
+//! Parse and evaluate SQL schema definitions into a typed representation
+//! used for statement type-checking.
+//!
+//! Supports DDL statements (CREATE/ALTER/DROP for tables, views, functions,
+//! procedures, indices, and types) across MySQL/MariaDB, PostgreSQL/PostGIS,
+//! and SQLite dialects. Includes a limited schema-level evaluator that can
+//! interpret PL/pgSQL function bodies, DO blocks, IF/ELSE control flow,
+//! INSERT/DELETE/TRUNCATE for in-memory row tracking, and expressions
+//! (EXISTS, COALESCE, aggregates). PostgreSQL/PostGIS built-in schemas
+//! (e.g. `spatial_ref_sys`, `geometry_columns`) are injected automatically.
 //!
 //! ```
 //! use qusql_type::{schema::parse_schemas, TypeOptions, SQLDialect, Issues};
@@ -90,8 +98,8 @@ use crate::{
 };
 use alloc::{borrow::Cow, collections::BTreeMap, sync::Arc, vec::Vec};
 use qusql_parse::{
-    AddColumn, AddIndex, AlterColumn, DataType, DropColumn, Expression, Identifier, Issues,
-    ModifyColumn, Span, Spanned, Statement, parse_statements,
+    AddColumn, AddIndex, AlterColumn, DataType, DropColumn, Expression, FunctionParam, Identifier,
+    Issues, ModifyColumn, Span, Spanned, Statement, parse_statements,
 };
 
 /// A column in a schema
@@ -135,7 +143,7 @@ impl<'a> Schema<'a> {
 #[derive(Debug)]
 pub struct ProcedureDef<'a> {
     pub name: Identifier<'a>,
-    pub params: Vec<qusql_parse::FunctionParam<'a>>,
+    pub params: Vec<FunctionParam<'a>>,
     pub span: Span,
 }
 
@@ -147,17 +155,14 @@ pub struct FunctionDefBody<'a> {
     pub statements: Vec<Statement<'a>>,
     /// The body source string (borrowed from the outer source)
     pub src: &'a str,
-    /// Byte offset of `src` within the outer source file.
-    /// Add this to any span from `statements` to get the outer-file span.
-    pub span_offset: usize,
 }
 
 /// A stored function definition
 #[derive(Debug)]
 pub struct FunctionDef<'a> {
     pub name: Identifier<'a>,
-    pub params: Vec<qusql_parse::FunctionParam<'a>>,
-    pub return_type: qusql_parse::DataType<'a>,
+    pub params: Vec<FunctionParam<'a>>,
+    pub return_type: DataType<'a>,
     pub span: Span,
     /// Parsed body, present when the function was defined with a
     /// dollar-quoted (non-escaped) AS body string.
@@ -213,12 +218,12 @@ fn try_parse_body<'a>(
     };
     let span_offset = borrowed.as_ptr() as usize - src.as_ptr() as usize;
     let mut inner_issues = Issues::new(borrowed);
-    let statements = parse_statements(borrowed, &mut inner_issues, options);
+    let body_options = options.clone().function_body(true);
+    let statements = parse_statements(borrowed, &mut inner_issues, &body_options);
     transfer_issues_with_offset(issues, inner_issues, span_offset);
     Some(FunctionDefBody {
         statements,
         src: borrowed,
-        span_offset,
     })
 }
 
@@ -232,7 +237,7 @@ pub(crate) fn parse_column<'a>(
     let mut unsigned = false;
     let mut auto_increment = false;
     let mut default = false;
-    let mut _as = None;
+    let mut as_ = None;
     let mut generated = false;
     let mut primary_key = false;
     let is_sqlite = options
@@ -245,7 +250,7 @@ pub(crate) fn parse_column<'a>(
             qusql_parse::DataTypeProperty::Null(_) => not_null = false,
             qusql_parse::DataTypeProperty::NotNull(_) => not_null = true,
             qusql_parse::DataTypeProperty::AutoIncrement(_) => auto_increment = true,
-            qusql_parse::DataTypeProperty::As((_, e)) => _as = Some(e),
+            qusql_parse::DataTypeProperty::As((_, e)) => as_ = Some(e),
             qusql_parse::DataTypeProperty::Default(_) => default = true,
             qusql_parse::DataTypeProperty::GeneratedAlways(_) => generated = true,
             qusql_parse::DataTypeProperty::PrimaryKey(_) => primary_key = true,
@@ -366,7 +371,7 @@ pub(crate) fn parse_column<'a>(
             list_hack: false,
         },
         auto_increment,
-        as_: _as,
+        as_,
         default,
         generated,
     }
@@ -459,6 +464,7 @@ pub fn parse_schemas<'a>(
                         qusql_parse::CreateDefinition::IndexDefinition { .. } => {}
                         qusql_parse::CreateDefinition::ForeignKeyDefinition { .. } => {}
                         qusql_parse::CreateDefinition::CheckConstraintDefinition { .. } => {}
+                        qusql_parse::CreateDefinition::LikeTable { .. } => {}
                     }
                 }
                 match schemas.schemas.entry(id.clone()) {
@@ -1023,6 +1029,9 @@ pub fn parse_schemas<'a>(
             }
             qusql_parse::Statement::Call(_) => (),
             qusql_parse::Statement::Grant(_) => (),
+            qusql_parse::Statement::CommentOn(_) => (),
+            qusql_parse::Statement::DropType(_) => (),
+            qusql_parse::Statement::ExecuteFunction(_) => (),
             qusql_parse::Statement::DeclareVariable(_) => (),
             qusql_parse::Statement::DeclareCursorMariaDb(_) => (),
             qusql_parse::Statement::DeclareHandler(_) => (),
@@ -1035,6 +1044,9 @@ pub fn parse_schemas<'a>(
             qusql_parse::Statement::While(_) => (),
             qusql_parse::Statement::Repeat(_) => (),
             qusql_parse::Statement::Perform(_) => (),
+            qusql_parse::Statement::Raise(_) => (),
+            qusql_parse::Statement::Assign(_) => (),
+            qusql_parse::Statement::PlpgsqlExecute(_) => (),
             s => {
                 issues.err(
                     alloc::format!("Unsupported statement {s:?} in schema definition"),

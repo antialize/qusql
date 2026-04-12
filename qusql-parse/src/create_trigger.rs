@@ -10,15 +10,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-    Expression, Identifier, Span, Spanned, Statement,
+    Expression, Identifier, QualifiedName, Span, Spanned, Statement,
     create_option::CreateOption,
     expression::{PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
-    statement::{Block, parse_statement},
+    qualified_name::parse_qualified_name_unreserved,
+    statement::parse_statement,
 };
 use alloc::{boxed::Box, vec::Vec};
+
+/// PostgreSQL trigger EXECUTE FUNCTION func_name(args...) body
+#[derive(Clone, Debug)]
+pub struct ExecuteFunction<'a> {
+    /// Span of "EXECUTE FUNCTION" or "EXECUTE PROCEDURE"
+    pub execute_span: Span,
+    /// Name of the function to execute
+    pub func_name: QualifiedName<'a>,
+    /// Arguments passed to the function
+    pub args: Vec<Expression<'a>>,
+}
+
+impl<'a> Spanned for ExecuteFunction<'a> {
+    fn span(&self) -> Span {
+        self.execute_span
+            .join_span(&self.func_name)
+            .join_span(&self.args)
+    }
+}
 
 /// Whether the trigger fires once per row or once per statement
 #[derive(Clone, Debug)]
@@ -60,6 +80,7 @@ pub enum TriggerEvent {
     Update(Span),
     Insert(Span),
     Delete(Span),
+    Truncate(Span),
 }
 
 impl Spanned for TriggerEvent {
@@ -68,6 +89,7 @@ impl Spanned for TriggerEvent {
             TriggerEvent::Update(v) => v.span(),
             TriggerEvent::Insert(v) => v.span(),
             TriggerEvent::Delete(v) => v.span(),
+            TriggerEvent::Truncate(v) => v.span(),
         }
     }
 }
@@ -147,8 +169,8 @@ pub struct CreateTrigger<'a> {
     pub name: Identifier<'a>,
     /// Should the trigger be fired before or after the event
     pub trigger_time: TriggerTime,
-    /// What event should the trigger be fired on
-    pub trigger_event: TriggerEvent,
+    /// What events should the trigger be fired on (multiple events joined by OR)
+    pub trigger_events: Vec<TriggerEvent>,
     /// Span of "ON"
     pub on_span: Span,
     /// Name of table to create the trigger on
@@ -171,7 +193,7 @@ impl<'a> Spanned for CreateTrigger<'a> {
             .join_span(&self.if_not_exists)
             .join_span(&self.name)
             .join_span(&self.trigger_time)
-            .join_span(&self.trigger_event)
+            .join_span(&self.trigger_events)
             .join_span(&self.on_span)
             .join_span(&self.table)
             .join_span(&self.for_each)
@@ -213,18 +235,28 @@ pub(crate) fn parse_create_trigger<'a>(
         _ => parser.expected_failure("'BEFORE', 'AFTER', or 'INSTEAD OF'")?,
     };
 
-    let trigger_event = match &parser.token {
-        Token::Ident(_, Keyword::UPDATE) => {
-            TriggerEvent::Update(parser.consume_keyword(Keyword::UPDATE)?)
+    let mut trigger_events = Vec::new();
+    loop {
+        let event = match &parser.token {
+            Token::Ident(_, Keyword::UPDATE) => {
+                TriggerEvent::Update(parser.consume_keyword(Keyword::UPDATE)?)
+            }
+            Token::Ident(_, Keyword::INSERT) => {
+                TriggerEvent::Insert(parser.consume_keyword(Keyword::INSERT)?)
+            }
+            Token::Ident(_, Keyword::DELETE) => {
+                TriggerEvent::Delete(parser.consume_keyword(Keyword::DELETE)?)
+            }
+            Token::Ident(_, Keyword::TRUNCATE) => {
+                TriggerEvent::Truncate(parser.consume_keyword(Keyword::TRUNCATE)?)
+            }
+            _ => parser.expected_failure("'UPDATE', 'INSERT', 'DELETE', or 'TRUNCATE'")?,
+        };
+        trigger_events.push(event);
+        if parser.skip_keyword(Keyword::OR).is_none() {
+            break;
         }
-        Token::Ident(_, Keyword::INSERT) => {
-            TriggerEvent::Insert(parser.consume_keyword(Keyword::INSERT)?)
-        }
-        Token::Ident(_, Keyword::DELETE) => {
-            TriggerEvent::Delete(parser.consume_keyword(Keyword::DELETE)?)
-        }
-        _ => parser.expected_failure("'UPDATE' or 'INSERT' or 'DELETE'")?,
-    };
+    }
 
     let on_span = parser.consume_keyword(Keyword::ON)?;
 
@@ -295,21 +327,35 @@ pub(crate) fn parse_create_trigger<'a>(
 
     // TODO [{ FOLLOWS | PRECEDES } other_trigger_name ]
 
-    // PostgreSQL allows EXECUTE FUNCTION func_name() instead of a statement block
+    // PostgreSQL allows EXECUTE FUNCTION func_name(...) instead of a statement block
     let statement = if matches!(parser.token, Token::Ident(_, Keyword::EXECUTE)) {
-        // Parse EXECUTE FUNCTION func_name()
-        let _execute_span = parser.consume_keyword(Keyword::EXECUTE)?;
-        parser.consume_keyword(Keyword::FUNCTION)?;
-        parser.consume_plain_identifier_unreserved()?;
-        let begin_span = parser.consume_token(Token::LParen)?;
-        // TODO: parse function arguments if needed
-        let end_span = parser.consume_token(Token::RParen)?;
-
-        // Use an empty block as a placeholder for EXECUTE FUNCTION
-        Statement::Block(Box::new(Block {
-            begin_span,
-            end_span,
-            statements: Vec::new(),
+        let execute_span = parser.consume_keyword(Keyword::EXECUTE)?;
+        // Accept both FUNCTION and PROCEDURE (synonyms in this context)
+        let execute_span = if let Some(s) = parser.skip_keyword(Keyword::FUNCTION) {
+            execute_span.join_span(&s)
+        } else {
+            execute_span.join_span(&parser.consume_keyword(Keyword::PROCEDURE)?)
+        };
+        let func_name = parse_qualified_name_unreserved(parser)?;
+        parser.consume_token(Token::LParen)?;
+        let mut args = Vec::new();
+        parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
+            loop {
+                if matches!(parser.token, Token::RParen) {
+                    break;
+                }
+                args.push(parse_expression_unreserved(parser, PRIORITY_MAX)?);
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            }
+            Ok(())
+        })?;
+        parser.consume_token(Token::RParen)?;
+        Statement::ExecuteFunction(Box::new(ExecuteFunction {
+            execute_span,
+            func_name,
+            args,
         }))
     } else {
         let old = core::mem::replace(&mut parser.permit_compound_statements, true);
@@ -328,7 +374,7 @@ pub(crate) fn parse_create_trigger<'a>(
         if_not_exists,
         name,
         trigger_time,
-        trigger_event,
+        trigger_events,
         on_span,
         table,
         for_each,

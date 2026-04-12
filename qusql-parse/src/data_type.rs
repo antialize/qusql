@@ -15,6 +15,7 @@ use alloc::{boxed::Box, vec::Vec};
 use crate::{
     Identifier, InvalidExpression, SString, Span, Spanned,
     alter_table::{ForeignKeyMatch, ForeignKeyOn, ForeignKeyOnAction, ForeignKeyOnType},
+    create::parse_sequence_options,
     expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
     lexer::{StringType, Token},
@@ -40,6 +41,12 @@ pub enum DataTypeProperty<'a> {
     Unique(Span),
     UniqueKey(Span),
     GeneratedAlways(Span),
+    /// PostgreSQL GENERATED ALWAYS AS (expr) STORED - computed column
+    GeneratedAlwaysAsExpr {
+        generated_always_as_span: Span,
+        expr: Expression<'a>,
+        stored_span: Option<Span>,
+    },
     AutoIncrement(Span),
     PrimaryKey(Span),
     As((Span, Expression<'a>)),
@@ -77,6 +84,11 @@ impl<'a> Spanned for DataTypeProperty<'a> {
             DataTypeProperty::Unique(v) => v.span(),
             DataTypeProperty::UniqueKey(v) => v.span(),
             DataTypeProperty::GeneratedAlways(v) => v.span(),
+            DataTypeProperty::GeneratedAlwaysAsExpr {
+                generated_always_as_span: span,
+                expr,
+                stored_span,
+            } => span.join_span(expr).join_span(stored_span),
             DataTypeProperty::AutoIncrement(v) => v.span(),
             DataTypeProperty::As((s, v)) => s.join_span(v),
             DataTypeProperty::Check((s, v)) => s.join_span(v),
@@ -918,14 +930,40 @@ pub(crate) fn parse_data_type<'a>(
             }
             (Token::Ident(_, Keyword::GENERATED), Column) => {
                 if parser.options.dialect.is_postgresql() {
-                    properties.push(DataTypeProperty::GeneratedAlways(parser.consume_keywords(
-                        &[
-                            Keyword::GENERATED,
-                            Keyword::ALWAYS,
-                            Keyword::AS,
-                            Keyword::IDENTITY,
-                        ],
-                    )?));
+                    let generated_always_as_span = parser.consume_keywords(&[
+                        Keyword::GENERATED,
+                        Keyword::ALWAYS,
+                        Keyword::AS,
+                    ])?;
+                    if matches!(parser.token, Token::LParen) {
+                        // GENERATED ALWAYS AS (expr) STORED - computed column
+                        let l_paren = parser.consume_token(Token::LParen)?;
+                        let e = parser.recovered(")", &|t| t == &Token::RParen, |parser| {
+                            Ok(Some(parse_expression_unreserved(parser, PRIORITY_MAX)?))
+                        })?;
+                        let r_paren = parser.consume_token(Token::RParen)?;
+                        let expr = e.unwrap_or_else(|| {
+                            Expression::Invalid(Box::new(InvalidExpression {
+                                span: l_paren.join_span(&r_paren),
+                            }))
+                        });
+                        let stored_span = parser.skip_keyword(Keyword::STORED);
+                        properties.push(DataTypeProperty::GeneratedAlwaysAsExpr {
+                            generated_always_as_span,
+                            expr,
+                            stored_span,
+                        });
+                    } else {
+                        let identity_span = parser.consume_keyword(Keyword::IDENTITY)?;
+                        // Parse optional sequence options in parentheses
+                        if parser.skip_token(Token::LParen).is_some() {
+                            let _ = parse_sequence_options(parser);
+                            parser.consume_token(Token::RParen)?;
+                        }
+                        properties.push(DataTypeProperty::GeneratedAlways(
+                            generated_always_as_span.join_span(&identity_span),
+                        ));
+                    }
                 } else {
                     properties.push(DataTypeProperty::GeneratedAlways(
                         parser.consume_keywords(&[Keyword::GENERATED, Keyword::ALWAYS])?,

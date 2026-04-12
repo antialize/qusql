@@ -120,8 +120,8 @@ pub use create_table::{
     TableOption,
 };
 pub use create_trigger::{
-    CreateTrigger, TriggerEvent, TriggerForEach, TriggerReference, TriggerReferenceDirection,
-    TriggerTime,
+    CreateTrigger, ExecuteFunction, TriggerEvent, TriggerForEach, TriggerReference,
+    TriggerReferenceDirection, TriggerTime,
 };
 pub use create_view::CreateView;
 pub use data_type::{
@@ -132,7 +132,7 @@ pub use drop::{
     CascadeOrRestrict, DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction,
     DropFunctionArg, DropFunctionArgMode, DropIndex, DropOperator, DropOperatorClass,
     DropOperatorFamily, DropOperatorItem, DropProcedure, DropSequence, DropServer, DropTable,
-    DropTrigger, DropView,
+    DropTrigger, DropType, DropView,
 };
 pub use expression::{
     ArgExpression, ArrayExpression, ArraySubscriptExpression, BetweenExpression, BinaryExpression,
@@ -185,13 +185,14 @@ pub use show::{
 pub use span::{OptSpanned, Span, Spanned};
 pub use sstring::SString;
 pub use statement::{
-    AlterSchema, AlterSchemaAction, Begin, Block, Call, CaseStatement, CloseCursor, Commit,
-    CompoundOperator, CompoundQuantifier, CompoundQuery, CompoundQueryBranch, CursorHold,
-    CursorScroll, CursorSensitivity, DeclareCursor, DeclareCursorMariaDb, DeclareHandler,
-    DeclareVariable, Do, DoBody, End, Explain, ExplainFormat, ExplainOption, FetchCursor,
-    HandlerAction, HandlerCondition, If, IfCondition, Invalid, Iterate, Leave, Loop, OpenCursor,
-    Perform, Prepare, RefreshMaterializedView, Repeat, Return, Set, Signal,
-    SignalConditionInformationName, StartTransaction, Statement, Stdin, WhenStatement, While,
+    AlterSchema, AlterSchemaAction, Assign, Begin, Block, Call, CaseStatement, CloseCursor,
+    CommentOn, CommentOnObjectType, Commit, CompoundOperator, CompoundQuantifier, CompoundQuery,
+    CompoundQueryBranch, CursorHold, CursorScroll, CursorSensitivity, DeclareCursor,
+    DeclareCursorMariaDb, DeclareHandler, DeclareVariable, Do, DoBody, End, Explain, ExplainFormat,
+    ExplainOption, FetchCursor, HandlerAction, HandlerCondition, If, IfCondition, Invalid, Iterate,
+    Leave, Loop, OpenCursor, Perform, PlpgsqlExecute, Prepare, Raise, RaiseLevel, RaiseOptionName,
+    RefreshMaterializedView, Repeat, Return, Set, Signal, SignalConditionInformationName,
+    StartTransaction, Statement, Stdin, WhenStatement, While,
 };
 pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
@@ -242,6 +243,10 @@ pub struct ParseOptions {
     warn_unquoted_identifiers: bool,
     warn_none_capital_keywords: bool,
     list_hack: bool,
+    /// When true, parse in function/procedure body mode:
+    /// allows `BEGIN ... END` blocks and other compound statements
+    /// that are only valid inside a stored function or procedure body.
+    function_body: bool,
 }
 
 impl Default for ParseOptions {
@@ -252,6 +257,7 @@ impl Default for ParseOptions {
             warn_none_capital_keywords: false,
             warn_unquoted_identifiers: false,
             list_hack: false,
+            function_body: false,
         }
     }
 }
@@ -294,6 +300,18 @@ impl ParseOptions {
     /// Parse _LIST_ as special expression
     pub fn list_hack(self, list_hack: bool) -> Self {
         Self { list_hack, ..self }
+    }
+
+    /// Parse in function/procedure body mode (allows BEGIN...END blocks)
+    pub fn function_body(self, function_body: bool) -> Self {
+        Self {
+            function_body,
+            ..self
+        }
+    }
+
+    pub fn get_function_body(&self) -> bool {
+        self.function_body
     }
 }
 
@@ -344,6 +362,10 @@ pub fn parse_statement<'a>(
     let mut parser = Parser::new(src, issues, options);
     match statement::parse_statement(&mut parser) {
         Ok(Some(v)) => {
+            // Allow a single trailing statement delimiter (e.g. `;` after `BEGIN...END`)
+            if parser.token == Token::Delimiter {
+                parser.consume();
+            }
             if parser.token != Token::Eof {
                 parser.expected_error("Unexpected token after statement")
             }
