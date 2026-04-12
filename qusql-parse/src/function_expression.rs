@@ -285,6 +285,11 @@ pub enum Function<'a> {
     ValidatePasswordStrength,
     Version,
     WeightString,
+    // PostgreSQL system functions
+    InetServerAddr,
+    InetServerPort,
+    PgPostmasterStartTime,
+    PostgisFullVersion,
     ArrayAgg,
     BitAnd,
     BitOr,
@@ -1071,6 +1076,11 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::SYSTEM_USER) => Function::SystemUser,
         Token::Ident(_, Keyword::USER) => Function::UserFunc,
         Token::Ident(_, Keyword::VERSION) => Function::Version,
+        // PostgreSQL system functions
+        Token::Ident(_, Keyword::INET_SERVER_ADDR) => Function::InetServerAddr,
+        Token::Ident(_, Keyword::INET_SERVER_PORT) => Function::InetServerPort,
+        Token::Ident(_, Keyword::PG_POSTMASTER_START_TIME) => Function::PgPostmasterStartTime,
+        Token::Ident(_, Keyword::POSTGIS_FULL_VERSION) => Function::PostgisFullVersion,
 
         // MySQL 8.4 regexp
         Token::Ident(_, Keyword::REGEXP_INSTR) => Function::RegexpInstr,
