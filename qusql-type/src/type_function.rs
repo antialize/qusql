@@ -1706,6 +1706,17 @@ pub(crate) fn type_function<'a, 'b>(
         // Text search debug functions
         Function::TsDebug | Function::TsLexize | Function::TsParse | Function::TsTokenType
         | Function::TsStat => tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any]),
+        // PostgreSQL UUID functions
+        Function::GenRandomUuid | Function::Uuidv4 => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Any, false)
+        }
+        Function::Uuidv7 => {
+            arg_cnt(typer, 0..1, args, span);
+            FullType::new(BaseType::Any, false)
+        }
+        Function::UuidExtractTimestamp => tf(BaseType::DateTime.into(), &[BaseType::Any], &[]),
+        Function::UuidExtractVersion => tf(BaseType::Integer.into(), &[BaseType::Any], &[]),
         // Aggregate / window functions that may appear in non-aggregate context
         Function::ArrayAgg | Function::JsonAgg | Function::JsonbAgg => {
             arg_cnt(typer, 1..1, args, span);
