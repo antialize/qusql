@@ -692,7 +692,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             }}
             .into()
         }
-        qusql_type::StatementType::Call => {
+        qusql_type::StatementType::Call { .. } => {
             errors.push(
                 syn::Error::new(query.query_span, "CALL not supported in query!")
                     .to_compile_error(),
@@ -1023,7 +1023,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             }}
             .into()
         }
-        qusql_type::StatementType::Call => {
+        qusql_type::StatementType::Call { .. } => {
             errors.push(
                 syn::Error::new(query_as.query_span, "CALL not supported in query_as!")
                     .to_compile_error(),

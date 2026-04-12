@@ -421,7 +421,7 @@ fn type_statement(
             .into_py_any(py)?
         }
         qusql_type::StatementType::Truncate => Py::new(py, Truncate {})?.into_py_any(py)?,
-        qusql_type::StatementType::Call => Py::new(py, Call {})?.into_py_any(py)?,
+        qusql_type::StatementType::Call { .. } => Py::new(py, Call {})?.into_py_any(py)?,
         qusql_type::StatementType::Transaction => Py::new(py, Transaction {})?.into_py_any(py)?,
         qusql_type::StatementType::Set => Py::new(py, Set {})?.into_py_any(py)?,
         qusql_type::StatementType::Lock => Py::new(py, Lock {})?.into_py_any(py)?,

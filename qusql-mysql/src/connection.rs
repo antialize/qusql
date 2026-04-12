@@ -1550,6 +1550,7 @@ impl RawConnection {
             let mut pp = PackageParser::new(package);
             match pp.get_u8().loc("first_byte")? {
                 255 => {
+                    self.state = ConnectionState::Clean;
                     handle_mysql_error(&mut pp)?;
                 }
                 0 => {
