@@ -1431,6 +1431,23 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(BaseType::String, true)
         }
         Function::WeightString => tf(BaseType::Bytes.into(), &[BaseType::String], &[]),
+        // PostgreSQL system functions
+        Function::InetServerAddr => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, false)
+        }
+        Function::InetServerPort => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Integer, false)
+        }
+        Function::PgPostmasterStartTime => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::DateTime, true)
+        }
+        Function::PostgisFullVersion => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, true)
+        }
         // Aggregate / window functions that may appear in non-aggregate context
         Function::ArrayAgg | Function::JsonAgg | Function::JsonbAgg => {
             arg_cnt(typer, 1..1, args, span);
