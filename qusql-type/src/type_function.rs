@@ -764,6 +764,7 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::invalid()
             }
         }
+        // Single-arg float -> float64 trig/math (radians variants)
         Function::Acos
         | Function::Asin
         | Function::Cos
@@ -776,9 +777,31 @@ pub(crate) fn type_function<'a, 'b>(
         | Function::Radians
         | Function::Sin
         | Function::Sqrt
-        | Function::Tan => tf(Type::F64, &[BaseType::Float], &[]),
-        Function::Atan => tf(Type::F64, &[BaseType::Float], &[BaseType::Float]),
-        Function::Atan2 => tf(Type::F64, &[BaseType::Float, BaseType::Float], &[]),
+        | Function::Tan
+        // Degree-based equivalents
+        | Function::Acosd
+        | Function::Asind
+        | Function::Cosd
+        | Function::Cotd
+        | Function::Sind
+        | Function::Tand
+        // Hyperbolic functions
+        | Function::Sinh
+        | Function::Cosh
+        | Function::Tanh
+        | Function::Asinh
+        | Function::Acosh
+        | Function::Atanh
+        // Other single-arg float->float64
+        | Function::Cbrt
+        | Function::Erf
+        | Function::Erfc
+        | Function::Gamma
+        | Function::Lgamma => tf(Type::F64, &[BaseType::Float], &[]),
+        Function::Atan
+        | Function::Atand => tf(Type::F64, &[BaseType::Float], &[BaseType::Float]),
+        Function::Atan2
+        | Function::Atan2d => tf(Type::F64, &[BaseType::Float, BaseType::Float], &[]),
         Function::Ceil | Function::Floor => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
@@ -794,7 +817,43 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::invalid()
             }
         }
+        Function::Factorial => {
+            // factorial(bigint) -> numeric (can be very large)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::Integer);
+                FullType::new(BaseType::Float, t.not_null)
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Gcd | Function::Lcm => {
+            // gcd/lcm(numeric_type, numeric_type) -> numeric_type (same as first arg)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            for (e, t) in &typed {
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                ) {
+                    typer.err(format!("Expected numeric type got {t}"), *e);
+                }
+            }
+            if let Some((_, t)) = typed.first() {
+                t.clone()
+            } else {
+                FullType::invalid()
+            }
+        }
         Function::Log => tf(Type::F64, &[BaseType::Float], &[BaseType::Float]),
+        Function::MinScale | Function::Scale => {
+            // min_scale(numeric) / scale(numeric) -> integer
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::Integer, not_null)
+        }
         Function::Mod => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..2, args, span);
@@ -817,6 +876,12 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(Type::F64, true)
         }
         Function::Pow => tf(Type::F64, &[BaseType::Float, BaseType::Float], &[]),
+        Function::RandomNormal => {
+            // random_normal([mean double precision [, stddev double precision]]) -> double precision
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 0..2, args, span);
+            FullType::new(Type::F64, true)
+        }
         Function::Round => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..2, args, span);
@@ -835,6 +900,15 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::invalid()
             }
         }
+        Function::SetSeed => {
+            // setseed(double precision) -> void (we return integer as approximation)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            FullType::new(BaseType::Integer, true)
+        }
         Function::Sign => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
@@ -846,6 +920,22 @@ pub(crate) fn type_function<'a, 'b>(
                     typer.err(format!("Expected numeric type got {t}"), *e);
                 }
                 FullType::new(Type::I8, t.not_null)
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::TrimScale => {
+            // trim_scale(numeric) -> numeric (same type as input)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                if !matches!(
+                    t.base(),
+                    BaseType::Any | BaseType::Integer | BaseType::Float
+                ) {
+                    typer.err(format!("Expected numeric type got {t}"), *e);
+                }
+                t.clone()
             } else {
                 FullType::invalid()
             }
@@ -867,6 +957,18 @@ pub(crate) fn type_function<'a, 'b>(
             } else {
                 FullType::invalid()
             }
+        }
+        Function::WidthBucket => {
+            // width_bucket(operand, low, high, count) -> integer
+            // width_bucket(operand, thresholds_array) -> integer
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..4, args, span);
+            if typed.len() == 4
+                && let Some((e, t)) = typed.get(3) {
+                    typer.ensure_base(*e, t, BaseType::Integer);
+                }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::Integer, not_null)
         }
         Function::Ascii => tf(BaseType::Integer.into(), &[BaseType::String], &[]),
         Function::Bin => tf(BaseType::String.into(), &[BaseType::Integer], &[]),
@@ -1652,13 +1754,8 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(BaseType::String, not_null)
         }
         // --- Float measurement functions ---
-        Function::StArea
-        | Function::StLength
-        | Function::StLength2D
-        | Function::StLength3D
-        | Function::StPerimeter
-        | Function::StPerimeter2D
-        | Function::StPerimeter3D => {
+        Function::StArea | Function::StLength | Function::StLength2D | Function::StLength3D
+        | Function::StPerimeter | Function::StPerimeter2D | Function::StPerimeter3D => {
             // ST_Area/ST_Length*/ST_Perimeter*(geom) -> float8
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
@@ -1727,12 +1824,8 @@ pub(crate) fn type_function<'a, 'b>(
             let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
             FullType::new(Type::F64, not_null)
         }
-        Function::StXMax
-        | Function::StXMin
-        | Function::StYMax
-        | Function::StYMin
-        | Function::StZMax
-        | Function::StZMin => {
+        Function::StXMax | Function::StXMin | Function::StYMax | Function::StYMin
+        | Function::StZMax | Function::StZMin => {
             // ST_XMax/XMin/YMax/YMin/ZMax/ZMin(box) -> float8
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
@@ -1740,15 +1833,9 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(Type::F64, not_null)
         }
         // --- Integer geometry properties ---
-        Function::StSRID
-        | Function::StDimension
-        | Function::StNPoints
-        | Function::StNRings
-        | Function::StNumGeometries
-        | Function::StNumInteriorRing
-        | Function::StNumInteriorRings
-        | Function::StNumPoints
-        | Function::StMemSize
+        Function::StSRID | Function::StDimension | Function::StNPoints | Function::StNRings
+        | Function::StNumGeometries | Function::StNumInteriorRing
+        | Function::StNumInteriorRings | Function::StNumPoints | Function::StMemSize
         | Function::StLineCrossingDirection => {
             // ST_SRID/Dimension/NPoints/NRings/NumGeometries/NumInteriorRing*/NumPoints(geom) -> int
             let typed = typed_args(typer, args, flags);
@@ -1764,12 +1851,8 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(BaseType::Integer, not_null)
         }
         // --- Unary boolean predicates ---
-        Function::StHasArc
-        | Function::StIsClosed
-        | Function::StIsEmpty
-        | Function::StIsRing
-        | Function::StIsSimple
-        | Function::StIsValid => {
+        Function::StHasArc | Function::StIsClosed | Function::StIsEmpty | Function::StIsRing
+        | Function::StIsSimple | Function::StIsValid => {
             // ST_HasArc/IsClosed/IsEmpty/IsRing/IsSimple/IsValid(geom) -> bool
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
@@ -1777,18 +1860,10 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(BaseType::Bool, not_null)
         }
         // --- Binary boolean predicates ---
-        Function::StContains
-        | Function::StContainsProperly
-        | Function::StCovers
-        | Function::StCoveredBy
-        | Function::StCrosses
-        | Function::StDisjoint
-        | Function::StEquals
-        | Function::StIntersects
-        | Function::StOrderingEquals
-        | Function::StOverlaps
-        | Function::StTouches
-        | Function::StWithin => {
+        Function::StContains | Function::StContainsProperly | Function::StCovers
+        | Function::StCoveredBy | Function::StCrosses | Function::StDisjoint
+        | Function::StEquals | Function::StIntersects | Function::StOrderingEquals
+        | Function::StOverlaps | Function::StTouches | Function::StWithin => {
             // ST_Contains/ContainsProperly/Covers/.../Within(geomA, geomB) -> bool
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..2, args, span);
@@ -1844,9 +1919,7 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(Type::Geometry, false)
         }
-        Function::StGeomCollFromText
-        | Function::StLineFromText
-        | Function::StPolygonFromText
+        Function::StGeomCollFromText | Function::StLineFromText | Function::StPolygonFromText
         | Function::StPointFromText => {
             // ST_GeomCollFromText/LineFromText/PolygonFromText/PointFromText(text[, srid]) -> geometry
             let typed = typed_args(typer, args, flags);
@@ -1869,9 +1942,7 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(Type::Geometry, false)
         }
-        Function::StGeomFromWkb
-        | Function::StLineFromWkb
-        | Function::StLinestringFromWkb
+        Function::StGeomFromWkb | Function::StLineFromWkb | Function::StLinestringFromWkb
         | Function::StPointFromWkb => {
             // ST_GeomFromWKB/LineFromWKB/LinestringFromWKB/PointFromWKB(bytes[, srid]) -> geometry
             let typed = typed_args(typer, args, flags);
@@ -1974,32 +2045,19 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(Type::Geometry, not_null)
         }
         // --- Unary geometry transformations (geom -> geom) ---
-        Function::StBoundary
-        | Function::StBuildArea
-        | Function::StCentroid
-        | Function::StConvexHull
-        | Function::StForce2D
-        | Function::StForce3D
-        | Function::StForce3DM
-        | Function::StForce3DZ
-        | Function::StForce4D
-        | Function::StForceCollection
-        | Function::StForceRHR
-        | Function::StLineMerge
-        | Function::StLineToCurve
-        | Function::StMulti
-        | Function::StPointOnSurface
-        | Function::StReverse
-        | Function::StShiftLongitude => {
+        Function::StBoundary | Function::StBuildArea | Function::StCentroid
+        | Function::StConvexHull | Function::StForce2D | Function::StForce3D
+        | Function::StForce3DM | Function::StForce3DZ | Function::StForce4D
+        | Function::StForceCollection | Function::StForceRHR | Function::StLineMerge
+        | Function::StLineToCurve | Function::StMulti | Function::StPointOnSurface
+        | Function::StReverse | Function::StShiftLongitude => {
             // Single-geometry-in, geometry-out
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
             let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
             FullType::new(Type::Geometry, not_null)
         }
-        Function::StEnvelope
-        | Function::StEndPoint
-        | Function::StStartPoint
+        Function::StEnvelope | Function::StEndPoint | Function::StStartPoint
         | Function::StExteriorRing => {
             // ST_Envelope/EndPoint/StartPoint/ExteriorRing(geom) -> geometry
             let typed = typed_args(typer, args, flags);
@@ -2028,14 +2086,9 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(Type::Geometry, not_null)
         }
         // --- Binary geometry operations (geomA, geomB -> geom) ---
-        Function::StClosestPoint
-        | Function::StDifference
-        | Function::StIntersection
-        | Function::StLongestLine
-        | Function::StShortestLine
-        | Function::StSymDifference
-        | Function::StUnion
-        | Function::StMakeLine => {
+        Function::StClosestPoint | Function::StDifference | Function::StIntersection
+        | Function::StLongestLine | Function::StShortestLine | Function::StSymDifference
+        | Function::StUnion | Function::StMakeLine => {
             // Binary geom -> geom
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..2, args, span);
