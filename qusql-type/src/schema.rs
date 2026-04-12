@@ -576,6 +576,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             // Statements with no schema effect.
             qusql_parse::Statement::Grant(_) => Ok(()),
             qusql_parse::Statement::CommentOn(_) => Ok(()),
+            qusql_parse::Statement::Analyze(_) => Ok(()),
             // Variable / cursor plumbing — no schema effect.
             qusql_parse::Statement::Set(_) => Ok(()),
             qusql_parse::Statement::Assign(_) => Ok(()),

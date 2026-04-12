@@ -187,9 +187,9 @@ pub use show::{
 pub use span::{OptSpanned, Span, Spanned};
 pub use sstring::SString;
 pub use statement::{
-    AlterSchema, AlterSchemaAction, Assign, Begin, Block, Call, CaseStatement, CloseCursor,
-    CommentOn, CommentOnObjectType, Commit, CompoundOperator, CompoundQuantifier, CompoundQuery,
-    CompoundQueryBranch, CursorHold, CursorScroll, CursorSensitivity, DeclareCursor,
+    AlterSchema, AlterSchemaAction, Analyze, Assign, Begin, Block, Call, CaseStatement,
+    CloseCursor, CommentOn, CommentOnObjectType, Commit, CompoundOperator, CompoundQuantifier,
+    CompoundQuery, CompoundQueryBranch, CursorHold, CursorScroll, CursorSensitivity, DeclareCursor,
     DeclareCursorMariaDb, DeclareHandler, DeclareVariable, Do, DoBody, End, Explain, ExplainFormat,
     ExplainOption, FetchCursor, HandlerAction, HandlerCondition, If, IfCondition, Invalid, Iterate,
     Leave, Loop, OpenCursor, Perform, PlpgsqlExecute, Prepare, Raise, RaiseLevel, RaiseOptionName,

@@ -59,6 +59,18 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
+pub struct Analyze<'a> {
+    pub analyze_span: Span,
+    pub tables: Vec<QualifiedName<'a>>,
+}
+
+impl<'a> Spanned for Analyze<'a> {
+    fn span(&self) -> Span {
+        self.analyze_span.join_span(&self.tables)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Set<'a> {
     pub set_span: Span,
     pub values: Vec<(QualifiedName<'a>, Expression<'a>)>,
@@ -1303,6 +1315,8 @@ pub enum Statement<'a> {
     CommentOn(Box<CommentOn<'a>>),
     /// PostgreSQL EXECUTE FUNCTION in trigger body
     ExecuteFunction(Box<ExecuteFunction<'a>>),
+    /// ANALYZE statement
+    Analyze(Box<Analyze<'a>>),
 }
 
 impl<'a> Spanned for Statement<'a> {
@@ -1413,6 +1427,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Grant(v) => v.span(),
             Statement::CommentOn(v) => v.span(),
             Statement::ExecuteFunction(v) => v.span(),
+            Statement::Analyze(v) => v.span(),
         }
     }
 }
@@ -1518,6 +1533,20 @@ pub(crate) fn parse_statement<'a>(
         Token::Ident(_, Keyword::COMMENT) => {
             let comment_span = parser.consume_keyword(Keyword::COMMENT)?;
             Some(parse_comment_on(parser, comment_span)?)
+        }
+        Token::Ident(_, Keyword::ANALYZE) => {
+            let analyze_span = parser.consume_keyword(Keyword::ANALYZE)?;
+            let mut tables = Vec::new();
+            if !matches!(parser.token, Token::Delimiter | Token::Eof) {
+                tables.push(parse_qualified_name_unreserved(parser)?);
+                while parser.skip_token(Token::Comma).is_some() {
+                    tables.push(parse_qualified_name_unreserved(parser)?);
+                }
+            }
+            Some(Statement::Analyze(Box::new(Analyze {
+                analyze_span,
+                tables,
+            })))
         }
         // MariaDB compound-block control statements
         Token::Ident(_, Keyword::OPEN)
