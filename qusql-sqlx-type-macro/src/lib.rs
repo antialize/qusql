@@ -401,7 +401,9 @@ fn construct_row(
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
-            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => quote! {String},
+            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => {
+                quote! {qusql_sqlx_type::UuidValue}
+            }
             qusql_type::Type::Null => todo!("from_null"),
             qusql_type::Type::Invalid => quote! {i64},
             qusql_type::Type::Enum(_) => quote! {String},
@@ -419,7 +421,15 @@ fn construct_row(
             None => continue,
         };
 
-        let ident = String::from("r#") + name.value;
+        // Handle sqlx "column!" convention: strip trailing ! and force not_null
+        let name_str = name.value;
+        let (name_str, force_not_null) = if let Some(stripped) = name_str.strip_suffix('!') {
+            (stripped, true)
+        } else {
+            (name_str, false)
+        };
+
+        let ident = String::from("r#") + name_str;
         let ident: Ident = if let Ok(ident) = syn::parse_str(&ident) {
             ident
         } else {
@@ -428,7 +438,7 @@ fn construct_row(
             continue;
         };
 
-        if !c.type_.not_null {
+        if !c.type_.not_null && !force_not_null {
             t = quote! {Option<#t>};
         }
         row_members.push(quote! {
@@ -791,7 +801,9 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
                 quote! {sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>}
             }
-            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => quote! {String},
+            qusql_type::Type::Base(qusql_type::BaseType::Uuid) => {
+                quote! {qusql_sqlx_type::UuidValue}
+            }
             qusql_type::Type::Null => todo!("from_null"),
             qusql_type::Type::Invalid => quote! {i64},
             qusql_type::Type::Enum(_) => quote! {String},
@@ -809,7 +821,15 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             None => continue,
         };
 
-        let ident = String::from("r#") + name.value;
+        // Handle sqlx "column!" convention: strip trailing ! and force not_null
+        let name_str = name.value;
+        let (name_str, force_not_null) = if let Some(stripped) = name_str.strip_suffix('!') {
+            (stripped, true)
+        } else {
+            (name_str, false)
+        };
+
+        let ident = String::from("r#") + name_str;
         let ident: Ident = if let Ok(ident) = syn::parse_str(&ident) {
             ident
         } else {
@@ -818,7 +838,7 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             continue;
         };
 
-        if !c.type_.not_null {
+        if !c.type_.not_null && !force_not_null {
             t = quote! {Option<#t>};
         }
         row_construct.push(quote! {
