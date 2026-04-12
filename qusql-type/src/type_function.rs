@@ -1769,6 +1769,36 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::String, false)
         }
+        // PostgreSQL geometric functions (non-PostGIS) - Table 9.37 / 9.38
+        Function::Area | Function::Diameter | Function::Height | Function::Radius
+        | Function::Width => tf(Type::F64, &[BaseType::Any], &[]),
+        Function::BoundBox => tf(BaseType::Any.into(), &[BaseType::Any, BaseType::Any], &[]),
+        Function::Center => tf(BaseType::Any.into(), &[BaseType::Any], &[]),
+        Function::Diagonal => tf(BaseType::Any.into(), &[BaseType::Any], &[]),
+        Function::Isclosed | Function::IsOpen => tf(BaseType::Bool.into(), &[BaseType::Any], &[]),
+        Function::Npoints => tf(BaseType::Integer.into(), &[BaseType::Any], &[]),
+        Function::Pclose | Function::Popen => tf(BaseType::Any.into(), &[BaseType::Any], &[]),
+        Function::Slope => tf(Type::F64, &[BaseType::Any, BaseType::Any], &[]),
+        // PostgreSQL enum support functions
+        Function::EnumFirst | Function::EnumLast => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((_, t)) = typed.first() {
+                t.clone()
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::EnumRange => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let inner = if let Some((_, t)) = typed.first() {
+                t.t.clone()
+            } else {
+                BaseType::Any.into()
+            };
+            FullType::new(Type::Array(Box::new(inner)), false)
+        }
         // PostGIS / geometry functions
         // Geometry type is represented as Any since the type system has no geometry type yet
         Function::GeometryType | Function::StGeometryType => {
