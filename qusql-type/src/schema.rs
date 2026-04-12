@@ -373,645 +373,720 @@ pub(crate) fn parse_column<'a>(
     }
 }
 
-/// Scan a single expression recursively for embedded dollar-quoted SQL strings
-/// (e.g. a function call `apply_fn($$ CREATE TABLE ... $$)`) and process any
-/// found SQL against the schema being built using `inner_issues` (with `inner_src`
-/// as the reference source so spans are correct at this nesting level).
-fn scan_expr_for_sql<'a>(
-    expr: qusql_parse::Expression<'a>,
-    schemas: &mut Schemas<'a>,
-    inner_issues: &mut Issues<'a>,
-    inner_src: &'a str,
-    options: &TypeOptions,
-) {
-    match expr {
-        qusql_parse::Expression::String(s) => {
-            // Only dollar-quoted strings (Cow::Borrowed) are treated as embedded SQL.
-            if let Cow::Borrowed(borrowed) = &s.value {
-                let span_offset = borrowed.as_ptr() as usize - inner_src.as_ptr() as usize;
-                let mut nested_issues = Issues::new(borrowed);
-                let stmts = parse_statements(borrowed, &mut nested_issues, &options.parse_options);
-                process_statements(stmts, schemas, &mut nested_issues, borrowed, options);
-                transfer_issues_with_offset(inner_issues, nested_issues, span_offset);
-            }
-        }
-        qusql_parse::Expression::Function(f) => {
-            for arg in f.args {
-                scan_expr_for_sql(arg, schemas, inner_issues, inner_src, options);
-            }
-        }
-        _ => {}
-    }
+/// Processing context for schema evaluation: holds mutable schema state, issue
+/// sink, the source text for span-offset calculations, and parse/type options.
+///
+/// A new `SchemaCtx` with a different `src` / `issues` is created each time we
+/// descend into an embedded dollar-quoted SQL string so that inner spans are
+/// resolved against the correct slice.
+struct SchemaCtx<'a, 'b> {
+    schemas: &'b mut Schemas<'a>,
+    issues: &'b mut Issues<'a>,
+    /// The source text slice that all spans inside `issues` refer to.
+    src: &'a str,
+    options: &'b TypeOptions,
 }
 
-fn process_statements<'a>(
-    statements: Vec<qusql_parse::Statement<'a>>,
-    schemas: &mut Schemas<'a>,
-    issues: &mut Issues<'a>,
-    src: &'a str,
-    options: &TypeOptions,
-) {
-    for statement in statements {
-        process_statement(statement, schemas, issues, src, options);
+impl<'a, 'b> SchemaCtx<'a, 'b> {
+    fn new(
+        schemas: &'b mut Schemas<'a>,
+        issues: &'b mut Issues<'a>,
+        src: &'a str,
+        options: &'b TypeOptions,
+    ) -> Self {
+        Self {
+            schemas,
+            issues,
+            src,
+            options,
+        }
     }
-}
 
-#[allow(clippy::too_many_lines)]
-fn process_statement<'a>(
-    statement: qusql_parse::Statement<'a>,
-    schemas: &mut Schemas<'a>,
-    issues: &mut Issues<'a>,
-    src: &'a str,
-    options: &TypeOptions,
-) {
-    match statement {
-        qusql_parse::Statement::CreateTable(t) => {
-            let mut replace = false;
+    // ------------------------------------------------------------------ //
+    //  Top-level entry points                                              //
+    // ------------------------------------------------------------------ //
 
-            let id = unqualified_name(issues, &t.identifier);
+    fn process_statements(&mut self, statements: Vec<qusql_parse::Statement<'a>>) {
+        for statement in statements {
+            self.process_statement(statement);
+        }
+    }
 
-            let mut schema = Schema {
-                view: false,
-                identifier_span: id.span.clone(),
-                columns: Default::default(),
-            };
+    fn process_statement(&mut self, statement: qusql_parse::Statement<'a>) {
+        match statement {
+            qusql_parse::Statement::CreateTable(t) => self.process_create_table(*t),
+            qusql_parse::Statement::CreateView(v) => self.process_create_view(*v),
+            qusql_parse::Statement::CreateFunction(f) => self.process_create_function(*f),
+            qusql_parse::Statement::CreateProcedure(p) => self.process_create_procedure(*p),
+            qusql_parse::Statement::CreateIndex(ci) => self.process_create_index(*ci),
+            qusql_parse::Statement::CreateTrigger(_) => {}
+            qusql_parse::Statement::CreateTypeEnum(s) => {
+                self.issues.err("not implemented", &s);
+            }
+            qusql_parse::Statement::AlterTable(a) => self.process_alter_table(*a),
+            qusql_parse::Statement::DropTable(t) => self.process_drop_table(*t),
+            qusql_parse::Statement::DropView(v) => self.process_drop_view(*v),
+            qusql_parse::Statement::DropFunction(f) => self.process_drop_function(*f),
+            qusql_parse::Statement::DropProcedure(p) => self.process_drop_procedure(*p),
+            qusql_parse::Statement::DropIndex(ci) => self.process_drop_index(*ci),
+            qusql_parse::Statement::DropDatabase(s) => {
+                self.issues.err("not implemented", &s);
+            }
+            qusql_parse::Statement::DropServer(s) => {
+                self.issues.err("not implemented", &s);
+            }
+            qusql_parse::Statement::DropTrigger(_) => {}
+            qusql_parse::Statement::DropType(s) => {
+                self.issues.err("not implemented", &s);
+            }
+            // Control-flow: recurse into all reachable branches.
+            qusql_parse::Statement::Do(d) => self.process_do(*d),
+            qusql_parse::Statement::Block(b) => self.process_statements(b.statements),
+            qusql_parse::Statement::If(i) => self.process_if(*i),
+            // SELECT: scan args for embedded dollar-quoted SQL.
+            qusql_parse::Statement::Select(s) => self.process_select(*s),
+            // DML: might call functions that affect schema-level metadata in
+            // theory, but we cannot evaluate them statically — skip.
+            qusql_parse::Statement::InsertReplace(_) => {}
+            qusql_parse::Statement::Update(_) => {}
+            qusql_parse::Statement::Delete(_) => {}
+            // Transaction control: we assume all transactions commit.
+            qusql_parse::Statement::Commit(_) => {}
+            qusql_parse::Statement::Begin(_) => {}
+            qusql_parse::Statement::Set(_) => {}
+            // Statements with no schema effect.
+            qusql_parse::Statement::Call(_) => {}
+            qusql_parse::Statement::Grant(_) => {}
+            qusql_parse::Statement::CommentOn(_) => {}
+            qusql_parse::Statement::ExecuteFunction(_) => {}
+            qusql_parse::Statement::DeclareVariable(_) => {}
+            qusql_parse::Statement::DeclareCursorMariaDb(_) => {}
+            qusql_parse::Statement::DeclareHandler(_) => {}
+            qusql_parse::Statement::OpenCursor(_) => {}
+            qusql_parse::Statement::CloseCursor(_) => {}
+            qusql_parse::Statement::FetchCursor(_) => {}
+            qusql_parse::Statement::Leave(_) => {}
+            qusql_parse::Statement::Iterate(_) => {}
+            qusql_parse::Statement::Loop(_) => {}
+            qusql_parse::Statement::While(_) => {}
+            qusql_parse::Statement::Repeat(_) => {}
+            qusql_parse::Statement::Perform(_) => {}
+            qusql_parse::Statement::Raise(_) => {}
+            qusql_parse::Statement::Assign(_) => {}
+            qusql_parse::Statement::PlpgsqlExecute(_) => {}
+            s => {
+                self.issues.err(
+                    alloc::format!("Unsupported statement {s:?} in schema definition"),
+                    &s,
+                );
+            }
+        }
+    }
 
-            for o in t.create_options {
-                match o {
-                    qusql_parse::CreateOption::OrReplace(_) => {
-                        replace = true;
-                    }
-                    qusql_parse::CreateOption::Temporary { temporary_span, .. } => {
-                        issues.err("Not supported", &temporary_span);
-                    }
-                    qusql_parse::CreateOption::Materialized(s) => {
-                        issues.err("Not supported", &s);
-                    }
-                    qusql_parse::CreateOption::Concurrently(s) => {
-                        issues.err("Not supported", &s);
-                    }
-                    qusql_parse::CreateOption::Unique(s) => {
-                        issues.err("Not supported", &s);
-                    }
-                    qusql_parse::CreateOption::Algorithm(_, _) => {}
-                    qusql_parse::CreateOption::Definer { .. } => {}
-                    qusql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
-                    qusql_parse::CreateOption::SqlSecurityUser(_, _) => {}
-                    qusql_parse::CreateOption::SqlSecurityInvoker(_, _) => {}
+    // ------------------------------------------------------------------ //
+    //  CREATE statements                                                   //
+    // ------------------------------------------------------------------ //
+
+    // ------------------------------------------------------------------ //
+    //  CREATE statements                                                   //
+    // ------------------------------------------------------------------ //
+
+    fn process_create_table(&mut self, t: qusql_parse::CreateTable<'a>) {
+        let mut replace = false;
+        let id = unqualified_name(self.issues, &t.identifier);
+        let mut schema = Schema {
+            view: false,
+            identifier_span: id.span.clone(),
+            columns: Default::default(),
+        };
+        for o in t.create_options {
+            match o {
+                qusql_parse::CreateOption::OrReplace(_) => replace = true,
+                qusql_parse::CreateOption::Temporary { temporary_span, .. } => {
+                    self.issues.err("Not supported", &temporary_span);
                 }
+                qusql_parse::CreateOption::Materialized(s) => {
+                    self.issues.err("Not supported", &s);
+                }
+                qusql_parse::CreateOption::Concurrently(s) => {
+                    self.issues.err("Not supported", &s);
+                }
+                qusql_parse::CreateOption::Unique(s) => {
+                    self.issues.err("Not supported", &s);
+                }
+                _ => {}
             }
-            // TODO: do we care about table options
-            for d in t.create_definitions {
-                match d {
-                    qusql_parse::CreateDefinition::ColumnDefinition {
-                        identifier,
+        }
+        for d in t.create_definitions {
+            match d {
+                qusql_parse::CreateDefinition::ColumnDefinition {
+                    identifier,
+                    data_type,
+                } => {
+                    let column = parse_column(
                         data_type,
-                    } => {
-                        let column =
-                            parse_column(data_type, identifier.clone(), issues, Some(options));
-                        if let Some(oc) = schema.get_column(column.identifier.value) {
-                            issues
-                                .err("Column already defined", &identifier)
-                                .frag("Defined here", &oc.identifier);
-                        } else {
-                            schema.columns.push(column);
-                        }
-                    }
-                    qusql_parse::CreateDefinition::IndexDefinition { .. } => {}
-                    qusql_parse::CreateDefinition::ForeignKeyDefinition { .. } => {}
-                    qusql_parse::CreateDefinition::CheckConstraintDefinition { .. } => {}
-                    qusql_parse::CreateDefinition::LikeTable { .. } => {}
-                }
-            }
-            match schemas.schemas.entry(id.clone()) {
-                alloc::collections::btree_map::Entry::Occupied(mut e) => {
-                    if replace {
-                        e.insert(schema);
-                    } else if t.if_not_exists.is_none() {
-                        issues
-                            .err("Table already defined", &t.identifier)
-                            .frag("Defined here", &e.get().identifier_span);
+                        identifier.clone(),
+                        self.issues,
+                        Some(self.options),
+                    );
+                    if let Some(oc) = schema.get_column(column.identifier.value) {
+                        self.issues
+                            .err("Column already defined", &identifier)
+                            .frag("Defined here", &oc.identifier);
+                    } else {
+                        schema.columns.push(column);
                     }
                 }
-                alloc::collections::btree_map::Entry::Vacant(e) => {
-                    e.insert(schema);
-                }
+                qusql_parse::CreateDefinition::IndexDefinition { .. } => {}
+                qusql_parse::CreateDefinition::ForeignKeyDefinition { .. } => {}
+                qusql_parse::CreateDefinition::CheckConstraintDefinition { .. } => {}
+                qusql_parse::CreateDefinition::LikeTable { .. } => {}
             }
         }
-        qusql_parse::Statement::CreateView(v) => {
-            let mut replace = false;
-            let mut schema = Schema {
-                view: true,
-                identifier_span: v.name.span(),
-                columns: Default::default(),
+        match self.schemas.schemas.entry(id.clone()) {
+            alloc::collections::btree_map::Entry::Occupied(mut e) => {
+                if replace {
+                    e.insert(schema);
+                } else if t.if_not_exists.is_none() {
+                    self.issues
+                        .err("Table already defined", &t.identifier)
+                        .frag("Defined here", &e.get().identifier_span);
+                }
+            }
+            alloc::collections::btree_map::Entry::Vacant(e) => {
+                e.insert(schema);
+            }
+        }
+    }
+
+    fn process_create_view(&mut self, v: qusql_parse::CreateView<'a>) {
+        let mut replace = false;
+        let mut schema = Schema {
+            view: true,
+            identifier_span: v.name.span(),
+            columns: Default::default(),
+        };
+        for o in v.create_options {
+            match o {
+                qusql_parse::CreateOption::OrReplace(_) => replace = true,
+                qusql_parse::CreateOption::Temporary { temporary_span, .. } => {
+                    self.issues.err("Not supported", &temporary_span);
+                }
+                qusql_parse::CreateOption::Materialized(s) => {
+                    self.issues.err("Not supported", &s);
+                }
+                qusql_parse::CreateOption::Concurrently(s) => {
+                    self.issues.err("Not supported", &s);
+                }
+                qusql_parse::CreateOption::Unique(s) => {
+                    self.issues.err("Not supported", &s);
+                }
+                _ => {}
+            }
+        }
+        {
+            let mut typer: crate::typer::Typer<'a, '_> = crate::typer::Typer {
+                schemas: self.schemas,
+                issues: self.issues,
+                reference_types: Vec::new(),
+                arg_types: Default::default(),
+                options: self.options,
+                with_schemas: Default::default(),
             };
-            for o in v.create_options {
-                match o {
-                    qusql_parse::CreateOption::OrReplace(_) => {
-                        replace = true;
-                    }
-                    qusql_parse::CreateOption::Temporary { temporary_span, .. } => {
-                        issues.err("Not supported", &temporary_span);
-                    }
-                    qusql_parse::CreateOption::Materialized(s) => {
-                        issues.err("Not supported", &s);
-                    }
-                    qusql_parse::CreateOption::Concurrently(s) => {
-                        issues.err("Not supported", &s);
-                    }
-                    qusql_parse::CreateOption::Unique(s) => {
-                        issues.err("Not supported", &s);
-                    }
-                    qusql_parse::CreateOption::Algorithm(_, _) => {}
-                    qusql_parse::CreateOption::Definer { .. } => {}
-                    qusql_parse::CreateOption::SqlSecurityDefiner(_, _) => {}
-                    qusql_parse::CreateOption::SqlSecurityUser(_, _) => {}
-                    qusql_parse::CreateOption::SqlSecurityInvoker(_, _) => {}
-                }
+            let t = type_statement::type_statement(&mut typer, &v.select);
+            let s = if let type_statement::InnerStatementType::Select(s) = t {
+                s
+            } else {
+                self.issues.err("Not supported", &v.select.span());
+                return;
+            };
+            for column in s.columns {
+                let name = column.name.unwrap();
+                schema.columns.push(Column {
+                    identifier: name,
+                    type_: column.type_,
+                    auto_increment: false,
+                    default: false,
+                    as_: None,
+                    generated: false,
+                });
             }
-
-            {
-                let mut typer: crate::typer::Typer<'a, '_> = crate::typer::Typer {
-                    schemas,
-                    issues,
-                    reference_types: Vec::new(),
-                    arg_types: Default::default(),
-                    options,
-                    with_schemas: Default::default(),
-                };
-
-                let t = type_statement::type_statement(&mut typer, &v.select);
-                let s = if let type_statement::InnerStatementType::Select(s) = t {
-                    s
-                } else {
-                    issues.err("Not supported", &v.select.span());
-                    return;
-                };
-
-                for column in s.columns {
-                    //let column: crate::SelectTypeColumn<'a> = column;
-                    let name = column.name.unwrap();
-
-                    schema.columns.push(Column {
-                        identifier: name,
-                        type_: column.type_,
-                        auto_increment: false,
-                        default: false,
-                        as_: None,
-                        generated: false,
-                    });
-                }
-            }
-
-            match schemas
-                .schemas
-                .entry(unqualified_name(issues, &v.name).clone())
-            {
-                alloc::collections::btree_map::Entry::Occupied(mut e) => {
-                    if replace {
-                        e.insert(schema);
-                    } else if v.if_not_exists.is_none() {
-                        issues
-                            .err("View already defined", &v.name)
-                            .frag("Defined here", &e.get().identifier_span);
-                    }
-                }
-                alloc::collections::btree_map::Entry::Vacant(e) => {
+        }
+        match self
+            .schemas
+            .schemas
+            .entry(unqualified_name(self.issues, &v.name).clone())
+        {
+            alloc::collections::btree_map::Entry::Occupied(mut e) => {
+                if replace {
                     e.insert(schema);
+                } else if v.if_not_exists.is_none() {
+                    self.issues
+                        .err("View already defined", &v.name)
+                        .frag("Defined here", &e.get().identifier_span);
                 }
             }
-        }
-        qusql_parse::Statement::CreateTrigger(_) => {}
-        qusql_parse::Statement::DropTable(t) => {
-            for i in t.tables {
-                match schemas.schemas.entry(unqualified_name(issues, &i).clone()) {
-                    alloc::collections::btree_map::Entry::Occupied(e) => {
-                        if e.get().view {
-                            issues
-                                .err("Name defines a view not a table", &i)
-                                .frag("View defined here", &e.get().identifier_span);
-                        } else {
-                            e.remove();
-                        }
-                    }
-                    alloc::collections::btree_map::Entry::Vacant(_) => {
-                        if t.if_exists.is_none() {
-                            issues.err("A table with this name does not exist to drop", &i);
-                        }
-                    }
-                }
+            alloc::collections::btree_map::Entry::Vacant(e) => {
+                e.insert(schema);
             }
         }
-        qusql_parse::Statement::DropFunction(f) => {
-            for (func_name, _args) in &f.functions {
-                match schemas
-                    .functions
-                    .entry(unqualified_name(issues, func_name).clone())
+    }
+
+    fn process_create_function(&mut self, f: qusql_parse::CreateFunction<'a>) {
+        let mut replace = false;
+        for o in &f.create_options {
+            if matches!(o, qusql_parse::CreateOption::OrReplace(_)) {
+                replace = true;
+            }
+        }
+        let body = f
+            .body
+            .as_ref()
+            .and_then(|b| b.strings.first())
+            .and_then(|s| try_parse_body(self.src, s, self.issues, &self.options.parse_options));
+        let name = f.name.clone();
+        let def = FunctionDef {
+            name: f.name.clone(),
+            params: f.params,
+            return_type: f.return_type,
+            span: f.create_span.join_span(&f.function_span),
+            body,
+        };
+        match self.schemas.functions.entry(name) {
+            alloc::collections::btree_map::Entry::Occupied(mut e) => {
+                if replace {
+                    e.insert(def);
+                } else if f.if_not_exists.is_none() {
+                    self.issues
+                        .err("Function already defined", &f.name)
+                        .frag("Defined here", &e.get().span);
+                }
+            }
+            alloc::collections::btree_map::Entry::Vacant(e) => {
+                e.insert(def);
+            }
+        }
+    }
+
+    fn process_create_procedure(&mut self, p: qusql_parse::CreateProcedure<'a>) {
+        let mut replace = false;
+        for o in &p.create_options {
+            if matches!(o, qusql_parse::CreateOption::OrReplace(_)) {
+                replace = true;
+            }
+        }
+        let name = p.name.clone();
+        let def = ProcedureDef {
+            name: p.name.clone(),
+            params: p.params,
+            span: p.create_span.join_span(&p.procedure_span),
+        };
+        match self.schemas.procedures.entry(name) {
+            alloc::collections::btree_map::Entry::Occupied(mut e) => {
+                if replace {
+                    e.insert(def);
+                } else if p.if_not_exists.is_none() {
+                    self.issues
+                        .err("Procedure already defined", &p.name)
+                        .frag("Defined here", &e.get().span);
+                }
+            }
+            alloc::collections::btree_map::Entry::Vacant(e) => {
+                e.insert(def);
+            }
+        }
+    }
+
+    fn process_create_index(&mut self, ci: qusql_parse::CreateIndex<'a>) {
+        let t = unqualified_name(self.issues, &ci.table_name);
+        if let Some(table) = self.schemas.schemas.get(t) {
+            for col in &ci.column_names {
+                if let qusql_parse::IndexColExpr::Column(name) = &col.expr
+                    && table.get_column(name.value).is_none()
                 {
-                    alloc::collections::btree_map::Entry::Occupied(e) => {
-                        e.remove();
-                    }
-                    alloc::collections::btree_map::Entry::Vacant(_) => {
-                        if f.if_exists.is_none() {
-                            issues.err(
-                                "A function with this name does not exist to drop",
-                                func_name,
-                            );
-                        }
-                    }
+                    self.issues
+                        .err("No such column in table", col)
+                        .frag("Table defined here", &table.identifier_span);
                 }
             }
+        } else {
+            self.issues.err("No such table", &ci.table_name);
         }
-        qusql_parse::Statement::DropProcedure(p) => {
-            let name = unqualified_name(issues, &p.procedure);
-            match schemas.procedures.entry(name.clone()) {
-                alloc::collections::btree_map::Entry::Occupied(e) => {
-                    e.remove();
-                }
-                alloc::collections::btree_map::Entry::Vacant(_) => {
-                    if p.if_exists.is_none() {
-                        issues.err(
-                            "A procedure with this name does not exist to drop",
-                            &p.procedure,
-                        );
-                    }
-                }
+        let index_name = match &ci.index_name {
+            Some(name) => name.clone(),
+            None => return,
+        };
+        let ident = if self.options.parse_options.get_dialect().is_postgresql() {
+            IndexKey {
+                table: None,
+                index: index_name.clone(),
             }
-        }
-        qusql_parse::Statement::DropDatabase(_) => {}
-        qusql_parse::Statement::DropServer(_) => {}
-        qusql_parse::Statement::DropTrigger(_) => {}
-        qusql_parse::Statement::DropView(v) => {
-            for i in v.views {
-                match schemas.schemas.entry(unqualified_name(issues, &i).clone()) {
-                    alloc::collections::btree_map::Entry::Occupied(e) => {
-                        if !e.get().view {
-                            issues
-                                .err("Name defines a table not a view", &i)
-                                .frag("Table defined here", &e.get().identifier_span);
-                        } else {
-                            e.remove();
-                        }
-                    }
-                    alloc::collections::btree_map::Entry::Vacant(_) => {
-                        if v.if_exists.is_none() {
-                            issues.err("A view with this name does not exist to drop", &i);
-                        }
-                    }
-                }
+        } else {
+            IndexKey {
+                table: Some(t.clone()),
+                index: index_name.clone(),
             }
+        };
+        if let Some(old) = self.schemas.indices.insert(ident, ci.span())
+            && ci.if_not_exists.is_none()
+        {
+            self.issues
+                .err("Multiple indeces with the same identifier", &ci)
+                .frag("Already defined here", &old);
         }
-        qusql_parse::Statement::Set(_) => {}
-        qusql_parse::Statement::AlterTable(a) => {
-            let e = match schemas
-                .schemas
-                .entry(unqualified_name(issues, &a.table).clone())
-            {
-                alloc::collections::btree_map::Entry::Occupied(e) => {
-                    let e = e.into_mut();
-                    if e.view {
-                        issues.err("Cannot alter view", &a.table);
-                        return;
-                    }
-                    e
-                }
-                alloc::collections::btree_map::Entry::Vacant(_) => {
-                    if a.if_exists.is_none() {
-                        issues.err("Table not found", &a.table);
-                    }
+    }
+
+    // ------------------------------------------------------------------ //
+    //  ALTER statements                                                    //
+    // ------------------------------------------------------------------ //
+
+    fn process_alter_table(&mut self, a: qusql_parse::AlterTable<'a>) {
+        let e = match self
+            .schemas
+            .schemas
+            .entry(unqualified_name(self.issues, &a.table).clone())
+        {
+            alloc::collections::btree_map::Entry::Occupied(e) => {
+                let e = e.into_mut();
+                if e.view {
+                    self.issues.err("Cannot alter view", &a.table);
                     return;
                 }
-            };
-            for s in a.alter_specifications {
-                match s {
-                    qusql_parse::AlterSpecification::AddIndex(AddIndex {
-                        if_not_exists,
-                        name,
-                        cols,
-                        ..
-                    }) => {
-                        for col in &cols {
-                            // Only validate regular column names, skip functional index expressions
-                            if let qusql_parse::IndexColExpr::Column(name) = &col.expr
-                                && e.get_column(name.value).is_none()
-                            {
-                                issues
-                                    .err("No such column in table", col)
-                                    .frag("Table defined here", &a.table);
-                            }
-                        }
-
-                        if let Some(name) = &name {
-                            let ident = if options.parse_options.get_dialect().is_postgresql() {
-                                IndexKey {
-                                    table: None,
-                                    index: name.clone(),
-                                }
-                            } else {
-                                IndexKey {
-                                    table: Some(unqualified_name(issues, &a.table).clone()),
-                                    index: name.clone(),
-                                }
-                            };
-
-                            if let Some(old) = schemas.indices.insert(ident, name.span())
-                                && if_not_exists.is_none()
-                            {
-                                issues
-                                    .err("Multiple indeces with the same identifier", &name.span())
-                                    .frag("Already defined here", &old);
-                            }
-                        }
-                    }
-                    qusql_parse::AlterSpecification::AddForeignKey { .. } => {}
-                    qusql_parse::AlterSpecification::Modify(ModifyColumn {
-                        if_exists,
-                        col,
-                        definition,
-                        ..
-                    }) => {
-                        let c = match e.get_column_mut(col.value) {
-                            Some(v) => v,
-                            None => {
-                                if if_exists.is_none() {
-                                    issues
-                                        .err("No such column in table", &col)
-                                        .frag("Table defined here", &e.identifier_span);
-                                }
-                                continue;
-                            }
-                        };
-                        *c = parse_column(definition, c.identifier.clone(), issues, Some(options));
-                    }
-                    qusql_parse::AlterSpecification::AddColumn(AddColumn {
-                        identifier,
-                        data_type,
-                        ..
-                    }) => {
-                        e.columns
-                            .push(parse_column(data_type, identifier, issues, Some(options)));
-                    }
-                    qusql_parse::AlterSpecification::OwnerTo { .. } => {}
-                    qusql_parse::AlterSpecification::DropColumn(DropColumn {
-                        column,
-                        if_exists,
-                        ..
-                    }) => {
-                        let cnt = e.columns.len();
-                        e.columns.retain(|c| c.identifier != column);
-                        if cnt == e.columns.len() && if_exists.is_none() {
-                            issues
-                                .err("No such column in table", &column)
-                                .frag("Table defined here", &e.identifier_span);
-                        }
-                    }
-                    qusql_parse::AlterSpecification::AlterColumn(AlterColumn {
-                        column,
-                        alter_column_action,
-                        ..
-                    }) => {
-                        let c = match e.get_column_mut(column.value) {
-                            Some(v) => v,
-                            None => {
-                                issues
-                                    .err("No such column in table", &column)
-                                    .frag("Table defined here", &e.identifier_span);
-                                continue;
-                            }
-                        };
-                        match alter_column_action {
-                            qusql_parse::AlterColumnAction::SetDefault { .. } => (),
-                            qusql_parse::AlterColumnAction::DropDefault { .. } => (),
-                            qusql_parse::AlterColumnAction::Type { type_, .. } => {
-                                *c = parse_column(type_, column, issues, Some(options))
-                            }
-                            qusql_parse::AlterColumnAction::SetNotNull { .. } => {
-                                c.type_.not_null = true
-                            }
-                            qusql_parse::AlterColumnAction::DropNotNull { .. } => {
-                                c.type_.not_null = false
-                            }
-                            a @ qusql_parse::AlterColumnAction::AddGenerated { .. } => {
-                                issues.err("not implemented", &a);
-                            }
-                        }
-                    }
-                    // Schema-irrelevant ALTER TABLE operations: silently ignore
-                    qusql_parse::AlterSpecification::Lock { .. } => {}
-                    qusql_parse::AlterSpecification::DropIndex(_) => {}
-                    qusql_parse::AlterSpecification::DropForeignKey { .. } => {}
-                    qusql_parse::AlterSpecification::DropPrimaryKey { .. } => {}
-                    qusql_parse::AlterSpecification::RenameColumn { .. } => {}
-                    qusql_parse::AlterSpecification::RenameIndex { .. } => {}
-                    qusql_parse::AlterSpecification::RenameConstraint { .. } => {}
-                    qusql_parse::AlterSpecification::RenameTo { .. } => {}
-                    qusql_parse::AlterSpecification::Algorithm { .. } => {}
-                    qusql_parse::AlterSpecification::AutoIncrement { .. } => {}
-                    qusql_parse::AlterSpecification::Change { .. } => {}
-                    qusql_parse::AlterSpecification::ReplicaIdentity(_) => {}
-                    qusql_parse::AlterSpecification::ValidateConstraint(_) => {}
-                    qusql_parse::AlterSpecification::AddTableConstraint(_) => {}
-                    qusql_parse::AlterSpecification::DisableTrigger(_) => {}
-                    qusql_parse::AlterSpecification::EnableTrigger(_) => {}
-                    qusql_parse::AlterSpecification::DisableRule(_) => {}
-                    qusql_parse::AlterSpecification::EnableRule(_) => {}
-                    qusql_parse::AlterSpecification::DisableRowLevelSecurity(_) => {}
-                    qusql_parse::AlterSpecification::EnableRowLevelSecurity(_) => {}
-                    qusql_parse::AlterSpecification::ForceRowLevelSecurity(_) => {}
-                    qusql_parse::AlterSpecification::NoForceRowLevelSecurity(_) => {}
+                e
+            }
+            alloc::collections::btree_map::Entry::Vacant(_) => {
+                if a.if_exists.is_none() {
+                    self.issues.err("Table not found", &a.table);
                 }
+                return;
             }
-        }
-        // DO $$ ... $$ — re-parse body and recurse.  Dollar-quoted bodies are
-        // treated as top-level SQL at one deeper nesting level with proper span offsets.
-        qusql_parse::Statement::Do(d) => match d.body {
-            qusql_parse::DoBody::Statements(stmts) => {
-                process_statements(stmts, schemas, issues, src, options);
-            }
-            qusql_parse::DoBody::String(s, _) => {
-                let span_offset = s.as_ptr() as usize - src.as_ptr() as usize;
-                let mut inner_issues = Issues::new(s);
-                let body_opts = options.parse_options.clone().function_body(true);
-                let stmts = parse_statements(s, &mut inner_issues, &body_opts);
-                process_statements(stmts, schemas, &mut inner_issues, s, options);
-                transfer_issues_with_offset(issues, inner_issues, span_offset);
-            }
-        },
-        // BEGIN ... END blocks: recurse into the body statements.
-        qusql_parse::Statement::Block(b) => {
-            process_statements(b.statements, schemas, issues, src, options);
-        }
-        // IF ... THEN / ELSEIF / ELSE: recurse into all branches.
-        qusql_parse::Statement::If(i) => {
-            for cond in i.conditions {
-                process_statements(cond.then, schemas, issues, src, options);
-            }
-            if let Some((_, stmts)) = i.else_ {
-                process_statements(stmts, schemas, issues, src, options);
-            }
-        }
-        // SELECT: scan function-call arguments for dollar-quoted SQL strings and
-        // process any found schema-affecting statements.
-        qusql_parse::Statement::Select(s) => {
-            for se in s.select_exprs {
-                scan_expr_for_sql(se.expr, schemas, issues, src, options);
-            }
-        }
-        // DML that modifies rows but not schema structure: silently skip.
-        qusql_parse::Statement::InsertReplace(_) => {}
-        qusql_parse::Statement::Update(_) => {}
-        qusql_parse::Statement::Delete(_) => {}
-        // CREATE INDEX
-        qusql_parse::Statement::CreateIndex(ci) => {
-            let t = unqualified_name(issues, &ci.table_name);
-
-            if let Some(table) = schemas.schemas.get(t) {
-                for col in &ci.column_names {
-                    // Only validate regular column names, skip functional index expressions
-                    if let qusql_parse::IndexColExpr::Column(name) = &col.expr
-                        && table.get_column(name.value).is_none()
-                    {
-                        issues
-                            .err("No such column in table", col)
-                            .frag("Table defined here", &table.identifier_span);
-                    }
-                }
-                // TODO type where_
-            } else {
-                issues.err("No such table", &ci.table_name);
-            }
-
-            // Skip unnamed indexes (PostgreSQL allows CREATE INDEX without a name)
-            let index_name = match &ci.index_name {
-                Some(name) => name.clone(),
-                None => return,
-            };
-
-            let ident = if options.parse_options.get_dialect().is_postgresql() {
-                IndexKey {
-                    table: None,
-                    index: index_name.clone(),
-                }
-            } else {
-                IndexKey {
-                    table: Some(t.clone()),
-                    index: index_name.clone(),
-                }
-            };
-
-            if let Some(old) = schemas.indices.insert(ident, ci.span())
-                && ci.if_not_exists.is_none()
-            {
-                issues
-                    .err("Multiple indeces with the same identifier", &ci)
-                    .frag("Already defined here", &old);
-            }
-        }
-        qusql_parse::Statement::DropIndex(ci) => {
-            let key = IndexKey {
-                table: ci.on.as_ref().map(|(_, t)| t.identifier.clone()),
-                index: ci.index_name.clone(),
-            };
-            if schemas.indices.remove(&key).is_none() && ci.if_exists.is_none() {
-                issues.err("No such index", &ci);
-            }
-        }
-        qusql_parse::Statement::Commit(_) => (),
-        qusql_parse::Statement::Begin(_) => (),
-        qusql_parse::Statement::CreateFunction(f) => {
-            let mut replace = false;
-            for o in &f.create_options {
-                if matches!(o, qusql_parse::CreateOption::OrReplace(_)) {
-                    replace = true;
-                }
-            }
-            // Try to parse the AS body if it's a single non-escaped string
-            let body = f
-                .body
-                .as_ref()
-                .and_then(|b| b.strings.first())
-                .and_then(|s| try_parse_body(src, s, issues, &options.parse_options));
-            let name = f.name.clone();
-            let def = FunctionDef {
-                name: f.name.clone(),
-                params: f.params,
-                return_type: f.return_type,
-                span: f.create_span.join_span(&f.function_span),
-                body,
-            };
-            match schemas.functions.entry(name) {
-                alloc::collections::btree_map::Entry::Occupied(mut e) => {
-                    if replace {
-                        e.insert(def);
-                    } else if f.if_not_exists.is_none() {
-                        issues
-                            .err("Function already defined", &f.name)
-                            .frag("Defined here", &e.get().span);
-                    }
-                }
-                alloc::collections::btree_map::Entry::Vacant(e) => {
-                    e.insert(def);
-                }
-            }
-        }
-        qusql_parse::Statement::CreateProcedure(p) => {
-            let mut replace = false;
-            for o in &p.create_options {
-                if matches!(o, qusql_parse::CreateOption::OrReplace(_)) {
-                    replace = true;
-                }
-            }
-            let name = p.name.clone();
-            let def = ProcedureDef {
-                name: p.name.clone(),
-                params: p.params,
-                span: p.create_span.join_span(&p.procedure_span),
-            };
-            match schemas.procedures.entry(name) {
-                alloc::collections::btree_map::Entry::Occupied(mut e) => {
-                    if replace {
-                        e.insert(def);
-                    } else if p.if_not_exists.is_none() {
-                        issues
-                            .err("Procedure already defined", &p.name)
-                            .frag("Defined here", &e.get().span);
-                    }
-                }
-                alloc::collections::btree_map::Entry::Vacant(e) => {
-                    e.insert(def);
-                }
-            }
-        }
-        qusql_parse::Statement::Call(_) => (),
-        qusql_parse::Statement::Grant(_) => (),
-        qusql_parse::Statement::CommentOn(_) => (),
-        qusql_parse::Statement::DropType(_) => (),
-        qusql_parse::Statement::CreateTypeEnum(_) => (),
-        qusql_parse::Statement::ExecuteFunction(_) => (),
-        qusql_parse::Statement::DeclareVariable(_) => (),
-        qusql_parse::Statement::DeclareCursorMariaDb(_) => (),
-        qusql_parse::Statement::DeclareHandler(_) => (),
-        qusql_parse::Statement::OpenCursor(_) => (),
-        qusql_parse::Statement::CloseCursor(_) => (),
-        qusql_parse::Statement::FetchCursor(_) => (),
-        qusql_parse::Statement::Leave(_) => (),
-        qusql_parse::Statement::Iterate(_) => (),
-        qusql_parse::Statement::Loop(_) => (),
-        qusql_parse::Statement::While(_) => (),
-        qusql_parse::Statement::Repeat(_) => (),
-        qusql_parse::Statement::Perform(_) => (),
-        qusql_parse::Statement::Raise(_) => (),
-        qusql_parse::Statement::Assign(_) => (),
-        qusql_parse::Statement::PlpgsqlExecute(_) => (),
-        s => {
-            issues.err(
-                alloc::format!("Unsupported statement {s:?} in schema definition"),
-                &s,
+        };
+        for s in a.alter_specifications {
+            process_alter_specification(
+                s,
+                e,
+                &a.table,
+                self.issues,
+                &mut self.schemas.indices,
+                self.options,
             );
         }
     }
 }
 
+#[allow(clippy::too_many_lines)]
+fn process_alter_specification<'a>(
+    s: qusql_parse::AlterSpecification<'a>,
+    e: &mut Schema<'a>,
+    table_ref: &qusql_parse::QualifiedName<'a>,
+    issues: &mut Issues<'a>,
+    indices: &mut alloc::collections::BTreeMap<IndexKey<'a>, Span>,
+    options: &TypeOptions,
+) {
+    match s {
+        qusql_parse::AlterSpecification::AddIndex(AddIndex {
+            if_not_exists,
+            name,
+            cols,
+            ..
+        }) => {
+            for col in &cols {
+                if let qusql_parse::IndexColExpr::Column(cname) = &col.expr
+                    && e.get_column(cname.value).is_none()
+                {
+                    issues
+                        .err("No such column in table", col)
+                        .frag("Table defined here", table_ref);
+                }
+            }
+            if let Some(name) = &name {
+                let ident = if options.parse_options.get_dialect().is_postgresql() {
+                    IndexKey {
+                        table: None,
+                        index: name.clone(),
+                    }
+                } else {
+                    IndexKey {
+                        table: Some(unqualified_name(issues, table_ref).clone()),
+                        index: name.clone(),
+                    }
+                };
+                if let Some(old) = indices.insert(ident, name.span())
+                    && if_not_exists.is_none()
+                {
+                    issues
+                        .err("Multiple indeces with the same identifier", &name.span())
+                        .frag("Already defined here", &old);
+                }
+            }
+        }
+        qusql_parse::AlterSpecification::AddForeignKey { .. } => {}
+        qusql_parse::AlterSpecification::Modify(ModifyColumn {
+            if_exists,
+            col,
+            definition,
+            ..
+        }) => match e.get_column_mut(col.value) {
+            Some(c) => {
+                let new_col = parse_column(definition, c.identifier.clone(), issues, Some(options));
+                *c = new_col;
+            }
+            None if if_exists.is_none() => {
+                issues
+                    .err("No such column in table", &col)
+                    .frag("Table defined here", &e.identifier_span);
+            }
+            None => {}
+        },
+        qusql_parse::AlterSpecification::AddColumn(AddColumn {
+            identifier,
+            data_type,
+            ..
+        }) => {
+            e.columns
+                .push(parse_column(data_type, identifier, issues, Some(options)));
+        }
+        qusql_parse::AlterSpecification::OwnerTo { .. } => {}
+        qusql_parse::AlterSpecification::DropColumn(DropColumn {
+            column, if_exists, ..
+        }) => {
+            let cnt = e.columns.len();
+            e.columns.retain(|c| c.identifier != column);
+            if cnt == e.columns.len() && if_exists.is_none() {
+                issues
+                    .err("No such column in table", &column)
+                    .frag("Table defined here", &e.identifier_span);
+            }
+        }
+        qusql_parse::AlterSpecification::AlterColumn(AlterColumn {
+            column,
+            alter_column_action,
+            ..
+        }) => match e.get_column_mut(column.value) {
+            Some(c) => match alter_column_action {
+                qusql_parse::AlterColumnAction::SetDefault { .. } => {}
+                qusql_parse::AlterColumnAction::DropDefault { .. } => {}
+                qusql_parse::AlterColumnAction::Type { type_, .. } => {
+                    *c = parse_column(type_, column, issues, Some(options));
+                }
+                qusql_parse::AlterColumnAction::SetNotNull { .. } => c.type_.not_null = true,
+                qusql_parse::AlterColumnAction::DropNotNull { .. } => c.type_.not_null = false,
+                a @ qusql_parse::AlterColumnAction::AddGenerated { .. } => {
+                    issues.err("not implemented", &a);
+                }
+            },
+            None => {
+                issues
+                    .err("No such column in table", &column)
+                    .frag("Table defined here", &e.identifier_span);
+            }
+        },
+        qusql_parse::AlterSpecification::DropIndex(_) => {
+            issues.err("not implemented: DROP INDEX", table_ref);
+        }
+        qusql_parse::AlterSpecification::RenameColumn { .. } => {
+            issues.err("not implemented: RENAME COLUMN", table_ref);
+        }
+        qusql_parse::AlterSpecification::RenameIndex { .. } => {
+            issues.err("not implemented: RENAME INDEX", table_ref);
+        }
+        qusql_parse::AlterSpecification::RenameConstraint { .. } => {
+            issues.err("not implemented: RENAME CONSTRAINT", table_ref);
+        }
+        qusql_parse::AlterSpecification::RenameTo { .. } => {
+            issues.err("not implemented: RENAME TO", table_ref);
+        }
+        qusql_parse::AlterSpecification::Change { .. } => {
+            issues.err("not implemented: CHANGE COLUMN", table_ref);
+        }
+        qusql_parse::AlterSpecification::Lock { .. }
+        | qusql_parse::AlterSpecification::DropForeignKey { .. }
+        | qusql_parse::AlterSpecification::DropPrimaryKey { .. }
+        | qusql_parse::AlterSpecification::Algorithm { .. }
+        | qusql_parse::AlterSpecification::AutoIncrement { .. }
+        | qusql_parse::AlterSpecification::ReplicaIdentity(_)
+        | qusql_parse::AlterSpecification::ValidateConstraint(_)
+        | qusql_parse::AlterSpecification::AddTableConstraint(_)
+        | qusql_parse::AlterSpecification::DisableTrigger(_)
+        | qusql_parse::AlterSpecification::EnableTrigger(_)
+        | qusql_parse::AlterSpecification::DisableRule(_)
+        | qusql_parse::AlterSpecification::EnableRule(_)
+        | qusql_parse::AlterSpecification::DisableRowLevelSecurity(_)
+        | qusql_parse::AlterSpecification::EnableRowLevelSecurity(_)
+        | qusql_parse::AlterSpecification::ForceRowLevelSecurity(_)
+        | qusql_parse::AlterSpecification::NoForceRowLevelSecurity(_) => {}
+    }
+}
+
+impl<'a, 'b> SchemaCtx<'a, 'b> {
+    // ------------------------------------------------------------------ //
+    //  DROP statements                                                     //
+    // ------------------------------------------------------------------ //
+
+    fn process_drop_table(&mut self, t: qusql_parse::DropTable<'a>) {
+        for i in t.tables {
+            match self
+                .schemas
+                .schemas
+                .entry(unqualified_name(self.issues, &i).clone())
+            {
+                alloc::collections::btree_map::Entry::Occupied(e) => {
+                    if e.get().view {
+                        self.issues
+                            .err("Name defines a view not a table", &i)
+                            .frag("View defined here", &e.get().identifier_span);
+                    } else {
+                        e.remove();
+                    }
+                }
+                alloc::collections::btree_map::Entry::Vacant(_) => {
+                    if t.if_exists.is_none() {
+                        self.issues
+                            .err("A table with this name does not exist to drop", &i);
+                    }
+                }
+            }
+        }
+    }
+
+    fn process_drop_view(&mut self, v: qusql_parse::DropView<'a>) {
+        for i in v.views {
+            match self
+                .schemas
+                .schemas
+                .entry(unqualified_name(self.issues, &i).clone())
+            {
+                alloc::collections::btree_map::Entry::Occupied(e) => {
+                    if !e.get().view {
+                        self.issues
+                            .err("Name defines a table not a view", &i)
+                            .frag("Table defined here", &e.get().identifier_span);
+                    } else {
+                        e.remove();
+                    }
+                }
+                alloc::collections::btree_map::Entry::Vacant(_) => {
+                    if v.if_exists.is_none() {
+                        self.issues
+                            .err("A view with this name does not exist to drop", &i);
+                    }
+                }
+            }
+        }
+    }
+
+    fn process_drop_function(&mut self, f: qusql_parse::DropFunction<'a>) {
+        for (func_name, _args) in &f.functions {
+            match self
+                .schemas
+                .functions
+                .entry(unqualified_name(self.issues, func_name).clone())
+            {
+                alloc::collections::btree_map::Entry::Occupied(e) => {
+                    e.remove();
+                }
+                alloc::collections::btree_map::Entry::Vacant(_) => {
+                    if f.if_exists.is_none() {
+                        self.issues.err(
+                            "A function with this name does not exist to drop",
+                            func_name,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    fn process_drop_procedure(&mut self, p: qusql_parse::DropProcedure<'a>) {
+        let name = unqualified_name(self.issues, &p.procedure);
+        match self.schemas.procedures.entry(name.clone()) {
+            alloc::collections::btree_map::Entry::Occupied(e) => {
+                e.remove();
+            }
+            alloc::collections::btree_map::Entry::Vacant(_) => {
+                if p.if_exists.is_none() {
+                    self.issues.err(
+                        "A procedure with this name does not exist to drop",
+                        &p.procedure,
+                    );
+                }
+            }
+        }
+    }
+
+    fn process_drop_index(&mut self, ci: qusql_parse::DropIndex<'a>) {
+        let key = IndexKey {
+            table: ci.on.as_ref().map(|(_, t)| t.identifier.clone()),
+            index: ci.index_name.clone(),
+        };
+        if self.schemas.indices.remove(&key).is_none() && ci.if_exists.is_none() {
+            self.issues.err("No such index", &ci);
+        }
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Control-flow / embedded SQL                                         //
+    // ------------------------------------------------------------------ //
+
+    /// DO $$ ... $$: re-parse the dollar-quoted body and recurse.
+    fn process_do(&mut self, d: qusql_parse::Do<'a>) {
+        match d.body {
+            qusql_parse::DoBody::Statements(stmts) => self.process_statements(stmts),
+            qusql_parse::DoBody::String(s, _) => {
+                let span_offset = s.as_ptr() as usize - self.src.as_ptr() as usize;
+                let mut inner_issues = Issues::new(s);
+                let body_opts = self.options.parse_options.clone().function_body(true);
+                let stmts = parse_statements(s, &mut inner_issues, &body_opts);
+                let mut inner_ctx =
+                    SchemaCtx::new(self.schemas, &mut inner_issues, s, self.options);
+                inner_ctx.process_statements(stmts);
+                transfer_issues_with_offset(self.issues, inner_issues, span_offset);
+            }
+        }
+    }
+
+    /// IF ... THEN / ELSEIF / ELSE: recurse into all branches.
+    fn process_if(&mut self, i: qusql_parse::If<'a>) {
+        for cond in i.conditions {
+            self.process_statements(cond.then);
+        }
+        if let Some((_, stmts)) = i.else_ {
+            self.process_statements(stmts);
+        }
+    }
+
+    /// SELECT: scan expression arguments for dollar-quoted embedded SQL strings.
+    fn process_select(&mut self, s: qusql_parse::Select<'a>) {
+        for se in s.select_exprs {
+            self.scan_expr_for_sql(se.expr);
+        }
+    }
+
+    /// Recursively scan an expression for dollar-quoted string literals and
+    /// process any found SQL strings as nested schema statements.
+    fn scan_expr_for_sql(&mut self, expr: qusql_parse::Expression<'a>) {
+        match expr {
+            qusql_parse::Expression::String(s) => {
+                if let Cow::Borrowed(borrowed) = &s.value {
+                    let span_offset = borrowed.as_ptr() as usize - self.src.as_ptr() as usize;
+                    let mut nested_issues = Issues::new(borrowed);
+                    let stmts =
+                        parse_statements(borrowed, &mut nested_issues, &self.options.parse_options);
+                    let mut inner_ctx =
+                        SchemaCtx::new(self.schemas, &mut nested_issues, borrowed, self.options);
+                    inner_ctx.process_statements(stmts);
+                    transfer_issues_with_offset(self.issues, nested_issues, span_offset);
+                }
+            }
+            qusql_parse::Expression::Function(f) => {
+                for arg in f.args {
+                    self.scan_expr_for_sql(arg);
+                }
+            }
+            _ => {}
+        }
+    }
+}
 /// Parse a schema definition and return a terse description
 ///
 /// Errors and warnings are added to issues. The schema is successfully
@@ -1042,7 +1117,7 @@ pub fn parse_schemas<'a>(
         indices: Default::default(),
     };
 
-    process_statements(statements, &mut schemas, issues, src, options);
+    SchemaCtx::new(&mut schemas, issues, src, options).process_statements(statements);
 
     let dummy_schemas = Schemas::default();
 
