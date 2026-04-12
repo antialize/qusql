@@ -1293,7 +1293,20 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::String, false)
         }
-        Function::LCase | Function::Lower => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::LCase | Function::Lower => {
+            // PostgreSQL overloads lower(): string lowercase AND range lower-bound.
+            // Accept any arg; return String for string input, Any for range/other.
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
+                match t.base() {
+                    BaseType::Any | BaseType::String => FullType::new(BaseType::String, t.not_null),
+                    _ => FullType::new(BaseType::Any, t.not_null),
+                }
+            } else {
+                FullType::invalid()
+            }
+        }
         Function::LengthB | Function::OctetLength => {
             tf(BaseType::Integer.into(), &[BaseType::String], &[])
         }
@@ -1410,7 +1423,19 @@ pub(crate) fn type_function<'a, 'b>(
             &[BaseType::String, BaseType::String],
             &[],
         ),
-        Function::UCase | Function::Upper => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::UCase | Function::Upper => {
+            // PostgreSQL overloads upper(): string uppercase AND range upper-bound.
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
+                match t.base() {
+                    BaseType::Any | BaseType::String => FullType::new(BaseType::String, t.not_null),
+                    _ => FullType::new(BaseType::Any, t.not_null),
+                }
+            } else {
+                FullType::invalid()
+            }
+        }
         Function::UncompressedLength => tf(BaseType::Integer.into(), &[BaseType::Bytes], &[]),
         Function::UnHex => tf(BaseType::Bytes.into(), &[BaseType::String], &[]),
         Function::UpdateXml => tf(

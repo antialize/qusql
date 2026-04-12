@@ -190,6 +190,14 @@ pub(crate) fn type_reference<'a>(
         }
     }
 
-    core::mem::swap(&mut typer.reference_types, &mut given_refs);
-    typer.reference_types.extend(given_refs);
+    let new_refs = core::mem::take(&mut typer.reference_types);
+    // Inner scope refs shadow outer scope refs with the same alias (e.g. a CTE
+    // referencing a table with the same name as an outer-scope CTE).
+    for new_ref in &new_refs {
+        if let Some(name) = &new_ref.name {
+            given_refs.retain(|r| r.name.as_ref() != Some(name));
+        }
+    }
+    typer.reference_types = given_refs;
+    typer.reference_types.extend(new_refs);
 }

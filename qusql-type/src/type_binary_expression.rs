@@ -37,7 +37,8 @@ pub(crate) fn type_binary_expression<'a>(
                 (flags, BaseType::Bool)
             }
         }
-        BinaryOperator::Or(_) | BinaryOperator::Xor(_) => (flags.without_values(), BaseType::Bool),
+        BinaryOperator::Or(_) => (flags.without_values(), BaseType::Any),
+        BinaryOperator::Xor(_) => (flags.without_values(), BaseType::Bool),
         BinaryOperator::NullSafeEq(_) => (flags.without_values(), BaseType::Any),
         BinaryOperator::Eq(_)
         | BinaryOperator::GtEq(_)
@@ -107,7 +108,20 @@ pub(crate) fn type_binary_expression<'a>(
     let lhs_type = type_expression(typer, lhs, flags, context);
     let rhs_type = type_expression(typer, rhs, flags, context);
     match op {
-        BinaryOperator::Or(_) | BinaryOperator::Xor(_) | BinaryOperator::And(_) => {
+        BinaryOperator::Or(_) => {
+            // In PostgreSQL, || doubles as string/jsonb/array concatenation.
+            // If both sides match to a non-bool type, treat as concatenation.
+            if let Some(t) = typer.matched_type(&lhs_type, &rhs_type) {
+                let base = t.base();
+                if base != BaseType::Bool && base != BaseType::Any {
+                    return FullType::new(t, lhs_type.not_null && rhs_type.not_null);
+                }
+            }
+            typer.ensure_base(lhs, &lhs_type, BaseType::Bool);
+            typer.ensure_base(rhs, &rhs_type, BaseType::Bool);
+            FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::Xor(_) | BinaryOperator::And(_) => {
             typer.ensure_base(lhs, &lhs_type, BaseType::Bool);
             typer.ensure_base(rhs, &rhs_type, BaseType::Bool);
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)

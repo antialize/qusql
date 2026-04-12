@@ -145,21 +145,22 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
     }
 }
 
-/// Parsed version of the sqlx-type-schema.sql
+/// Parsed version of the sqlx-type-schema.sql.
+/// Built-in dialect tables (e.g. `spatial_ref_sys`) are injected automatically
+/// by `parse_schemas` based on the dialect detected from the schema header.
 static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
     let schema_src = SCHEMA_SRC.as_str();
-    let dialect = {
-        let header: String = schema_src.lines().take(2).collect::<Vec<_>>().join(" ");
-        if header.contains("qusql-type-variant: postgis") || header.contains("sql-product: postgis")
-        {
-            SQLDialect::PostGIS
-        } else if header.contains("sql-product: postgres") {
-            SQLDialect::PostgreSQL
-        } else if header.contains("sql-product: sqlite") {
-            SQLDialect::Sqlite
-        } else {
-            SQLDialect::MariaDB
-        }
+    let header: String = schema_src.lines().take(2).collect::<Vec<_>>().join(" ");
+    let dialect = if header.contains("qusql-type-variant: postgis")
+        || header.contains("sql-product: postgis")
+    {
+        SQLDialect::PostGIS
+    } else if header.contains("sql-product: postgres") {
+        SQLDialect::PostgreSQL
+    } else if header.contains("sql-product: sqlite") {
+        SQLDialect::Sqlite
+    } else {
+        SQLDialect::MariaDB
     };
 
     let options = TypeOptions::new().dialect(dialect.clone());

@@ -41,6 +41,16 @@ pub(crate) fn type_update<'a>(
     for reference in &update.tables {
         type_reference(typer, reference, false);
     }
+    // Record how many references belong to the UPDATE target tables.
+    // SET key lookup must only search these, not FROM tables.
+    let update_target_end = typer.reference_types.len();
+
+    // PostgreSQL UPDATE ... FROM clause
+    if let Some((_, from_refs)) = &update.from {
+        for reference in from_refs {
+            type_reference(typer, reference, false);
+        }
+    }
 
     for (key, value) in &update.set {
         let flags = ExpressionFlags::default();
@@ -48,7 +58,8 @@ pub(crate) fn type_update<'a>(
             [key] => {
                 let mut cnt = 0;
                 let mut t = None;
-                for r in &typer.reference_types {
+                // SET target must be a column of the UPDATE target tables, not FROM tables
+                for r in &typer.reference_types[..update_target_end] {
                     for c in &r.columns {
                         if c.0 == *key {
                             cnt += 1;
@@ -61,7 +72,7 @@ pub(crate) fn type_update<'a>(
                     let mut issue = typer
                         .issues
                         .err("Ambiguous reference", &key.opt_span().unwrap());
-                    for r in &typer.reference_types {
+                    for r in &typer.reference_types[..update_target_end] {
                         for c in &r.columns {
                             if c.0 == *key {
                                 issue.frag("Defined here", &r.span);

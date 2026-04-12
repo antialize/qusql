@@ -1963,6 +1963,28 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
 ///
 /// Errors and warnings are added to issues. The schema is successfully
 /// parsed if no errors are added to issues.
+/// Built-in table/view definitions that are automatically available in
+/// PostgreSQL and PostGIS databases.  These are injected into every
+/// `Schemas` produced by [`parse_schemas`] when the dialect is
+/// [`SQLDialect::PostgreSQL`] or [`SQLDialect::PostGIS`].
+const POSTGRESQL_BUILTIN_SQL: &str = "
+CREATE TABLE spatial_ref_sys (
+    srid INTEGER NOT NULL,
+    auth_name VARCHAR(256),
+    auth_srid INTEGER,
+    srtext VARCHAR(2048),
+    proj4text VARCHAR(2048)
+);
+CREATE VIEW geometry_columns AS (
+    SELECT '' AS f_table_catalog, '' AS f_table_schema, '' AS f_table_name,
+           '' AS f_geometry_column, 0 AS coord_dimension, 0 AS srid, '' AS type
+);
+CREATE VIEW geography_columns AS (
+    SELECT '' AS f_table_catalog, '' AS f_table_schema, '' AS f_table_name,
+           '' AS f_geography_column, 0 AS coord_dimension, 0 AS srid, '' AS type
+);
+";
+
 pub fn parse_schemas<'a>(
     src: &'a str,
     issues: &mut Issues<'a>,
@@ -2018,5 +2040,33 @@ pub fn parse_schemas<'a>(
             }
         }
     }
+
+    // Inject dialect-specific built-in schemas so that system tables like
+    // `spatial_ref_sys` are always resolvable without requiring the user to
+    // declare them in their schema file.
+    let dialect = options.parse_options.get_dialect();
+    if dialect.is_postgresql() {
+        // Coerce 'static to &'a str — sound because 'static: 'a.
+        let builtin_src: &'a str = POSTGRESQL_BUILTIN_SQL;
+        let builtin_options = TypeOptions::new().dialect(dialect);
+        let builtin_stmts = parse_statements(
+            builtin_src,
+            &mut Issues::new(builtin_src),
+            &builtin_options.parse_options,
+        );
+        let mut builtin_schemas: Schemas<'a> = Schemas::default();
+        SchemaCtx::new(
+            &mut builtin_schemas,
+            &mut Issues::new(builtin_src),
+            builtin_src,
+            &builtin_options,
+        )
+        .process_top_level_statements(builtin_stmts);
+        // User-defined tables take priority; only add entries not already present.
+        for (k, v) in builtin_schemas.schemas {
+            schemas.schemas.entry(k).or_insert(v);
+        }
+    }
+
     schemas
 }
