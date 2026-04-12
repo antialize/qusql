@@ -966,6 +966,8 @@ impl<'a> Spanned for WindowFrame<'a> {
 /// When part of CASE
 #[derive(Debug, Clone)]
 pub struct WindowSpec<'a> {
+    /// Span of the opening parenthesis — used as fallback when the spec is empty
+    pub lparen_span: Span,
     /// Span of "PARTITION BY" and list of partition expressions, if specified
     pub partition_by: Option<(Span, Vec<Expression<'a>>)>,
     /// Span of "ORDER BY" and list of order expression and directions, if specified
@@ -979,7 +981,7 @@ impl<'a> Spanned for WindowSpec<'a> {
         self.partition_by
             .opt_join_span(&self.order_by)
             .opt_join_span(&self.frame)
-            .expect("Either partition_by, order_by, or frame must be specified")
+            .unwrap_or(self.lparen_span.clone())
     }
 }
 
@@ -1149,7 +1151,7 @@ fn parse_over_clause<'a>(
         return Ok(None);
     };
 
-    parser.consume_token(Token::LParen)?;
+    let lparen_span = parser.consume_token(Token::LParen)?;
 
     let partition_by = if let Some(partition_span) = parser.skip_keyword(Keyword::PARTITION) {
         let partition_by_span = partition_span.join_span(&parser.consume_keyword(Keyword::BY)?);
@@ -1199,6 +1201,7 @@ fn parse_over_clause<'a>(
     Ok(Some(WindowClause {
         over_span,
         window_spec: WindowSpec {
+            lparen_span,
             partition_by,
             order_by,
             frame,
