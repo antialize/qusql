@@ -33,8 +33,16 @@ def run_type_test(sql_file: Path, dialect: str) -> tuple[int, str]:
     """Run type_test via cargo run and return (exit_code, stdout)."""
     result = subprocess.run(
         [
-            "cargo", "run", "-p", "type_test", "--",
-            str(sql_file), "--dialect", dialect, "--error-format", "pretty",
+            "cargo",
+            "run",
+            "-p",
+            "type_test",
+            "--",
+            str(sql_file),
+            "--dialect",
+            dialect,
+            "--error-format",
+            "pretty",
         ],
         capture_output=True,
         text=True,
@@ -69,7 +77,9 @@ def diff_tables(expected: dict, actual: dict) -> list[str]:
         for col in sorted(exp_cols.keys() - act_cols.keys()):
             lines.append(f"{prefix}: column removed: {col}")
         for col in sorted(act_cols.keys() - exp_cols.keys()):
-            lines.append(f"{prefix}: column added:   {col} ({act_cols[col].get('type')})")
+            lines.append(
+                f"{prefix}: column added:   {col} ({act_cols[col].get('type')})"
+            )
 
         exp_order = [c["name"] for c in et.get("columns", [])]
         act_order = [c["name"] for c in at.get("columns", []) if c["name"] in exp_cols]
@@ -80,7 +90,13 @@ def diff_tables(expected: dict, actual: dict) -> list[str]:
             ec = exp_cols[col]
             ac = act_cols[col]
             col_prefix = f"{prefix}.{col}"
-            for field in ("type", "not_null", "auto_increment", "has_default", "generated"):
+            for field in (
+                "type",
+                "not_null",
+                "auto_increment",
+                "has_default",
+                "generated",
+            ):
                 ev = ec.get(field, False)
                 av = ac.get(field, False)
                 if ev != av:
@@ -123,7 +139,9 @@ def run_test(name: str, *, update: bool) -> bool:
         try:
             issues = json.loads(output)
             for issue in issues[:5]:
-                print(f"  {issue['level']}: {issue['message']} (at {issue['start']}..{issue['end']})")
+                print(
+                    f"  {issue['level']}: {issue['message']} (at {issue['start']}..{issue['end']})"
+                )
             if len(issues) > 5:
                 print(f"  ... and {len(issues) - 5} more issue(s)")
         except json.JSONDecodeError:
@@ -160,8 +178,14 @@ def main() -> None:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("tests", nargs="*", help="test names to run (default: all passing tests)")
-    parser.add_argument("--update", action="store_true", help="overwrite expected outputs with current output")
+    parser.add_argument(
+        "tests", nargs="*", help="test names to run (default: all passing tests)"
+    )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="overwrite expected outputs with current output",
+    )
     args = parser.parse_args()
 
     if args.tests:
@@ -185,4 +209,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
