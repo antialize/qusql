@@ -1750,6 +1750,165 @@ pub(crate) fn type_function<'a, 'b>(
             tf(BaseType::Integer.into(), &[BaseType::Any], &[BaseType::Any])
         }
         Function::ArrayPositions => tf(BaseType::Any.into(), &[BaseType::Any, BaseType::Any], &[]),
+        // PostgreSQL system information functions (9.27)
+        Function::CurrentDatabase => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, false)
+        }
+        Function::CurrentQuery => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, true)
+        }
+        Function::CurrentSchemas => {
+            arg_cnt(typer, 0..1, args, span);
+            FullType::new(BaseType::Any, false)
+        }
+        Function::IcuUnicodeVersion | Function::UnicodeVersion => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, true)
+        }
+        Function::InetClientAddr => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Any, true)
+        }
+        Function::InetClientPort => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Integer, true)
+        }
+        Function::PgBackendPid | Function::PgTriggerDepth => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Integer, false)
+        }
+        Function::PgConfLoadTime | Function::PgXactCommitTimestamp => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::DateTime, false)
+        }
+        Function::PgCurrentLogfile => {
+            arg_cnt(typer, 0..1, args, span);
+            FullType::new(BaseType::String, true)
+        }
+        Function::PgJitAvailable | Function::PgIsOtherTempSchema => {
+            arg_cnt(typer, 0..1, args, span);
+            FullType::new(BaseType::Bool, false)
+        }
+        Function::PgMyTempSchema | Function::PgCurrentSnapshot | Function::PgCurrentXactId
+        | Function::PgAvailableWalSummaries | Function::PgGetWalSummarizerState => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Any, false)
+        }
+        Function::PgCurrentXactIdIfAssigned => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Any, true)
+        }
+        Function::PgNotificationQueueUsage => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Float, false)
+        }
+        Function::PgLastCommittedXact | Function::PgControlCheckpoint | Function::PgControlInit
+        | Function::PgControlRecovery | Function::PgControlSystem => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Any, false)
+        }
+        Function::PgListeningChannels => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Any, false)
+        }
+        Function::PgBlockingPids | Function::PgSafeSnapshotBlockingPids => {
+            tf(BaseType::Any.into(), &[BaseType::Integer], &[])
+        }
+        Function::MxidAge => tf(BaseType::Integer.into(), &[BaseType::Any], &[]),
+        Function::HasAnyColumnPrivilege
+        | Function::HasColumnPrivilege
+        | Function::HasDatabasePrivilege
+        | Function::HasForeignDataWrapperPrivilege
+        | Function::HasFunctionPrivilege
+        | Function::HasLanguagePrivilege
+        | Function::HasLargeobjectPrivilege
+        | Function::HasParameterPrivilege
+        | Function::HasSchemaPrivilege
+        | Function::HasSequencePrivilege
+        | Function::HasServerPrivilege
+        | Function::HasTablePrivilege
+        | Function::HasTablespacePrivilege
+        | Function::HasTypePrivilege
+        | Function::PgHasRole => tf(BaseType::Bool.into(), &[BaseType::Any], &[BaseType::Any]),
+        Function::RowSecurityActive => tf(BaseType::Bool.into(), &[BaseType::Any], &[]),
+        Function::Makeaclitem => tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any]),
+        Function::PgCollationIsVisible
+        | Function::PgConversionIsVisible
+        | Function::PgFunctionIsVisible
+        | Function::PgOpclassIsVisible
+        | Function::PgOperatorIsVisible
+        | Function::PgOpfamilyIsVisible
+        | Function::PgStatisticsObjIsVisible
+        | Function::PgTableIsVisible
+        | Function::PgTsConfigIsVisible
+        | Function::PgTsDictIsVisible
+        | Function::PgTsParserIsVisible
+        | Function::PgTsTemplateIsVisible
+        | Function::PgTypeIsVisible => tf(BaseType::Bool.into(), &[BaseType::Any], &[]),
+        Function::PgInputIsValid => tf(BaseType::Bool.into(), &[BaseType::String, BaseType::String], &[]),
+        Function::PgVisibleInSnapshot => tf(BaseType::Bool.into(), &[BaseType::Any, BaseType::Any], &[]),
+        Function::PgIndexColumnHasProperty => {
+            tf(BaseType::Bool.into(), &[BaseType::Any, BaseType::Integer, BaseType::String], &[])
+        }
+        Function::PgIndexHasProperty => {
+            tf(BaseType::Bool.into(), &[BaseType::Any, BaseType::String], &[])
+        }
+        Function::PgIndexamHasProperty => {
+            tf(BaseType::Bool.into(), &[BaseType::Any, BaseType::String], &[])
+        }
+        Function::PgCharToEncoding => tf(BaseType::Integer.into(), &[BaseType::String], &[]),
+        Function::ToRegtypemod => tf(BaseType::Integer.into(), &[BaseType::String], &[]),
+        Function::PgEncodingToChar => tf(BaseType::String.into(), &[BaseType::Integer], &[]),
+        Function::PgXactStatus => tf(BaseType::String.into(), &[BaseType::Any], &[]),
+        Function::PgDescribeObject | Function::PgGetUserbyid => {
+            tf(BaseType::String.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::ColDescription | Function::ObjDescription | Function::ShobjDescription => {
+            tf(BaseType::String.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::FormatType => {
+            tf(BaseType::String.into(), &[BaseType::Any, BaseType::Any], &[])
+        }
+        Function::PgGetSerialSequence => {
+            tf(BaseType::String.into(), &[BaseType::String, BaseType::String], &[])
+        }
+        Function::PgGetConstraintdef
+        | Function::PgGetFunctiondef
+        | Function::PgGetFunctionArguments
+        | Function::PgGetFunctionIdentityArguments
+        | Function::PgGetFunctionResult
+        | Function::PgGetIndexdef
+        | Function::PgGetPartitionConstraintdef
+        | Function::PgGetPartkeydef
+        | Function::PgGetRuledef
+        | Function::PgGetStatisticsobjdef
+        | Function::PgGetTriggerdef
+        | Function::PgGetViewdef => tf(BaseType::String.into(), &[BaseType::Any], &[BaseType::Any]),
+        Function::PgGetExpr => {
+            tf(BaseType::String.into(), &[BaseType::Any, BaseType::Any], &[BaseType::Bool])
+        }
+        Function::PgTablespaceLocation => tf(BaseType::String.into(), &[BaseType::Any], &[]),
+        Function::PgTypeof => tf(BaseType::String.into(), &[BaseType::Any], &[]),
+        Function::PgSettingsGetFlags => tf(BaseType::Any.into(), &[BaseType::String], &[]),
+        Function::PgSnapshotXip
+        | Function::PgSnapshotXmax
+        | Function::PgSnapshotXmin
+        | Function::PgGetAcl
+        | Function::PgGetObjectAddress
+        | Function::PgInputErrorInfo => {
+            tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::ToRegclass
+        | Function::ToRegcollation
+        | Function::ToRegnamespace
+        | Function::ToRegoper
+        | Function::ToRegoperator
+        | Function::ToRegproc
+        | Function::ToRegprocedure
+        | Function::ToRegrole
+        | Function::ToRegtype => tf(BaseType::Any.into(), &[BaseType::String], &[]),
         // PostgreSQL XML functions
         Function::XmlIsWellFormed
         | Function::XmlIsWellFormedContent
