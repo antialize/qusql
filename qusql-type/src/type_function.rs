@@ -1717,6 +1717,14 @@ pub(crate) fn type_function<'a, 'b>(
         }
         Function::UuidExtractTimestamp => tf(BaseType::DateTime.into(), &[BaseType::Any], &[]),
         Function::UuidExtractVersion => tf(BaseType::Integer.into(), &[BaseType::Any], &[]),
+        // PostgreSQL sequence functions
+        Function::Nextval | Function::Currval | Function::Setval => {
+            tf(BaseType::Integer.into(), &[BaseType::Any], &[BaseType::Any])
+        }
+        Function::Lastval => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::Integer, false)
+        }
         // PostgreSQL XML functions
         Function::XmlIsWellFormed
         | Function::XmlIsWellFormedContent

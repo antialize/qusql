@@ -806,6 +806,7 @@ pub(crate) enum Keyword {
     LAST_VALUE,
     LAST,
     LASTVAL,
+    CURRVAL,
     LATERAL,
     LCASE,
     LCM,
