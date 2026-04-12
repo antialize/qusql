@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::{format, vec::Vec};
+use alloc::{boxed::Box, format, vec::Vec};
 use qusql_parse::{Expression, Function, Identifier, Span};
 
 use crate::{
@@ -508,6 +508,84 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::Bool, not_null)
         }
+        // PostgreSQL string functions
+        Function::Btrim => tf(
+            BaseType::String.into(),
+            &[BaseType::String],
+            &[BaseType::String],
+        ),
+        Function::Casefold => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::Initcap => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::Normalize => tf(BaseType::String.into(), &[BaseType::String], &[BaseType::Any]),
+        Function::ParseIdent => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let mut not_null = true;
+            for (e, t) in &typed {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::Any);
+            }
+            FullType::new(Type::Array(Box::new(BaseType::String.into())), not_null)
+        }
+        Function::PgClientEncoding => {
+            arg_cnt(typer, 0..0, args, span);
+            FullType::new(BaseType::String, true)
+        }
+        Function::QuoteIdent => tf(BaseType::String.into(), &[BaseType::String], &[]),
+        Function::QuoteLiteral | Function::QuoteNullable => {
+            tf(BaseType::String.into(), &[BaseType::Any], &[])
+        }
+        Function::RegexpCount => tf(
+            BaseType::Integer.into(),
+            &[BaseType::String, BaseType::String],
+            &[BaseType::Integer, BaseType::String],
+        ),
+        Function::RegexpMatch | Function::RegexpMatches | Function::RegexpSplitToArray => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            let mut not_null = true;
+            for (e, t) in &typed {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::Array(Box::new(BaseType::String.into())), not_null)
+        }
+        Function::RegexpSplitToTable | Function::StringToTable => {
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            FullType::new(BaseType::String, false)
+        }
+        Function::SplitPart => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::String, BaseType::Integer],
+            &[],
+        ),
+        Function::Strpos => tf(
+            BaseType::Integer.into(),
+            &[BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::StringToArray => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            let mut not_null = true;
+            for (e, t) in &typed {
+                not_null = not_null && t.not_null;
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::Array(Box::new(BaseType::String.into())), not_null)
+        }
+        Function::ToAscii => tf(BaseType::String.into(), &[BaseType::String], &[BaseType::Any]),
+        Function::ToBin | Function::ToHex | Function::ToOct => {
+            tf(BaseType::String.into(), &[BaseType::Integer], &[])
+        }
+        Function::Translate => tf(
+            BaseType::String.into(),
+            &[BaseType::String, BaseType::String, BaseType::String],
+            &[],
+        ),
+        Function::UnicodeAssigned => tf(BaseType::Bool.into(), &[BaseType::String], &[]),
+        Function::Unistr => tf(BaseType::String.into(), &[BaseType::String], &[]),
         Function::Datetime => {
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
