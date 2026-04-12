@@ -329,8 +329,18 @@ fn type_kind_from_parse<'a>(
         qusql_parse::Type::TsVector => BaseType::String.into(),
         qusql_parse::Type::Uuid => BaseType::Uuid.into(),
         qusql_parse::Type::Xml => BaseType::String.into(),
-        qusql_parse::Type::Range(_) => BaseType::Bytes.into(),
-        qusql_parse::Type::MultiRange(_) => BaseType::Bytes.into(),
+        qusql_parse::Type::Range(sub) | qusql_parse::Type::MultiRange(sub) => {
+            use qusql_parse::RangeSubtype;
+            let elem = match sub {
+                RangeSubtype::Int4 => BaseType::Integer,
+                RangeSubtype::Int8 => BaseType::Integer,
+                RangeSubtype::Num => BaseType::Float,
+                RangeSubtype::Ts => BaseType::DateTime,
+                RangeSubtype::Tstz => BaseType::TimeStamp,
+                RangeSubtype::Date => BaseType::Date,
+            };
+            Type::Range(elem)
+        }
         qusql_parse::Type::Point
         | qusql_parse::Type::Line
         | qusql_parse::Type::Lseg

@@ -81,6 +81,7 @@ fn type_unary_expression<'a>(
                 | Type::Enum(..)
                 | Type::JSON
                 | Type::Geometry
+                | Type::Range(..)
                 | Type::Array(..)
                 | Type::Set(..) => {
                     typer.err(format!("Expected numeric type got {}", op_type.t), &op_span);

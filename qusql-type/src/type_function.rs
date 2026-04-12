@@ -1295,13 +1295,14 @@ pub(crate) fn type_function<'a, 'b>(
         }
         Function::LCase | Function::Lower => {
             // PostgreSQL overloads lower(): string lowercase AND range lower-bound.
-            // Accept any arg; return String for string input, Any for range/other.
+            // For a range arg, return the element type; for string/any, return String.
             arg_cnt(typer, 1..1, args, span);
             if let Some(arg) = args.first() {
                 let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
-                match t.base() {
-                    BaseType::Any | BaseType::String => FullType::new(BaseType::String, t.not_null),
-                    _ => FullType::new(BaseType::Any, t.not_null),
+                if let Type::Range(elem) = t.t {
+                    FullType::new(elem, false)
+                } else {
+                    FullType::new(BaseType::String, t.not_null)
                 }
             } else {
                 FullType::invalid()
