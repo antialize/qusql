@@ -659,6 +659,11 @@ pub enum Function<'a> {
     RowToJson,
     ToJson,
     ToJsonb,
+    // PostgreSQL sequence functions
+    Currval,
+    Lastval,
+    Nextval,
+    Setval,
     // PostgreSQL text search functions
     ArrayToTsvector,
     GetCurrentTsConfig,
@@ -1586,6 +1591,12 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::ROW_TO_JSON) => Function::RowToJson,
         Token::Ident(_, Keyword::TO_JSON) => Function::ToJson,
         Token::Ident(_, Keyword::TO_JSONB) => Function::ToJsonb,
+
+        // PostgreSQL sequence functions
+        Token::Ident(_, Keyword::CURRVAL) => Function::Currval,
+        Token::Ident(_, Keyword::LASTVAL) => Function::Lastval,
+        Token::Ident(_, Keyword::NEXTVAL) => Function::Nextval,
+        Token::Ident(_, Keyword::SETVAL) => Function::Setval,
 
         // PostgreSQL text search functions
         Token::Ident(_, Keyword::ARRAY_TO_TSVECTOR) => Function::ArrayToTsvector,
