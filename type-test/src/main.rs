@@ -1,6 +1,6 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser, ValueEnum};
-use qusql_type::{Issues, Level, SQLDialect, TypeOptions, schema::parse_schemas};
+use qusql_type::{ByteToChar, Issues, Level, SQLDialect, TypeOptions, schema::parse_schemas};
 use serde::Serialize;
 use std::{fs, path::PathBuf, process};
 
@@ -95,12 +95,14 @@ struct JsonIssue {
 }
 
 fn print_issues_pretty(src: &str, filename: &str, issues: &Issues) {
+    let byte_to_char = ByteToChar::new(src.as_bytes());
     for issue in issues.get() {
         let kind = match issue.level {
             Level::Error => ReportKind::Error,
             Level::Warning => ReportKind::Warning,
         };
-        let span = (filename, issue.span.start..issue.span.end);
+        let char_span = byte_to_char.map_span(issue.span.start..issue.span.end);
+        let span = (filename, char_span);
         let issue_color = match issue.level {
             Level::Error => Color::Red,
             Level::Warning => Color::Yellow,
@@ -113,8 +115,9 @@ fn print_issues_pretty(src: &str, filename: &str, issues: &Issues) {
                     .with_color(issue_color),
             );
         for frag in &issue.fragments {
+            let frag_char_span = byte_to_char.map_span(frag.span.start..frag.span.end);
             report = report.with_label(
-                Label::new((filename, frag.span.start..frag.span.end))
+                Label::new((filename, frag_char_span))
                     .with_message(&*frag.message)
                     .with_color(Color::Cyan),
             );

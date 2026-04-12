@@ -13,7 +13,9 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote, quote_spanned};
 use qusql_type::schema::{parse_schemas, Schemas};
-use qusql_type::{type_statement, Issue, SQLArguments, SQLDialect, SelectTypeColumn, TypeOptions};
+use qusql_type::{
+    type_statement, ByteToChar, Issue, SQLArguments, SQLDialect, SelectTypeColumn, TypeOptions,
+};
 use syn::spanned::Spanned;
 use syn::{parse::Parse, punctuated::Punctuated, Expr, Ident, LitStr, Token};
 
@@ -72,38 +74,44 @@ static SCHEMA_SRC: Lazy<String> =
     });
 
 /// Construct a none color report for an issue
-fn issue_to_report(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
+fn issue_to_report(issue: Issue, b2c: &ByteToChar) -> Report<'static, std::ops::Range<usize>> {
+    let span = b2c.map_span(issue.span);
     let mut builder = Report::build(
         match issue.level {
             qusql_type::Level::Warning => ReportKind::Warning,
             qusql_type::Level::Error => ReportKind::Error,
         },
-        issue.span.clone(),
+        span.clone(),
     )
     .with_config(ariadne::Config::default().with_color(false))
     .with_label(
-        Label::new(issue.span)
+        Label::new(span)
             .with_order(-1)
             .with_priority(-1)
             .with_message(issue.message),
     );
     for frag in issue.fragments {
-        builder = builder.with_label(Label::new(frag.span).with_message(frag.message));
+        builder =
+            builder.with_label(Label::new(b2c.map_span(frag.span)).with_message(frag.message));
     }
     builder.finish()
 }
 
 /// Construct a color report for an issue
-fn issue_to_report_color(issue: Issue) -> Report<'static, std::ops::Range<usize>> {
+fn issue_to_report_color(
+    issue: Issue,
+    b2c: &ByteToChar,
+) -> Report<'static, std::ops::Range<usize>> {
+    let span = b2c.map_span(issue.span);
     let mut builder = Report::build(
         match issue.level {
             qusql_type::Level::Warning => ReportKind::Warning,
             qusql_type::Level::Error => ReportKind::Error,
         },
-        issue.span.clone(),
+        span.clone(),
     )
     .with_label(
-        Label::new(issue.span)
+        Label::new(span)
             .with_color(match issue.level {
                 qusql_type::Level::Warning => Color::Yellow,
                 qusql_type::Level::Error => Color::Red,
@@ -114,7 +122,7 @@ fn issue_to_report_color(issue: Issue) -> Report<'static, std::ops::Range<usize>
     );
     for frag in issue.fragments {
         builder = builder.with_label(
-            Label::new(frag.span)
+            Label::new(b2c.map_span(frag.span))
                 .with_color(Color::Blue)
                 .with_message(frag.message),
         );
@@ -156,13 +164,14 @@ static SCHEMAS: Lazy<(Schemas, SQLDialect)> = Lazy::new(|| {
     let mut issues = qusql_type::Issues::new(schema_src);
     let schemas = parse_schemas(schema_src, &mut issues, &options);
     if !issues.is_ok() {
+        let b2c = ByteToChar::new(schema_src.as_bytes());
         let source = NamedSource("sqlx-type-schema.sql", Source::from(schema_src));
         let mut err = false;
         for issue in issues.into_vec() {
             if issue.level == qusql_type::Level::Error {
                 err = true;
             }
-            let r = issue_to_report_color(issue);
+            let r = issue_to_report_color(issue, &b2c);
             r.eprint(&source).unwrap();
         }
         if err {
@@ -332,6 +341,7 @@ fn quote_args(
 /// Output an [Issue] as a compile error
 fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_macro2::TokenStream> {
     if !issues.is_empty() {
+        let b2c = ByteToChar::new(source.as_bytes());
         let source = NamedSource("", Source::from(source));
         let mut err = false;
         let mut out = Vec::new();
@@ -339,7 +349,7 @@ fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_ma
             if issue.level == qusql_type::Level::Error {
                 err = true;
             }
-            let r = issue_to_report(issue);
+            let r = issue_to_report(issue, &b2c);
             r.write(&source, &mut out).unwrap();
         }
         if err {

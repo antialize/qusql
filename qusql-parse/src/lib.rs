@@ -47,6 +47,7 @@ use parser::Parser;
 mod alter_role;
 mod alter_table;
 mod alter_type;
+mod byte_to_char;
 mod copy;
 mod create;
 mod create_constraint_trigger;
@@ -97,6 +98,7 @@ pub use alter_table::{
     TableConstraintType, TriggerName, ValidateConstraint,
 };
 pub use alter_type::{AlterType, AlterTypeAction, AttributeAction};
+pub use byte_to_char::ByteToChar;
 pub use copy::{
     CopyColumnList, CopyFrom, CopyHeaderValue, CopyLocation, CopyOption, CopySource, CopyTo,
 };

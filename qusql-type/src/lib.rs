@@ -50,7 +50,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-pub use qusql_parse::{Fragment, Issue, Issues, Level};
+pub use qusql_parse::{ByteToChar, Fragment, Issue, Issues, Level};
 use qusql_parse::{ParseOptions, parse_statement};
 use schema::Schemas;
 

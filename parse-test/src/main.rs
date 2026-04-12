@@ -182,13 +182,15 @@ fn main() {
                     .as_ref()
                     .map(|v| v.display().to_string())
                     .unwrap_or("-".to_string());
+                let b2c = qusql_parse::ByteToChar::new(src.as_bytes());
                 let mut pretty_issues = Vec::new();
                 for issue in issues.get() {
+                    let span = b2c.map_span(issue.span.clone());
                     let mut w = Vec::new();
-                    Report::build(ReportKind::Error, (&file, issue.span.clone()))
+                    Report::build(ReportKind::Error, (&file, span.clone()))
                         .with_message(&issue.message)
                         .with_label(
-                            Label::new((&file, issue.span.clone()))
+                            Label::new((&file, span))
                                 .with_message("Issue here")
                                 .with_color(Color::Red),
                         )
@@ -217,12 +219,14 @@ fn main() {
                 } else {
                     println!()
                 }
+                let b2c = qusql_parse::ByteToChar::new(src.as_bytes());
                 println!("Issues:");
                 for issue in issues.get() {
-                    Report::build(ReportKind::Error, (&file, issue.span.clone()))
+                    let span = b2c.map_span(issue.span.clone());
+                    Report::build(ReportKind::Error, (&file, span.clone()))
                         .with_message(&issue.message)
                         .with_label(
-                            Label::new((&file, issue.span.clone()))
+                            Label::new((&file, span))
                                 .with_message("Issue here")
                                 .with_color(Color::Red),
                         )
