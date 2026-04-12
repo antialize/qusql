@@ -1565,36 +1565,303 @@ pub(crate) fn type_function<'a, 'b>(
         }
         // PostGIS / geometry functions
         // Geometry type is represented as Any since the type system has no geometry type yet
-        Function::GeometryType => {
-            // GeometryType(geom) -> text
+        Function::GeometryType | Function::StGeometryType => {
+            // GeometryType(geom) / ST_GeometryType(geom) -> text
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
             let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
             FullType::new(BaseType::String, not_null)
         }
-        Function::Box2D => {
-            // Box2D(geom) -> geometry bounding box (represented as Geometry)
+        Function::Box2D | Function::Box3D => {
+            // Box2D/Box3D(geom) -> geometry bounding box
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
             let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
             FullType::new(Type::Geometry, not_null)
         }
-        Function::StAsEwkb => {
-            // ST_AsEWKB(geom) -> bytes
+        // --- Output functions returning bytes ---
+        Function::StAsEwkb | Function::StAsBinary => {
+            // ST_AsEWKB/ST_AsBinary(geom) -> bytea
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
             let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
             FullType::new(BaseType::Bytes, not_null)
         }
+        // --- Output functions returning text ---
         Function::StAsGeoJson => {
-            // ST_AsGeoJSON(geom) -> text (JSON)
+            // ST_AsGeoJSON(geom[, max_decimal_digits[, options]]) -> text
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::StAsEwkt | Function::StAsText => {
+            // ST_AsEWKT/ST_AsText(geom) -> text
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
             let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
             FullType::new(BaseType::String, not_null)
         }
-        Function::StGeomFromEwkb => {
-            // ST_GeomFromEWKB(bytes) -> geometry
+        Function::StAsGml => {
+            // ST_AsGML(geom[, version[, precision[, options[, namespace_prefix]]]]) -> text
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..5, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::StAsHexEwkb => {
+            // ST_AsHEXEWKB(geom[, NDRorXDR]) -> text
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::StAsKml => {
+            // ST_AsKML(geom[, version[, precision]]) -> text
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::StAsSvg => {
+            // ST_AsSVG(geom[, rel[, maxdecimaldigits]]) -> text
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::StGeoHash => {
+            // ST_GeoHash(geom[, maxchars]) -> text
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::StSummary => {
+            // ST_Summary(geom) -> text
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        Function::StIsValidReason => {
+            // ST_IsValidReason(geom[, flags]) -> text
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::String, not_null)
+        }
+        // --- Float measurement functions ---
+        Function::StArea
+        | Function::StLength
+        | Function::StLength2D
+        | Function::StLength3D
+        | Function::StPerimeter
+        | Function::StPerimeter2D
+        | Function::StPerimeter3D => {
+            // ST_Area/ST_Length*/ST_Perimeter*(geom) -> float8
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::F64, not_null)
+        }
+        Function::StDistance | Function::StMaxDistance => {
+            // ST_Distance/ST_MaxDistance(geomA, geomB) -> float8
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::F64, not_null)
+        }
+        Function::StDistanceSphere => {
+            // ST_Distance_Sphere(geomA, geomB) -> float8
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::F64, not_null)
+        }
+        Function::StDistanceSpheroidal => {
+            // ST_Distance_Spheroid(geomA, geomB, spheroid) -> float8
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..3, args, span);
+            if let Some((e, t)) = typed.get(2) {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::F64, not_null)
+        }
+        Function::StHausdorffDistance => {
+            // ST_HausdorffDistance(geomA, geomB[, densifyFrac]) -> float8
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            if let Some((e, t)) = typed.get(2) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::F64, not_null)
+        }
+        Function::StAzimuth => {
+            // ST_Azimuth(geomA, geomB) -> float8 (radians)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::F64, not_null)
+        }
+        Function::StLineLocatePoint => {
+            // ST_Line_Locate_Point(geom, point) -> float8
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::F64, not_null)
+        }
+        // --- Coordinate extractors (return float) ---
+        Function::StX | Function::StY | Function::StZ | Function::StM => {
+            // ST_X/Y/Z/M(geom) -> float8 (NULL if coordinate not present)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::F64, not_null)
+        }
+        Function::StXMax
+        | Function::StXMin
+        | Function::StYMax
+        | Function::StYMin
+        | Function::StZMax
+        | Function::StZMin => {
+            // ST_XMax/XMin/YMax/YMin/ZMax/ZMin(box) -> float8
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::F64, not_null)
+        }
+        // --- Integer geometry properties ---
+        Function::StSRID
+        | Function::StDimension
+        | Function::StNPoints
+        | Function::StNRings
+        | Function::StNumGeometries
+        | Function::StNumInteriorRing
+        | Function::StNumInteriorRings
+        | Function::StNumPoints
+        | Function::StMemSize
+        | Function::StLineCrossingDirection => {
+            // ST_SRID/Dimension/NPoints/NRings/NumGeometries/NumInteriorRing*/NumPoints(geom) -> int
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::Integer, not_null)
+        }
+        Function::StCoordDim | Function::StNDims | Function::StZmflag => {
+            // ST_CoordDim/NDims/Zmflag(geom) -> smallint
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::Integer, not_null)
+        }
+        // --- Unary boolean predicates ---
+        Function::StHasArc
+        | Function::StIsClosed
+        | Function::StIsEmpty
+        | Function::StIsRing
+        | Function::StIsSimple
+        | Function::StIsValid => {
+            // ST_HasArc/IsClosed/IsEmpty/IsRing/IsSimple/IsValid(geom) -> bool
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::Bool, not_null)
+        }
+        // --- Binary boolean predicates ---
+        Function::StContains
+        | Function::StContainsProperly
+        | Function::StCovers
+        | Function::StCoveredBy
+        | Function::StCrosses
+        | Function::StDisjoint
+        | Function::StEquals
+        | Function::StIntersects
+        | Function::StOrderingEquals
+        | Function::StOverlaps
+        | Function::StTouches
+        | Function::StWithin => {
+            // ST_Contains/ContainsProperly/Covers/.../Within(geomA, geomB) -> bool
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::Bool, not_null)
+        }
+        Function::StDWithin | Function::StDFullyWithin => {
+            // ST_DWithin/DFullyWithin(geomA, geomB, distance) -> bool
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..4, args, span);
+            if let Some((e, t)) = typed.get(2) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::Bool, not_null)
+        }
+        Function::StRelate => {
+            // ST_Relate(geomA, geomB[, intersectionMatrixPattern]) -> bool or text
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            if typed.len() == 2 {
+                // Returns the DE-9IM matrix as text
+                FullType::new(BaseType::String, not_null)
+            } else {
+                // Returns bool when pattern provided
+                FullType::new(BaseType::Bool, not_null)
+            }
+        }
+        Function::StPointInsideCircle => {
+            // ST_Point_Inside_Circle(geom, x, y, radius) -> bool
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 4..4, args, span);
+            for (e, t) in typed.iter().skip(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(BaseType::Bool, not_null)
+        }
+        // --- Geometry constructors from text ---
+        Function::StGeomFromText | Function::StGeometryFromText | Function::StWktToSQL => {
+            // ST_GeomFromText/GeometryFromText/WKTToSQL(text[, srid]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            FullType::new(Type::Geometry, false)
+        }
+        Function::StGeomCollFromText
+        | Function::StLineFromText
+        | Function::StPolygonFromText
+        | Function::StPointFromText => {
+            // ST_GeomCollFromText/LineFromText/PolygonFromText/PointFromText(text[, srid]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            FullType::new(Type::Geometry, false)
+        }
+        // --- Geometry constructors from binary ---
+        Function::StGeomFromEwkb | Function::StWkbToSQL => {
+            // ST_GeomFromEWKB/WKBToSQL(bytes) -> geometry
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..1, args, span);
             if let Some((e, t)) = typed.first() {
@@ -1602,12 +1869,15 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(Type::Geometry, false)
         }
-        Function::StGeomFromText => {
-            // ST_GeomFromText(text[, srid]) -> geometry
+        Function::StGeomFromWkb
+        | Function::StLineFromWkb
+        | Function::StLinestringFromWkb
+        | Function::StPointFromWkb => {
+            // ST_GeomFromWKB/LineFromWKB/LinestringFromWKB/PointFromWKB(bytes[, srid]) -> geometry
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 1..2, args, span);
             if let Some((e, t)) = typed.first() {
-                typer.ensure_base(*e, t, BaseType::String);
+                typer.ensure_base(*e, t, BaseType::Bytes);
             }
             if let Some((e, t)) = typed.get(1) {
                 typer.ensure_base(*e, t, BaseType::Integer);
@@ -1623,12 +1893,180 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(Type::Geometry, false)
         }
+        Function::StGeomFromGml | Function::StGmlToSQL | Function::StGeomFromEwkt => {
+            // ST_GeomFromGML/GMLToSQL/GeomFromEWKT(text) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::Geometry, false)
+        }
+        Function::StGeomFromKml => {
+            // ST_GeomFromKML(text) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            if let Some((e, t)) = typed.first() {
+                typer.ensure_base(*e, t, BaseType::String);
+            }
+            FullType::new(Type::Geometry, false)
+        }
+        // --- Point constructors ---
+        Function::StMakePoint => {
+            // ST_MakePoint(x, y[, z[, m]]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..4, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            FullType::new(Type::Geometry, true)
+        }
+        Function::StMakePointM => {
+            // ST_MakePointM(x, y, m) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..3, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            FullType::new(Type::Geometry, true)
+        }
+        Function::StPoint => {
+            // ST_Point(x, y) -> geometry (OGC alias for ST_MakePoint)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            for (e, t) in &typed {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            FullType::new(Type::Geometry, true)
+        }
+        // --- Envelope / extent constructors ---
+        Function::StMakeEnvelope => {
+            // ST_MakeEnvelope(xmin, ymin, xmax, ymax[, srid]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 4..5, args, span);
+            for (e, t) in typed.iter().take(4) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            if let Some((e, t)) = typed.get(4) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            FullType::new(Type::Geometry, true)
+        }
+        // --- SetSRID / Transform ---
         Function::StSetSrid => {
             // ST_SetSRID(geom, srid) -> geometry
             let typed = typed_args(typer, args, flags);
             arg_cnt(typer, 2..2, args, span);
             if let Some((e, t)) = typed.get(1) {
                 typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StTransform => {
+            // ST_Transform(geom, srid) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        // --- Unary geometry transformations (geom -> geom) ---
+        Function::StBoundary
+        | Function::StBuildArea
+        | Function::StCentroid
+        | Function::StConvexHull
+        | Function::StForce2D
+        | Function::StForce3D
+        | Function::StForce3DM
+        | Function::StForce3DZ
+        | Function::StForce4D
+        | Function::StForceCollection
+        | Function::StForceRHR
+        | Function::StLineMerge
+        | Function::StLineToCurve
+        | Function::StMulti
+        | Function::StPointOnSurface
+        | Function::StReverse
+        | Function::StShiftLongitude => {
+            // Single-geometry-in, geometry-out
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StEnvelope
+        | Function::StEndPoint
+        | Function::StStartPoint
+        | Function::StExteriorRing => {
+            // ST_Envelope/EndPoint/StartPoint/ExteriorRing(geom) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        // --- Geometry-with-integer-arg accessors ---
+        Function::StGeometryN | Function::StInteriorRingN | Function::StPointN => {
+            // ST_GeometryN/InteriorRingN/PointN(geom, n) -> geometry (nullable)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            FullType::new(Type::Geometry, false)
+        }
+        Function::StCollectionExtract => {
+            // ST_CollectionExtract(geom, type) -> geometry (type: 1=point, 2=line, 3=polygon)
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        // --- Binary geometry operations (geomA, geomB -> geom) ---
+        Function::StClosestPoint
+        | Function::StDifference
+        | Function::StIntersection
+        | Function::StLongestLine
+        | Function::StShortestLine
+        | Function::StSymDifference
+        | Function::StUnion
+        | Function::StMakeLine => {
+            // Binary geom -> geom
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StCollect => {
+            // ST_Collect(geomA, geomB) or ST_Collect(geom[]) -> geometry
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            FullType::new(Type::Geometry, false)
+        }
+        // --- Buffer ---
+        Function::StBuffer => {
+            // ST_Buffer(geom, radius[, buffer_style_params]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        // --- Simplify ---
+        Function::StSimplify => {
+            // ST_Simplify(geom, tolerance) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
             }
             let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
             FullType::new(Type::Geometry, not_null)
@@ -1642,6 +2080,197 @@ pub(crate) fn type_function<'a, 'b>(
             }
             let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
             FullType::new(Type::Geometry, not_null)
+        }
+        // --- Segmentize / SnapToGrid ---
+        Function::StSegmentize => {
+            // ST_Segmentize(geom, max_length) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StSnapToGrid => {
+            // ST_SnapToGrid(geom, size...) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..5, args, span);
+            for (e, t) in typed.iter().skip(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        // --- Rotate / Scale / Translate ---
+        Function::StRotate => {
+            // ST_Rotate(geom, radians[, x, y | point]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..4, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StRotateX | Function::StRotateY | Function::StRotateZ => {
+            // ST_RotateX/Y/Z(geom, radians) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StScale => {
+            // ST_Scale(geom, xfactor, yfactor[, zfactor]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..4, args, span);
+            for (e, t) in typed.iter().skip(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StTranslate => {
+            // ST_Translate(geom, x, y[, z]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..4, args, span);
+            for (e, t) in typed.iter().skip(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StTransScale => {
+            // ST_TransScale(geom, deltaX, deltaY, XFactor, YFactor) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 5..5, args, span);
+            for (e, t) in typed.iter().skip(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StAffine => {
+            // ST_Affine(geom, a, b, c, d, e, f[, g, h, i, xoff, yoff, zoff]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 7..13, args, span);
+            for (e, t) in typed.iter().skip(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        // --- LineString constructors ---
+        Function::StLineFromMultiPoint | Function::StLineSubstring => {
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..3, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StLineInterpolatePoint => {
+            // ST_Line_Interpolate_Point(geom, fraction) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StCurveToLine => {
+            // ST_CurveToLine(geom[, segments_per_quarter]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        // --- Polygon constructors ---
+        Function::StMakePolygon => {
+            // ST_MakePolygon(outerring[, interiorring, ...]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..9999, args, span);
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StPolygon => {
+            // ST_Polygon(linestring, srid) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        // --- Point/line manipulation ---
+        Function::StAddPoint => {
+            // ST_AddPoint(geom, point[, position]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..3, args, span);
+            if let Some((e, t)) = typed.get(2) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(1).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StRemovePoint => {
+            // ST_RemovePoint(geom, offset) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 2..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StSetPoint => {
+            // ST_SetPoint(geom, index, point) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..3, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false)
+                && typed.get(2).map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        Function::StAddMeasure => {
+            // ST_AddMeasure(geom, measure_start, measure_end) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 3..3, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            if let Some((e, t)) = typed.get(2) {
+                typer.ensure_base(*e, t, BaseType::Float);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        // --- Minimum bounding circle ---
+        Function::StMinimumBoundingCircle => {
+            // ST_MinimumBoundingCircle(geom[, segs_per_quarter]) -> geometry
+            let typed = typed_args(typer, args, flags);
+            arg_cnt(typer, 1..2, args, span);
+            if let Some((e, t)) = typed.get(1) {
+                typer.ensure_base(*e, t, BaseType::Integer);
+            }
+            let not_null = typed.first().map(|(_, t)| t.not_null).unwrap_or(false);
+            FullType::new(Type::Geometry, not_null)
+        }
+        // --- Polygonize (aggregate, but may appear in non-aggregate context) ---
+        Function::StPolygonize => {
+            // ST_Polygonize(geom) aggregate -> geometry
+            typed_args(typer, args, flags);
+            arg_cnt(typer, 1..1, args, span);
+            FullType::new(Type::Geometry, false)
         }
         Function::Other(parts) => {
             // Type all arguments regardless of whether we know the function
