@@ -586,6 +586,7 @@ pub fn execute_impl(input: TokenStream) -> TokenStream {
         qusql_type::StatementType::Truncate => Ok(&[]),
         qusql_type::StatementType::Call => Ok(&[]),
         qusql_type::StatementType::Transaction => Ok(&[]),
+        qusql_type::StatementType::Set => Ok(&[]),
         qusql_type::StatementType::Invalid => {
             let s = quote! { {
                 #(#errors; )*;
@@ -678,6 +679,7 @@ fn build_fetch_impl(input: TokenStream, mode: FetchMode, t: FetchType) -> TokenS
         qusql_type::StatementType::Truncate => Err("TRUNCATE"),
         qusql_type::StatementType::Call => Err("CALL"),
         qusql_type::StatementType::Transaction => Err("Transaction control"),
+        qusql_type::StatementType::Set => Err("SET"),
         qusql_type::StatementType::Invalid => {
             let s = quote! { {
                 #(#errors; )*;

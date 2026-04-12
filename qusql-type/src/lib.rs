@@ -63,6 +63,7 @@ mod type_function;
 mod type_insert_replace;
 mod type_reference;
 mod type_select;
+mod type_set;
 mod type_statement;
 mod type_truncate;
 mod type_update;
@@ -206,6 +207,8 @@ pub enum StatementType<'a> {
     Call,
     /// The statement is a transaction control statement (BEGIN, COMMIT, END, START TRANSACTION)
     Transaction,
+    /// The statement is a set statement
+    Set,
     /// The query was not valid, errors are preset in issues
     Invalid,
 }
@@ -256,6 +259,7 @@ pub fn type_statement<'a>(
             type_statement::InnerStatementType::Truncate => StatementType::Truncate,
             type_statement::InnerStatementType::Call => StatementType::Call,
             type_statement::InnerStatementType::Transaction => StatementType::Transaction,
+            type_statement::InnerStatementType::Set => StatementType::Set,
             type_statement::InnerStatementType::Invalid => StatementType::Invalid,
         }
     } else {
@@ -1359,6 +1363,30 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if !matches!(q, StatementType::Transaction) {
                 println!("{name} should be transaction");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q41";
+            let src = "SET `time_zone` = 'UTC'";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Set) {
+                println!("{name} should be set");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q42";
+            let src = "SET `x` = 1, `y` = 2";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Set) {
+                println!("{name} should be set");
                 errors += 1;
             }
         }
