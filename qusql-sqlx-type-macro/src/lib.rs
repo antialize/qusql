@@ -278,6 +278,7 @@ fn quote_args(
             qusql_type::Type::F64 => quote! {f64},
             qusql_type::Type::JSON => quote! {qusql_sqlx_type::Any},
             qusql_type::Type::Geometry => quote! {qusql_sqlx_type::Any},
+            qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},
         };
         if !ta.not_null {
             t = quote! {Option<#t>}
@@ -404,6 +405,7 @@ fn construct_row(
             qusql_type::Type::F64 => quote! {f64},
             qusql_type::Type::JSON => quote! {String},
             qusql_type::Type::Geometry => quote! {Vec<u8>},
+            qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},
         };
         let name = match &c.name {
             Some(v) => v,
@@ -791,6 +793,7 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
             qusql_type::Type::F64 => quote! {f64},
             qusql_type::Type::JSON => quote! {String},
             qusql_type::Type::Geometry => quote! {Vec<u8>},
+            qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},
         };
         let name = match &c.name {
             Some(v) => v,

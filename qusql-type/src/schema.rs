@@ -96,10 +96,11 @@ use crate::{
     type_statement,
     typer::unqualified_name,
 };
-use alloc::{borrow::Cow, collections::BTreeMap, rc::Rc, sync::Arc, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, collections::BTreeMap, rc::Rc, sync::Arc, vec::Vec};
 use qusql_parse::{
-    AddColumn, AddIndex, AlterColumn, DataType, DropColumn, Expression, FunctionParam, Identifier,
-    IdentifierPart, Issues, ModifyColumn, Span, Spanned, Statement, parse_statements,
+    AddColumn, AddIndex, AlterColumn, DataType, DataTypeProperty, DropColumn, Expression,
+    FunctionParam, Identifier, IdentifierPart, Issues, ModifyColumn, Span, Spanned, Statement,
+    parse_statements,
 };
 
 /// A column in a schema
@@ -221,38 +222,14 @@ fn try_parse_body<'a>(
     })
 }
 
-pub(crate) fn parse_column<'a>(
-    data_type: DataType<'a>,
-    identifier: Identifier<'a>,
-    _issues: &mut Issues<'a>,
-    options: Option<&TypeOptions>,
+fn type_kind_from_parse<'a>(
+    type_: qusql_parse::Type<'a>,
+    unsigned: bool,
+    is_sqlite: bool,
+    src: &str,
     types: Option<&BTreeMap<Identifier<'a>, TypeDef<'a>>>,
-) -> Column<'a> {
-    let mut not_null = false;
-    let mut unsigned = false;
-    let mut auto_increment = false;
-    let mut default = false;
-    let mut as_ = None;
-    let mut generated = false;
-    let mut primary_key = false;
-    let is_sqlite = options
-        .map(|v| v.parse_options.get_dialect().is_sqlite())
-        .unwrap_or_default();
-    for p in data_type.properties {
-        match p {
-            qusql_parse::DataTypeProperty::Signed(_) => unsigned = false,
-            qusql_parse::DataTypeProperty::Unsigned(_) => unsigned = true,
-            qusql_parse::DataTypeProperty::Null(_) => not_null = false,
-            qusql_parse::DataTypeProperty::NotNull(_) => not_null = true,
-            qusql_parse::DataTypeProperty::AutoIncrement(_) => auto_increment = true,
-            qusql_parse::DataTypeProperty::As((_, e)) => as_ = Some(e),
-            qusql_parse::DataTypeProperty::Default(_) => default = true,
-            qusql_parse::DataTypeProperty::GeneratedAlways(_) => generated = true,
-            qusql_parse::DataTypeProperty::PrimaryKey(_) => primary_key = true,
-            _ => {}
-        }
-    }
-    let type_ = match data_type.type_ {
+) -> Type<'a> {
+    match type_ {
         qusql_parse::Type::TinyInt(v) => {
             if !unsigned && matches!(v, Some((1, _))) {
                 BaseType::Bool.into()
@@ -313,12 +290,7 @@ pub(crate) fn parse_column<'a>(
         qusql_parse::Type::VarBinary(_) => BaseType::Bytes.into(),
         qusql_parse::Type::Binary(_) => BaseType::Bytes.into(),
         qusql_parse::Type::Boolean => BaseType::Bool.into(),
-        qusql_parse::Type::Integer(_) => {
-            if is_sqlite && primary_key {
-                auto_increment = true;
-            }
-            BaseType::Integer.into()
-        }
+        qusql_parse::Type::Integer(_) => BaseType::Integer.into(),
         qusql_parse::Type::Float8 => BaseType::Float.into(),
         qusql_parse::Type::Numeric(_) => todo!("Numeric"),
         qusql_parse::Type::Decimal(_) => todo!("Decimal"),
@@ -347,7 +319,9 @@ pub(crate) fn parse_column<'a>(
         qusql_parse::Type::Cidr => BaseType::String.into(),
         qusql_parse::Type::Macaddr => BaseType::String.into(),
         qusql_parse::Type::Macaddr8 => BaseType::String.into(),
-        qusql_parse::Type::Array(_, _) => todo!("Array type not yet implemented"),
+        qusql_parse::Type::Array(inner, _) => Type::Array(Box::new(type_kind_from_parse(
+            *inner, false, is_sqlite, src, types,
+        ))),
         qusql_parse::Type::Table(_, _) => todo!("Table type not yet implemented"),
         qusql_parse::Type::Serial
         | qusql_parse::Type::SmallSerial
@@ -368,8 +342,45 @@ pub(crate) fn parse_column<'a>(
         | qusql_parse::Type::Path
         | qusql_parse::Type::Polygon
         | qusql_parse::Type::Circle => Type::Geometry,
-    };
+    }
+}
 
+pub(crate) fn parse_column<'a>(
+    data_type: DataType<'a>,
+    identifier: Identifier<'a>,
+    _issues: &mut Issues<'a>,
+    options: Option<&TypeOptions>,
+    types: Option<&BTreeMap<Identifier<'a>, TypeDef<'a>>>,
+) -> Column<'a> {
+    let mut not_null = false;
+    let mut unsigned = false;
+    let mut auto_increment = false;
+    let mut default = false;
+    let mut as_ = None;
+    let mut generated = false;
+    let mut primary_key = false;
+    let is_sqlite = options
+        .map(|v| v.parse_options.get_dialect().is_sqlite())
+        .unwrap_or_default();
+    for p in data_type.properties {
+        match p {
+            DataTypeProperty::Signed(_) => unsigned = false,
+            DataTypeProperty::Unsigned(_) => unsigned = true,
+            DataTypeProperty::Null(_) => not_null = false,
+            DataTypeProperty::NotNull(_) => not_null = true,
+            DataTypeProperty::AutoIncrement(_) => auto_increment = true,
+            DataTypeProperty::As((_, e)) => as_ = Some(e),
+            DataTypeProperty::Default(_) => default = true,
+            DataTypeProperty::GeneratedAlways(_) => generated = true,
+            DataTypeProperty::PrimaryKey(_) => primary_key = true,
+            _ => {}
+        }
+    }
+    // SQLite INTEGER PRIMARY KEY is an alias for rowid (auto-increment)
+    if is_sqlite && primary_key && matches!(data_type.type_, qusql_parse::Type::Integer(_)) {
+        auto_increment = true;
+    }
+    let type_ = type_kind_from_parse(data_type.type_, unsigned, is_sqlite, _issues.src, types);
     Column {
         identifier,
         type_: FullType {

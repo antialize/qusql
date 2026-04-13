@@ -12,6 +12,7 @@
 
 use alloc::{
     borrow::Cow,
+    boxed::Box,
     fmt::{Display, Write},
     sync::Arc,
     vec::Vec,
@@ -81,6 +82,7 @@ pub enum Type<'a> {
     Invalid,
     JSON,
     Geometry,
+    Array(Box<Type<'a>>),
     Set(Arc<Vec<Cow<'a, str>>>),
     U16,
     U24,
@@ -113,6 +115,10 @@ impl<'a> Display for Type<'a> {
             Type::Invalid => f.write_str("invalid"),
             Type::JSON => f.write_str("json"),
             Type::Geometry => f.write_str("geometry"),
+            Type::Array(inner) => {
+                inner.fmt(f)?;
+                f.write_str("[]")
+            }
             Type::U16 => f.write_str("u16"),
             Type::U24 => f.write_str("u24"),
             Type::U32 => f.write_str("u32"),
@@ -160,6 +166,7 @@ impl<'a> Type<'a> {
             Type::Invalid => BaseType::Any,
             Type::JSON => BaseType::Any,
             Type::Geometry => BaseType::Any,
+            Type::Array(_) => BaseType::Any,
             Type::Null => BaseType::Any,
             Type::Set(_) => BaseType::String,
             Type::U16 => BaseType::Integer,

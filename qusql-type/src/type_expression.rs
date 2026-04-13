@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::{format, string::ToString, sync::Arc, vec};
+use alloc::{boxed::Box, format, string::ToString, sync::Arc, vec};
 use qusql_parse::{Expression, Identifier, Spanned, UnaryOperator, Variable, issue_todo};
 
 use crate::{
@@ -81,6 +81,7 @@ fn type_unary_expression<'a>(
                 | Type::Enum(..)
                 | Type::JSON
                 | Type::Geometry
+                | Type::Array(..)
                 | Type::Set(..) => {
                     typer.err(format!("Expected numeric type got {}", op_type.t), &op_span);
                     Type::Invalid
@@ -593,13 +594,36 @@ pub(crate) fn type_expression<'a>(
             let inner = type_expression(typer, &e.expr, flags, col.type_.base());
             FullType::new(col.type_.t, inner.not_null)
         }
-        e @ Expression::Array(..) => {
-            issue_todo!(typer.issues, e);
-            FullType::invalid()
+        Expression::Array(e) => {
+            let mut element_type: Option<Type<'a>> = None;
+            let mut not_null = true;
+            for elem in &e.elements {
+                let et = type_expression(typer, elem, flags.without_values(), BaseType::Any);
+                not_null = not_null && et.not_null;
+                if let Some(prev) = element_type {
+                    element_type = typer.matched_type(&prev, &et.t);
+                } else {
+                    element_type = Some(et.t);
+                }
+            }
+            let inner = element_type.unwrap_or(Type::Base(BaseType::Any));
+            FullType::new(Type::Array(Box::new(inner)), not_null)
         }
-        e @ Expression::ArraySubscript(..) => {
-            issue_todo!(typer.issues, e);
-            FullType::invalid()
+        Expression::ArraySubscript(e) => {
+            let arr_type = type_expression(typer, &e.expr, flags, BaseType::Any);
+            let inner_type = if let Type::Array(inner) = arr_type.t {
+                *inner
+            } else if arr_type.t.base() == BaseType::Any {
+                Type::Base(BaseType::Any)
+            } else {
+                typer.err(format!("Expected array type got {}", arr_type.t), &e.expr);
+                Type::Invalid
+            };
+            type_expression(typer, &e.lower, flags.without_values(), BaseType::Integer);
+            if let Some(upper) = &e.upper {
+                type_expression(typer, upper, flags.without_values(), BaseType::Integer);
+            }
+            FullType::new(inner_type, false)
         }
         Expression::Default(_) => FullType::new(BaseType::Any, false),
         Expression::Between(e) => {
