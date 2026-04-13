@@ -151,7 +151,19 @@ impl<'a, 'b> Typer<'a, 'b> {
                 return Some(Type::Args(t1b, Arc::new(args)));
             }
         }
-        Some(t1b.into())
+        // Prefer a specific concrete type (e.g. I32) over a generic base type
+        // (e.g. Base(Integer)) when both share the same base.
+        let is_concrete = |t: &Type<'_>| {
+            !matches!(
+                t,
+                Type::Base(_) | Type::Args(_, _) | Type::Null | Type::Invalid
+            )
+        };
+        match (is_concrete(t1), is_concrete(t2)) {
+            (true, _) => Some(t1.clone()),
+            (_, true) => Some(t2.clone()),
+            _ => Some(t1b.into()),
+        }
     }
 
     pub(crate) fn ensure_type(

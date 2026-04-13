@@ -290,7 +290,13 @@ fn type_kind_from_parse<'a>(
         qusql_parse::Type::VarBinary(_) => BaseType::Bytes.into(),
         qusql_parse::Type::Binary(_) => BaseType::Bytes.into(),
         qusql_parse::Type::Boolean => BaseType::Bool.into(),
-        qusql_parse::Type::Integer(_) => BaseType::Integer.into(),
+        qusql_parse::Type::Integer(_) => {
+            if is_sqlite {
+                BaseType::Integer.into()
+            } else {
+                Type::I32
+            }
+        }
         qusql_parse::Type::Float8 => BaseType::Float.into(),
         qusql_parse::Type::Numeric(_) => todo!("Numeric"),
         qusql_parse::Type::Decimal(_) => todo!("Decimal"),
@@ -323,9 +329,9 @@ fn type_kind_from_parse<'a>(
             *inner, false, is_sqlite, src, types,
         ))),
         qusql_parse::Type::Table(_, _) => todo!("Table type not yet implemented"),
-        qusql_parse::Type::Serial
-        | qusql_parse::Type::SmallSerial
-        | qusql_parse::Type::BigSerial => BaseType::Integer.into(),
+        qusql_parse::Type::Serial => Type::I32,
+        qusql_parse::Type::SmallSerial => Type::I16,
+        qusql_parse::Type::BigSerial => Type::I64,
         qusql_parse::Type::Money => BaseType::Float.into(),
         qusql_parse::Type::Timetz(_) => BaseType::Time.into(),
         qusql_parse::Type::Interval(_) => BaseType::TimeInterval.into(),
@@ -390,6 +396,10 @@ pub(crate) fn parse_column<'a>(
     // SQLite INTEGER PRIMARY KEY is an alias for rowid (auto-increment)
     if is_sqlite && primary_key && matches!(data_type.type_, qusql_parse::Type::Integer(_)) {
         auto_increment = true;
+    }
+    // PRIMARY KEY implies NOT NULL
+    if primary_key {
+        not_null = true;
     }
     let type_ = type_kind_from_parse(data_type.type_, unsigned, is_sqlite, _issues.src, types);
     Column {

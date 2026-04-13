@@ -452,7 +452,7 @@
       "columns": [
         {
           "name": "srid",
-          "type": "integer",
+          "type": "i32",
           "not_null": true
         },
         {
@@ -461,7 +461,7 @@
         },
         {
           "name": "auth_srid",
-          "type": "integer"
+          "type": "i32"
         },
         {
           "name": "srtext",
