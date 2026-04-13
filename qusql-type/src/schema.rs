@@ -372,6 +372,7 @@ pub(crate) fn parse_column<'a>(
             DataTypeProperty::As((_, e)) => as_ = Some(e),
             DataTypeProperty::Default(_) => default = true,
             DataTypeProperty::GeneratedAlways(_) => generated = true,
+            DataTypeProperty::GeneratedAlwaysAsExpr { .. } => generated = true,
             DataTypeProperty::PrimaryKey(_) => primary_key = true,
             _ => {}
         }
