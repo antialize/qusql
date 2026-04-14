@@ -458,6 +458,9 @@ struct SchemaCtx<'a, 'b> {
     /// The row currently being evaluated (e.g. during WHERE clause filtering).
     /// Set by eval_select_matching_rows around each row's eval call.
     current_row: Option<Row<'a>>,
+    /// The return value of the most recently executed RETURN statement.
+    /// Set by the Return arm in process_statement; consumed by eval_function_expr.
+    return_value: Option<SqlValue<'a>>,
 }
 
 impl<'a, 'b> SchemaCtx<'a, 'b> {
@@ -476,6 +479,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             rows: Default::default(),
             current_table_rows: Default::default(),
             current_row: Default::default(),
+            return_value: None,
         }
     }
 
@@ -580,11 +584,27 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             qusql_parse::Statement::Analyze(_) => Ok(()),
             // Variable / cursor plumbing — no schema effect.
             qusql_parse::Statement::Set(_) => Ok(()),
-            qusql_parse::Statement::Assign(_) => Ok(()),
-            qusql_parse::Statement::Perform(_) => Ok(()),
-            qusql_parse::Statement::DeclareVariable(_) => Ok(()),
+            // Assign and Perform may call known functions with schema effects.
+            qusql_parse::Statement::Assign(a) => {
+                for se in a.value.select_exprs {
+                    self.process_expression(se.expr)?;
+                }
+                Ok(())
+            }
+            qusql_parse::Statement::Perform(p) => self.process_expression(p.expr),
+            qusql_parse::Statement::DeclareVariable(d) => {
+                // Evaluate the DEFAULT expression for its side effects (may call user-defined functions).
+                if let Some((_, select)) = d.default {
+                    self.eval_condition(&select)?;
+                }
+                Ok(())
+            }
+            // DeclareHandler bodies only run on error; we model the happy path, so skip them.
             qusql_parse::Statement::DeclareHandler(_) => Ok(()),
-            qusql_parse::Statement::ExecuteFunction(_) => Ok(()),
+            qusql_parse::Statement::ExecuteFunction(s) => {
+                self.issues.err("not implemented", &s);
+                Err(())
+            }
             // RAISE EXCEPTION aborts execution; anything else is a log/notice with no schema effect.
             qusql_parse::Statement::Raise(r) => {
                 if matches!(r.level, Some(qusql_parse::RaiseLevel::Exception(_))) {
@@ -593,14 +613,23 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     Ok(())
                 }
             }
-            qusql_parse::Statement::Return(_) => Err(()),
+            qusql_parse::Statement::Return(r) => {
+                self.return_value = self.eval_expr(&r.expr).ok();
+                Err(())
+            }
             qusql_parse::Statement::PlpgsqlExecute(e) => self.process_plpgsql_execute(*e),
-            qusql_parse::Statement::Update(u) => {
-                self.process_update(*u);
+            qusql_parse::Statement::Update(u) => self.process_update(*u),
+            qusql_parse::Statement::Delete(d) => self.process_delete(*d),
+            qusql_parse::Statement::AlterType(a) => {
+                self.process_alter_type(*a);
                 Ok(())
             }
-            qusql_parse::Statement::Delete(d) => {
-                self.process_delete(*d);
+            qusql_parse::Statement::TruncateTable(t) => {
+                self.process_truncate_table(*t);
+                Ok(())
+            }
+            qusql_parse::Statement::RenameTable(r) => {
+                self.process_rename_table(*r);
                 Ok(())
             }
             s => {
@@ -1073,15 +1102,24 @@ fn process_alter_specification<'a>(
         qusql_parse::AlterSpecification::AddColumn(AddColumn {
             identifier,
             data_type,
+            if_not_exists_span,
             ..
         }) => {
-            e.columns.push(parse_column(
-                data_type,
-                identifier,
-                issues,
-                Some(options),
-                Some(types),
-            ));
+            if e.get_column(identifier.value).is_some() {
+                if if_not_exists_span.is_none() {
+                    issues
+                        .err("Column already exists in table", &identifier)
+                        .frag("Table defined here", &e.identifier_span);
+                }
+            } else {
+                e.columns.push(parse_column(
+                    data_type,
+                    identifier,
+                    issues,
+                    Some(options),
+                    Some(types),
+                ));
+            }
         }
         qusql_parse::AlterSpecification::OwnerTo { .. } => {}
         qusql_parse::AlterSpecification::DropColumn(DropColumn {
@@ -1404,75 +1442,10 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn process_expression(&mut self, expr: Expression<'a>) -> Result<(), ()> {
-        match expr {
-            Expression::Function(f) => self.process_function_call(*f),
-            other => {
-                self.issues.err(
-                    "Only function calls are supported as statements at schema level",
-                    &other,
-                );
-                Err(())
-            }
-        }
+        self.eval_expr(&expr).map(|_| ())
     }
 
-    fn process_function_call(
-        &mut self,
-        call: qusql_parse::FunctionCallExpression<'a>,
-    ) -> Result<(), ()> {
-        let func_name = match &call.function {
-            qusql_parse::Function::Other(parts) if parts.len() == 1 => parts[0].value,
-            _ => {
-                self.issues.err(
-                    "Only plain unqualified function calls are supported at schema level",
-                    &call,
-                );
-                return Err(());
-            }
-        };
-
-        let func_info = self
-            .schemas
-            .functions
-            .values()
-            .find(|f| f.name.value == func_name)
-            .and_then(|f| {
-                f.body
-                    .as_ref()
-                    .map(|b| (f.params.clone(), b.statements.clone()))
-            });
-
-        let Some((params, statements)) = func_info else {
-            self.issues.err(
-                alloc::format!("Unknown function or function has no evaluable body: {func_name}"),
-                &call,
-            );
-            return Err(());
-        };
-
-        let mut bindings = BTreeMap::new();
-        for (param, arg) in params.iter().zip(call.args.iter()) {
-            let Some(name) = &param.name else { continue };
-            let value = match arg {
-                Expression::String(s) => match &s.value {
-                    Cow::Borrowed(b) => SqlValue::SourceText(b),
-                    Cow::Owned(o) => SqlValue::OwnedText(o.clone()),
-                },
-                Expression::Integer(i) => SqlValue::Integer(i.value as i64),
-                Expression::Bool(b) => SqlValue::Bool(b.value),
-                Expression::Null(_) => SqlValue::Null,
-                _ => continue,
-            };
-            bindings.insert(name.value, value);
-        }
-
-        let old_bindings = core::mem::replace(&mut self.bindings, bindings);
-        let _ = self.process_statements(statements);
-        self.bindings = old_bindings;
-        Ok(())
-    }
-
-    fn process_update(&mut self, u: qusql_parse::Update<'a>) {
+    fn process_update(&mut self, u: qusql_parse::Update<'a>) -> Result<(), ()> {
         // We cannot evaluate SET expressions. Error out if any target table has
         // tracked rows whose state would be changed; if there are no tracked
         // rows the update has no effect on our model.
@@ -1489,12 +1462,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     "UPDATE on a table with tracked rows is not supported in schema evaluator",
                     &span,
                 );
-                return;
+                return Err(());
             }
         }
+        Ok(())
     }
 
-    fn process_delete(&mut self, d: qusql_parse::Delete<'a>) {
+    fn process_delete(&mut self, d: qusql_parse::Delete<'a>) -> Result<(), ()> {
         let qusql_parse::Delete {
             tables,
             using,
@@ -1520,7 +1494,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                          is not supported in schema evaluator",
                         table,
                     );
-                    return;
+                    return Err(());
                 }
             }
         }
@@ -1535,7 +1509,6 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     };
                     let source_rows = source_rows.clone();
                     let mut new_rows = Vec::new();
-                    let mut eval_ok = true;
                     for row in source_rows {
                         let saved = self.current_row.replace(row.clone());
                         let matches = self.eval_expr(&where_expr).map(|v| v.is_truthy());
@@ -1543,16 +1516,10 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                         match matches {
                             Ok(true) => {} // row is deleted
                             Ok(false) => new_rows.push(row),
-                            Err(()) => {
-                                // eval_expr already reported the error
-                                eval_ok = false;
-                                break;
-                            }
+                            Err(()) => return Err(()),
                         }
                     }
-                    if eval_ok {
-                        self.rows.insert(name, new_rows);
-                    }
+                    self.rows.insert(name, new_rows);
                 }
             }
         } else {
@@ -1561,6 +1528,55 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 if table.prefix.is_empty() {
                     self.rows.remove(table.identifier.value);
                 }
+            }
+        }
+        Ok(())
+    }
+
+    fn process_alter_type(&mut self, a: qusql_parse::AlterType<'a>) {
+        let name = unqualified_name(self.issues, &a.name);
+        if let qusql_parse::AlterTypeAction::AddValue {
+            if_not_exists_span,
+            new_enum_value,
+            ..
+        } = a.action
+        {
+            let Some(TypeDef::Enum { values, .. }) = self.schemas.types.get_mut(name) else {
+                self.issues.err("Type not found", &a.name);
+                return;
+            };
+            let new_val: alloc::borrow::Cow<'a, str> = new_enum_value.value;
+            if values.contains(&new_val) {
+                if if_not_exists_span.is_none() {
+                    self.issues.err("Enum value already exists", &a.name);
+                }
+                // IF NOT EXISTS: silently skip
+            } else {
+                Arc::make_mut(values).push(new_val);
+            }
+        }
+    }
+
+    fn process_truncate_table(&mut self, t: qusql_parse::TruncateTable<'a>) {
+        for spec in t.tables {
+            let name = unqualified_name(self.issues, &spec.table_name);
+            self.rows.remove(name.value);
+        }
+    }
+
+    fn process_rename_table(&mut self, r: qusql_parse::RenameTable<'a>) {
+        for pair in r.table_to_tables {
+            let old_id = unqualified_name(self.issues, &pair.table);
+            let new_id = unqualified_name(self.issues, &pair.new_table);
+            // Rename in schemas map.
+            if let Some(schema) = self.schemas.schemas.remove(old_id) {
+                self.schemas.schemas.insert(new_id.clone(), schema);
+            } else {
+                self.issues.err("Table not found", &pair.table);
+            }
+            // Rename tracked rows if present.
+            if let Some(rows) = self.rows.remove(old_id.value) {
+                self.rows.insert(new_id.value, rows);
             }
         }
     }
@@ -1572,6 +1588,18 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             _ => return Ok(()),
         };
         let col_names: Vec<&'a str> = i.columns.iter().map(|c| c.value).collect();
+
+        if let Some(set) = i.set {
+            // INSERT ... SET col = expr, ...: evaluate as a single-row VALUES insert.
+            let mut row: Vec<(&'a str, SqlValue<'a>)> = Vec::new();
+            for pair in set.pairs {
+                if let Ok(val) = self.eval_expr(&pair.value) {
+                    row.push((pair.column.value, val));
+                }
+            }
+            self.rows.entry(table_name).or_default().push(Rc::new(row));
+            return Ok(());
+        }
 
         if let Some((_, value_rows)) = i.values {
             // INSERT ... VALUES (...)
@@ -1656,10 +1684,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn eval_exists(&mut self, stmt: &qusql_parse::Statement<'a>) -> Result<bool, ()> {
-        let qusql_parse::Statement::Select(s) = stmt else {
-            return Err(());
-        };
-        Ok(!self.eval_select_matching_rows(s)?.is_empty())
+        Ok(!self.eval_statement_rows(stmt)?.is_empty())
     }
 
     /// Resolve the rows for a SELECT's FROM clause.
@@ -1794,6 +1819,42 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     ) -> Result<SqlValue<'a>, ()> {
         use qusql_parse::Function;
         match &f.function {
+            Function::Other(parts) if parts.len() == 1 => {
+                let func_name = parts[0].value;
+                let func_info = self
+                    .schemas
+                    .functions
+                    .values()
+                    .find(|func| func.name.value == func_name)
+                    .and_then(|func| {
+                        func.body
+                            .as_ref()
+                            .map(|b| (func.params.clone(), b.statements.clone()))
+                    });
+                let Some((params, statements)) = func_info else {
+                    self.issues.err(
+                        alloc::format!(
+                            "Unknown function or function has no evaluable body: {func_name}"
+                        ),
+                        f,
+                    );
+                    return Err(());
+                };
+                let mut bindings = BTreeMap::new();
+                for (param, arg) in params.iter().zip(f.args.iter()) {
+                    let Some(name) = &param.name else { continue };
+                    if let Ok(value) = self.eval_expr(arg) {
+                        bindings.insert(name.value, value);
+                    }
+                }
+                let old_bindings = core::mem::replace(&mut self.bindings, bindings);
+                let old_return = self.return_value.take();
+                let _ = self.process_statements(statements);
+                let ret = self.return_value.take().unwrap_or(SqlValue::Null);
+                self.return_value = old_return;
+                self.bindings = old_bindings;
+                Ok(ret)
+            }
             Function::Coalesce => {
                 // Clone args to avoid borrow conflict between &f and &mut self.
                 let args: Vec<_> = f.args.clone();
@@ -1903,6 +1964,22 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     ) -> Result<SqlValue<'a>, ()> {
         use qusql_parse::BinaryOperator;
         let lhs = self.eval_expr(&b.lhs)?;
+        // Short-circuit AND/OR before evaluating rhs.
+        match &b.op {
+            BinaryOperator::And(_) => {
+                if !lhs.is_truthy() {
+                    return Ok(SqlValue::Bool(false));
+                }
+                return Ok(SqlValue::Bool(self.eval_expr(&b.rhs)?.is_truthy()));
+            }
+            BinaryOperator::Or(_) => {
+                if lhs.is_truthy() {
+                    return Ok(SqlValue::Bool(true));
+                }
+                return Ok(SqlValue::Bool(self.eval_expr(&b.rhs)?.is_truthy()));
+            }
+            _ => {}
+        }
         let rhs = self.eval_expr(&b.rhs)?;
         // NULL comparisons propagate NULL (not an error).
         Ok(match &b.op {
@@ -1918,8 +1995,6 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             BinaryOperator::Gt(_) => lhs
                 .sql_lte(&rhs)
                 .map_or(SqlValue::Null, |v| SqlValue::Bool(!v)),
-            BinaryOperator::And(_) => SqlValue::Bool(lhs.is_truthy() && rhs.is_truthy()),
-            BinaryOperator::Or(_) => SqlValue::Bool(lhs.is_truthy() || rhs.is_truthy()),
             _ => {
                 self.issues
                     .err("Unimplemented binary operator in schema evaluator", b);
