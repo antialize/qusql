@@ -584,7 +584,7 @@ pub fn execute_impl(input: TokenStream) -> TokenStream {
             returning: Some(_), ..
         } => Err("REPLACE with RETURNING"),
         qusql_type::StatementType::Truncate => Ok(&[]),
-        qusql_type::StatementType::Call => Ok(&[]),
+        qusql_type::StatementType::Call { arguments } => Ok(arguments),
         qusql_type::StatementType::Transaction => Ok(&[]),
         qusql_type::StatementType::Set => Ok(&[]),
         qusql_type::StatementType::Lock => Ok(&[]),
@@ -678,7 +678,7 @@ fn build_fetch_impl(input: TokenStream, mode: FetchMode, t: FetchType) -> TokenS
             ..
         } => Ok((columns, arguments)),
         qusql_type::StatementType::Truncate => Err("TRUNCATE"),
-        qusql_type::StatementType::Call => Err("CALL"),
+        qusql_type::StatementType::Call { .. } => Err("CALL"),
         qusql_type::StatementType::Transaction => Err("Transaction control"),
         qusql_type::StatementType::Set => Err("SET"),
         qusql_type::StatementType::Lock => Err("LOCK"),

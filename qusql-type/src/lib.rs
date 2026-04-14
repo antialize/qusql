@@ -205,7 +205,10 @@ pub enum StatementType<'a> {
     /// The statement is a truncate statement
     Truncate,
     /// The statement is a call statement
-    Call,
+    Call {
+        /// The key and type of arguments to the query
+        arguments: Vec<(ArgumentKey<'a>, FullType<'a>)>,
+    },
     /// The statement is a transaction control statement (BEGIN, COMMIT, END, START TRANSACTION)
     Transaction,
     /// The statement is a set statement
@@ -260,7 +263,7 @@ pub fn type_statement<'a>(
                 returning: returning.map(|r| r.columns),
             },
             type_statement::InnerStatementType::Truncate => StatementType::Truncate,
-            type_statement::InnerStatementType::Call => StatementType::Call,
+            type_statement::InnerStatementType::Call => StatementType::Call { arguments },
             type_statement::InnerStatementType::Transaction => StatementType::Transaction,
             type_statement::InnerStatementType::Set => StatementType::Set,
             type_statement::InnerStatementType::Lock => StatementType::Lock,
@@ -1319,7 +1322,7 @@ mod tests {
             let mut issues: Issues<'_> = Issues::new(src);
             let q = type_statement(&schema, src, &mut issues, &options);
             check_no_errors(name, src, issues.get(), &mut errors);
-            if !matches!(q, StatementType::Call) {
+            if !matches!(q, StatementType::Call { .. }) {
                 println!("{name} should be call");
                 errors += 1;
             }

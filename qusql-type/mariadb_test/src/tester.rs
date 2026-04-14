@@ -217,7 +217,7 @@ impl<'a> Tester<'a> {
                         returning,
                     } => (returning.unwrap_or_default(), arguments),
                     StatementType::Truncate => (vec![], vec![]),
-                    StatementType::Call => (vec![], vec![]),
+                    StatementType::Call { arguments } => (vec![], arguments),
                     StatementType::Transaction => (vec![], vec![]),
                     StatementType::Set => (vec![], vec![]),
                     StatementType::Lock => (vec![], vec![]),
