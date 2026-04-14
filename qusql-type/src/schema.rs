@@ -226,8 +226,8 @@ fn type_kind_from_parse<'a>(
     type_: qusql_parse::Type<'a>,
     unsigned: bool,
     is_sqlite: bool,
-    src: &str,
     types: Option<&BTreeMap<Identifier<'a>, TypeDef<'a>>>,
+    issues: &mut Issues<'a>,
 ) -> Type<'a> {
     match type_ {
         qusql_parse::Type::TinyInt(v) => {
@@ -298,8 +298,16 @@ fn type_kind_from_parse<'a>(
             }
         }
         qusql_parse::Type::Float8 => BaseType::Float.into(),
-        qusql_parse::Type::Numeric(_) => todo!("Numeric"),
-        qusql_parse::Type::Decimal(_) => todo!("Decimal"),
+        qusql_parse::Type::Numeric(ref v) => {
+            let span = v.as_ref().map(|(_, _, s)| s.clone()).unwrap_or(0..0);
+            issues.err("NUMERIC type is not yet supported", &span);
+            BaseType::Float.into()
+        }
+        qusql_parse::Type::Decimal(ref v) => {
+            let span = v.as_ref().map(|(_, _, s)| s.clone()).unwrap_or(0..0);
+            issues.err("DECIMAL type is not yet supported", &span);
+            BaseType::Float.into()
+        }
         qusql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
         qusql_parse::Type::Json => BaseType::String.into(),
         qusql_parse::Type::Jsonb => BaseType::String.into(),
@@ -326,9 +334,12 @@ fn type_kind_from_parse<'a>(
         qusql_parse::Type::Macaddr => BaseType::String.into(),
         qusql_parse::Type::Macaddr8 => BaseType::String.into(),
         qusql_parse::Type::Array(inner, _) => Type::Array(Box::new(type_kind_from_parse(
-            *inner, false, is_sqlite, src, types,
+            *inner, false, is_sqlite, types, issues,
         ))),
-        qusql_parse::Type::Table(_, _) => todo!("Table type not yet implemented"),
+        qusql_parse::Type::Table(ref span, _) => {
+            issues.err("TABLE type is not yet supported", span);
+            BaseType::String.into()
+        }
         qusql_parse::Type::Serial => Type::I32,
         qusql_parse::Type::SmallSerial => Type::I16,
         qusql_parse::Type::BigSerial => Type::I64,
@@ -401,7 +412,7 @@ pub(crate) fn parse_column<'a>(
     if primary_key {
         not_null = true;
     }
-    let type_ = type_kind_from_parse(data_type.type_, unsigned, is_sqlite, _issues.src, types);
+    let type_ = type_kind_from_parse(data_type.type_, unsigned, is_sqlite, types, _issues);
     Column {
         identifier,
         type_: FullType {
@@ -843,7 +854,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 return;
             };
             for column in s.columns {
-                let name = column.name.unwrap();
+                let Some(name) = column.name else {
+                    self.issues.err(
+                        "View column has no name; add an alias with AS",
+                        &v.select.span(),
+                    );
+                    continue;
+                };
                 schema.columns.push(Column {
                     identifier: name,
                     type_: column.type_,
