@@ -570,10 +570,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             // SELECT: may call a known function whose body we can evaluate.
             qusql_parse::Statement::Select(s) => self.process_select(*s),
             // DML: track row insertions so conditions like EXISTS(...) can be evaluated.
-            qusql_parse::Statement::InsertReplace(i) => {
-                self.process_insert(*i);
-                Ok(())
-            }
+            qusql_parse::Statement::InsertReplace(i) => self.process_insert(*i),
             // Transaction control: we assume all transactions commit.
             qusql_parse::Statement::Commit(_) => Ok(()),
             qusql_parse::Statement::Begin(_) => Ok(()),
@@ -1568,25 +1565,52 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         }
     }
 
-    fn process_insert(&mut self, i: qusql_parse::InsertReplace<'a>) {
-        let Some((_, value_rows)) = i.values else {
-            return;
-        };
+    fn process_insert(&mut self, i: qusql_parse::InsertReplace<'a>) -> Result<(), ()> {
         // Only unqualified table names are tracked.
         let table_name = match i.table.prefix.as_slice() {
             [] => i.table.identifier.value,
-            _ => return,
+            _ => return Ok(()),
         };
         let col_names: Vec<&'a str> = i.columns.iter().map(|c| c.value).collect();
-        for row_exprs in value_rows {
+
+        if let Some((_, value_rows)) = i.values {
+            // INSERT ... VALUES (...)
+            for row_exprs in value_rows {
+                let mut row: Vec<(&'a str, SqlValue<'a>)> = Vec::new();
+                for (col, expr) in col_names.iter().zip(row_exprs.iter()) {
+                    if let Ok(val) = self.eval_expr(expr) {
+                        row.push((col, val));
+                    }
+                }
+                self.rows.entry(table_name).or_default().push(Rc::new(row));
+            }
+            return Ok(());
+        }
+
+        let Some(select_stmt) = i.select else {
+            return Ok(());
+        };
+        // Clone select expressions before eval borrows `self`.
+        // Only available for a plain SELECT; compound queries (UNION etc.) produce no
+        // named expressions to project, so we track rows without column values.
+        let select_exprs: Vec<_> = if let qusql_parse::Statement::Select(s) = &select_stmt {
+            s.select_exprs.iter().map(|se| se.expr.clone()).collect()
+        } else {
+            Vec::new()
+        };
+        let source_rows = self.eval_statement_rows(&select_stmt)?;
+        for source_row in source_rows {
+            let saved_row = self.current_row.replace(source_row);
             let mut row: Vec<(&'a str, SqlValue<'a>)> = Vec::new();
-            for (col, expr) in col_names.iter().zip(row_exprs.iter()) {
+            for (col, expr) in col_names.iter().zip(select_exprs.iter()) {
                 if let Ok(val) = self.eval_expr(expr) {
                     row.push((col, val));
                 }
             }
+            self.current_row = saved_row;
             self.rows.entry(table_name).or_default().push(Rc::new(row));
         }
+        Ok(())
     }
 
     /// Evaluate an expression to a `SqlValue`.
@@ -1697,6 +1721,49 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             return Err(());
         }
         Ok(self.rows.get(name).cloned().unwrap_or_default())
+    }
+
+    /// Evaluate any SELECT-like statement (plain SELECT or UNION/INTERSECT/EXCEPT compound
+    /// query) to a list of result rows.
+    fn eval_statement_rows(
+        &mut self,
+        stmt: &qusql_parse::Statement<'a>,
+    ) -> Result<Vec<Row<'a>>, ()> {
+        match stmt {
+            qusql_parse::Statement::Select(s) => self.eval_select_matching_rows(s),
+            qusql_parse::Statement::CompoundQuery(cq) => self.eval_compound_query_rows(cq),
+            _ => {
+                self.issues
+                    .err("Unsupported statement kind in INSERT ... SELECT", stmt);
+                Err(())
+            }
+        }
+    }
+
+    /// Evaluate a UNION / INTERSECT / EXCEPT compound query to rows.
+    /// Only UNION (ALL or deduplicated) is supported; INTERSECT and EXCEPT error out.
+    fn eval_compound_query_rows(
+        &mut self,
+        cq: &qusql_parse::CompoundQuery<'a>,
+    ) -> Result<Vec<Row<'a>>, ()> {
+        use qusql_parse::CompoundOperator;
+        let mut result = self.eval_statement_rows(&cq.left)?;
+        for branch in &cq.with {
+            match branch.operator {
+                CompoundOperator::Union => {
+                    let branch_rows = self.eval_statement_rows(&branch.statement)?;
+                    result.extend(branch_rows);
+                }
+                CompoundOperator::Intersect | CompoundOperator::Except => {
+                    self.issues.err(
+                        "INTERSECT / EXCEPT is not supported in schema evaluator",
+                        &branch.operator_span,
+                    );
+                    return Err(());
+                }
+            }
+        }
+        Ok(result)
     }
 
     /// Return the rows from the single table in a SELECT that satisfy the WHERE clause.
