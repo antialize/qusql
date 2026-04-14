@@ -16,6 +16,7 @@ use alloc::vec::Vec;
 
 use crate::{
     schema::{Column, Schema},
+    type_call::type_call,
     type_delete::type_delete,
     type_insert_replace::{AutoIncrementId, type_insert_replace},
     type_select::{SelectType, type_compound_query},
@@ -40,6 +41,7 @@ pub(crate) enum InnerStatementType<'a> {
         returning: Option<SelectType<'a>>,
     },
     Truncate,
+    Call,
     Invalid,
 }
 
@@ -121,6 +123,10 @@ pub(crate) fn type_statement<'a>(
         Statement::TruncateTable(t) => {
             type_truncate(typer, t);
             InnerStatementType::Truncate
+        }
+        Statement::Call(c) => {
+            type_call(typer, c);
+            InnerStatementType::Call
         }
         s => {
             typer.issues.err("Cannot type statement of this type", s);
