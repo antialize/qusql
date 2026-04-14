@@ -415,15 +415,15 @@ fn parse_perform<'a>(parser: &mut Parser<'a, '_>) -> Result<Perform<'a>, ParseEr
     Ok(Perform { perform_span, expr })
 }
 
-/// PL/pgSQL assignment statement: `target := expression`
+/// PL/pgSQL assignment statement: `target := expression [FROM ...]`
 #[derive(Clone, Debug)]
 pub struct Assign<'a> {
     /// Left-hand side (assignment target)
     pub target: Expression<'a>,
     /// Span of `:=`
     pub assign_span: Span,
-    /// Right-hand side value
-    pub value: Expression<'a>,
+    /// Right-hand side value (may include FROM/WHERE/etc. clauses)
+    pub value: Select<'a>,
 }
 
 impl<'a> Spanned for Assign<'a> {
@@ -1665,7 +1665,7 @@ pub(crate) fn parse_statement<'a>(
             } else {
                 parser.consume_token(Token::ColonEq)? // will emit "Expected ':='" error
             };
-            let value = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            let value = parse_select_body(parser, assign_span.clone())?;
             Some(Statement::Assign(Box::new(Assign {
                 target,
                 assign_span,
