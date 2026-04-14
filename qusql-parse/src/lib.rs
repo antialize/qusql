@@ -190,11 +190,12 @@ pub use statement::{
     AlterSchema, AlterSchemaAction, Analyze, Assign, Begin, Block, Call, CaseStatement,
     CloseCursor, CommentOn, CommentOnObjectType, Commit, CompoundOperator, CompoundQuantifier,
     CompoundQuery, CompoundQueryBranch, CursorHold, CursorScroll, CursorSensitivity, DeclareCursor,
-    DeclareCursorMariaDb, DeclareHandler, DeclareVariable, Do, DoBody, End, Explain, ExplainFormat,
-    ExplainOption, FetchCursor, HandlerAction, HandlerCondition, If, IfCondition, Invalid, Iterate,
-    Leave, Loop, OpenCursor, Perform, PlpgsqlExecute, Prepare, Raise, RaiseLevel, RaiseOptionName,
-    RefreshMaterializedView, Repeat, Return, Set, Signal, SignalConditionInformationName,
-    StartTransaction, Statement, Stdin, WhenStatement, While,
+    DeclareCursorMariaDb, DeclareHandler, DeclareVariable, Do, DoBody, End, ExceptionHandler,
+    Explain, ExplainFormat, ExplainOption, FetchCursor, HandlerAction, HandlerCondition, If,
+    IfCondition, Invalid, Iterate, Leave, Loop, OpenCursor, Perform, PlpgsqlExecute, Prepare,
+    Raise, RaiseLevel, RaiseOptionName, RefreshMaterializedView, Repeat, Return, Set, SetVariable,
+    Signal, SignalConditionInformationName, StartTransaction, Statement, Stdin, WhenStatement,
+    While,
 };
 pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
