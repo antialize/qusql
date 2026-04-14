@@ -322,6 +322,7 @@ pub enum Function<'a> {
     VarPop,
     VarSamp,
     Xmlagg,
+    Coalesce,
     Other(Vec<Identifier<'a>>),
 }
 
@@ -879,6 +880,7 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(_, Keyword::NVL) => Function::IfNull,
         Token::Ident(_, Keyword::NVL2) => Function::NVL2,
         Token::Ident(_, Keyword::IF) => Function::If,
+        Token::Ident(_, Keyword::COALESCE) => Function::Coalesce,
 
         //https://mariadb.com/kb/en/numeric-functions/
         Token::Ident(_, Keyword::ABS) => Function::Abs,
