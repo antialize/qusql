@@ -43,7 +43,7 @@ use crate::{
     parser::{ParseError, Parser},
     qualified_name::parse_qualified_name_unreserved,
     rename::parse_rename_table,
-    select::{OrderFlag, Select, parse_select},
+    select::{OrderFlag, Select, parse_select, parse_select_body},
     show::{
         ShowCharacterSet, ShowCollation, ShowColumns, ShowCreateDatabase, ShowCreateTable,
         ShowCreateView, ShowDatabases, ShowEngines, ShowProcessList, ShowStatus, ShowTables,
@@ -83,12 +83,61 @@ fn parse_set<'a>(parser: &mut Parser<'a, '_>) -> Result<Set<'a>, ParseError> {
     Ok(Set { set_span, values })
 }
 
+fn parse_plpgsql_declare_section<'a>(
+    parser: &mut Parser<'a, '_>,
+    out: &mut Vec<Statement<'a>>,
+) -> Result<(), ParseError> {
+    use crate::data_type::{DataTypeContext, parse_data_type};
+    let declare_span = parser.consume_keyword(Keyword::DECLARE)?;
+    loop {
+        // Skip semicolons between declarations
+        while parser.skip_token(Token::Delimiter).is_some() {}
+        // Stop at block boundaries or EOF
+        match &parser.token {
+            Token::Ident(_, Keyword::BEGIN | Keyword::END | Keyword::EXCEPTION) | Token::Eof => {
+                break;
+            }
+            Token::Ident(_, _) => {} // continue to parse declaration
+            _ => break,
+        }
+        // Each declaration: `name type [ [NOT NULL] [ DEFAULT | := ] expr ]`
+        let name = parser.consume_plain_identifier_unreserved()?;
+        let data_type = parse_data_type(parser, DataTypeContext::Column)?;
+        let default = if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
+            let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            Some((default_span, expr))
+        } else if matches!(parser.token, Token::ColonEq) {
+            let assign_span = parser.consume_token(Token::ColonEq)?;
+            let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            Some((assign_span, expr))
+        } else {
+            None
+        };
+        out.push(Statement::DeclareVariable(Box::new(DeclareVariable {
+            declare_span: declare_span.clone(),
+            name,
+            data_type,
+            default,
+        })));
+    }
+    Ok(())
+}
+
 fn parse_statement_list_inner<'a>(
     parser: &mut Parser<'a, '_>,
     out: &mut Vec<Statement<'a>>,
 ) -> Result<(), ParseError> {
     loop {
         while parser.skip_token(Token::Delimiter).is_some() {}
+        // PL/pgSQL DECLARE section: single DECLARE keyword introduces multiple variable
+        // declarations (each terminated by `;`) before the BEGIN block.
+        if parser.permit_compound_statements
+            && parser.options.dialect.is_postgresql()
+            && matches!(&parser.token, Token::Ident(_, Keyword::DECLARE))
+        {
+            parse_plpgsql_declare_section(parser, out)?;
+            continue;
+        }
         // Detect MariaDB statement labels: `label_name:`
         let label = if parser.permit_compound_statements
             && matches!(&parser.token, Token::Ident(_, Keyword::NOT_A_KEYWORD))
@@ -201,10 +250,12 @@ fn parse_block<'a>(parser: &mut Parser<'a, '_>) -> Result<Block<'a>, ParseError>
 /// Condition in if statement
 #[derive(Clone, Debug)]
 pub struct IfCondition<'a> {
-    /// Span of "ELSEIF" if specified
+    /// Span of "ELSEIF" / "ELSIF" if specified
     pub elseif_span: Option<Span>,
-    /// Expression that must be true for `then` to be executed
-    pub search_condition: Expression<'a>,
+    /// The condition, parsed as an implicit SELECT body.
+    /// `IF expr FROM table THEN` is treated as `SELECT expr FROM table`,
+    /// so `search_condition.select_span` carries the span of the IF/ELSIF keyword.
+    pub search_condition: Select<'a>,
     /// Span of "THEN"
     pub then_span: Span,
     /// List of statement to be executed if `search_condition` is true
@@ -251,7 +302,11 @@ fn parse_if<'a>(parser: &mut Parser<'a, '_>) -> Result<If<'a>, ParseError> {
         "'END'",
         &|e| matches!(e, Token::Ident(_, Keyword::END)),
         |parser| {
-            let search_condition = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            // The IF condition is an implicit SELECT body: `IF expr [FROM tbl] THEN`
+            // is equivalent to `SELECT expr [FROM tbl]` evaluated at runtime.
+            // We reuse parse_select_body so we get full FROM/WHERE/GROUP BY support
+            // without reimplementing the select parser.
+            let search_condition = parse_select_body(parser, if_span.clone())?;
             let then_span = parser.consume_keyword(Keyword::THEN)?;
             let mut then = Vec::new();
             parse_statement_list(parser, &mut then)?;
@@ -261,8 +316,11 @@ fn parse_if<'a>(parser: &mut Parser<'a, '_>) -> Result<If<'a>, ParseError> {
                 then_span,
                 then,
             });
-            while let Some(elseif_span) = parser.skip_keyword(Keyword::ELSEIF) {
-                let search_condition = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            while let Some(elseif_span) = parser
+                .skip_keyword(Keyword::ELSEIF)
+                .or_else(|| parser.skip_keyword(Keyword::ELSIF))
+            {
+                let search_condition = parse_select_body(parser, elseif_span.clone())?;
                 let then_span = parser.consume_keyword(Keyword::THEN)?;
                 let mut then = Vec::new();
                 parse_statement_list(parser, &mut then)?;
@@ -2718,6 +2776,24 @@ pub(crate) fn parse_statements<'a>(parser: &mut Parser<'a, '_>) -> Vec<Statement
                 parser.err("Invalid delimiter", &e);
             }
             parser.consume();
+            continue;
+        }
+
+        // PL/pgSQL DECLARE section: single DECLARE keyword introduces multiple variable
+        // declarations (each terminated by `;`) before the BEGIN block.
+        if parser.permit_compound_statements
+            && parser.options.dialect.is_postgresql()
+            && matches!(&parser.token, Token::Ident(_, Keyword::DECLARE))
+        {
+            match parse_plpgsql_declare_section(parser, &mut ans) {
+                Ok(_) => {}
+                Err(_) => {
+                    // Error already recorded; recover to next delimiter
+                    while !matches!(parser.token, Token::Delimiter | Token::Eof) {
+                        parser.next();
+                    }
+                }
+            }
             continue;
         }
 

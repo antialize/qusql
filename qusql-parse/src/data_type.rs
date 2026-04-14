@@ -18,8 +18,9 @@ use crate::{
     create::parse_sequence_options,
     expression::{Expression, PRIORITY_MAX, parse_expression_unreserved},
     keywords::Keyword,
-    lexer::{StringType, Token},
+    lexer::Token,
     parser::{ParseError, Parser},
+    qualified_name::{QualifiedName, parse_qualified_name_unreserved},
     span::OptSpanned,
 };
 
@@ -202,7 +203,7 @@ pub enum Type<'a> {
     MediumInt(Option<(usize, Span)>),
     MediumText(Option<(usize, Span)>),
     Money,
-    Named(Span),
+    Named(QualifiedName<'a>),
     Path,
     Numeric(Option<(usize, usize, Span)>),
     Range(RangeSubtype),
@@ -271,7 +272,7 @@ impl<'a> OptSpanned for Type<'a> {
             Type::MediumInt(v) => v.opt_span(),
             Type::MediumText(v) => v.opt_span(),
             Type::Money => None,
-            Type::Named(v) => v.opt_span(),
+            Type::Named(v) => Some(v.span()),
             Type::Path => None,
             Type::Numeric(v) => v.opt_span(),
             Type::Range(_) => None,
@@ -801,13 +802,10 @@ pub(crate) fn parse_data_type<'a>(
             let paren_span = lparen.join_span(&rparen);
             (table_span, Type::Table(paren_span, columns))
         }
-        Token::String(_, StringType::DoubleQuoted) if parser.options.dialect.is_postgresql() => {
-            let name = parser.consume();
-            (name.clone(), Type::Named(name))
-        }
-        Token::Ident(_, _) if parser.options.dialect.is_postgresql() => {
-            let name = parser.consume();
-            (name.clone(), Type::Named(name))
+        Token::String(_, _) | Token::Ident(_, _) if parser.options.dialect.is_postgresql() => {
+            let qname = parse_qualified_name_unreserved(parser)?;
+            let span = qname.span();
+            (span, Type::Named(qname))
         }
         _ => parser.expected_failure("type")?,
     };

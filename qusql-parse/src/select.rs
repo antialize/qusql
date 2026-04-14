@@ -1241,8 +1241,12 @@ impl<'a> Spanned for Select<'a> {
     }
 }
 
-pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>, ParseError> {
-    let select_span = parser.consume_keyword(Keyword::SELECT)?;
+/// Parse a SELECT body starting after the `SELECT` keyword has already been consumed.
+/// `select_span` is the span of the keyword (or a synthetic span standing in for it).
+pub(crate) fn parse_select_body<'a>(
+    parser: &mut Parser<'a, '_>,
+    select_span: Span,
+) -> Result<Select<'a>, ParseError> {
     let mut flags = Vec::new();
     let mut select_exprs = Vec::new();
 
@@ -1570,4 +1574,9 @@ pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>
         fetch,
         locking,
     })
+}
+
+pub(crate) fn parse_select<'a>(parser: &mut Parser<'a, '_>) -> Result<Select<'a>, ParseError> {
+    let select_span = parser.consume_keyword(Keyword::SELECT)?;
+    parse_select_body(parser, select_span)
 }
