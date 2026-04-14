@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ariadne::{Label, Report, ReportKind, Source};
 use pyo3::{prelude::*, IntoPyObjectExt};
-use qusql_type::{Issue, Issues, SQLArguments, SQLDialect, TypeOptions};
+use qusql_type::{ByteToChar, Issue, Issues, SQLArguments, SQLDialect, TypeOptions};
 use yoke::{Yoke, Yokeable};
 
 #[derive(Yokeable)]
@@ -14,24 +14,26 @@ struct SchemasAndIssues<'a> {
 #[pyclass]
 struct Schemas(Yoke<SchemasAndIssues<'static>, std::string::String>);
 
-fn issue_to_report(issue: &Issue) -> Report<'static, std::ops::Range<usize>> {
+fn issue_to_report(issue: &Issue, b2c: &ByteToChar) -> Report<'static, std::ops::Range<usize>> {
+    let span = b2c.map_span(issue.span.clone());
     let mut builder = Report::build(
         match issue.level {
             qusql_type::Level::Warning => ReportKind::Warning,
             qusql_type::Level::Error => ReportKind::Error,
         },
-        issue.span.clone(),
+        span.clone(),
     )
     .with_config(ariadne::Config::default().with_color(false))
     .with_label(
-        Label::new(issue.span.clone())
+        Label::new(span)
             .with_order(-1)
             .with_priority(-1)
             .with_message(issue.message.to_string()),
     );
     for frag in &issue.fragments {
-        builder = builder
-            .with_label(Label::new(frag.span.clone()).with_message(frag.message.to_string()));
+        builder = builder.with_label(
+            Label::new(b2c.map_span(frag.span.clone())).with_message(frag.message.to_string()),
+        );
     }
     builder.finish()
 }
@@ -51,6 +53,7 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
 }
 
 fn issues_to_string(name: &str, source: &str, issues: &[Issue]) -> (bool, std::string::String) {
+    let b2c = ByteToChar::new(source.as_bytes());
     let source = NamedSource(name, Source::from(source));
     let mut err = false;
     let mut out = Vec::new();
@@ -58,7 +61,7 @@ fn issues_to_string(name: &str, source: &str, issues: &[Issue]) -> (bool, std::s
         if issue.level == qusql_type::Level::Error {
             err = true;
         }
-        let r = issue_to_report(issue);
+        let r = issue_to_report(issue, &b2c);
         r.write(&source, &mut out).unwrap();
     }
     (err, std::string::String::from_utf8(out).unwrap())
