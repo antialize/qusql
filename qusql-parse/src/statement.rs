@@ -100,14 +100,14 @@ fn parse_plpgsql_declare_section<'a>(
             Token::Ident(_, _) => {} // continue to parse declaration
             _ => break,
         }
-        // Each declaration: `name type [ [NOT NULL] [ DEFAULT | := ] expr ]`
+        // Each declaration: `name type [ [NOT NULL] [ DEFAULT | := | = ] expr|select ]`
         let name = parser.consume_plain_identifier_unreserved()?;
         let data_type = parse_data_type(parser, DataTypeContext::Column)?;
         let default = if let Some(default_span) = parser.skip_keyword(Keyword::DEFAULT) {
             let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             Some((default_span, expr))
-        } else if matches!(parser.token, Token::ColonEq) {
-            let assign_span = parser.consume_token(Token::ColonEq)?;
+        } else if matches!(parser.token, Token::ColonEq | Token::Eq) {
+            let assign_span = parser.consume();
             let expr = parse_expression_unreserved(parser, PRIORITY_MAX)?;
             Some((assign_span, expr))
         } else {
@@ -231,18 +231,30 @@ fn parse_block<'a>(parser: &mut Parser<'a, '_>) -> Result<Block<'a>, ParseError>
         &|e| matches!(e, Token::Ident(_, Keyword::END | Keyword::EXCEPTION)),
         |parser| parse_statement_list(parser, &mut statements),
     )?;
-    if let Some(_exception_span) = parser.skip_keyword(Keyword::EXCEPTION) {
-        while let Some(_when_span) = parser.skip_keyword(Keyword::WHEN) {
-            parser.consume_plain_identifier_unreserved()?;
-            parser.consume_keyword(Keyword::THEN)?;
-            parse_expression_unreserved(parser, PRIORITY_MAX)?;
-            parser.consume_token(Token::SemiColon)?;
+    let mut exception_handlers = Vec::new();
+    let exception_span = if let Some(exception_span) = parser.skip_keyword(Keyword::EXCEPTION) {
+        while let Some(when_span) = parser.skip_keyword(Keyword::WHEN) {
+            let condition = parser.consume_plain_identifier_unreserved()?;
+            let then_span = parser.consume_keyword(Keyword::THEN)?;
+            let mut handler_stmts = Vec::new();
+            parse_statement_list(parser, &mut handler_stmts)?;
+            exception_handlers.push(ExceptionHandler {
+                when_span,
+                condition,
+                then_span,
+                statements: handler_stmts,
+            });
         }
-    }
+        Some(exception_span)
+    } else {
+        None
+    };
     let end_span = parser.consume_keyword(Keyword::END)?;
     Ok(Block {
         begin_span,
         statements,
+        exception_span,
+        exception_handlers,
         end_span,
     })
 }
@@ -774,6 +786,28 @@ fn parse_signal<'a>(parser: &mut Parser<'a, '_>) -> Result<Signal<'a>, ParseErro
     })
 }
 
+/// A single `WHEN condition THEN stmts` handler inside a PL/pgSQL EXCEPTION block
+#[derive(Clone, Debug)]
+pub struct ExceptionHandler<'a> {
+    /// Span of "WHEN"
+    pub when_span: Span,
+    /// Condition name (e.g. `division_by_zero`, `OTHERS`)
+    pub condition: crate::Identifier<'a>,
+    /// Span of "THEN"
+    pub then_span: Span,
+    /// Handler body statements
+    pub statements: Vec<Statement<'a>>,
+}
+
+impl<'a> Spanned for ExceptionHandler<'a> {
+    fn span(&self) -> Span {
+        self.when_span
+            .join_span(&self.condition)
+            .join_span(&self.then_span)
+            .join_span(&self.statements)
+    }
+}
+
 /// Block statement, for example in stored procedures
 #[derive(Clone, Debug)]
 pub struct Block<'a> {
@@ -781,6 +815,10 @@ pub struct Block<'a> {
     pub begin_span: Span,
     /// Statements in block
     pub statements: Vec<Statement<'a>>,
+    /// Span of "EXCEPTION" if present
+    pub exception_span: Option<Span>,
+    /// Exception handlers: `WHEN cond THEN stmts`
+    pub exception_handlers: Vec<ExceptionHandler<'a>>,
     /// Span of "END"
     pub end_span: Span,
 }
@@ -789,6 +827,8 @@ impl Spanned for Block<'_> {
     fn span(&self) -> Span {
         self.begin_span
             .join_span(&self.statements)
+            .join_span(&self.exception_span)
+            .join_span(&self.exception_handlers)
             .join_span(&self.end_span)
     }
 }
