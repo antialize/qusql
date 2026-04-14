@@ -154,7 +154,9 @@ def import_postgresql_tests(args) -> None:
     )
 
 
-def run_parser(sql: str, dialect: str, not_pretty: bool, function_body: bool = False) -> subprocess.CompletedProcess:
+def run_parser(
+    sql: str, dialect: str, not_pretty: bool, function_body: bool = False
+) -> subprocess.CompletedProcess:
     """
     Run the parse-test binary with the given SQL and dialect.
 
@@ -206,7 +208,9 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> int:
 
         # Run the parser on this test case
         result = run_parser(
-            test["input"], dialect, args.interactive or args.update_output,
+            test["input"],
+            dialect,
+            args.interactive or args.update_output,
             function_body=test.get("function_body", False),
         )
 
@@ -660,7 +664,9 @@ def set_should_fail(args) -> None:
     Args:
         args: Argparse namespace with 'dialect', 'input', and 'value' fields
     """
-    tests_file = "postgres-tests.json" if args.dialect == "postgresql" else "mysql-tests.json"
+    tests_file = (
+        "postgres-tests.json" if args.dialect == "postgresql" else "mysql-tests.json"
+    )
     tests = read_tests(tests_file)
 
     if args.input not in tests:

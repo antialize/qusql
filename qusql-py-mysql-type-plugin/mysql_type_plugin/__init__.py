@@ -164,9 +164,7 @@ class CustomPlugin(Plugin):
     def get_function_signature_hook(
         self, fullname: str
     ) -> Optional[Callable[[FunctionSigContext], CallableType]]:
-        if fullname in (
-            "qusql_mysql_type.execute"
-        ):
+        if fullname in ("qusql_mysql_type.execute"):
             many = False
         elif fullname in ("qusql_mysql_type.executemany"):
             many = True
