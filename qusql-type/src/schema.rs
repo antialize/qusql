@@ -103,7 +103,7 @@ use qusql_parse::{
 };
 
 /// A column in a schema
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Column<'a> {
     pub identifier: Identifier<'a>,
     /// Type of the column
@@ -703,7 +703,19 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 }
                 qusql_parse::CreateDefinition::ForeignKeyDefinition { .. } => {}
                 qusql_parse::CreateDefinition::CheckConstraintDefinition { .. } => {}
-                qusql_parse::CreateDefinition::LikeTable { .. } => {}
+                qusql_parse::CreateDefinition::LikeTable { source_table, .. } => {
+                    let source_id = unqualified_name(self.issues, &source_table);
+                    if let Some(src) = self.schemas.schemas.get(source_id) {
+                        let cols: Vec<Column<'a>> = src.columns.to_vec();
+                        for col in cols {
+                            if schema.get_column(col.identifier.value).is_none() {
+                                schema.columns.push(col);
+                            }
+                        }
+                    } else {
+                        self.issues.err("Table not found", &source_table);
+                    }
+                }
             }
         }
         match self.schemas.schemas.entry(id.clone()) {
