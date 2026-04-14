@@ -552,9 +552,12 @@ pub(crate) fn type_expression<'a>(
             typer.ensure_datetime(&e.e2, &t2, Restrict::Require, Restrict::Allow);
             FullType::new(BaseType::Integer, t1.not_null && t2.not_null)
         }
-        e @ Expression::MatchAgainst { .. } => {
-            issue_todo!(typer.issues, e);
-            FullType::invalid()
+        Expression::MatchAgainst(e) => {
+            for col in &e.columns {
+                type_expression(typer, col, flags.without_values(), BaseType::Any);
+            }
+            type_expression(typer, &e.expr, flags.without_values(), BaseType::String);
+            FullType::new(BaseType::Float, true)
         }
         e @ Expression::Convert { .. } => {
             issue_todo!(typer.issues, e);
