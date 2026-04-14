@@ -19,6 +19,7 @@ use crate::{
     type_call::type_call,
     type_delete::type_delete,
     type_insert_replace::{AutoIncrementId, type_insert_replace},
+    type_lock::{type_lock, type_unlock},
     type_select::{SelectType, type_compound_query},
     type_set::type_set,
     type_truncate::type_truncate,
@@ -45,6 +46,7 @@ pub(crate) enum InnerStatementType<'a> {
     Call,
     Transaction,
     Set,
+    Lock,
     Invalid,
 }
 
@@ -138,6 +140,14 @@ pub(crate) fn type_statement<'a>(
         Statement::Set(s) => {
             type_set(typer, s);
             InnerStatementType::Set
+        }
+        Statement::Lock(l) => {
+            type_lock(typer, l);
+            InnerStatementType::Lock
+        }
+        Statement::Unlock(u) => {
+            type_unlock(typer, u);
+            InnerStatementType::Lock
         }
         s => {
             typer.issues.err("Cannot type statement of this type", s);

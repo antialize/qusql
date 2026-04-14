@@ -232,6 +232,9 @@ struct Transaction {}
 struct Set {}
 
 #[pyclass]
+struct Lock {}
+
+#[pyclass]
 struct Invalid {}
 
 fn map_type(t: &qusql_type::FullType<'_>) -> Type {
@@ -421,6 +424,7 @@ fn type_statement(
         qusql_type::StatementType::Call => Py::new(py, Call {})?.into_py_any(py)?,
         qusql_type::StatementType::Transaction => Py::new(py, Transaction {})?.into_py_any(py)?,
         qusql_type::StatementType::Set => Py::new(py, Set {})?.into_py_any(py)?,
+        qusql_type::StatementType::Lock => Py::new(py, Lock {})?.into_py_any(py)?,
         qusql_type::StatementType::Invalid => Py::new(py, Invalid {})?.into_py_any(py)?,
     };
 
@@ -441,6 +445,7 @@ fn mysql_type_plugin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Call>()?;
     m.add_class::<Transaction>()?;
     m.add_class::<Set>()?;
+    m.add_class::<Lock>()?;
     m.add_class::<Invalid>()?;
     m.add_class::<Integer>()?;
     m.add_class::<Bool>()?;

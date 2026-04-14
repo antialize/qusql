@@ -61,6 +61,7 @@ mod type_delete;
 mod type_expression;
 mod type_function;
 mod type_insert_replace;
+mod type_lock;
 mod type_reference;
 mod type_select;
 mod type_set;
@@ -209,6 +210,8 @@ pub enum StatementType<'a> {
     Transaction,
     /// The statement is a set statement
     Set,
+    /// The statement is a table lock/unlock statement
+    Lock,
     /// The query was not valid, errors are preset in issues
     Invalid,
 }
@@ -260,6 +263,7 @@ pub fn type_statement<'a>(
             type_statement::InnerStatementType::Call => StatementType::Call,
             type_statement::InnerStatementType::Transaction => StatementType::Transaction,
             type_statement::InnerStatementType::Set => StatementType::Set,
+            type_statement::InnerStatementType::Lock => StatementType::Lock,
             type_statement::InnerStatementType::Invalid => StatementType::Invalid,
         }
     } else {
@@ -1387,6 +1391,41 @@ mod tests {
             check_no_errors(name, src, issues.get(), &mut errors);
             if !matches!(q, StatementType::Set) {
                 println!("{name} should be set");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q43";
+            let src = "LOCK TABLES `t1` READ";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Lock) {
+                println!("{name} should be lock");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q44";
+            let src = "LOCK TABLES `unknown_table` WRITE";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail (unknown table)");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q45";
+            let src = "UNLOCK TABLES";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Lock) {
+                println!("{name} should be lock");
                 errors += 1;
             }
         }
