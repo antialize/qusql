@@ -29,16 +29,16 @@ def get_str_value(e: Expression) -> Optional[str]:
         return e.value
     if isinstance(e, OpExpr):
         if e.op == "+":
-            l = get_str_value(e.left)
-            r = get_str_value(e.right)
-            if l is not None and r is not None:
-                return l + r
+            left = get_str_value(e.left)
+            right = get_str_value(e.right)
+            if left is not None and right is not None:
+                return left + right
     return None
 
 
-DYNAMIC_SQL = ErrorCode("dynamic-sql", "Query not of string literal", "SQL")  # type: Final
+DYNAMIC_SQL: Final = ErrorCode("dynamic-sql", "Query not of string literal", "SQL")
 
-USE_DB_EXECUTE = ErrorCode("use-db-execute", "Use db_execute", "SQL")  # type: Final
+USE_DB_EXECUTE: Final = ErrorCode("use-db-execute", "Use db_execute", "SQL")
 
 schemas = None
 
@@ -210,7 +210,7 @@ class CustomPlugin(Plugin):
                             )
                         ),
                     )
-                    ans.arg_names.append(f"args")
+                    ans.arg_names.append("args")
                     ans.arg_kinds.append(ARG_POS)
                 else:
                     for i, t in enumerate(at):
@@ -276,7 +276,7 @@ class CustomPlugin(Plugin):
                             nrt = UnionType((nrt, NoneType()))
                     else:
                         context.api.fail(
-                            f"fetchall and fetchone only works for SELECT",
+                            "fetchall and fetchone only works for SELECT",
                             context.context,
                         )
                         return context.default_return_type
