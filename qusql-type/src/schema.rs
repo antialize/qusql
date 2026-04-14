@@ -96,7 +96,7 @@ use crate::{
     type_statement,
     typer::unqualified_name,
 };
-use alloc::{borrow::Cow, collections::BTreeMap, sync::Arc, vec::Vec};
+use alloc::{borrow::Cow, collections::BTreeMap, rc::Rc, sync::Arc, vec::Vec};
 use qusql_parse::{
     AddColumn, AddIndex, AlterColumn, DataType, DropColumn, Expression, FunctionParam, Identifier,
     IdentifierPart, Issues, ModifyColumn, Span, Spanned, Statement, parse_statements,
@@ -437,7 +437,7 @@ impl<'a> SqlValue<'a> {
 }
 
 /// A single row of evaluated column values.
-type Row<'a> = BTreeMap<&'a str, SqlValue<'a>>;
+type Row<'a> = Rc<Vec<(&'a str, SqlValue<'a>)>>;
 
 /// Processing context for schema evaluation: holds mutable schema state, issue
 /// sink, the source text for span-offset calculations, and parse/type options.
@@ -598,6 +598,14 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             }
             qusql_parse::Statement::Return(_) => Err(()),
             qusql_parse::Statement::PlpgsqlExecute(e) => self.process_plpgsql_execute(*e),
+            qusql_parse::Statement::Update(u) => {
+                self.process_update(*u);
+                Ok(())
+            }
+            qusql_parse::Statement::Delete(d) => {
+                self.process_delete(*d);
+                Ok(())
+            }
             s => {
                 self.issues.err(
                     alloc::format!("Unsupported statement {s:?} in schema definition"),
@@ -1473,6 +1481,99 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         Ok(())
     }
 
+    fn process_update(&mut self, u: qusql_parse::Update<'a>) {
+        // We cannot evaluate SET expressions. Error out if any target table has
+        // tracked rows whose state would be changed; if there are no tracked
+        // rows the update has no effect on our model.
+        let span = u.update_span;
+        for tref in u.tables {
+            if let qusql_parse::TableReference::Table { identifier, .. } = tref
+                && identifier.prefix.is_empty()
+                && self
+                    .rows
+                    .get(identifier.identifier.value)
+                    .is_some_and(|r| !r.is_empty())
+            {
+                self.issues.err(
+                    "UPDATE on a table with tracked rows is not supported in schema evaluator",
+                    &span,
+                );
+                return;
+            }
+        }
+    }
+
+    fn process_delete(&mut self, d: qusql_parse::Delete<'a>) {
+        let qusql_parse::Delete {
+            tables,
+            using,
+            where_,
+            order_by,
+            limit,
+            ..
+        } = d;
+
+        // USING / ORDER BY / LIMIT are not supported: error if any target table
+        // has tracked rows that would be affected.
+        let has_unsupported = !using.is_empty() || order_by.is_some() || limit.is_some();
+        if has_unsupported {
+            for table in &tables {
+                if table.prefix.is_empty()
+                    && self
+                        .rows
+                        .get(table.identifier.value)
+                        .is_some_and(|r| !r.is_empty())
+                {
+                    self.issues.err(
+                        "DELETE with USING/ORDER BY/LIMIT on a table with tracked rows \
+                         is not supported in schema evaluator",
+                        table,
+                    );
+                    return;
+                }
+            }
+        }
+
+        if let Some((where_expr, _)) = where_ {
+            // Evaluate the WHERE for each tracked row; keep rows that do NOT match.
+            for table in &tables {
+                if table.prefix.is_empty() {
+                    let name = table.identifier.value;
+                    let Some(source_rows) = self.rows.get(name) else {
+                        continue;
+                    };
+                    let source_rows = source_rows.clone();
+                    let mut new_rows = Vec::new();
+                    let mut eval_ok = true;
+                    for row in source_rows {
+                        let saved = self.current_row.replace(row.clone());
+                        let matches = self.eval_expr(&where_expr).map(|v| v.is_truthy());
+                        self.current_row = saved;
+                        match matches {
+                            Ok(true) => {} // row is deleted
+                            Ok(false) => new_rows.push(row),
+                            Err(()) => {
+                                // eval_expr already reported the error
+                                eval_ok = false;
+                                break;
+                            }
+                        }
+                    }
+                    if eval_ok {
+                        self.rows.insert(name, new_rows);
+                    }
+                }
+            }
+        } else {
+            // No WHERE - all rows in every target table are deleted.
+            for table in tables {
+                if table.prefix.is_empty() {
+                    self.rows.remove(table.identifier.value);
+                }
+            }
+        }
+    }
+
     fn process_insert(&mut self, i: qusql_parse::InsertReplace<'a>) {
         let Some((_, value_rows)) = i.values else {
             return;
@@ -1484,13 +1585,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         };
         let col_names: Vec<&'a str> = i.columns.iter().map(|c| c.value).collect();
         for row_exprs in value_rows {
-            let mut row: Row<'a> = BTreeMap::new();
+            let mut row: Vec<(&'a str, SqlValue<'a>)> = Vec::new();
             for (col, expr) in col_names.iter().zip(row_exprs.iter()) {
                 if let Ok(val) = self.eval_expr(expr) {
-                    row.insert(col, val);
+                    row.push((col, val));
                 }
             }
-            self.rows.entry(table_name).or_default().push(row);
+            self.rows.entry(table_name).or_default().push(Rc::new(row));
         }
     }
 
@@ -1513,9 +1614,11 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                         .get(name.value)
                         .cloned()
                         .or_else(|| {
-                            self.current_row
-                                .as_ref()
-                                .and_then(|r| r.get(name.value).cloned())
+                            self.current_row.as_ref().and_then(|r| {
+                                r.iter()
+                                    .find(|(k, _)| *k == name.value)
+                                    .map(|(_, v)| v.clone())
+                            })
                         })
                         .ok_or(())
                 } else {
@@ -1654,6 +1757,32 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 }
                 self.current_table_rows = rows;
                 Ok(max.unwrap_or(SqlValue::Null))
+            }
+            Function::Count => {
+                let rows = core::mem::take(&mut self.current_table_rows);
+                let is_star = matches!(
+                    f.args.first(),
+                    Some(Expression::Identifier(ie))
+                        if matches!(ie.parts.as_slice(), [IdentifierPart::Star(_)])
+                );
+                let count = if f.args.is_empty() || is_star {
+                    // COUNT(*) or COUNT() - count all rows
+                    rows.len() as i64
+                } else {
+                    let col_expr = f.args.first().unwrap().clone();
+                    let mut n = 0i64;
+                    for r in &rows {
+                        let saved = self.current_row.replace(r.clone());
+                        let v = self.eval_expr(&col_expr);
+                        self.current_row = saved;
+                        if matches!(v, Ok(v) if v != SqlValue::Null) {
+                            n += 1;
+                        }
+                    }
+                    n
+                };
+                self.current_table_rows = rows;
+                Ok(SqlValue::Integer(count))
             }
             _ => {
                 self.issues
