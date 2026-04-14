@@ -552,7 +552,7 @@ pub fn execute_impl(input: TokenStream) -> TokenStream {
 
     let schema_hash = SCHEMA_SRC.1;
 
-    let arguments = match &stmt {
+    let arguments: Result<&[_], _> = match &stmt {
         qusql_type::StatementType::Select { .. } => Err("SELECT"),
         qusql_type::StatementType::Delete {
             arguments,
@@ -583,6 +583,7 @@ pub fn execute_impl(input: TokenStream) -> TokenStream {
         qusql_type::StatementType::Replace {
             returning: Some(_), ..
         } => Err("REPLACE with RETURNING"),
+        qusql_type::StatementType::Truncate => Ok(&[]),
         qusql_type::StatementType::Invalid => {
             let s = quote! { {
                 #(#errors; )*;
@@ -672,6 +673,7 @@ fn build_fetch_impl(input: TokenStream, mode: FetchMode, t: FetchType) -> TokenS
             returning: Some(columns),
             ..
         } => Ok((columns, arguments)),
+        qusql_type::StatementType::Truncate => Err("TRUNCATE"),
         qusql_type::StatementType::Invalid => {
             let s = quote! { {
                 #(#errors; )*;

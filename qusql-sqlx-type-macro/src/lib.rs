@@ -681,6 +681,17 @@ pub fn query(input: TokenStream) -> TokenStream {
             };
             s.into()
         }
+        qusql_type::StatementType::Truncate => {
+            errors.push(
+                syn::Error::new(query.query_span, "TRUNCATE not supported in query!")
+                    .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("truncate")
+            }}
+            .into()
+        }
         qusql_type::StatementType::Invalid => {
             let s = quote! { {
                 #(#errors; )*;
@@ -954,6 +965,17 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 )
             }};
             s.into()
+        }
+        qusql_type::StatementType::Truncate => {
+            errors.push(
+                syn::Error::new(query_as.query_span, "TRUNCATE not supported in query_as!")
+                    .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("truncate")
+            }}
+            .into()
         }
         qusql_type::StatementType::Invalid => quote! { {
             #(#errors; )*;

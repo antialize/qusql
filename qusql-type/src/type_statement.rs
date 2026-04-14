@@ -19,6 +19,7 @@ use crate::{
     type_delete::type_delete,
     type_insert_replace::{AutoIncrementId, type_insert_replace},
     type_select::{SelectType, type_compound_query},
+    type_truncate::type_truncate,
     type_update::type_update,
     typer::Typer,
 };
@@ -38,6 +39,7 @@ pub(crate) enum InnerStatementType<'a> {
     Replace {
         returning: Option<SelectType<'a>>,
     },
+    Truncate,
     Invalid,
 }
 
@@ -116,6 +118,10 @@ pub(crate) fn type_statement<'a>(
         }
         Statement::CompoundQuery(u) => InnerStatementType::Select(type_compound_query(typer, u)),
         Statement::WithQuery(w) => type_with_query(typer, &w.with_blocks, &w.statement),
+        Statement::TruncateTable(t) => {
+            type_truncate(typer, t);
+            InnerStatementType::Truncate
+        }
         s => {
             typer.issues.err("Cannot type statement of this type", s);
             InnerStatementType::Invalid

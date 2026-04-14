@@ -220,6 +220,9 @@ struct Replace {
 }
 
 #[pyclass]
+struct Truncate {}
+
+#[pyclass]
 struct Invalid {}
 
 fn map_type(t: &qusql_type::FullType<'_>) -> Type {
@@ -405,6 +408,7 @@ fn type_statement(
             )?
             .into_py_any(py)?
         }
+        qusql_type::StatementType::Truncate => Py::new(py, Truncate {})?.into_py_any(py)?,
         qusql_type::StatementType::Invalid => Py::new(py, Invalid {})?.into_py_any(py)?,
     };
 

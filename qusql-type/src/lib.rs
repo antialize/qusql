@@ -63,6 +63,7 @@ mod type_insert_replace;
 mod type_reference;
 mod type_select;
 mod type_statement;
+mod type_truncate;
 mod type_update;
 mod typer;
 
@@ -198,6 +199,8 @@ pub enum StatementType<'a> {
         /// If present, the types and names of the columns returned from the replace
         returning: Option<Vec<SelectTypeColumn<'a>>>,
     },
+    /// The statement is a truncate statement
+    Truncate,
     /// The query was not valid, errors are preset in issues
     Invalid,
 }
@@ -245,6 +248,7 @@ pub fn type_statement<'a>(
                 arguments,
                 returning: returning.map(|r| r.columns),
             },
+            type_statement::InnerStatementType::Truncate => StatementType::Truncate,
             type_statement::InnerStatementType::Invalid => StatementType::Invalid,
         }
     } else {
@@ -1267,6 +1271,29 @@ mod tests {
             t("YEARWEEK(`d`)", "i!");
             t("YEARWEEK(`d`, 3)", "i!");
         }
+        {
+            let name = "q34";
+            let src = "TRUNCATE TABLE `t1`";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Truncate) {
+                println!("{name} should be truncate");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q35";
+            let src = "TRUNCATE TABLE `unknown_table`";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if issues.is_ok() {
+                println!("{name} should fail");
+                errors += 1;
+            }
+        }
+
         if errors != 0 {
             panic!("{errors} errors in test");
         }
