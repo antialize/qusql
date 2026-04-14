@@ -1351,14 +1351,8 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     /// IF ... THEN / ELSEIF / ELSE: recurse into all branches.
     fn process_if(&mut self, i: qusql_parse::If<'a>) -> Result<(), ()> {
         for cond in i.conditions {
-            match self.eval_condition(&cond.search_condition) {
-                Ok(true) => return self.process_statements(cond.then),
-                Ok(false) => continue,
-                Err(()) => {
-                    // Cannot evaluate condition — pessimistically execute this branch
-                    // and stop (we cannot know which subsequent branch would be taken).
-                    return self.process_statements(cond.then);
-                }
+            if self.eval_condition(&cond.search_condition)? {
+                return self.process_statements(cond.then);
             }
         }
         if let Some((_, stmts)) = i.else_ {
@@ -1644,17 +1638,73 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         Ok(!self.eval_select_matching_rows(s)?.is_empty())
     }
 
+    /// Resolve the rows for a SELECT's FROM clause.
+    /// Returns empty if there is no FROM clause.
+    /// Errors (with a message) for:
+    ///   - joins or non-table FROM references (e.g. subqueries in FROM)
+    ///   - qualified table names (e.g. `information_schema.columns`)
+    ///   - unqualified table names not known to the schema evaluator
+    fn resolve_from_rows(&mut self, s: &qusql_parse::Select<'a>) -> Result<Vec<Row<'a>>, ()> {
+        use qusql_parse::TableReference;
+        let Some(refs) = s.table_references.as_deref() else {
+            return Ok(Vec::new());
+        };
+        let [TableReference::Table { identifier, .. }] = refs else {
+            self.issues.err(
+                "FROM clause with joins or subqueries is not supported in schema evaluator",
+                &refs[0],
+            );
+            return Err(());
+        };
+        if !identifier.prefix.is_empty() {
+            // Synthesize information_schema.columns from the current schema state.
+            if identifier.prefix.len() == 1
+                && identifier.prefix[0]
+                    .0
+                    .value
+                    .eq_ignore_ascii_case("information_schema")
+                && identifier.identifier.value.eq_ignore_ascii_case("columns")
+            {
+                let rows = self
+                    .schemas
+                    .schemas
+                    .iter()
+                    .flat_map(|(table_id, schema)| {
+                        schema.columns.iter().map(move |col| {
+                            Rc::new(alloc::vec![
+                                ("table_name", SqlValue::SourceText(table_id.value)),
+                                ("column_name", SqlValue::SourceText(col.identifier.value)),
+                            ])
+                        })
+                    })
+                    .collect();
+                return Ok(rows);
+            }
+            self.issues.err(
+                "Qualified table name in FROM clause is not supported in schema evaluator",
+                identifier,
+            );
+            return Err(());
+        }
+        let name = identifier.identifier.value;
+        let known =
+            self.rows.contains_key(name) || self.schemas.schemas.keys().any(|k| k.value == name);
+        if !known {
+            self.issues.err(
+                alloc::format!("Unknown table `{name}` referenced in schema evaluator"),
+                &identifier.identifier,
+            );
+            return Err(());
+        }
+        Ok(self.rows.get(name).cloned().unwrap_or_default())
+    }
+
     /// Return the rows from the single table in a SELECT that satisfy the WHERE clause.
     fn eval_select_matching_rows(
         &mut self,
         s: &qusql_parse::Select<'a>,
     ) -> Result<Vec<Row<'a>>, ()> {
-        let table_name = self.select_single_table_name(s);
-        // Clone up-front to avoid a borrow conflict with &mut self eval calls below.
-        let source_rows: Vec<Row<'a>> = table_name
-            .and_then(|n| self.rows.get(n).cloned())
-            .unwrap_or_default();
-
+        let source_rows = self.resolve_from_rows(s)?;
         let where_expr: Option<Expression<'a>> = s.where_.as_ref().map(|(e, _)| e.clone());
         let mut result = Vec::new();
         for row in source_rows {
@@ -1669,18 +1719,6 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             }
         }
         Ok(result)
-    }
-
-    /// Extract the unqualified name of the single table in the FROM clause, if any.
-    fn select_single_table_name<'s>(&self, s: &'s qusql_parse::Select<'a>) -> Option<&'a str> {
-        use qusql_parse::TableReference;
-        let refs = s.table_references.as_deref()?;
-        if let [TableReference::Table { identifier, .. }] = refs
-            && identifier.prefix.is_empty()
-        {
-            return Some(identifier.identifier.value);
-        }
-        None
     }
 
     fn eval_function_expr(
@@ -1831,10 +1869,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         let expr = s.select_exprs.first().map(|se| se.expr.clone()).ok_or(())?;
 
         // Load the FROM table's rows into current_table_rows for aggregate evaluation.
-        let table_rows: Vec<Row<'a>> = self
-            .select_single_table_name(s)
-            .and_then(|n| self.rows.get(n).cloned())
-            .unwrap_or_default();
+        let table_rows = self.resolve_from_rows(s)?;
         let saved = core::mem::replace(&mut self.current_table_rows, table_rows);
         let result = self.eval_expr(&expr);
         self.current_table_rows = saved;
