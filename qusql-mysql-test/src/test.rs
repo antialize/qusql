@@ -452,6 +452,61 @@ async fn drop_cancel() -> Result<(), Error> {
 }
 
 #[tokio::test]
+async fn drop_cancel_signal_trigger() -> Result<(), Error> {
+    // Reproduce potential hang in cleanup when an INSERT is rejected by a trigger
+    // that fires SIGNAL SQLSTATE '45000'.
+    let mut conn =
+        tokio::time::timeout(Duration::from_secs(2), Connection::connect(&opts())).await??;
+
+    conn.execute("DROP TABLE IF EXISTS db_test_signal", ())
+        .await?;
+    conn.execute(
+        "CREATE TABLE db_test_signal (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            v INT NOT NULL,
+            PRIMARY KEY (id)
+        )",
+        (),
+    )
+    .await?;
+    conn.execute_unprepared(
+        "CREATE TRIGGER trg_db_test_signal_before_insert
+            BEFORE INSERT ON db_test_signal FOR EACH ROW
+            BEGIN
+                SIGNAL SQLSTATE '45000'
+                    SET MESSAGE_TEXT = 'always reject';
+            END",
+    )
+    .await?;
+
+    // Exercising cancel + cleanup with an INSERT that always triggers SIGNAL SQLSTATE.
+    for c in 0.. {
+        conn.set_cancel_count(None);
+        conn.cleanup().await?;
+        conn.set_cancel_count(Some(c));
+        let q = "INSERT INTO db_test_signal (v) VALUES (1)";
+        match conn.execute(q, ()).await {
+            Err(e) if matches!(e.content(), ConnectionErrorContent::TestCancelled) => (),
+            // Trigger fired — the server returned an error; cleanup must not hang
+            Err(_) => {
+                conn.set_cancel_count(None);
+                tokio::time::timeout(Duration::from_secs(2), conn.cleanup())
+                    .await
+                    .expect("cleanup hung after SIGNAL SQLSTATE trigger error")?;
+                break;
+            }
+            Ok(_) => break,
+        }
+    }
+
+    conn.execute_unprepared("DROP TRIGGER IF EXISTS trg_db_test_signal_before_insert")
+        .await?;
+    conn.execute("DROP TABLE IF EXISTS db_test_signal", ())
+        .await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_transaction() -> Result<(), Error> {
     let mut conn =
         tokio::time::timeout(Duration::from_secs(2), Connection::connect(&opts())).await??;
