@@ -42,6 +42,7 @@ pub(crate) enum InnerStatementType<'a> {
     },
     Truncate,
     Call,
+    Transaction,
     Invalid,
 }
 
@@ -128,6 +129,10 @@ pub(crate) fn type_statement<'a>(
             type_call(typer, c);
             InnerStatementType::Call
         }
+        Statement::Begin(_)
+        | Statement::Commit(_)
+        | Statement::StartTransaction(_)
+        | Statement::End(_) => InnerStatementType::Transaction,
         s => {
             typer.issues.err("Cannot type statement of this type", s);
             InnerStatementType::Invalid

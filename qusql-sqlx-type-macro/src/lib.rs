@@ -703,6 +703,20 @@ pub fn query(input: TokenStream) -> TokenStream {
             }}
             .into()
         }
+        qusql_type::StatementType::Transaction => {
+            errors.push(
+                syn::Error::new(
+                    query.query_span,
+                    "Transaction control not supported in query!",
+                )
+                .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("transaction")
+            }}
+            .into()
+        }
         qusql_type::StatementType::Invalid => {
             let s = quote! { {
                 #(#errors; )*;
@@ -996,6 +1010,20 @@ pub fn query_as(input: TokenStream) -> TokenStream {
             quote! { {
                 #(#errors; )*
                 todo!("call")
+            }}
+            .into()
+        }
+        qusql_type::StatementType::Transaction => {
+            errors.push(
+                syn::Error::new(
+                    query_as.query_span,
+                    "Transaction control not supported in query_as!",
+                )
+                .to_compile_error(),
+            );
+            quote! { {
+                #(#errors; )*
+                todo!("transaction")
             }}
             .into()
         }

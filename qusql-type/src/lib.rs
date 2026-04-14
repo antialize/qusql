@@ -204,6 +204,8 @@ pub enum StatementType<'a> {
     Truncate,
     /// The statement is a call statement
     Call,
+    /// The statement is a transaction control statement (BEGIN, COMMIT, END, START TRANSACTION)
+    Transaction,
     /// The query was not valid, errors are preset in issues
     Invalid,
 }
@@ -253,6 +255,7 @@ pub fn type_statement<'a>(
             },
             type_statement::InnerStatementType::Truncate => StatementType::Truncate,
             type_statement::InnerStatementType::Call => StatementType::Call,
+            type_statement::InnerStatementType::Transaction => StatementType::Transaction,
             type_statement::InnerStatementType::Invalid => StatementType::Invalid,
         }
     } else {
@@ -1332,6 +1335,30 @@ mod tests {
             type_statement(&schema, src, &mut issues, &options);
             if issues.is_ok() {
                 println!("{name} should fail (unknown procedure)");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q39";
+            let src = "BEGIN";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Transaction) {
+                println!("{name} should be transaction");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "q40";
+            let src = "COMMIT";
+            let mut issues: Issues<'_> = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if !matches!(q, StatementType::Transaction) {
+                println!("{name} should be transaction");
                 errors += 1;
             }
         }
