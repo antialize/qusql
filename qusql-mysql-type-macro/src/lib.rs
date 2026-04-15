@@ -5,8 +5,9 @@
 
 use std::hash::Hash;
 use std::io::Write;
-use std::ops::Deref;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use proc_macro::TokenStream;
@@ -20,6 +21,7 @@ use qusql_type::{
 use std::sync::LazyLock;
 use syn::spanned::Spanned;
 use syn::{parse::Parse, punctuated::Punctuated, Expr, Ident, LitStr, Token};
+use yoke::{Yoke, Yokeable};
 
 /// Do we support _LIST_ in queries
 #[cfg(feature = "list_hack")]
@@ -72,22 +74,84 @@ static SCHEMA_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     schema_path
 });
 
-/// The content of the qusql-mysql-type-schema.sql file
-static SCHEMA_SRC: LazyLock<(String, u64)> =
-    LazyLock::new(|| match std::fs::read_to_string(SCHEMA_PATH.as_path()) {
-        Ok(v) => {
-            use std::hash::{DefaultHasher, Hasher};
-            let mut hasher = DefaultHasher::new();
-            v.hash(&mut hasher);
-            let h = hasher.finish();
-            (v, h)
+/// Wrapper so we can derive [Yokeable] for [Schemas] without modifying the
+/// qusql-type crate.
+#[derive(Yokeable)]
+struct SchemasYoke<'a>(Schemas<'a>);
+
+/// Parsed schema and its source string, kept alive together.
+struct SchemaCacheEntry {
+    /// The parsed schema yoked to the source it borrows from.
+    schemas: Yoke<SchemasYoke<'static>, String>,
+    /// File byte-length at the time of parsing, used for cache invalidation.
+    file_len: u64,
+    /// File modification time at the time of parsing, used for cache invalidation.
+    modified: SystemTime,
+    /// Hash of the schema content
+    hash: u64,
+}
+
+/// Global cache of the most recently parsed schema, invalidated by file mtime/size.
+static SCHEMA_CACHE: Mutex<Option<Arc<SchemaCacheEntry>>> = Mutex::new(None);
+
+/// Return the parsed schema, reparsing from disk only when the file's mtime or
+/// size has changed.  The source string and the `Schemas` that borrows from it
+/// are kept alive together inside a `Yoke` — no memory is leaked.
+fn get_schemas() -> Arc<SchemaCacheEntry> {
+    let path = SCHEMA_PATH.as_path();
+    let meta = std::fs::metadata(path).unwrap_or_else(|e| panic!("Cannot stat {path:?}: {e}"));
+    let file_len = meta.len();
+    let modified = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+
+    let mut cache = SCHEMA_CACHE.lock().expect("schema cache lock poisoned");
+    if let Some(entry) = cache.as_ref() {
+        if entry.file_len == file_len && entry.modified == modified {
+            return Arc::clone(entry);
         }
-        Err(e) => panic!(
-            "Unable to read schema from {:?}: {}",
-            SCHEMA_PATH.as_path(),
-            e
-        ),
+    }
+
+    // Cache miss or stale — read and reparse.
+    let src_string = std::fs::read_to_string(path)
+        .unwrap_or_else(|e| panic!("Unable to read schema from {path:?}: {e}"));
+
+    // Compute the schema hash from the fresh source before we move it into the cart.
+    let schema_hash = {
+        use std::hash::{DefaultHasher, Hasher};
+        let mut hasher = DefaultHasher::new();
+        src_string.hash(&mut hasher);
+        hasher.finish()
+    };
+
+    let schemas = Yoke::attach_to_cart(src_string, |src| {
+        let options = TypeOptions::new();
+        let mut issues = qusql_type::Issues::new(src);
+        let parsed = parse_schemas(src, &mut issues, &options);
+        if !issues.is_ok() {
+            let b2c = ByteToChar::new(src.as_bytes());
+            let source = NamedSource("qusql-mysql-type-schema.sql", Source::from(src));
+            let mut err = false;
+            for issue in issues.into_vec() {
+                if issue.level == qusql_type::Level::Error {
+                    err = true;
+                }
+                issue_to_report_color(issue, &b2c).eprint(&source).unwrap();
+            }
+            if err {
+                panic!("Errors processing qusql-mysql-type-schema.sql");
+            }
+        }
+        SchemasYoke(parsed)
     });
+
+    let entry = Arc::new(SchemaCacheEntry {
+        schemas,
+        file_len,
+        modified,
+        hash: schema_hash,
+    });
+    *cache = Some(Arc::clone(&entry));
+    entry
+}
 
 /// Convert an [Issue] to a [Report]
 fn issue_to_report(issue: Issue, b2c: &ByteToChar) -> Report<'static, std::ops::Range<usize>> {
@@ -160,31 +224,6 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
         Ok::<_, ()>(&self.1)
     }
 }
-
-/// Parsed content of qusql-mysql-type-schema.sql
-static SCHEMAS: LazyLock<Schemas> = LazyLock::new(|| {
-    let schema_src = SCHEMA_SRC.0.as_str();
-
-    let options = TypeOptions::new();
-    let mut issues = qusql_type::Issues::new(schema_src);
-    let schemas = parse_schemas(schema_src, &mut issues, &options);
-    if !issues.is_ok() {
-        let b2c = ByteToChar::new(schema_src.as_bytes());
-        let source = NamedSource("qusql-mysql-type-schema.sql", Source::from(schema_src));
-        let mut err = false;
-        for issue in issues.into_vec() {
-            if issue.level == qusql_type::Level::Error {
-                err = true;
-            }
-            let r = issue_to_report_color(issue, &b2c);
-            r.eprint(&source).unwrap();
-        }
-        if err {
-            panic!("Errors processing qusql-mysql-type-schema.sql");
-        }
-    }
-    schemas
-});
 
 /// Map a [FullType] to a build in type or a tag type in [qusql_mysql_type]
 fn map_type(ta: &FullType<'_>) -> proc_macro2::TokenStream {
@@ -551,7 +590,8 @@ enum FetchType {
 #[proc_macro]
 pub fn execute_impl(input: TokenStream) -> TokenStream {
     let query = syn::parse_macro_input!(input as Query).0;
-    let schemas = SCHEMAS.deref();
+    let cache = get_schemas();
+    let schemas = &cache.schemas.get().0;
 
     let options = TypeOptions::new()
         .dialect(SQLDialect::MariaDB)
@@ -562,7 +602,7 @@ pub fn execute_impl(input: TokenStream) -> TokenStream {
     let stmt = type_statement(schemas, &query.query, &mut issues, &options);
     let mut errors = issues_to_errors(issues.into_vec(), &query.query, query.query_span);
 
-    let schema_hash = SCHEMA_SRC.1;
+    let schema_hash = cache.hash;
 
     let arguments: Result<&[_], _> = match &stmt {
         qusql_type::StatementType::Select { .. } => Err("SELECT"),
@@ -643,7 +683,8 @@ fn build_fetch_impl(input: TokenStream, mode: FetchMode, t: FetchType) -> TokenS
         FetchType::AsBorrowed | FetchType::AsOwned => syn::parse_macro_input!(input as AsQuery).0,
     };
 
-    let schemas = SCHEMAS.deref();
+    let cache = get_schemas();
+    let schemas = &cache.schemas.get().0;
     let options = TypeOptions::new()
         .dialect(SQLDialect::MariaDB)
         .arguments(SQLArguments::QuestionMark)
@@ -653,7 +694,7 @@ fn build_fetch_impl(input: TokenStream, mode: FetchMode, t: FetchType) -> TokenS
 
     let mut errors = issues_to_errors(issues.into_vec(), &query.query, query.query_span);
 
-    let schema_hash = SCHEMA_SRC.1;
+    let schema_hash = cache.hash;
 
     let args = match &stmt {
         qusql_type::StatementType::Select { columns, arguments } => Ok((columns, arguments)),
