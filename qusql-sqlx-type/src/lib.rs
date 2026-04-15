@@ -170,6 +170,8 @@ arg_io!(Any, Vec<i32>);
 arg_io!(Any, Vec<i64>);
 arg_io!(Any, Vec<String>);
 arg_io!(Any, Vec<Vec<u8>>);
+arg_io!(Any, Vec<bool>);
+arg_io!(Any, Vec<f64>);
 
 /// Slice ArgIn impls for `Any` array arguments.
 impl ArgIn<Any> for &[u8] {}
@@ -183,6 +185,11 @@ impl ArgIn<Option<Any>> for &[String] {}
 impl ArgIn<Option<Any>> for Option<&[String]> {}
 impl ArgIn<Option<Any>> for Option<&[i32]> {}
 impl ArgIn<Option<Any>> for Option<&[i64]> {}
+impl ArgIn<Any> for &[f64] {}
+impl ArgIn<Option<Any>> for &[f64] {}
+impl ArgIn<Option<Any>> for Option<&[f64]> {}
+impl ArgIn<Any> for &[bool] {}
+impl ArgIn<Option<Any>> for &[bool] {}
 
 /// Blanket impls: any `Infallible` argument.
 impl<T> ArgIn<std::convert::Infallible> for T {}
