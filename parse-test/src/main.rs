@@ -55,6 +55,10 @@ struct Args {
     /// Whether to parse multiple statements
     #[arg(short, long, default_value_t = false)]
     multiple: bool,
+
+    /// Parse in function/procedure body mode (allows BEGIN...END blocks)
+    #[arg(long, default_value_t = false)]
+    function_body: bool,
 }
 
 /// Supported SQL dialects for parsing.
@@ -115,7 +119,8 @@ fn main() {
             qusql_parse::SQLArguments::Dollar
         } else {
             qusql_parse::SQLArguments::QuestionMark
-        });
+        })
+        .function_body(args.function_body);
     let mut issues = qusql_parse::Issues::new(&src);
 
     if args.benchmark {
@@ -177,13 +182,15 @@ fn main() {
                     .as_ref()
                     .map(|v| v.display().to_string())
                     .unwrap_or("-".to_string());
+                let b2c = qusql_parse::ByteToChar::new(src.as_bytes());
                 let mut pretty_issues = Vec::new();
                 for issue in issues.get() {
+                    let span = b2c.map_span(issue.span.clone());
                     let mut w = Vec::new();
-                    Report::build(ReportKind::Error, (&file, issue.span.clone()))
+                    Report::build(ReportKind::Error, (&file, span.clone()))
                         .with_message(&issue.message)
                         .with_label(
-                            Label::new((&file, issue.span.clone()))
+                            Label::new((&file, span))
                                 .with_message("Issue here")
                                 .with_color(Color::Red),
                         )
@@ -212,12 +219,14 @@ fn main() {
                 } else {
                     println!()
                 }
+                let b2c = qusql_parse::ByteToChar::new(src.as_bytes());
                 println!("Issues:");
                 for issue in issues.get() {
-                    Report::build(ReportKind::Error, (&file, issue.span.clone()))
+                    let span = b2c.map_span(issue.span.clone());
+                    Report::build(ReportKind::Error, (&file, span.clone()))
                         .with_message(&issue.message)
                         .with_label(
-                            Label::new((&file, issue.span.clone()))
+                            Label::new((&file, span))
                                 .with_message("Issue here")
                                 .with_color(Color::Red),
                         )

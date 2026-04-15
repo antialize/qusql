@@ -10,6 +10,7 @@ both interactive and automated testing modes.
 import rust_lexer
 import subprocess
 import json
+import sys
 from typing import TypedDict, NotRequired, Optional
 import argparse
 import time
@@ -25,6 +26,7 @@ class TestCase(TypedDict):
     - issues: Expected parse issues/warnings (optional)
     - should_fail: Whether the test is expected to fail parsing (optional)
     - failure: Whether the test actually failed (optional)
+    - function_body: Whether to parse in function/procedure body mode (optional)
     """
 
     input: str
@@ -32,6 +34,7 @@ class TestCase(TypedDict):
     issues: NotRequired[list[str]]
     should_fail: NotRequired[bool]
     failure: NotRequired[bool]
+    function_body: NotRequired[bool]
 
 
 def read_tests(path: str) -> dict[str, TestCase]:
@@ -151,31 +154,37 @@ def import_postgresql_tests(args) -> None:
     )
 
 
-def run_parser(sql: str, dialect: str, not_pretty: bool) -> subprocess.CompletedProcess:
+def run_parser(
+    sql: str, dialect: str, not_pretty: bool, function_body: bool = False
+) -> subprocess.CompletedProcess:
     """
     Run the parse-test binary with the given SQL and dialect.
 
     Args:
         sql: The SQL statement to parse
         dialect: The SQL dialect to use ('maria', 'postgresql', or 'sqlite')
+        function_body: Whether to parse in function/procedure body mode
 
     Returns:
         CompletedProcess object with stdout/stderr/returncode
     """
+    cmd = [
+        "../target/release/parse-test",
+        "--dialect",
+        dialect,
+        "--output-format",
+        "json" if not_pretty else "pretty-json",
+    ]
+    if function_body:
+        cmd.append("--function-body")
     return subprocess.run(
-        [
-            "../target/release/parse-test",
-            "--dialect",
-            dialect,
-            "--output-format",
-            "json" if not_pretty else "pretty-json",
-        ],
+        cmd,
         capture_output=True,
         input=sql.encode(),
     )
 
 
-def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None:
+def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> int:
     """
     Run tests for a specific SQL dialect.
 
@@ -184,6 +193,9 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
         tests_file: Path to the JSON file containing test cases
         dialect: Dialect identifier for the parser ('maria', 'postgresql', 'sqlite')
         dialect_name: Human-readable dialect name for output
+
+    Returns:
+        Number of failed tests
     """
     tests = read_tests(tests_file)
 
@@ -196,7 +208,10 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
 
         # Run the parser on this test case
         result = run_parser(
-            test["input"], dialect, args.interactive or args.update_output
+            test["input"],
+            dialect,
+            args.interactive or args.update_output,
+            function_body=test.get("function_body", False),
         )
 
         if args.update_output:
@@ -325,16 +340,17 @@ def test_dialect(args, tests_file: str, dialect: str, dialect_name: str) -> None
         write_tests(tests_file, tests)
     elif not args.filter and not getattr(args, "limit", None):
         print(f"\n{dialect_name} - Total failures: {failure_count} out of {len(tests)}")
+    return failure_count
 
 
-def test_mysql(args) -> None:
+def test_mysql(args) -> int:
     """Run MySQL/MariaDB dialect tests."""
-    test_dialect(args, "mysql-tests.json", "maria", "MySQL/MariaDB")
+    return test_dialect(args, "mysql-tests.json", "maria", "MySQL/MariaDB")
 
 
-def test_postgresql(args) -> None:
+def test_postgresql(args) -> int:
     """Run PostgreSQL dialect tests."""
-    test_dialect(args, "postgres-tests.json", "postgresql", "PostgreSQL")
+    return test_dialect(args, "postgres-tests.json", "postgresql", "PostgreSQL")
 
 
 def validate_database(
@@ -648,7 +664,9 @@ def set_should_fail(args) -> None:
     Args:
         args: Argparse namespace with 'dialect', 'input', and 'value' fields
     """
-    tests_file = "postgres-tests.json" if args.dialect == "postgresql" else "mysql-tests.json"
+    tests_file = (
+        "postgres-tests.json" if args.dialect == "postgresql" else "mysql-tests.json"
+    )
     tests = read_tests(tests_file)
 
     if args.input not in tests:
@@ -868,13 +886,15 @@ if __name__ == "__main__":
     if args.command == "import-mysql":
         import_mysql_tests(args)
     elif args.command == "test-mysql":
-        test_mysql(args)
+        if test_mysql(args):
+            sys.exit(1)
     elif args.command == "validate-mysql":
         validate_mysql(args)
     elif args.command == "import-postgresql":
         import_postgresql_tests(args)
     elif args.command == "test-postgresql":
-        test_postgresql(args)
+        if test_postgresql(args):
+            sys.exit(1)
     elif args.command == "validate-postgresql":
         validate_postgresql(args)
     elif args.command == "set-should-fail":

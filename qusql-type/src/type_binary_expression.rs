@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::format;
+use alloc::{format, vec::Vec};
 use qusql_parse::{BinaryOperator, Expression, Spanned};
 
 use crate::{
@@ -28,6 +28,7 @@ pub(crate) fn type_binary_expression<'a>(
     flags: ExpressionFlags,
 ) -> FullType<'a> {
     let op_span = op.span();
+
     let (flags, context) = match op {
         BinaryOperator::Assignment(_) => (flags, BaseType::Any),
         BinaryOperator::And(_) => {
@@ -37,7 +38,56 @@ pub(crate) fn type_binary_expression<'a>(
                 (flags, BaseType::Bool)
             }
         }
-        BinaryOperator::Or(_) | BinaryOperator::Xor(_) => (flags.without_values(), BaseType::Bool),
+        BinaryOperator::Or(_) if flags.true_ => {
+            // Special case for OR in an assert-true context: a column is only not_null if
+            // *both* branches independently imply it is not_null. Process each branch with
+            // the true_ context, snapshot/restore reference_types, then intersect.
+            let child_flags = flags.with_not_null(true);
+
+            let snapshot_not_null: Vec<Vec<bool>> = typer
+                .reference_types
+                .iter()
+                .map(|rt| rt.columns.iter().map(|c| c.1.not_null).collect())
+                .collect();
+
+            let lhs_type = type_expression(typer, lhs, child_flags, BaseType::Bool);
+
+            let after_lhs_not_null: Vec<Vec<bool>> = typer
+                .reference_types
+                .iter()
+                .map(|rt| rt.columns.iter().map(|c| c.1.not_null).collect())
+                .collect();
+
+            // Restore only not_null flags (keeping any other mutations from lhs) before rhs.
+            for (rt, snap_nn) in typer
+                .reference_types
+                .iter_mut()
+                .zip(snapshot_not_null.iter())
+            {
+                for (col, &nn) in rt.columns.iter_mut().zip(snap_nn.iter()) {
+                    col.1.not_null = nn;
+                }
+            }
+
+            let rhs_type = type_expression(typer, rhs, child_flags, BaseType::Bool);
+
+            // Intersection: a column is only not_null if both branches independently set it.
+            for (cur, lhs_nn) in typer
+                .reference_types
+                .iter_mut()
+                .zip(after_lhs_not_null.iter())
+            {
+                for (cur_col, &lhs_col_nn) in cur.columns.iter_mut().zip(lhs_nn.iter()) {
+                    cur_col.1.not_null = cur_col.1.not_null && lhs_col_nn;
+                }
+            }
+
+            typer.ensure_base(lhs, &lhs_type, BaseType::Bool);
+            typer.ensure_base(rhs, &rhs_type, BaseType::Bool);
+            return FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null);
+        }
+        BinaryOperator::Or(_) => (flags.without_values(), BaseType::Bool),
+        BinaryOperator::Xor(_) => (flags.without_values(), BaseType::Bool),
         BinaryOperator::NullSafeEq(_) => (flags.without_values(), BaseType::Any),
         BinaryOperator::Eq(_)
         | BinaryOperator::GtEq(_)
@@ -84,6 +134,7 @@ pub(crate) fn type_binary_expression<'a>(
             }
         }
         BinaryOperator::Collate(_) => (flags, BaseType::String),
+        BinaryOperator::Concat(_) => (flags.without_values(), BaseType::String),
         BinaryOperator::JsonExtract(_) => (flags, BaseType::String), // JSON value returned
         BinaryOperator::JsonExtractUnquote(_) => (flags, BaseType::String), // Unquoted string
         BinaryOperator::User(_, _) => (flags, BaseType::Any),
@@ -107,7 +158,21 @@ pub(crate) fn type_binary_expression<'a>(
     let lhs_type = type_expression(typer, lhs, flags, context);
     let rhs_type = type_expression(typer, rhs, flags, context);
     match op {
-        BinaryOperator::Or(_) | BinaryOperator::Xor(_) | BinaryOperator::And(_) => {
+        BinaryOperator::Or(_) => {
+            typer.ensure_base(lhs, &lhs_type, BaseType::Bool);
+            typer.ensure_base(rhs, &rhs_type, BaseType::Bool);
+            FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::Concat(_) => {
+            // `||` is string/array/jsonb concatenation (PostgreSQL and ANSI SQL).
+            if let Some(t) = typer.matched_type(&lhs_type, &rhs_type) {
+                return FullType::new(t, lhs_type.not_null && rhs_type.not_null);
+            }
+            typer.ensure_base(lhs, &lhs_type, BaseType::String);
+            typer.ensure_base(rhs, &rhs_type, BaseType::String);
+            FullType::new(BaseType::String, lhs_type.not_null && rhs_type.not_null)
+        }
+        BinaryOperator::Xor(_) | BinaryOperator::And(_) => {
             typer.ensure_base(lhs, &lhs_type, BaseType::Bool);
             typer.ensure_base(rhs, &rhs_type, BaseType::Bool);
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)

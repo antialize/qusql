@@ -329,6 +329,13 @@ pub enum CreateDefinition<'a> {
         /// Optional ENFORCED/NOT ENFORCED
         enforced: Option<(bool, Span)>,
     },
+    /// PostgreSQL LIKE table definition: copies column definitions from another table
+    LikeTable {
+        /// Span of "LIKE"
+        like_span: Span,
+        /// Source table name
+        source_table: QualifiedName<'a>,
+    },
 }
 
 impl<'a> Spanned for CreateDefinition<'a> {
@@ -386,6 +393,10 @@ impl<'a> Spanned for CreateDefinition<'a> {
                 .join_span(constraint_symbol)
                 .join_span(expression)
                 .join_span(enforced),
+            CreateDefinition::LikeTable {
+                like_span,
+                source_table,
+            } => like_span.join_span(source_table),
         }
     }
 }
@@ -848,6 +859,16 @@ pub(crate) fn parse_create_definition<'a>(
         }
         Token::Ident(_, Keyword::CHECK) => {
             return parse_check_constraint_definition(parser, constraint_span, constraint_symbol);
+        }
+        Token::Ident(_, Keyword::LIKE) if parser.options.dialect.is_postgresql() => {
+            // PostgreSQL: LIKE source_table - copies column definitions
+            let like_span = parser.consume_keyword(Keyword::LIKE)?;
+            parser.postgres_only(&like_span);
+            let source_table = parse_qualified_name_unreserved(parser)?;
+            return Ok(CreateDefinition::LikeTable {
+                like_span,
+                source_table,
+            });
         }
         Token::String(_, StringType::DoubleQuoted) if parser.options.dialect.is_postgresql() => {
             // PostgreSQL allows double-quoted identifiers as column names

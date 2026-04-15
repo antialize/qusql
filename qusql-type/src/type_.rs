@@ -12,6 +12,7 @@
 
 use alloc::{
     borrow::Cow,
+    boxed::Box,
     fmt::{Display, Write},
     sync::Arc,
     vec::Vec,
@@ -37,6 +38,7 @@ pub enum BaseType {
     Time,
     TimeStamp,
     TimeInterval,
+    Uuid,
 }
 
 impl Display for BaseType {
@@ -53,6 +55,7 @@ impl Display for BaseType {
             BaseType::Time => f.write_str("time"),
             BaseType::TimeStamp => f.write_str("timestamp"),
             BaseType::TimeInterval => f.write_str("timeinterval"),
+            BaseType::Uuid => f.write_str("uuid"),
         }
     }
 }
@@ -80,6 +83,10 @@ pub enum Type<'a> {
     I8,
     Invalid,
     JSON,
+    Geometry,
+    /// A PostgreSQL range type. The inner BaseType is the element type.
+    Range(BaseType),
+    Array(Box<Type<'a>>),
     Set(Arc<Vec<Cow<'a, str>>>),
     U16,
     U24,
@@ -111,6 +118,12 @@ impl<'a> Display for Type<'a> {
             Type::I8 => f.write_str("i8"),
             Type::Invalid => f.write_str("invalid"),
             Type::JSON => f.write_str("json"),
+            Type::Geometry => f.write_str("geometry"),
+            Type::Range(inner) => write!(f, "range({inner})"),
+            Type::Array(inner) => {
+                inner.fmt(f)?;
+                f.write_str("[]")
+            }
             Type::U16 => f.write_str("u16"),
             Type::U24 => f.write_str("u24"),
             Type::U32 => f.write_str("u32"),
@@ -157,6 +170,9 @@ impl<'a> Type<'a> {
             Type::I8 => BaseType::Integer,
             Type::Invalid => BaseType::Any,
             Type::JSON => BaseType::Any,
+            Type::Geometry => BaseType::Any,
+            Type::Range(_) => BaseType::Any,
+            Type::Array(_) => BaseType::Any,
             Type::Null => BaseType::Any,
             Type::Set(_) => BaseType::String,
             Type::U16 => BaseType::Integer,

@@ -11,6 +11,7 @@
 // limitations under the License.
 
 use alloc::borrow::Cow;
+use alloc::boxed::Box;
 
 use crate::{
     ArgumentKey, Type, TypeOptions,
@@ -42,6 +43,7 @@ pub(crate) struct Typer<'a, 'b> {
     pub(crate) schemas: &'b Schemas<'a>,
     pub(crate) with_schemas: BTreeMap<&'a str, &'b Schema<'a>>,
     pub(crate) reference_types: Vec<ReferenceType<'a>>,
+    pub(crate) outer_reference_types: Vec<ReferenceType<'a>>,
     pub(crate) arg_types: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     pub(crate) options: &'b TypeOptions,
 }
@@ -59,6 +61,7 @@ impl<'a, 'b> Typer<'a, 'b> {
             schemas: self.schemas,
             with_schemas: schemas,
             reference_types: self.reference_types.clone(),
+            outer_reference_types: self.outer_reference_types.clone(),
             arg_types: self.arg_types.clone(),
             options: self.options,
         }
@@ -101,6 +104,18 @@ impl<'a, 'b> Typer<'a, 'b> {
             return Some(t1.clone());
         }
 
+        // Arrays match recursively; an array never matches a non-array concrete type
+        match (t1, t2) {
+            (Type::Array(i1), Type::Array(i2)) => {
+                return self
+                    .matched_type(i1, i2)
+                    .map(|inner| Type::Array(Box::new(inner)));
+            }
+            (Type::Array(_), other) if other.base() != BaseType::Any => return None,
+            (other, Type::Array(_)) if other.base() != BaseType::Any => return None,
+            _ => {}
+        }
+
         let mut t1b = t1.base();
         let mut t2b = t2.base();
         if t1b == BaseType::Any {
@@ -110,6 +125,13 @@ impl<'a, 'b> Typer<'a, 'b> {
             t2b = t1b;
         }
         if t1b != t2b {
+            // UUID is compatible with String (PostgreSQL implicit cast from text literals)
+            if matches!(
+                (t1b, t2b),
+                (BaseType::Uuid, BaseType::String) | (BaseType::String, BaseType::Uuid)
+            ) {
+                return Some(BaseType::Uuid.into());
+            }
             return None;
         }
 
@@ -131,7 +153,19 @@ impl<'a, 'b> Typer<'a, 'b> {
                 return Some(Type::Args(t1b, Arc::new(args)));
             }
         }
-        Some(t1b.into())
+        // Prefer a specific concrete type (e.g. I32) over a generic base type
+        // (e.g. Base(Integer)) when both share the same base.
+        let is_concrete = |t: &Type<'_>| {
+            !matches!(
+                t,
+                Type::Base(_) | Type::Args(_, _) | Type::Null | Type::Invalid
+            )
+        };
+        match (is_concrete(t1), is_concrete(t2)) {
+            (true, _) => Some(t1.clone()),
+            (_, true) => Some(t2.clone()),
+            _ => Some(t1b.into()),
+        }
     }
 
     pub(crate) fn ensure_type(
@@ -173,7 +207,8 @@ impl<'a, 'b> Typer<'a, 'b> {
             | BaseType::Bytes
             | BaseType::Float
             | BaseType::Integer
-            | BaseType::TimeInterval => {
+            | BaseType::TimeInterval
+            | BaseType::Uuid => {
                 self.issues
                     .err(format!("Expected time like type got {}", given.t), span);
                 return Type::Invalid;

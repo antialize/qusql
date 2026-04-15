@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ariadne::{Label, Report, ReportKind, Source};
 use pyo3::{prelude::*, IntoPyObjectExt};
-use qusql_type::{Issue, Issues, SQLArguments, SQLDialect, TypeOptions};
+use qusql_type::{ByteToChar, Issue, Issues, SQLArguments, SQLDialect, TypeOptions};
 use yoke::{Yoke, Yokeable};
 
 #[derive(Yokeable)]
@@ -14,24 +14,26 @@ struct SchemasAndIssues<'a> {
 #[pyclass]
 struct Schemas(Yoke<SchemasAndIssues<'static>, std::string::String>);
 
-fn issue_to_report(issue: &Issue) -> Report<'static, std::ops::Range<usize>> {
+fn issue_to_report(issue: &Issue, b2c: &ByteToChar) -> Report<'static, std::ops::Range<usize>> {
+    let span = b2c.map_span(issue.span.clone());
     let mut builder = Report::build(
         match issue.level {
             qusql_type::Level::Warning => ReportKind::Warning,
             qusql_type::Level::Error => ReportKind::Error,
         },
-        issue.span.clone(),
+        span.clone(),
     )
     .with_config(ariadne::Config::default().with_color(false))
     .with_label(
-        Label::new(issue.span.clone())
+        Label::new(span)
             .with_order(-1)
             .with_priority(-1)
             .with_message(issue.message.to_string()),
     );
     for frag in &issue.fragments {
-        builder = builder
-            .with_label(Label::new(frag.span.clone()).with_message(frag.message.to_string()));
+        builder = builder.with_label(
+            Label::new(b2c.map_span(frag.span.clone())).with_message(frag.message.to_string()),
+        );
     }
     builder.finish()
 }
@@ -51,6 +53,7 @@ impl<'a> ariadne::Cache<()> for &NamedSource<'a> {
 }
 
 fn issues_to_string(name: &str, source: &str, issues: &[Issue]) -> (bool, std::string::String) {
+    let b2c = ByteToChar::new(source.as_bytes());
     let source = NamedSource(name, Source::from(source));
     let mut err = false;
     let mut out = Vec::new();
@@ -58,7 +61,7 @@ fn issues_to_string(name: &str, source: &str, issues: &[Issue]) -> (bool, std::s
         if issue.level == qusql_type::Level::Error {
             err = true;
         }
-        let r = issue_to_report(issue);
+        let r = issue_to_report(issue, &b2c);
         r.write(&source, &mut out).unwrap();
     }
     (err, std::string::String::from_utf8(out).unwrap())
@@ -217,6 +220,21 @@ struct Replace {
 }
 
 #[pyclass]
+struct Truncate {}
+
+#[pyclass]
+struct Call {}
+
+#[pyclass]
+struct Transaction {}
+
+#[pyclass]
+struct Set {}
+
+#[pyclass]
+struct Lock {}
+
+#[pyclass]
 struct Invalid {}
 
 fn map_type(t: &qusql_type::FullType<'_>) -> Type {
@@ -234,6 +252,7 @@ fn map_type(t: &qusql_type::FullType<'_>) -> Type {
             qusql_type::BaseType::Time => Type::Any,
             qusql_type::BaseType::TimeStamp => Type::Any,
             qusql_type::BaseType::TimeInterval => Type::Any,
+            qusql_type::BaseType::Uuid => Type::String,
         },
         qusql_type::Type::Enum(v) => Type::Enum(v.iter().map(|v| v.to_string()).collect()),
         qusql_type::Type::F32 => Type::Float,
@@ -245,6 +264,9 @@ fn map_type(t: &qusql_type::FullType<'_>) -> Type {
         qusql_type::Type::I8 => Type::Integer,
         qusql_type::Type::Invalid => Type::Any,
         qusql_type::Type::JSON => Type::Any,
+        qusql_type::Type::Geometry => Type::Any,
+        qusql_type::Type::Array(_) => Type::Any,
+        qusql_type::Type::Range(_) => Type::Any,
         qusql_type::Type::Set(_) => Type::String,
         qusql_type::Type::U16 => Type::Integer,
         qusql_type::Type::U24 => Type::Integer,
@@ -402,6 +424,11 @@ fn type_statement(
             )?
             .into_py_any(py)?
         }
+        qusql_type::StatementType::Truncate => Py::new(py, Truncate {})?.into_py_any(py)?,
+        qusql_type::StatementType::Call { .. } => Py::new(py, Call {})?.into_py_any(py)?,
+        qusql_type::StatementType::Transaction => Py::new(py, Transaction {})?.into_py_any(py)?,
+        qusql_type::StatementType::Set => Py::new(py, Set {})?.into_py_any(py)?,
+        qusql_type::StatementType::Lock => Py::new(py, Lock {})?.into_py_any(py)?,
         qusql_type::StatementType::Invalid => Py::new(py, Invalid {})?.into_py_any(py)?,
     };
 
@@ -418,6 +445,11 @@ fn mysql_type_plugin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Insert>()?;
     m.add_class::<Update>()?;
     m.add_class::<Replace>()?;
+    m.add_class::<Truncate>()?;
+    m.add_class::<Call>()?;
+    m.add_class::<Transaction>()?;
+    m.add_class::<Set>()?;
+    m.add_class::<Lock>()?;
     m.add_class::<Invalid>()?;
     m.add_class::<Integer>()?;
     m.add_class::<Bool>()?;

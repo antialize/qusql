@@ -169,6 +169,25 @@ cargo clippy --all
 cargo fmt && cargo clippy --all
 ```
 
+## Git Hooks
+
+A `.pre-commit-config.yaml` configures hooks for `cargo fmt`, `ruff format`,
+and `ruff check --fix`. The [`pre-commit`](https://pre-commit.com/) framework
+handles running them only on staged files, so `git add -p` works correctly.
+
+Activate once after cloning:
+
+```bash
+pip install pre-commit
+pre-commit install --install-hooks
+```
+
+To keep hook versions in sync with upstream, run:
+
+```bash
+pre-commit autoupdate
+```
+
 ## Parser Coding Conventions
 
 ### Consuming Multiple Keywords

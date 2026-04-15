@@ -6,6 +6,7 @@ import MySQLdb.cursors
 CursorType = TypeVar("CursorType", bound=MySQLdb.cursors.BaseCursor)
 T = TypeVar("T")
 
+
 class SelectResult(Protocol[T]):
     rowcount: int
 
@@ -26,12 +27,15 @@ class SelectResult(Protocol[T]):
 
     def __iter__(self) -> Iterator[T]: ...
 
+
 class OtherResult:
     rowcount: int
+
 
 class InsertWithLastRowIdResult:
     rowcount: int
     lastrowid: int
+
 
 class InsertWithOptLastRowIdResult:
     rowcount: int
@@ -88,6 +92,7 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
     else:
         rargs = list(reversed(args))
         flatargs = []
+
         def replace_arg(mo) -> str:
             nonlocal flatargs
             while True:
@@ -100,8 +105,9 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
                     flatargs += a
                     if not a:
                         return "null"
-                    return ", ".join(['%s']*len(a))
+                    return ", ".join(["%s"] * len(a))
                 flatargs.append(a)
+
         sql = re.sub("_LIST_", replace_arg, sql)
         while rargs:
             a = rargs.pop()
@@ -110,6 +116,7 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
             flatargs.append(a)
         c.execute(sql, flatargs)
     return cast(UntypedResult, c)
+
 
 def executemany(c: CursorType, sql: str, args: Iterable[Iterable[Any]]) -> OtherResult:
     """

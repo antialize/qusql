@@ -1,0 +1,308 @@
+{
+  "tables": [
+    {
+      "name": "alert_events",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "auto_increment": true
+        },
+        {
+          "name": "rule_id",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "nonce",
+          "type": "u64",
+          "not_null": true
+        },
+        {
+          "name": "mail_on",
+          "type": "set('error', 'completion')",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "start_time",
+          "type": "f64",
+          "has_default": true
+        },
+        {
+          "name": "end_time",
+          "type": "f64",
+          "has_default": true
+        },
+        {
+          "name": "progress_sum",
+          "type": "f64",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "fraction_sum",
+          "type": "f64",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "progress",
+          "type": "f32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "phase",
+          "type": "enum('pending', 'active', 'resolved', 'cancelled')",
+          "not_null": true,
+          "generated": true
+        }
+      ]
+    },
+    {
+      "name": "alert_rules",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "auto_increment": true
+        },
+        {
+          "name": "channel_id",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "notify_on",
+          "type": "set('error', 'warning', 'recovery')",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "threshold",
+          "type": "f64",
+          "has_default": true
+        },
+        {
+          "name": "cooldown",
+          "type": "u32",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "priority",
+          "type": "u16",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "fired",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "not_null": true,
+          "generated": true
+        }
+      ]
+    },
+    {
+      "name": "channel_status",
+      "view": true,
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "device_id",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "kind",
+          "type": "enum('counter', 'gauge', 'histogram', 'event')"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "fired",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "channels",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "auto_increment": true
+        },
+        {
+          "name": "device_id",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "token",
+          "type": "bytes",
+          "not_null": true
+        },
+        {
+          "name": "config",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "raw_data",
+          "type": "bytes",
+          "has_default": true
+        },
+        {
+          "name": "sample_rate",
+          "type": "f64",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "kind",
+          "type": "enum('counter', 'gauge', 'histogram', 'event')",
+          "has_default": true
+        },
+        {
+          "name": "last_seen",
+          "type": "datetime",
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "device_summary",
+      "view": true,
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "role",
+          "type": "enum('sensor', 'relay', 'gateway', 'store')",
+          "not_null": true
+        },
+        {
+          "name": "active_channels",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "last_seen",
+          "type": "datetime"
+        }
+      ]
+    },
+    {
+      "name": "devices",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "auto_increment": true
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "has_default": true
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "role",
+          "type": "enum('sensor', 'relay', 'gateway', 'store')",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "load",
+          "type": "f32",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "registered_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "max_rate",
+          "type": "u32",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "storage_items",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "auto_increment": true
+        },
+        {
+          "name": "channel_id",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "json",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "payload",
+          "type": "bytes",
+          "not_null": true
+        },
+        {
+          "name": "workspace_id",
+          "type": "i32",
+          "generated": true
+        }
+      ]
+    }
+  ]
+}

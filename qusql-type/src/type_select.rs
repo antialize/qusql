@@ -202,8 +202,20 @@ pub(crate) fn type_select<'a>(
 ) -> SelectType<'a> {
     let mut guard = typer_stack(
         typer,
-        |t| t.reference_types.clone(),
-        |t, v| t.reference_types = v,
+        |t| {
+            let refs = core::mem::take(&mut t.reference_types);
+            let old_outer = core::mem::take(&mut t.outer_reference_types);
+            // Make the current scope's refs visible as the outer (correlated) scope
+            // for any subqueries encountered within this SELECT.
+            let mut new_outer = refs.clone();
+            new_outer.extend(old_outer.iter().cloned());
+            t.outer_reference_types = new_outer;
+            (refs, old_outer)
+        },
+        |t, (refs, old_outer)| {
+            t.reference_types = refs;
+            t.outer_reference_types = old_outer;
+        },
     );
     let typer = &mut guard.typer;
 

@@ -25,6 +25,7 @@ find_rust_examples = re.compile(r"```rust((`?`?[^`])*)```", re.DOTALL | re.MULTI
 
 rust_examples_dict: dict[str, tuple[str, int]] = {}
 
+
 def visit_md(p: str) -> None:
     global rust_examples_dict
     with open(p) as f:
@@ -47,14 +48,7 @@ rust_examples.sort()
 find_examples = re.compile(
     "|".join(
         "("
-        + (
-            "\\n".join(
-                [
-                    "//[!/][ ]?" + re.escape(line)
-                    for line in e.split("\n")
-                ]
-            )
-        )
+        + ("\\n".join(["//[!/][ ]?" + re.escape(line) for line in e.split("\n")]))
         + ")"
         for (_, _, e) in rust_examples
     )

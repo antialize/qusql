@@ -1,0 +1,415 @@
+{
+  "tables": [
+    {
+      "name": "boards",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "last_modified",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "change_count",
+          "type": "i32",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "is_open",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "min_change_count",
+          "type": "i32",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "epsg_code",
+          "type": "i32",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "coordinate_systems",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "board_id",
+          "type": "uuid",
+          "not_null": true
+        },
+        {
+          "name": "origin_x",
+          "type": "f64",
+          "not_null": true
+        },
+        {
+          "name": "origin_y",
+          "type": "f64",
+          "not_null": true
+        },
+        {
+          "name": "scale",
+          "type": "f64",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "geography_columns",
+      "view": true,
+      "columns": [
+        {
+          "name": "f_table_catalog",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_schema",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_geography_column",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "coord_dimension",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "srid",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "geometry_columns",
+      "view": true,
+      "columns": [
+        {
+          "name": "f_table_catalog",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_schema",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_geometry_column",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "coord_dimension",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "srid",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "schema_revisions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "sequence_index",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "applied_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "snapshots",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "content",
+          "type": "bytes",
+          "not_null": true
+        },
+        {
+          "name": "recorded_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "spatial_ref_sys",
+      "columns": [
+        {
+          "name": "srid",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "auth_name",
+          "type": "string"
+        },
+        {
+          "name": "auth_srid",
+          "type": "i32"
+        },
+        {
+          "name": "srtext",
+          "type": "string"
+        },
+        {
+          "name": "proj4text",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "tag_definitions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "last_modified",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "tasks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "board_id",
+          "type": "uuid",
+          "not_null": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "sys_period",
+          "type": "range(timestamp)",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "change_index",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "properties",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "bounding_box",
+          "type": "geometry"
+        },
+        {
+          "name": "sort_order",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "created_by",
+          "type": "string",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "display_kind",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "coord_system_id",
+          "type": "uuid",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_history",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "board_id",
+          "type": "uuid",
+          "not_null": true
+        },
+        {
+          "name": "sort_order",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "created_by",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "sys_period",
+          "type": "range(timestamp)",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "change_index",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "properties",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "bounding_box",
+          "type": "geometry"
+        },
+        {
+          "name": "display_kind",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "coord_system_id",
+          "type": "uuid",
+          "not_null": true
+        }
+      ]
+    }
+  ]
+}
