@@ -224,7 +224,7 @@ pub(crate) fn type_function<'a, 'b>(
             for (a, t) in &typed {
                 typer.ensure_base(*a, t, BaseType::String);
             }
-            FullType::new(Type::JSON, false)
+            FullType::new(Type::Base(BaseType::String), false)
         }
         Function::JsonReplace => {
             let typed = typed_args(typer, args, flags);
@@ -1121,11 +1121,27 @@ pub(crate) fn type_function<'a, 'b>(
             }
             FullType::new(BaseType::Integer, true)
         }
-        Function::Format => tf(
-            BaseType::String.into(),
-            &[BaseType::Float, BaseType::Integer],
-            &[BaseType::String],
-        ),
+        Function::Format => {
+            let is_pg = typer.dialect().is_postgresql();
+            let typed = typed_args(typer, args, flags);
+            if is_pg {
+                // PostgreSQL: format(format_string text [, args...]) - variadic, first arg is string
+                arg_cnt(typer, 1..999, args, span);
+                if let Some((e, t)) = typed.first() {
+                    typer.ensure_base(*e, t, BaseType::String);
+                }
+            } else {
+                // MySQL: FORMAT(number, decimals[, locale])
+                arg_cnt(typer, 2..2, args, span);
+                if let Some((e, t)) = typed.first() {
+                    typer.ensure_base(*e, t, BaseType::Float);
+                }
+                if let Some((e, t)) = typed.get(1) {
+                    typer.ensure_base(*e, t, BaseType::Integer);
+                }
+            }
+            FullType::new(BaseType::String, false)
+        }
         Function::FromBase64 => tf(BaseType::Bytes.into(), &[BaseType::String], &[]),
         Function::Hex => {
             let typed = typed_args(typer, args, flags);
@@ -1990,7 +2006,9 @@ pub(crate) fn type_function<'a, 'b>(
         | Function::JsonScalar
         | Function::JsonExtractPath
         | Function::JsonbExtractPath => {
-            tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any])
+            // variadic: accept any number of arguments
+            typed_args(typer, args, flags);
+            FullType::new(Type::JSON, true)
         }
         Function::JsonSerialize => tf(BaseType::String.into(), &[BaseType::Any], &[]),
         Function::JsonbPretty => tf(BaseType::String.into(), &[BaseType::Any], &[]),
