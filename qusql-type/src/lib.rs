@@ -231,6 +231,7 @@ pub fn type_statement<'a>(
             schemas,
             issues,
             reference_types: Vec::new(),
+            outer_reference_types: Vec::new(),
             arg_types: Default::default(),
             options,
             with_schemas: Default::default(),

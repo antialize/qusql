@@ -192,7 +192,7 @@ pub(crate) fn type_expression<'a>(
             )
         }
         Expression::Identifier(e) => {
-            let mut t = None;
+            let mut t: Option<FullType> = None;
             match e.parts.as_slice() {
                 [part] => {
                     let col = match part {
@@ -210,7 +210,7 @@ pub(crate) fn type_expression<'a>(
                                 if flags.not_null {
                                     c.1.not_null = true;
                                 }
-                                t = Some(c);
+                                t = Some(c.1.clone());
                             }
                         }
                     }
@@ -224,6 +224,15 @@ pub(crate) fn type_expression<'a>(
                             }
                         }
                         return FullType::invalid();
+                    }
+                    if t.is_none() {
+                        for r in &typer.outer_reference_types {
+                            for c in &r.columns {
+                                if c.0 == *col {
+                                    t = Some(c.1.clone());
+                                }
+                            }
+                        }
                     }
                 }
                 [p1, p2] => {
@@ -248,7 +257,18 @@ pub(crate) fn type_expression<'a>(
                                     if flags.not_null {
                                         c.1.not_null = true;
                                     }
-                                    t = Some(c);
+                                    t = Some(c.1.clone());
+                                }
+                            }
+                        }
+                    }
+                    if t.is_none() {
+                        for r in &typer.outer_reference_types {
+                            if r.name == Some(tbl.clone()) {
+                                for c in &r.columns {
+                                    if c.0 == *col {
+                                        t = Some(c.1.clone());
+                                    }
                                 }
                             }
                         }
@@ -264,7 +284,7 @@ pub(crate) fn type_expression<'a>(
                     typer.err("Unknown identifier", expression);
                     FullType::invalid()
                 }
-                Some((_, type_)) => type_.clone(),
+                Some(type_) => type_,
             }
         }
         Expression::Arg(e) => FullType::new(

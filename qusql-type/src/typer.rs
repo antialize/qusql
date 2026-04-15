@@ -43,6 +43,7 @@ pub(crate) struct Typer<'a, 'b> {
     pub(crate) schemas: &'b Schemas<'a>,
     pub(crate) with_schemas: BTreeMap<&'a str, &'b Schema<'a>>,
     pub(crate) reference_types: Vec<ReferenceType<'a>>,
+    pub(crate) outer_reference_types: Vec<ReferenceType<'a>>,
     pub(crate) arg_types: Vec<(ArgumentKey<'a>, FullType<'a>)>,
     pub(crate) options: &'b TypeOptions,
 }
@@ -60,6 +61,7 @@ impl<'a, 'b> Typer<'a, 'b> {
             schemas: self.schemas,
             with_schemas: schemas,
             reference_types: self.reference_types.clone(),
+            outer_reference_types: self.outer_reference_types.clone(),
             arg_types: self.arg_types.clone(),
             options: self.options,
         }
