@@ -141,11 +141,13 @@ impl<'a> Schema<'a> {
 }
 
 /// A stored procedure definition
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProcedureDef<'a> {
     pub name: Identifier<'a>,
     pub params: Vec<FunctionParam<'a>>,
     pub span: Span,
+    /// Statements extracted from the procedure body (if the body was a BEGIN...END block)
+    pub body: Option<Vec<Statement<'a>>>,
 }
 
 /// Parsed body of a stored function, with an offset for mapping spans
@@ -675,6 +677,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 self.process_rename_table(*r);
                 Ok(())
             }
+            qusql_parse::Statement::Call(c) => self.process_call(*c),
             s => {
                 self.issues.err(
                     alloc::format!("Unsupported statement {s:?} in schema definition"),
@@ -936,10 +939,15 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             }
         }
         let name = p.name.clone();
+        let body = p.body.map(|stmt| match stmt {
+            qusql_parse::Statement::Block(b) => b.statements,
+            other => alloc::vec![other],
+        });
         let def = ProcedureDef {
             name: p.name.clone(),
             params: p.params,
             span: p.create_span.join_span(&p.procedure_span),
+            body,
         };
         match self.schemas.procedures.entry(name) {
             alloc::collections::btree_map::Entry::Occupied(mut e) => {
@@ -955,6 +963,24 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 e.insert(def);
             }
         }
+    }
+
+    fn process_call(&mut self, c: qusql_parse::Call<'a>) -> Result<(), ()> {
+        let proc_name = c.name.identifier.value;
+        // Look up the procedure and clone its body statements.
+        let body = self
+            .schemas
+            .procedures
+            .values()
+            .find(|p| p.name.value == proc_name)
+            .and_then(|p| p.body.clone());
+        let Some(statements) = body else {
+            // Unknown or body-less procedure — no schema effect.
+            return Ok(());
+        };
+        // Ignore Ok/Err from the body: a Err() just means "stopped early" (RAISE EXCEPTION, RETURN, etc.)
+        let _ = self.process_statements(statements);
+        Ok(())
     }
 
     fn process_create_index(&mut self, ci: qusql_parse::CreateIndex<'a>) {
@@ -1750,6 +1776,16 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 }
             }
             Expression::Exists(e) => Ok(SqlValue::Bool(self.eval_exists(&e.subquery)?)),
+            Expression::Unary(u) => match &u.op {
+                qusql_parse::UnaryOperator::Not(_) | qusql_parse::UnaryOperator::LogicalNot(_) => {
+                    Ok(SqlValue::Bool(!self.eval_expr(&u.operand)?.is_truthy()))
+                }
+                qusql_parse::UnaryOperator::Minus(_) => match self.eval_expr(&u.operand)? {
+                    SqlValue::Integer(i) => Ok(SqlValue::Integer(-i)),
+                    _ => Err(()),
+                },
+                _ => Err(()),
+            },
             Expression::Function(f) => self.eval_function_expr(f),
             Expression::AggregateFunction(f) => self.eval_aggregate(f),
             Expression::Binary(b) => self.eval_binary_expr(b),
