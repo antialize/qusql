@@ -175,3 +175,61 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+// Compile-check the doc examples from docs/src/qusql-mysql.md.
+// These functions are never called; they exist solely so that the code is
+// type-checked against the notes schema at `cargo check` / `cargo build` time.
+#[allow(dead_code)]
+async fn _compile_check_qusql_mysql(
+    _pool: qusql_mysql::Pool,
+) -> Result<(), qusql_mysql::ConnectionError> {
+    use qusql_mysql::{
+        ConnectionError, ConnectionOptions, Executor, ExecutorExt, Pool, PoolOptions,
+    };
+
+    async fn example() -> Result<(), ConnectionError> {
+        let pool = Pool::connect(
+            ConnectionOptions::from_url("mysql://user:pw@127.0.0.1:3306/db").unwrap(),
+            PoolOptions::new().max_connections(10),
+        )
+        .await?;
+
+        let mut conn = pool.acquire().await?;
+
+        // Execute a statement
+        let mut tr = conn.begin().await?;
+        tr.execute("INSERT INTO notes (title) VALUES (?)", ("Hello",))
+            .await?;
+        tr.commit().await?;
+
+        // Fetch rows as tuples: no schema knowledge required
+        let _rows: Vec<(i64, String)> = conn.fetch_all("SELECT id, title FROM notes", ()).await?;
+        Ok(())
+    }
+    Ok(())
+}
+
+#[allow(dead_code)]
+async fn _compile_check_qusql_mysql_type(
+    mut conn: qusql_mysql::Connection,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use qusql_mysql_type::{execute, fetch_all};
+
+    // Argument types are checked at compile time
+    execute!(
+        &mut conn,
+        "INSERT INTO notes (title, pinned) VALUES (?, ?)",
+        "Hello",
+        false,
+    )
+    .await?;
+
+    // Return types are inferred from the schema:
+    // (i32, String, Option<String>)
+    let notes = fetch_all!(&mut conn, "SELECT id, title, body FROM notes ORDER BY id",).await?;
+
+    for n in &notes {
+        println!("{}: {}", n.title, n.body.unwrap_or(""));
+    }
+    Ok(())
+}
