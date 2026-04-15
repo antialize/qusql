@@ -9,6 +9,7 @@ members = [
     "benchmark",
     "examples/qusql-sqlx-type-books",
     "examples/qusql-sqlx-type-notes",
+    "examples/qusql-mysql-type-notes",
     "qusql-mysql-test",
     "qusql-mysql-type-macro",
     "qusql-mysql-type",
