@@ -3,7 +3,9 @@ requires = ["maturin>=1.0"]
 build-backend = "maturin"
 
 [project]
-name = "mysql-type-plugin"
+name = "qusql-mysql-type-plugin"
+description = "MySQL type plugin using qusql"
+readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python",

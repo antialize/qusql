@@ -1,5 +1,19 @@
 # qusql-py-mysql-type-plugin
 
+A [mypy](https://mypy.readthedocs.io/) plugin for [qusql-mysql-type](https://pypi.org/project/qusql-mysql-type/) that type-checks MySQL queries at static analysis time.
+
+Enable it in your `pyproject.toml`:
+
+```toml
+[mypy]
+plugins = qusql_mysql_type_plugin
+```
+
+See the [qusql-mysql-type documentation](https://pypi.org/project/qusql-mysql-type/) for how to write typed queries.
+
+
+## Development
+
 To test locally, run e.g.:
 ```sh
 rm -f *.whl && \
