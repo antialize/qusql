@@ -21,7 +21,7 @@ from mypy.types import (
 )
 from mypy.nodes import StrExpr, OpExpr, Expression, Context
 from mypy.errorcodes import ErrorCode
-import qusql_mysql_type_plugin.mysql_type_plugin as rs  # type: ignore
+import qusql_mysql_type_plugin.qusql_mysql_type_plugin as rs  # type: ignore
 
 
 def get_str_value(e: Expression) -> Optional[str]:

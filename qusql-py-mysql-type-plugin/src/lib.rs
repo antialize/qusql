@@ -153,29 +153,19 @@ impl<'py> IntoPyObject<'py> for Type {
 
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         let v = match self {
-            Type::Any => Py::new(py, Any {}).unwrap().into_pyobject(py)?.into_any(),
-            Type::Integer => Py::new(py, Integer {})
-                .unwrap()
-                .into_pyobject(py)?
-                .into_any(),
-            Type::Float => Py::new(py, Float {}).unwrap().into_pyobject(py)?.into_any(),
-            Type::Bool => Py::new(py, Bool {}).unwrap().into_pyobject(py)?.into_any(),
-            Type::Bytes => Py::new(py, Bytes {}).unwrap().into_pyobject(py)?.into_any(),
-            Type::String => Py::new(py, String {})
-                .unwrap()
-                .into_pyobject(py)?
-                .into_any(),
-            Type::Enum(values) => Py::new(py, Enum { values })
-                .unwrap()
-                .into_pyobject(py)?
-                .into_any(),
+            Type::Any => Py::new(py, Any {})?.into_pyobject(py)?.into_any(),
+            Type::Integer => Py::new(py, Integer {})?.into_pyobject(py)?.into_any(),
+            Type::Float => Py::new(py, Float {})?.into_pyobject(py)?.into_any(),
+            Type::Bool => Py::new(py, Bool {})?.into_pyobject(py)?.into_any(),
+            Type::Bytes => Py::new(py, Bytes {})?.into_pyobject(py)?.into_any(),
+            Type::String => Py::new(py, String {})?.into_pyobject(py)?.into_any(),
+            Type::Enum(values) => Py::new(py, Enum { values })?.into_pyobject(py)?.into_any(),
             Type::List(r#type) => Py::new(
                 py,
                 List {
                     r#type: r#type.into_py_any(py)?,
                 },
-            )
-            .unwrap()
+            )?
             .into_pyobject(py)?
             .into_any(),
         };
@@ -244,14 +234,14 @@ fn map_type(t: &qusql_type::FullType<'_>) -> Type {
             qusql_type::BaseType::Any => Type::Any,
             qusql_type::BaseType::Bool => Type::Bool,
             qusql_type::BaseType::Bytes => Type::Bytes,
-            qusql_type::BaseType::Date => Type::Any,
-            qusql_type::BaseType::DateTime => Type::Any,
+            qusql_type::BaseType::Date => Type::String,
+            qusql_type::BaseType::DateTime => Type::String,
             qusql_type::BaseType::Float => Type::Float,
             qusql_type::BaseType::Integer => Type::Integer,
             qusql_type::BaseType::String => Type::String,
-            qusql_type::BaseType::Time => Type::Any,
-            qusql_type::BaseType::TimeStamp => Type::Any,
-            qusql_type::BaseType::TimeInterval => Type::Any,
+            qusql_type::BaseType::Time => Type::String,
+            qusql_type::BaseType::TimeStamp => Type::String,
+            qusql_type::BaseType::TimeInterval => Type::String,
             qusql_type::BaseType::Uuid => Type::String,
         },
         qusql_type::Type::Enum(v) => Type::Enum(v.iter().map(|v| v.to_string()).collect()),
@@ -345,57 +335,83 @@ fn type_statement(
             arguments,
             returning,
         } => {
-            if returning.is_some() {
-                // TODO: Implement RETURNING support
-                issues.err(
-                    "support for RETURNING is not implemented yet",
-                    &(0..statement.len()),
-                );
+            if let Some(returning) = returning {
+                let columns = returning
+                    .into_iter()
+                    .map(|v| {
+                        (
+                            v.name.map(|n| n.to_string()),
+                            map_type(&v.type_),
+                            v.type_.not_null,
+                        )
+                    })
+                    .collect();
+                Py::new(
+                    py,
+                    Select {
+                        arguments: map_arguments(arguments),
+                        columns,
+                    },
+                )?
+                .into_py_any(py)?
+            } else {
+                Py::new(
+                    py,
+                    Delete {
+                        arguments: map_arguments(arguments),
+                    },
+                )?
+                .into_py_any(py)?
             }
-            Py::new(
-                py,
-                Delete {
-                    arguments: map_arguments(arguments),
-                },
-            )?
-            .into_py_any(py)?
         }
         qusql_type::StatementType::Insert {
             yield_autoincrement,
             arguments,
             returning,
         } => {
-            if returning.is_some() {
-                // TODO: Implement RETURNING support
-                issues.err(
-                    "support for RETURNING is not implemented yet",
-                    &(0..statement.len()),
-                );
+            if let Some(returning) = returning {
+                let columns = returning
+                    .into_iter()
+                    .map(|v| {
+                        (
+                            v.name.map(|n| n.to_string()),
+                            map_type(&v.type_),
+                            v.type_.not_null,
+                        )
+                    })
+                    .collect();
+                Py::new(
+                    py,
+                    Select {
+                        arguments: map_arguments(arguments),
+                        columns,
+                    },
+                )?
+                .into_py_any(py)?
+            } else {
+                let yield_autoincrement = match yield_autoincrement {
+                    qusql_type::AutoIncrementId::Yes => "yes",
+                    qusql_type::AutoIncrementId::No => "no",
+                    qusql_type::AutoIncrementId::Optional => "maybe",
+                };
+                Py::new(
+                    py,
+                    Insert {
+                        yield_autoincrement,
+                        arguments: map_arguments(arguments),
+                    },
+                )?
+                .into_py_any(py)?
             }
-            let yield_autoincrement = match yield_autoincrement {
-                qusql_type::AutoIncrementId::Yes => "yes",
-                qusql_type::AutoIncrementId::No => "no",
-                qusql_type::AutoIncrementId::Optional => "maybe",
-            };
-            Py::new(
-                py,
-                Insert {
-                    yield_autoincrement,
-                    arguments: map_arguments(arguments),
-                },
-            )?
-            .into_py_any(py)?
         }
         qusql_type::StatementType::Update {
             arguments,
             returning,
         } => {
-            if returning.is_some() {
-                // TODO: Implement RETURNING support
-                issues.err(
-                    "support for RETURNING is not implemented yet",
-                    &(0..statement.len()),
-                );
+            if let Some(returning) = returning {
+                for col in &returning {
+                    issues.err("RETURNING is not supported by the mypy plugin", &col.span);
+                }
             }
             Py::new(
                 py,
@@ -409,12 +425,10 @@ fn type_statement(
             arguments,
             returning,
         } => {
-            if returning.is_some() {
-                // TODO: Implement RETURNING support
-                issues.err(
-                    "support for RETURNING is not implemented yet",
-                    &(0..statement.len()),
-                );
+            if let Some(returning) = returning {
+                for col in &returning {
+                    issues.err("RETURNING is not supported by the mypy plugin", &col.span);
+                }
             }
             Py::new(
                 py,
@@ -437,7 +451,7 @@ fn type_statement(
 }
 
 #[pymodule]
-fn mysql_type_plugin(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn qusql_mysql_type_plugin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_schemas, m)?)?;
     m.add_function(wrap_pyfunction!(type_statement, m)?)?;
     m.add_class::<Select>()?;
