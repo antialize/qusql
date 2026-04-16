@@ -67,3 +67,28 @@ jobs:
         run: cd parse-test && python3 test.py test-mysql --failures-only
       - name: Run parse-test PostgreSQL tests
         run: cd parse-test && python3 test.py test-postgresql --failures-only
+  python_type_test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: docker.io/mariadb:10.5
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: test
+        ports:
+          - 1235:3306
+        volumes:
+          - /dev/shm/mysql:/var/lib/mysql
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Python dependencies
+        run: pip install mysqlclient types-mysqlclient mypy
+      - name: Install qusql-mysql-type
+        run: pip install ./qusql-py-mysql-type
+      - name: Build and install qusql-mysql-type-plugin
+        run: pip install ./qusql-py-mysql-type-plugin
+      - name: Run mypy type check
+        run: cd qusql-py-mysql-type-test && mypy test.py
+      - name: Run Python integration tests
+        run: cd qusql-py-mysql-type-test && python test.py

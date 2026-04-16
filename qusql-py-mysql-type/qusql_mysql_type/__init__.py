@@ -1,7 +1,7 @@
 import re
 from typing import Any, Iterable, Iterator, Optional, Protocol, TypeVar, cast, List
-import MySQLdb
-import MySQLdb.cursors
+import MySQLdb  # type: ignore[import-untyped]
+import MySQLdb.cursors  # type: ignore[import-untyped]
 
 CursorType = TypeVar("CursorType", bound=MySQLdb.cursors.BaseCursor)
 T = TypeVar("T")
@@ -90,27 +90,27 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
     if "_LIST_" not in sql:
         c.execute(sql, args)
     else:
-        rargs = list(reversed(args))
-        flatargs = []
+        arg_iter = iter(args)
+        flatargs: List[Any] = []
 
-        def replace_arg(mo) -> str:
-            nonlocal flatargs
-            while True:
-                a = rargs.pop()
-                if a is None:
-                    raise Exception("Number of _LIST_ arguments do not match")
+        def replace_arg(mo: re.Match[str]) -> str:
+            # Consume scalar args into flatargs until we reach the list arg
+            # for this _LIST_ placeholder.
+            for a in arg_iter:
                 if isinstance(a, tuple):
                     a = list(a)
                 if isinstance(a, list):
-                    flatargs += a
+                    flatargs.extend(a)
                     if not a:
+                        # Empty list: IN (NULL) matches no rows for any value.
                         return "null"
                     return ", ".join(["%s"] * len(a))
                 flatargs.append(a)
+            raise Exception("No list argument found for _LIST_")
 
         sql = re.sub("_LIST_", replace_arg, sql)
-        while rargs:
-            a = rargs.pop()
+        # Consume any remaining scalar args that follow the last _LIST_.
+        for a in arg_iter:
             if isinstance(a, list | tuple):
                 raise Exception("Number of _LIST_ arguments do not match")
             flatargs.append(a)

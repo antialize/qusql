@@ -1,0 +1,2 @@
+[tool.mypy]
+plugins = ["qusql_mysql_type_plugin"]

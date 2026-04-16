@@ -1,6 +1,25 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
-]
+requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "qusql-mysql-type"
+version = "0.1.0"
+description = "Functions and types to facilitate mysql typed queries"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{name = "Jakob Truelsen", email = "antialize@gmail.com"}]
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python",
+    "Framework :: Mypy",
+]
+
+[project.urls]
+Repository = "https://github.com/antialize/qusql"
+
+[tool.setuptools.packages.find]
+include = ["qusql_mysql_type*"]
+
+[tool.setuptools.package-data]
+qusql_mysql_type = ["py.typed"]
