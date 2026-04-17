@@ -123,6 +123,12 @@ struct Bytes {}
 struct String {}
 
 #[pyclass]
+struct DateTime {}
+
+#[pyclass]
+struct Date {}
+
+#[pyclass]
 struct Enum {
     #[pyo3(get)]
     values: Vec<std::string::String>,
@@ -142,6 +148,8 @@ enum Type {
     Bool,
     Bytes,
     String,
+    DateTime,
+    Date,
     Enum(Vec<std::string::String>),
     List(Box<Type>),
 }
@@ -159,6 +167,8 @@ impl<'py> IntoPyObject<'py> for Type {
             Type::Bool => Py::new(py, Bool {})?.into_pyobject(py)?.into_any(),
             Type::Bytes => Py::new(py, Bytes {})?.into_pyobject(py)?.into_any(),
             Type::String => Py::new(py, String {})?.into_pyobject(py)?.into_any(),
+            Type::DateTime => Py::new(py, DateTime {})?.into_pyobject(py)?.into_any(),
+            Type::Date => Py::new(py, Date {})?.into_pyobject(py)?.into_any(),
             Type::Enum(values) => Py::new(py, Enum { values })?.into_pyobject(py)?.into_any(),
             Type::List(r#type) => Py::new(
                 py,
@@ -234,13 +244,13 @@ fn map_type(t: &qusql_type::FullType<'_>) -> Type {
             qusql_type::BaseType::Any => Type::Any,
             qusql_type::BaseType::Bool => Type::Bool,
             qusql_type::BaseType::Bytes => Type::Bytes,
-            qusql_type::BaseType::Date => Type::String,
-            qusql_type::BaseType::DateTime => Type::String,
+            qusql_type::BaseType::Date => Type::Date,
+            qusql_type::BaseType::DateTime => Type::DateTime,
             qusql_type::BaseType::Float => Type::Float,
             qusql_type::BaseType::Integer => Type::Integer,
             qusql_type::BaseType::String => Type::String,
             qusql_type::BaseType::Time => Type::String,
-            qusql_type::BaseType::TimeStamp => Type::String,
+            qusql_type::BaseType::TimeStamp => Type::DateTime,
             qusql_type::BaseType::TimeInterval => Type::String,
             qusql_type::BaseType::Uuid => Type::String,
         },
@@ -471,6 +481,8 @@ fn qusql_mysql_type_plugin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Float>()?;
     m.add_class::<Bytes>()?;
     m.add_class::<String>()?;
+    m.add_class::<DateTime>()?;
+    m.add_class::<Date>()?;
     m.add_class::<Enum>()?;
     m.add_class::<List>()?;
     m.add_class::<Schemas>()?;

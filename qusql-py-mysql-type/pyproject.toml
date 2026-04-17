@@ -12,7 +12,6 @@ authors = [{name = "Jakob Truelsen", email = "antialize@gmail.com"}]
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python",
-    "Framework :: Mypy",
 ]
 
 [project.urls]
