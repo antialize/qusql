@@ -3,6 +3,7 @@
 //! Used the exposed macros from the qusql-mysql-type crate
 #![forbid(unsafe_code)]
 
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::io::Write;
 use std::path::PathBuf;
@@ -18,7 +19,6 @@ use qusql_type::{
     type_statement, ByteToChar, FullType, Issue, SQLArguments, SQLDialect, SelectTypeColumn,
     TypeOptions,
 };
-use std::sync::LazyLock;
 use syn::spanned::Spanned;
 use syn::{parse::Parse, punctuated::Punctuated, Expr, Ident, LitStr, Token};
 use yoke::{Yoke, Yokeable};
@@ -30,27 +30,50 @@ const LIST_HACK: bool = true;
 #[cfg(not(feature = "list_hack"))]
 const LIST_HACK: bool = false;
 
-/// Path of where the qusql-mysql-type-schema.sql file can be found
+/// Cache of resolved schema paths, keyed by `CARGO_MANIFEST_DIR`.
 ///
-/// If we are in a workspace, lookup `workspace_root` since `CARGO_MANIFEST_DIR` won't
-/// reflect the workspace dir: https://github.com/rust-lang/cargo/issues/3946
-static SCHEMA_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    let mut schema_path: PathBuf = std::env::var("CARGO_MANIFEST_DIR")
-        .expect("`CARGO_schema_path` must be set")
+/// Path resolution is cheap when the schema sits next to `Cargo.toml`, but
+/// falls back to `cargo metadata` (a subprocess) when it doesn't.  Either
+/// way the result is stable for the lifetime of the proc-macro server process,
+/// so we cache it per manifest-dir..
+static RESOLVED_SCHEMA_PATHS: Mutex<Option<HashMap<PathBuf, PathBuf>>> = Mutex::new(None);
+
+/// Resolve the path to `qusql-mysql-type-schema.sql` for the crate currently
+/// being compiled.
+///
+/// The result is cached per `CARGO_MANIFEST_DIR`, so the (potentially
+/// expensive) `cargo metadata` fallback runs at most once per crate per
+/// proc-macro server process.
+///
+/// If the file does not exist next to the crate's own `Cargo.toml`, fall back
+/// to the workspace root (the `CARGO_MANIFEST_DIR` workaround described in
+/// https://github.com/rust-lang/cargo/issues/3946).
+fn resolve_schema_path() -> PathBuf {
+    let manifest_dir: PathBuf = std::env::var("CARGO_MANIFEST_DIR")
+        .expect("`CARGO_MANIFEST_DIR` must be set")
         .into();
 
-    schema_path.push("qusql-mysql-type-schema.sql");
+    let mut cache_guard = RESOLVED_SCHEMA_PATHS
+        .lock()
+        .expect("resolved schema paths lock poisoned");
+    let cache = cache_guard.get_or_insert_with(HashMap::new);
+
+    if let Some(cached) = cache.get(&manifest_dir) {
+        return cached.clone();
+    }
+
+    // Not cached yet — do the (potentially expensive) resolution.
+    let mut schema_path = manifest_dir.join("qusql-mysql-type-schema.sql");
 
     if !schema_path.exists() {
         use serde::Deserialize;
         use std::process::Command;
 
         let cargo = std::env::var("CARGO").expect("`CARGO` must be set");
-        schema_path.pop();
 
         let output = Command::new(cargo)
             .args(["metadata", "--format-version=1"])
-            .current_dir(&schema_path)
+            .current_dir(&manifest_dir)
             .env_remove("__CARGO_FIX_PLZ")
             .output()
             .expect("Could not fetch metadata");
@@ -65,14 +88,15 @@ static SCHEMA_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
         let metadata: CargoMetadata =
             serde_json::from_slice(&output.stdout).expect("Invalid `cargo metadata` output");
 
-        schema_path = metadata.workspace_root;
-        schema_path.push("qusql-mysql-type-schema.sql");
+        schema_path = metadata.workspace_root.join("qusql-mysql-type-schema.sql");
     }
     if !schema_path.exists() {
         panic!("Unable to locate qusql-mysql-type-schema.sql");
     }
+
+    cache.insert(manifest_dir, schema_path.clone());
     schema_path
-});
+}
 
 /// Wrapper so we can derive [Yokeable] for [Schemas] without modifying the
 /// qusql-type crate.
@@ -91,27 +115,30 @@ struct SchemaCacheEntry {
     hash: u64,
 }
 
-/// Global cache of the most recently parsed schema, invalidated by file mtime/size.
-static SCHEMA_CACHE: Mutex<Option<Arc<SchemaCacheEntry>>> = Mutex::new(None);
+/// Per-path cache of parsed schemas, invalidated by file mtime/size.
+///
+/// Keyed by resolved schema path so that multiple crates compiled in the same
+/// proc-macro server process (e.g. rust-analyzer) each get their own entry.
+static SCHEMA_CACHE: Mutex<Option<HashMap<PathBuf, Arc<SchemaCacheEntry>>>> = Mutex::new(None);
 
-/// Return the parsed schema, reparsing from disk only when the file's mtime or
-/// size has changed.  The source string and the `Schemas` that borrows from it
-/// are kept alive together inside a `Yoke` — no memory is leaked.
+/// Return the parsed schema for the crate currently being compiled, reparsing
+/// from disk only when the file's mtime or size has changed.
 fn get_schemas() -> Arc<SchemaCacheEntry> {
-    let path = SCHEMA_PATH.as_path();
-    let meta = std::fs::metadata(path).unwrap_or_else(|e| panic!("Cannot stat {path:?}: {e}"));
+    let path = resolve_schema_path();
+    let meta = std::fs::metadata(&path).unwrap_or_else(|e| panic!("Cannot stat {path:?}: {e}"));
     let file_len = meta.len();
     let modified = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
 
-    let mut cache = SCHEMA_CACHE.lock().expect("schema cache lock poisoned");
-    if let Some(entry) = cache.as_ref() {
+    let mut cache_guard = SCHEMA_CACHE.lock().expect("schema cache lock poisoned");
+    let cache = cache_guard.get_or_insert_with(HashMap::new);
+    if let Some(entry) = cache.get(&path) {
         if entry.file_len == file_len && entry.modified == modified {
             return Arc::clone(entry);
         }
     }
 
     // Cache miss or stale — read and reparse.
-    let src_string = std::fs::read_to_string(path)
+    let src_string = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("Unable to read schema from {path:?}: {e}"));
 
     // Compute the schema hash from the fresh source before we move it into the cart.
@@ -149,7 +176,7 @@ fn get_schemas() -> Arc<SchemaCacheEntry> {
         modified,
         hash: schema_hash,
     });
-    *cache = Some(Arc::clone(&entry));
+    cache.insert(path, Arc::clone(&entry));
     entry
 }
 

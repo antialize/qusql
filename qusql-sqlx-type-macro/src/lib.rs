@@ -4,12 +4,12 @@
 //!
 #![forbid(unsafe_code)]
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 use ariadne::{Color, Label, Report, ReportKind, Source};
-use once_cell::sync::Lazy;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote, quote_spanned};
@@ -21,29 +21,50 @@ use syn::spanned::Spanned;
 use syn::{parse::Parse, punctuated::Punctuated, Expr, Ident, LitStr, Token};
 use yoke::{Yoke, Yokeable};
 
-/// Path where the sqlx-type-schema.sql file can be found
-static SCHEMA_PATH: Lazy<PathBuf> = Lazy::new(|| {
-    let mut schema_path: PathBuf = std::env::var("CARGO_MANIFEST_DIR")
-        .expect("`CARGO_schema_path` must be set")
+/// Cache of resolved schema paths, keyed by `CARGO_MANIFEST_DIR`.
+///
+/// Path resolution is cheap when the schema sits next to `Cargo.toml`, but
+/// falls back to `cargo metadata` (a subprocess) when it doesn't.  Either
+/// way the result is stable for the lifetime of the proc-macro server process,
+/// so we cache it per manifest-dir.  A plain `Lazy<PathBuf>` would be wrong
+/// here because rust-analyzer reuses the same process for multiple crates and
+/// each crate has a different `CARGO_MANIFEST_DIR`.
+static RESOLVED_SCHEMA_PATHS: Mutex<Option<HashMap<PathBuf, PathBuf>>> = Mutex::new(None);
+
+/// Resolve the path to `sqlx-type-schema.sql` for the crate currently being
+/// compiled.  The result is cached per `CARGO_MANIFEST_DIR` so the
+/// (potentially expensive) `cargo metadata` fallback runs at most once per
+/// crate per proc-macro server process.
+fn resolve_schema_path() -> PathBuf {
+    let manifest_dir: PathBuf = std::env::var("CARGO_MANIFEST_DIR")
+        .expect("`CARGO_MANIFEST_DIR` must be set")
         .into();
 
-    schema_path.push("sqlx-type-schema.sql");
+    let mut cache_guard = RESOLVED_SCHEMA_PATHS
+        .lock()
+        .expect("resolved schema paths lock poisoned");
+    let cache = cache_guard.get_or_insert_with(HashMap::new);
+
+    if let Some(cached) = cache.get(&manifest_dir) {
+        return cached.clone();
+    }
+
+    let mut schema_path = manifest_dir.join("sqlx-type-schema.sql");
 
     if !schema_path.exists() {
         use serde::Deserialize;
         use std::process::Command;
 
         let cargo = std::env::var("CARGO").expect("`CARGO` must be set");
-        schema_path.pop();
 
         let output = Command::new(cargo)
             .args(["metadata", "--format-version=1"])
-            .current_dir(&schema_path)
+            .current_dir(&manifest_dir)
             .env_remove("__CARGO_FIX_PLZ")
             .output()
             .expect("Could not fetch metadata");
 
-        /// Struct used to deserialize the cargo betadata
+        /// Struct used to deserialize the cargo metadata
         #[derive(Deserialize)]
         struct CargoMetadata {
             /// The root of the workspace
@@ -53,14 +74,15 @@ static SCHEMA_PATH: Lazy<PathBuf> = Lazy::new(|| {
         let metadata: CargoMetadata =
             serde_json::from_slice(&output.stdout).expect("Invalid `cargo metadata` output");
 
-        schema_path = metadata.workspace_root;
-        schema_path.push("sqlx-type-schema.sql");
+        schema_path = metadata.workspace_root.join("sqlx-type-schema.sql");
     }
     if !schema_path.exists() {
         panic!("Unable to locate sqlx-type-schema.sql");
     }
+
+    cache.insert(manifest_dir, schema_path.clone());
     schema_path
-});
+}
 
 /// Construct a none color report for an issue
 fn issue_to_report(issue: Issue, b2c: &ByteToChar) -> Report<'static, std::ops::Range<usize>> {
@@ -146,6 +168,8 @@ struct SchemaCacheEntry {
     schemas: Yoke<SchemasYoke<'static>, String>,
     /// SQL dialect detected from the schema file header.
     dialect: SQLDialect,
+    /// Resolved path to the schema file, used in generated include_bytes! calls.
+    path: PathBuf,
     /// File byte-length at the time of parsing, used for cache invalidation.
     file_len: u64,
     /// File modification time at the time of parsing, used for cache invalidation.
@@ -154,29 +178,30 @@ struct SchemaCacheEntry {
     hash: u64,
 }
 
-/// Global cache of the most recently parsed schema, invalidated by file mtime/size.
-static SCHEMA_CACHE: Mutex<Option<Arc<SchemaCacheEntry>>> = Mutex::new(None);
+/// Per-path cache of parsed schemas, invalidated by file mtime/size.
+///
+/// Keyed by resolved schema path so that multiple crates compiled in the same
+/// proc-macro server process (e.g. rust-analyzer) each get their own entry.
+static SCHEMA_CACHE: Mutex<Option<HashMap<PathBuf, Arc<SchemaCacheEntry>>>> = Mutex::new(None);
 
-/// Return the parsed schema, reparsing from disk only when the file's mtime or
-/// size has changed.  A single `stat()` is performed on every macro invocation;
-/// the expensive parse happens only on the first call and after each on-disk
-/// change.  The source string and the `Schemas` that borrows from it are kept
-/// alive together inside a `Yoke` - no memory is leaked.
+/// Return the parsed schema for the crate currently being compiled, reparsing
+/// from disk only when the file's mtime or size has changed.
 fn get_schemas() -> Arc<SchemaCacheEntry> {
-    let path = SCHEMA_PATH.as_path();
-    let meta = std::fs::metadata(path).unwrap_or_else(|e| panic!("Cannot stat {path:?}: {e}"));
+    let path = resolve_schema_path();
+    let meta = std::fs::metadata(&path).unwrap_or_else(|e| panic!("Cannot stat {path:?}: {e}"));
     let file_len = meta.len();
     let modified = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
 
-    let mut cache = SCHEMA_CACHE.lock().expect("schema cache lock poisoned");
-    if let Some(entry) = cache.as_ref() {
+    let mut cache_guard = SCHEMA_CACHE.lock().expect("schema cache lock poisoned");
+    let cache = cache_guard.get_or_insert_with(HashMap::new);
+    if let Some(entry) = cache.get(&path) {
         if entry.file_len == file_len && entry.modified == modified {
             return Arc::clone(entry);
         }
     }
 
     // Cache miss or stale - read and reparse.
-    let src_string = std::fs::read_to_string(path)
+    let src_string = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("Unable to read schema from {path:?}: {e}"));
 
     // Detect dialect from the first two lines before moving src_box into the
@@ -229,11 +254,12 @@ fn get_schemas() -> Arc<SchemaCacheEntry> {
     let entry = Arc::new(SchemaCacheEntry {
         schemas,
         dialect,
+        path: path.clone(),
         file_len,
         modified,
         hash: schema_hash,
     });
-    *cache = Some(Arc::clone(&entry));
+    cache.insert(path, Arc::clone(&entry));
     entry
 }
 
@@ -559,7 +585,7 @@ pub fn query(input: TokenStream) -> TokenStream {
         .list_hack(true);
     let mut issues = qusql_type::Issues::new(&query.query);
     let stmt = type_statement(&schemas.0, &query.query, &mut issues, &options);
-    let sp = SCHEMA_PATH.as_path().to_str().unwrap();
+    let sp = cache.path.to_str().unwrap();
     let mut errors = issues_to_errors(issues.into_vec(), &query.query, query.query_span);
     match &stmt {
         qusql_type::StatementType::Select { columns, arguments } => {
