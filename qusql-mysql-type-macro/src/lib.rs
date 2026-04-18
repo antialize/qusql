@@ -191,6 +191,7 @@ fn issue_to_report(issue: Issue, b2c: &ByteToChar) -> Report<'static, std::ops::
         span.clone(),
     )
     .with_config(ariadne::Config::default().with_color(false))
+    .with_message(&issue.message)
     .with_label(
         Label::new(span)
             .with_order(-1)
@@ -201,6 +202,9 @@ fn issue_to_report(issue: Issue, b2c: &ByteToChar) -> Report<'static, std::ops::
         builder =
             builder.with_label(Label::new(b2c.map_span(frag.span)).with_message(frag.message));
     }
+    if let Some(help) = issue.help {
+        builder = builder.with_help(help);
+    }
     builder.finish()
 }
 
@@ -210,6 +214,10 @@ fn issue_to_report_color(
     b2c: &ByteToChar,
 ) -> Report<'static, std::ops::Range<usize>> {
     let span = b2c.map_span(issue.span);
+    let err_color = match issue.level {
+        qusql_type::Level::Warning => Color::Yellow,
+        qusql_type::Level::Error => Color::Red,
+    };
     let mut builder = Report::build(
         match issue.level {
             qusql_type::Level::Warning => ReportKind::Warning,
@@ -217,12 +225,10 @@ fn issue_to_report_color(
         },
         span.clone(),
     )
+    .with_message(&issue.message)
     .with_label(
         Label::new(span)
-            .with_color(match issue.level {
-                qusql_type::Level::Warning => Color::Yellow,
-                qusql_type::Level::Error => Color::Red,
-            })
+            .with_color(err_color)
             .with_order(-1)
             .with_priority(-1)
             .with_message(issue.message),
@@ -233,6 +239,9 @@ fn issue_to_report_color(
                 .with_color(Color::Blue)
                 .with_message(frag.message),
         );
+    }
+    if let Some(help) = issue.help {
+        builder = builder.with_help(help);
     }
     builder.finish()
 }
@@ -385,7 +394,7 @@ fn handle_argumens(
 fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_macro2::TokenStream> {
     if !issues.is_empty() {
         let b2c = ByteToChar::new(source.as_bytes());
-        let source = NamedSource("", Source::from(source));
+        let source = NamedSource("query", Source::from(source));
         let mut err = false;
         let mut out = Vec::new();
         for issue in issues {
@@ -396,7 +405,14 @@ fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_ma
             r.write(&source, &mut out).unwrap();
         }
         if err {
-            return vec![syn::Error::new(span, String::from_utf8(out).unwrap()).to_compile_error()];
+            let raw = String::from_utf8(out).unwrap();
+            // Strip ariadne's first "Error: <message>" line — rustc provides
+            // its own "error:" heading, so keeping ariadne's makes it double.
+            let body = raw
+                .find('\n')
+                .map(|i| raw[i + 1..].trim_start_matches('\n').trim_end())
+                .unwrap_or(raw.trim_end());
+            return vec![syn::Error::new(span, body).to_compile_error()];
         }
     }
     Vec::new()

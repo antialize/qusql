@@ -20,7 +20,7 @@ use crate::{
     BaseType, SelectTypeColumn, Type,
     type_expression::{ExpressionFlags, type_expression},
     type_select::{SelectType, type_select, type_select_exprs},
-    typer::{ReferenceType, Typer, typer_stack, unqualified_name},
+    typer::{ReferenceType, Typer, did_you_mean, typer_stack, unqualified_name},
 };
 
 /// Does the insert yield an auto increment id
@@ -225,7 +225,17 @@ pub(crate) fn type_insert_replace<'a>(
                 }
             } else {
                 type_expression(typer, value, ExpressionFlags::default(), BaseType::Any);
-                typer.err("Unknown identifier", column);
+                let suggestion = did_you_mean(
+                    column.value,
+                    typer
+                        .reference_types
+                        .iter()
+                        .flat_map(|r| r.columns.iter().map(|(id, _)| id.value)),
+                );
+                let mut issue = typer.err("Unknown identifier", column);
+                if let Some(s) = suggestion {
+                    issue.help(alloc::format!("did you mean `{s}`?"));
+                }
             }
         }
     }
@@ -264,7 +274,17 @@ pub(crate) fn type_insert_replace<'a>(
                 }
             } else {
                 type_expression(typer, value, flags, BaseType::Any);
-                typer.err("Unknown identifier", column);
+                let suggestion = did_you_mean(
+                    column.value,
+                    typer
+                        .reference_types
+                        .iter()
+                        .flat_map(|r| r.columns.iter().map(|(id, _)| id.value)),
+                );
+                let mut issue = typer.err("Unknown identifier", column);
+                if let Some(s) = suggestion {
+                    issue.help(alloc::format!("did you mean `{s}`?"));
+                }
             }
         }
     }
@@ -282,7 +302,17 @@ pub(crate) fn type_insert_replace<'a>(
                         }
                     }
                     if t.is_none() {
-                        typer.err("Unknown identifier", name);
+                        let suggestion = did_you_mean(
+                            name.value,
+                            typer
+                                .reference_types
+                                .iter()
+                                .flat_map(|r| r.columns.iter().map(|(id, _)| id.value)),
+                        );
+                        let mut issue = typer.err("Unknown identifier", name);
+                        if let Some(s) = suggestion {
+                            issue.help(alloc::format!("did you mean `{s}`?"));
+                        }
                     }
                 }
                 //TODO check if there is a unique constraint on column
@@ -358,7 +388,17 @@ pub(crate) fn type_insert_replace<'a>(
                         }
                     } else {
                         type_expression(typer, value, flags, BaseType::Any);
-                        typer.err("Unknown identifier", key);
+                        let suggestion = did_you_mean(
+                            key.value,
+                            typer
+                                .reference_types
+                                .iter()
+                                .flat_map(|r| r.columns.iter().map(|(id, _)| id.value)),
+                        );
+                        let mut issue = typer.err("Unknown identifier", key);
+                        if let Some(s) = suggestion {
+                            issue.help(alloc::format!("did you mean `{s}`?"));
+                        }
                     }
                 }
                 if let Some((_, where_)) = where_ {

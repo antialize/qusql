@@ -24,6 +24,7 @@ fn issue_to_report(issue: &Issue, b2c: &ByteToChar) -> Report<'static, std::ops:
         span.clone(),
     )
     .with_config(ariadne::Config::default().with_color(false))
+    .with_message(&issue.message)
     .with_label(
         Label::new(span)
             .with_order(-1)
@@ -34,6 +35,9 @@ fn issue_to_report(issue: &Issue, b2c: &ByteToChar) -> Report<'static, std::ops:
         builder = builder.with_label(
             Label::new(b2c.map_span(frag.span.clone())).with_message(frag.message.to_string()),
         );
+    }
+    if let Some(help) = &issue.help {
+        builder = builder.with_help(help.as_ref());
     }
     builder.finish()
 }
@@ -456,7 +460,7 @@ fn type_statement(
         qusql_type::StatementType::Invalid => Py::new(py, Invalid {})?.into_py_any(py)?,
     };
 
-    let (err, messages) = issues_to_string("", statement, issues.get());
+    let (err, messages) = issues_to_string("query", statement, issues.get());
     Ok((res, err, messages))
 }
 

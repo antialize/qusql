@@ -273,6 +273,54 @@ impl<'a, 'b> Typer<'a, 'b> {
     }
 }
 
+/// Return the most similar candidate to `needle` from the given iterator,
+/// or `None` if no candidate is within the edit-distance threshold.
+///
+/// The threshold is `max(1, needle.len() / 3)`, which admits one typo in a
+/// short name and proportionally more in longer names.
+pub(crate) fn did_you_mean<'a>(
+    needle: &str,
+    candidates: impl Iterator<Item = &'a str>,
+) -> Option<&'a str> {
+    let threshold = (needle.len() / 3).max(1);
+    let n = needle.len();
+    let needle_bytes = needle.as_bytes();
+    let mut best: Option<(&'a str, usize)> = None;
+
+    for candidate in candidates {
+        let m = candidate.len();
+        // Fast reject: if lengths differ by more than the threshold, skip.
+        if n.abs_diff(m) > threshold {
+            continue;
+        }
+        // Levenshtein distance with a single working row (O(m) space).
+        let mut row: Vec<usize> = (0..=m).collect();
+        for (i, &nc) in needle_bytes.iter().enumerate() {
+            let mut prev = row[0];
+            row[0] = i + 1;
+            let cand_bytes = candidate.as_bytes();
+            for j in 0..m {
+                let temp = row[j + 1];
+                row[j + 1] = if nc == cand_bytes[j] {
+                    prev
+                } else {
+                    1 + prev.min(row[j]).min(temp)
+                };
+                prev = temp;
+            }
+        }
+        let dist = row[m];
+        if dist <= threshold {
+            match best {
+                None => best = Some((candidate, dist)),
+                Some((_, bd)) if dist < bd => best = Some((candidate, dist)),
+                _ => {}
+            }
+        }
+    }
+    best.map(|(s, _)| s)
+}
+
 pub(crate) struct TyperStack<'a, 'b, 'c, V, D: FnOnce(&mut Typer<'a, 'b>, V)> {
     pub(crate) typer: &'c mut Typer<'a, 'b>,
     value_drop: Option<(V, D)>,
