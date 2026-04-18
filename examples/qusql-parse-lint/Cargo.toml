@@ -1,0 +1,15 @@
+[package]
+name = "qusql-parse-lint"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "qusql-parse-lint"
+path = "src/main.rs"
+doc = false
+
+[dependencies]
+ariadne = "0.6"
+clap = { version = "4", features = ["derive"] }
+qusql-parse = { path = "../../qusql-parse" }
