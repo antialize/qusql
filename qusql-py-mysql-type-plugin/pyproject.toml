@@ -3,9 +3,16 @@ requires = ["maturin>=1.0"]
 build-backend = "maturin"
 
 [project]
-name = "mysql-type-plugin"
+name = "qusql-mysql-type-plugin"
+description = "MySQL type plugin using qusql"
+readme = "README.md"
 requires-python = ">=3.10"
+dynamic = ["version"]
+license = { text = "Apache-2.0" }
 classifiers = [
     "Programming Language :: Python",
-    "Programming Language :: Rust"
+    "Programming Language :: Rust",
 ]
+
+[project.urls]
+Repository = "https://github.com/antialize/qusql"

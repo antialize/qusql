@@ -21,7 +21,7 @@ from mypy.types import (
 )
 from mypy.nodes import StrExpr, OpExpr, Expression, Context
 from mypy.errorcodes import ErrorCode
-import qusql_mysql_type_plugin.mysql_type_plugin as rs  # type: ignore
+import qusql_mysql_type_plugin.qusql_mysql_type_plugin as rs  # type: ignore
 
 
 def get_str_value(e: Expression) -> Optional[str]:
@@ -111,7 +111,11 @@ def type_statement(
 
 
 def map_type(
-    v: Any, not_null: bool, api: CheckerPluginInterface, context: Context
+    v: Any,
+    not_null: bool,
+    api: CheckerPluginInterface,
+    context: Context,
+    is_argument: bool = False,
 ) -> Type:
     t: Type = AnyType(TypeOfAny.special_form)
     if isinstance(v, rs.Integer):
@@ -126,9 +130,21 @@ def map_type(
         t = api.named_generic_type("bytes", [])
     elif isinstance(v, rs.Enum):
         t = api.named_generic_type("str", [])  # TODO literal with values
+    elif isinstance(v, rs.DateTime):
+        dt = api.named_generic_type("datetime.datetime", [])
+        if is_argument:
+            t = UnionType((dt, api.named_generic_type("str", [])))
+        else:
+            t = dt
+    elif isinstance(v, rs.Date):
+        d = api.named_generic_type("datetime.date", [])
+        if is_argument:
+            t = UnionType((d, api.named_generic_type("str", [])))
+        else:
+            t = d
     elif isinstance(v, rs.List):
         return api.named_generic_type(
-            "typing.Sequence", [map_type(v.type, not_null, api, context)]
+            "typing.Sequence", [map_type(v.type, not_null, api, context, is_argument)]
         )
     elif isinstance(v, rs.Any):
         t = AnyType(TypeOfAny.special_form)
@@ -149,7 +165,7 @@ def get_argument_types(
                 continue
             while len(ts) <= k:
                 ts.append(AnyType(TypeOfAny.special_form))
-            ts[k] = map_type(v, not_null, api, context)
+            ts[k] = map_type(v, not_null, api, context, is_argument=True)
     return ts
 
 
