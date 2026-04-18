@@ -1,0 +1,18 @@
+[project]
+name = "qusql-py-mysql-type-notes"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "qusql-mysql-type",
+    "mysqlclient",
+]
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "qusql-mysql-type-plugin",
+    "types-mysqlclient",
+]
+
+[tool.mypy]
+plugins = ["qusql_mysql_type_plugin"]
