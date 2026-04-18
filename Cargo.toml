@@ -12,6 +12,7 @@ members = [
     "examples/qusql-parse-lint",
     "examples/qusql-mysql-type-books",
     "examples/qusql-mysql-type-notes",
+    "examples/qusql-type-check",
     "qusql-mysql-test",
     "qusql-mysql-type-macro",
     "qusql-mysql-type",
