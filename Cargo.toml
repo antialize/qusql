@@ -8,6 +8,7 @@ resolver = "3"
 members = [
     "benchmark",
     "examples/qusql-sqlx-type-books",
+    "examples/qusql-sqlx-type-mariadb-notes",
     "examples/qusql-sqlx-type-notes",
     "examples/qusql-parse-lint",
     "examples/qusql-mysql-type-books",
