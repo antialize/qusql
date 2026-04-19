@@ -30,7 +30,7 @@ jobs:
     - name: Run tests
       run: cargo test --all-features --all --verbose
     - name: Build Rust MySQL examples
-      run: cargo build -p qusql-mysql-type-notes -p qusql-mysql-type-books
+      run: cargo build -p qusql-mysql-type-notes -p qusql-mysql-type-books -p qusql-sqlx-type-mariadb-notes
     - name: Run qusql-mysql-type-notes example
       env:
         DATABASE_URL: mysql://root:test@127.0.0.1:1235/test
