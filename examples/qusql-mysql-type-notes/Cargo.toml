@@ -1,0 +1,17 @@
+[package]
+name = "qusql-mysql-type-notes"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "notes"
+path = "src/main.rs"
+doc = false
+
+[dependencies]
+qusql-mysql = { path = "../../qusql-mysql" }
+qusql-mysql-type = { path = "../../qusql-mysql-type", features = ["chrono"] }
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive"] }
+chrono = "0.4"

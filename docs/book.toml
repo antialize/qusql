@@ -1,0 +1,10 @@
+[book]
+title = "Qusql"
+authors = ["Jakob Truelsen"]
+description = "Fast, type-safe SQL for Rust and Python: MariaDB/MySQL and PostgreSQL"
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/antialize/qusql"
+edit-url-template = "https://github.com/antialize/qusql/edit/main/docs/src/{path}"
