@@ -100,6 +100,7 @@ pub use bind::{List, list};
 pub use connection::{
     ColumnDefinition, Connection, ConnectionError, ConnectionErrorContent, ConnectionOptions,
     ExecuteResult, Executor, ExecutorExt, Query, QueryIterator, RowMap, Transaction,
+    execute_script, split_script,
 };
 pub use pool::{Pool, PoolConnection, PoolOptions};
 pub use row::Row;

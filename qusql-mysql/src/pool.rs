@@ -31,6 +31,7 @@
 //! }
 //! ```
 use std::{
+    borrow::Cow,
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
@@ -39,7 +40,11 @@ use std::{
 
 use crate::{
     Executor,
-    connection::{Connection, ConnectionOptions, ConnectionResult},
+    args::Args,
+    connection::{
+        Connection, ConnectionOptions, ConnectionResult, ExecuteResult, Query, QueryOptions,
+        Transaction,
+    },
     handle_drop::HandleDrop,
 };
 
@@ -275,6 +280,40 @@ impl Deref for PoolConnection {
 impl DerefMut for PoolConnection {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.connection
+    }
+}
+
+impl Executor for PoolConnection {
+    fn query_raw(
+        &mut self,
+        stmt: Cow<'static, str>,
+        options: QueryOptions,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send {
+        (**self).query_raw(stmt, options)
+    }
+
+    fn query_with_args_raw(
+        &mut self,
+        stmt: Cow<'static, str>,
+        options: QueryOptions,
+        args: impl Args + Send,
+    ) -> impl Future<Output = ConnectionResult<Query<'_>>> + Send {
+        (**self).query_with_args_raw(stmt, options, args)
+    }
+
+    fn execute_unprepared(
+        &mut self,
+        stmt: &str,
+    ) -> impl Future<Output = ConnectionResult<ExecuteResult>> + Send {
+        (**self).execute_unprepared(stmt)
+    }
+
+    fn begin(&mut self) -> impl Future<Output = ConnectionResult<Transaction<'_>>> + Send {
+        (**self).begin()
+    }
+
+    fn ping(&mut self) -> impl Future<Output = ConnectionResult<()>> + Send {
+        (**self).ping()
     }
 }
 
