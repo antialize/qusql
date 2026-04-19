@@ -446,8 +446,8 @@ impl<'a, 'b> Parser<'a, 'b> {
     pub(crate) fn consume_keyword(&mut self, keyword: Keyword) -> Result<Span, ParseError> {
         match &self.token {
             Token::Ident(v, kw) if kw == &keyword => {
-                if !v.chars().all(|c| c.is_ascii_uppercase())
-                    && self.options.warn_none_capital_keywords
+                if self.options.warn_none_capital_keywords
+                    && v.chars().any(|c| c.is_ascii_lowercase())
                 {
                     self.warn(
                         format!(
