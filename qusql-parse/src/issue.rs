@@ -46,6 +46,8 @@ pub struct Issue<'a> {
     pub sql_segment: &'a str,
     /// List of secondary messages , spans and sql segments
     pub fragments: Vec<Fragment<'a>>,
+    /// Optional help/suggestion line shown below the diagnostic
+    pub help: Option<Cow<'static, str>>,
 }
 pub struct IssueHandle<'a, 'b> {
     src: &'a str,
@@ -64,6 +66,11 @@ impl<'a, 'b> IssueHandle<'a, 'b> {
             span: span.clone(),
             sql_segment: &self.src[span.start..span.end],
         });
+        self
+    }
+
+    pub fn help(&mut self, message: impl Into<Cow<'static, str>>) -> &mut Self {
+        self.issue.help = Some(message.into());
         self
     }
 }
@@ -87,6 +94,7 @@ impl<'a> Issues<'a> {
             span: span.clone(),
             sql_segment: self.segment(span),
             fragments: Default::default(),
+            help: None,
         });
         IssueHandle {
             src: self.src,
@@ -106,6 +114,7 @@ impl<'a> Issues<'a> {
             span: span.clone(),
             sql_segment: self.segment(span),
             fragments: Default::default(),
+            help: None,
         });
         IssueHandle {
             src: self.src,

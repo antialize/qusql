@@ -20,7 +20,7 @@ use crate::{
     type_binary_expression::type_binary_expression,
     type_function::{type_aggregate_function, type_function},
     type_select::type_union_select,
-    typer::{Restrict, Typer},
+    typer::{Restrict, Typer, did_you_mean},
 };
 
 #[derive(Clone, Copy, Default)]
@@ -193,7 +193,7 @@ pub(crate) fn type_expression<'a>(
         }
         Expression::Identifier(e) => {
             let mut t: Option<FullType> = None;
-            match e.parts.as_slice() {
+            let searched_name = match e.parts.as_slice() {
                 [part] => {
                     let col = match part {
                         qusql_parse::IdentifierPart::Name(n) => n,
@@ -234,6 +234,7 @@ pub(crate) fn type_expression<'a>(
                             }
                         }
                     }
+                    col.value
                 }
                 [p1, p2] => {
                     let tbl = match p1 {
@@ -273,15 +274,29 @@ pub(crate) fn type_expression<'a>(
                             }
                         }
                     }
+                    col.value
                 }
                 _ => {
                     typer.err("Bad identifier length", expression);
                     return FullType::invalid();
                 }
-            }
+            };
             match t {
                 None => {
-                    typer.err("Unknown identifier", expression);
+                    let mut issue = typer.issues.err("Unknown identifier", expression);
+                    let candidates = typer
+                        .reference_types
+                        .iter()
+                        .flat_map(|r| r.columns.iter().map(|(id, _)| id.value))
+                        .chain(
+                            typer
+                                .outer_reference_types
+                                .iter()
+                                .flat_map(|r| r.columns.iter().map(|(id, _)| id.value)),
+                        );
+                    if let Some(s) = did_you_mean(searched_name, candidates) {
+                        issue.help(alloc::format!("did you mean `{s}`?"));
+                    }
                     FullType::invalid()
                 }
                 Some(type_) => type_,

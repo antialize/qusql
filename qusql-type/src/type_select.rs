@@ -21,7 +21,7 @@ use crate::{
     type_::{BaseType, FullType},
     type_expression::{ExpressionFlags, type_expression},
     type_reference::type_reference,
-    typer::{ReferenceType, Typer, typer_stack},
+    typer::{ReferenceType, Typer, did_you_mean, typer_stack},
 };
 
 /// A column in select
@@ -99,7 +99,17 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                     as_.is_some(),
                 );
             } else {
-                typer.err("Unknown identifier", col);
+                let suggestion = did_you_mean(
+                    col.value,
+                    typer
+                        .reference_types
+                        .iter()
+                        .flat_map(|r| r.columns.iter().map(|(id, _)| id.value)),
+                );
+                let mut issue = typer.err("Unknown identifier", col);
+                if let Some(s) = suggestion {
+                    issue.help(alloc::format!("did you mean `{s}`?"));
+                }
                 cb(
                     typer.issues,
                     Some(name.clone()),
@@ -149,7 +159,18 @@ pub(crate) fn resolve_kleene_identifier<'a, 'b>(
                     as_.is_some(),
                 );
             } else {
-                typer.err("Unknown identifier", col);
+                let suggestion = did_you_mean(
+                    col.value,
+                    typer
+                        .reference_types
+                        .iter()
+                        .filter(|r| r.name.as_deref() == Some(tbl.as_ref()))
+                        .flat_map(|r| r.columns.iter().map(|(id, _)| id.value)),
+                );
+                let mut issue = typer.err("Unknown identifier", col);
+                if let Some(s) = suggestion {
+                    issue.help(alloc::format!("did you mean `{s}`?"));
+                }
                 cb(
                     typer.issues,
                     Some(name.clone()),

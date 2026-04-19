@@ -18,7 +18,7 @@ use crate::{
     type_expression::{ExpressionFlags, type_expression},
     type_reference::type_reference,
     type_select::{SelectType, type_select_exprs},
-    typer::{Typer, typer_stack},
+    typer::{Typer, did_you_mean, typer_stack},
 };
 
 pub(crate) fn type_update<'a>(
@@ -93,9 +93,14 @@ pub(crate) fn type_update<'a>(
                     }
                 } else {
                     type_expression(typer, value, flags, BaseType::Any);
-                    typer
-                        .issues
-                        .err("Unknown identifier", &key.opt_span().unwrap());
+                    let span = key.opt_span().unwrap();
+                    let mut issue = typer.issues.err("Unknown identifier", &span);
+                    let candidates = typer.reference_types[..update_target_end]
+                        .iter()
+                        .flat_map(|r| r.columns.iter().map(|(id, _)| id.value));
+                    if let Some(s) = did_you_mean(key.value, candidates) {
+                        issue.help(alloc::format!("did you mean `{s}`?"));
+                    }
                 }
             }
             [table, column] => {
@@ -124,9 +129,16 @@ pub(crate) fn type_update<'a>(
                     }
                 } else {
                     type_expression(typer, value, flags, BaseType::Any);
-                    typer
-                        .issues
-                        .err("Unknown identifier", &key.opt_span().unwrap());
+                    let span = key.opt_span().unwrap();
+                    let mut issue = typer.issues.err("Unknown identifier", &span);
+                    let candidates = typer
+                        .reference_types
+                        .iter()
+                        .filter(|r| r.name == Some(table.clone()))
+                        .flat_map(|r| r.columns.iter().map(|(id, _)| id.value));
+                    if let Some(s) = did_you_mean(column.value, candidates) {
+                        issue.help(alloc::format!("did you mean `{s}`?"));
+                    }
                 }
             }
             _ => {
