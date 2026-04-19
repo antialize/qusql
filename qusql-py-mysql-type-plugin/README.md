@@ -11,6 +11,13 @@ plugins = qusql_mysql_type_plugin
 
 See the [qusql-mysql-type documentation](https://pypi.org/project/qusql-mysql-type/) for how to write typed queries.
 
+See also the examples:
+
+- [`examples/qusql-py-mysql-type-notes`](../examples/qusql-py-mysql-type-notes) -
+  simple introductory CLI with uv setup
+- [`examples/qusql-py-mysql-type-books`](../examples/qusql-py-mysql-type-books) -
+  library catalog with JOINs, enums, dates, and an idempotent migration pattern
+
 
 ## Development
 

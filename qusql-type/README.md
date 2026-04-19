@@ -3,18 +3,17 @@
 [![crates.io](https://docs.rs/qusql-type/badge.svg)](https://docs.rs/qusql-type)
 [![License](https://img.shields.io/crates/l/qusql-type.svg)](https://github.com/antialize/qusql)
 
-Type sql statements
+Type SQL statements
 
-This crate provides a facility to process a sql schema definition, and
-then use this definition to type the argument and return value
-of sql statements.
-
-Currently primarily focused on MariaDB/Mysql.
+This crate provides a facility to process a SQL schema definition, and
+then use that definition to type the argument and return value
+of SQL statements.  Both MariaDB/MySQL and PostgreSQL are well supported.
 
 Example code:
 ```rust
 use qusql_type::{schema::parse_schemas, type_statement, TypeOptions,
     SQLDialect, SQLArguments, StatementType, Issues};
+
 let schemas = "
     CREATE TABLE `events` (
       `id` bigint(20) NOT NULL,
@@ -23,8 +22,6 @@ let schemas = "
     );";
 
 let mut issues = Issues::new(schemas);
-
-// Compute terse representation of the schemas
 let schemas = parse_schemas(schemas,
     &mut issues,
     &TypeOptions::new().dialect(SQLDialect::MariaDB));
@@ -36,7 +33,7 @@ let stmt = type_statement(&schemas, sql, &mut issues,
     &TypeOptions::new().dialect(SQLDialect::MariaDB).arguments(SQLArguments::QuestionMark));
 assert!(issues.is_ok());
 
-let stmt = match stmt {
+match stmt {
     StatementType::Select{columns, arguments} => {
         assert_eq!(columns.len(), 3);
         assert_eq!(arguments.len(), 1);
@@ -44,3 +41,7 @@ let stmt = match stmt {
     _ => panic!("Expected select statement")
 };
 ```
+
+See also: [`examples/qusql-type-check`](../examples/qusql-type-check) - a
+command-line tool that prints the inferred types for a set of queries against a
+given schema.

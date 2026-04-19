@@ -1,12 +1,13 @@
-# sqlx-type
+# qusql-sqlx-type
 [![crates.io](https://img.shields.io/crates/v/qusql-sqlx-type.svg)](https://crates.io/crates/qusql-sqlx-type)
 [![crates.io](https://docs.rs/qusql-sqlx-type/badge.svg)](https://docs.rs/qusql-sqlx-type)
 [![License](https://img.shields.io/crates/l/qusql-sqlx-type.svg)](https://github.com/antialize/qusql)
 
-Proc macros to perform type sql queries similarly to sqlx::query, but without the need
-to run `cargo sqlx prepare`
+Proc macros to perform typed SQL queries on top of [sqlx](https://github.com/launchbadge/sqlx)
+for PostgreSQL, MySQL/MariaDB, and (to a lesser extent) SQLite, without the need to run
+`cargo sqlx prepare` or have a running database during `cargo check`.
 
-A schema definition must be placed in "sqlx-type-schema.sql" in the root of a using crate:
+A schema definition must be placed in `sqlx-type-schema.sql` in the root of a using crate:
 
 ```sql
 DROP TABLE IF EXISTS `t1`;
@@ -30,9 +31,9 @@ CREATE TABLE `t1` (
 ALTER TABLE `t1`
     MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ```
-See [sql_type::schema] for a detailed description.
 
-[sql_type::schema]: https://docs.rs/sql-type/latest/sql_type/schema/index.html
+See [qusql_type::schema](https://docs.rs/qusql-type/latest/qusql_type/schema/index.html)
+for a detailed description of supported schema syntax.
 
 This schema can then be used to type queries:
 
@@ -55,3 +56,11 @@ async fn test() -> Result<(), sqlx::Error> {
     Ok(())
 }
 ```
+
+See also the examples:
+
+- [`examples/qusql-sqlx-type-notes`](../examples/qusql-sqlx-type-notes) -
+  simple introductory CLI (single-table schema)
+- [`examples/qusql-sqlx-type-books`](../examples/qusql-sqlx-type-books) -
+  library catalog with JOINs, enums, UUIDs, dates, and an idempotent migration
+  pattern
