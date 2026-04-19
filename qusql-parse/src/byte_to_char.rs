@@ -7,6 +7,15 @@ use alloc::vec::Vec;
 /// Memory usage is optimized by storing cumulative character counts at 128 byte intervals,
 /// which allows for efficient mapping of byte positions to character positions without
 /// needing to store a mapping for every single byte.
+///
+/// ```
+/// # let sql = "SELECT 1";
+/// # let byte_span = 0..1usize;
+/// use qusql_parse::ByteToChar;
+///
+/// let b2c = ByteToChar::new(sql.as_bytes());
+/// let char_span = b2c.map_span(byte_span.start..byte_span.end);
+/// ```
 pub struct ByteToChar<'a> {
     bytes: &'a [u8],
     cnt: Vec<u32>, // Cumulative count of characters up for each 128 byte block

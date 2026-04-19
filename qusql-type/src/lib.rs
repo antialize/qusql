@@ -17,6 +17,7 @@
 //! ```
 //! use qusql_type::{schema::parse_schemas, type_statement, TypeOptions,
 //!     SQLDialect, SQLArguments, StatementType, Issues};
+//!
 //! let schemas = "
 //!     CREATE TABLE `events` (
 //!       `id` bigint(20) NOT NULL,
@@ -25,8 +26,6 @@
 //!     );";
 //!
 //! let mut issues = Issues::new(schemas);
-//!
-//! // Compute terse representation of the schemas
 //! let schemas = parse_schemas(schemas,
 //!     &mut issues,
 //!     &TypeOptions::new().dialect(SQLDialect::MariaDB));
@@ -38,13 +37,54 @@
 //!     &TypeOptions::new().dialect(SQLDialect::MariaDB).arguments(SQLArguments::QuestionMark));
 //! assert!(issues.is_ok());
 //!
-//! let stmt = match stmt {
+//! match stmt {
 //!     StatementType::Select{columns, arguments} => {
 //!         assert_eq!(columns.len(), 3);
 //!         assert_eq!(arguments.len(), 1);
 //!     }
 //!     _ => panic!("Expected select statement")
 //! };
+//! ```
+//!
+//! ```
+//! use qusql_type::{
+//!     schema::parse_schemas, type_statement, TypeOptions,
+//!     SQLDialect, SQLArguments, StatementType, Issues,
+//! };
+//!
+//! let schema_sql = "
+//!     CREATE TABLE notes (
+//!         id    integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+//!         title text    NOT NULL,
+//!         body  text
+//!     );";
+//!
+//! let opts = TypeOptions::new().dialect(SQLDialect::PostgreSQL);
+//!
+//! let mut issues = Issues::new(schema_sql);
+//! let schemas = parse_schemas(schema_sql, &mut issues, &opts);
+//! assert!(issues.is_ok());
+//!
+//! let query = "SELECT id, title, body FROM notes WHERE id = $1";
+//! let mut issues = Issues::new(query);
+//! let stmt = type_statement(
+//!     &schemas, query, &mut issues,
+//!     &TypeOptions::new()
+//!         .dialect(SQLDialect::PostgreSQL)
+//!         .arguments(SQLArguments::Dollar),
+//! );
+//! assert!(issues.is_ok());
+//!
+//! match stmt {
+//!     StatementType::Select { columns, arguments } => {
+//!         // columns[0] -> id   : i32,  not-null
+//!         // columns[1] -> title: String, not-null
+//!         // columns[2] -> body : Option<String>
+//!         // arguments[0] -> i32 (the type of `id`)
+//!         println!("{} columns, {} arguments", columns.len(), arguments.len());
+//!     }
+//!     _ => panic!("expected SELECT"),
+//! }
 //! ```
 
 extern crate alloc;
