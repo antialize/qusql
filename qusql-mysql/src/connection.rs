@@ -2433,6 +2433,176 @@ where
     q.fetch_map::<M>().await
 }
 
+/// Split a SQL script into individual statements, honouring `DELIMITER` directives.
+///
+/// `DELIMITER` is a MySQL-client directive (not forwarded to the server) that
+/// changes the statement terminator so that stored-procedure bodies can contain
+/// bare semicolons without being split.  This function emulates that behaviour
+/// so that schema scripts are split correctly for [`execute_script`].
+///
+/// Returns slices of the original string; no allocation is performed for the
+/// statement text.  The delimiter itself is also borrowed from the input once
+/// a `DELIMITER` directive is encountered.
+///
+/// String literals (`'...'`, `"..."`), backtick-quoted identifiers, `--` line
+/// comments, and `/* ... */` block comments are all skipped correctly so that
+/// delimiter characters appearing inside them do not trigger a statement split.
+/// MySQL-style backslash escapes (`\'`, `\"`) and the standard doubled-quote
+/// escape (`''`, `""`, ` `` `) are both recognised inside quoted tokens.
+pub fn split_script(sql: &str) -> Vec<&str> {
+    let bytes = sql.as_bytes();
+    let len = bytes.len();
+    let mut statements: Vec<&str> = Vec::new();
+    // The delimiter is always ASCII, so borrowing it as &str into `sql` (or
+    // the static ";") is safe at byte-level boundaries.
+    let mut delimiter: &str = ";";
+    let mut stmt_start = 0usize;
+    let mut i = 0usize;
+    // True when the next character is the first on a new line (or the very
+    // start of the input).  Used to detect `DELIMITER` directives.
+    let mut at_line_start = true;
+    // True while we are inside a `/* ... */` block comment.
+    let mut in_block_comment = false;
+
+    while i < len {
+        let b = bytes[i];
+
+        // -- Inside a block comment: scan for closing */ -------------------
+        if in_block_comment {
+            if b == b'*' && i + 1 < len && bytes[i + 1] == b'/' {
+                in_block_comment = false;
+                i += 2;
+                at_line_start = false;
+            } else {
+                at_line_start = b == b'\n';
+                i += 1;
+            }
+            continue;
+        }
+
+        // -- DELIMITER directive (only at top level, at start of line) -----
+        if at_line_start {
+            // Skip leading horizontal whitespace.
+            let mut j = i;
+            while j < len && (bytes[j] == b' ' || bytes[j] == b'\t') {
+                j += 1;
+            }
+            const KW: &[u8] = b"DELIMITER";
+            if j + KW.len() < len
+                && bytes[j..j + KW.len()].eq_ignore_ascii_case(KW)
+                && (bytes[j + KW.len()] == b' ' || bytes[j + KW.len()] == b'\t')
+            {
+                // Find end of line (or end of string).
+                let eol = sql[j..].find('\n').map(|p| j + p).unwrap_or(len);
+                let new_delim = sql[j + KW.len()..eol].trim();
+                if !new_delim.is_empty() {
+                    // Flush any accumulated statement before this directive.
+                    let stmt = sql[stmt_start..i].trim();
+                    if !stmt.is_empty() {
+                        statements.push(stmt);
+                    }
+                    delimiter = new_delim;
+                    i = if eol < len { eol + 1 } else { len };
+                    stmt_start = i;
+                    at_line_start = true;
+                    continue;
+                }
+            }
+        }
+
+        // -- Single-line comment: -- until end of line ---------------------
+        if b == b'-' && i + 1 < len && bytes[i + 1] == b'-' {
+            i += 2;
+            while i < len && bytes[i] != b'\n' {
+                i += 1;
+            }
+            // Leave the '\n' to be processed by the newline handler below.
+            continue;
+        }
+
+        // -- Block comment start: /* ----------------------------------------
+        if b == b'/' && i + 1 < len && bytes[i + 1] == b'*' {
+            in_block_comment = true;
+            i += 2;
+            at_line_start = false;
+            continue;
+        }
+
+        // -- Quoted strings and backtick identifiers -----------------------
+        if b == b'\'' || b == b'"' || b == b'`' {
+            let quote = b;
+            i += 1;
+            while i < len {
+                let c = bytes[i];
+                if c == b'\\' && (quote == b'\'' || quote == b'"') {
+                    // MySQL backslash escape: skip the escaped character.
+                    i += 2;
+                } else if c == quote {
+                    i += 1;
+                    // Doubled quote is an escape (e.g. '', "", ``).
+                    if i < len && bytes[i] == quote {
+                        i += 1;
+                    } else {
+                        break;
+                    }
+                } else {
+                    i += 1;
+                }
+            }
+            at_line_start = false;
+            continue;
+        }
+
+        // -- Newline -------------------------------------------------------
+        if b == b'\n' {
+            at_line_start = true;
+            i += 1;
+            continue;
+        }
+
+        // -- Delimiter match -----------------------------------------------
+        // Naive O(n*k) search; k is tiny in practice.
+        let d = delimiter.as_bytes();
+        if i + d.len() <= len && bytes[i..i + d.len()] == *d {
+            let stmt = sql[stmt_start..i].trim();
+            if !stmt.is_empty() {
+                statements.push(stmt);
+            }
+            i += d.len();
+            stmt_start = i;
+            at_line_start = false;
+            continue;
+        }
+
+        // -- Any other character -------------------------------------------
+        at_line_start = false;
+        i += 1;
+    }
+
+    // Flush any trailing content.
+    let tail = sql[stmt_start..].trim();
+    if !tail.is_empty() {
+        statements.push(tail);
+    }
+
+    statements
+}
+
+/// Execute a SQL script, splitting it into individual statements and running
+/// each one via the text protocol ([`Executor::execute_unprepared`]).
+///
+/// Understands the `DELIMITER` client directive, making it suitable for schema
+/// files that define stored procedures, functions, or triggers.
+pub async fn execute_script<E: Executor + Send>(
+    executor: &mut E,
+    sql: &str,
+) -> ConnectionResult<()> {
+    for stmt in split_script(sql) {
+        executor.execute_unprepared(stmt).await?;
+    }
+    Ok(())
+}
+
 impl<E: Executor + Sized + Send> ExecutorExt for E {
     #[inline]
     fn query(
@@ -2818,5 +2988,185 @@ impl Executor for Connection {
     #[inline]
     fn ping(&mut self) -> impl Future<Output = ConnectionResult<()>> + Send {
         self.ping_impl()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_script;
+
+    #[test]
+    fn empty_input() {
+        assert_eq!(split_script(""), Vec::<&str>::new());
+        assert_eq!(split_script("   \n  \n  "), Vec::<&str>::new());
+    }
+
+    #[test]
+    fn single_statement_no_trailing_semicolon() {
+        assert_eq!(split_script("SELECT 1"), vec!["SELECT 1"]);
+    }
+
+    #[test]
+    fn single_statement_with_trailing_semicolon() {
+        assert_eq!(split_script("SELECT 1;"), vec!["SELECT 1"]);
+    }
+
+    #[test]
+    fn multiple_simple_statements() {
+        let sql = "SELECT 1;\nSELECT 2;\nSELECT 3;";
+        assert_eq!(split_script(sql), vec!["SELECT 1", "SELECT 2", "SELECT 3"]);
+    }
+
+    #[test]
+    fn whitespace_only_between_statements_is_ignored() {
+        let sql = "SELECT 1;\n\n   \nSELECT 2;";
+        assert_eq!(split_script(sql), vec!["SELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn delimiter_change_and_restore() {
+        let sql = "\
+DELIMITER $$
+CREATE PROCEDURE foo()
+BEGIN
+  SELECT 1;
+  SELECT 2;
+END$$
+DELIMITER ;
+SELECT 3;";
+        let stmts = split_script(sql);
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].contains("CREATE PROCEDURE"));
+        assert!(stmts[0].contains("BEGIN"));
+        assert!(stmts[0].contains("END"));
+        assert_eq!(stmts[1], "SELECT 3");
+    }
+
+    #[test]
+    fn delimiter_directive_is_case_insensitive() {
+        let sql = "delimiter $$\nSELECT 1$$\ndelimiter ;\nSELECT 2;";
+        let stmts = split_script(sql);
+        assert_eq!(stmts, vec!["SELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn statement_before_first_delimiter_directive_is_flushed() {
+        let sql = "SELECT 1;\nDELIMITER $$\nSELECT 2$$";
+        let stmts = split_script(sql);
+        assert_eq!(stmts, vec!["SELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn trailing_statement_without_delimiter_is_included() {
+        let sql = "SELECT 1;\nSELECT 2";
+        assert_eq!(split_script(sql), vec!["SELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn multi_char_delimiter() {
+        let sql = "DELIMITER //\nSELECT 1//\nSELECT 2//";
+        assert_eq!(split_script(sql), vec!["SELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn returns_slices_of_original_string() {
+        let sql = "SELECT 1;\nSELECT 2;";
+        let stmts = split_script(sql);
+        // Each returned &str must be a slice within the original string's memory.
+        for s in &stmts {
+            let s_ptr = s.as_ptr() as usize;
+            let sql_start = sql.as_ptr() as usize;
+            let sql_end = sql_start + sql.len();
+            assert!(
+                s_ptr >= sql_start && s_ptr + s.len() <= sql_end,
+                "slice is not within original input"
+            );
+        }
+    }
+
+    // -- String literals and comments must not trigger splits --------------
+
+    #[test]
+    fn semicolon_inside_single_quoted_string_is_not_a_split() {
+        let sql = "INSERT INTO t (s) VALUES ('a;b');\nSELECT 2;";
+        let stmts = split_script(sql);
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].contains("'a;b'"));
+        assert_eq!(stmts[1], "SELECT 2");
+    }
+
+    #[test]
+    fn semicolon_inside_double_quoted_string_is_not_a_split() {
+        let sql = r#"SELECT "a;b";\nSELECT 2;"#;
+        let stmts = split_script(sql);
+        // The outer \n is a literal backslash-n in a raw string, so this is
+        // one logical line; what matters is that "a;b" is treated as one token.
+        assert!(!stmts.is_empty());
+        assert!(stmts[0].contains(r#""a;b""#));
+    }
+
+    #[test]
+    fn semicolon_inside_backtick_identifier_is_not_a_split() {
+        // Unusual but valid: a backtick-quoted column name containing `;`.
+        let sql = "SELECT `a;b` FROM t;\nSELECT 2;";
+        let stmts = split_script(sql);
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].contains("`a;b`"));
+        assert_eq!(stmts[1], "SELECT 2");
+    }
+
+    #[test]
+    fn doubled_quote_escape_in_string() {
+        // '' is the standard SQL escape for a literal single-quote inside a string.
+        let sql = "INSERT INTO t (s) VALUES ('it''s here');\nSELECT 2;";
+        let stmts = split_script(sql);
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].contains("'it''s here'"));
+        assert_eq!(stmts[1], "SELECT 2");
+    }
+
+    #[test]
+    fn backslash_escape_in_string() {
+        // MySQL also supports \' as an escape.
+        let sql = r"INSERT INTO t (s) VALUES ('it\'s here');SELECT 2;";
+        let stmts = split_script(sql);
+        assert_eq!(stmts.len(), 2);
+        assert_eq!(stmts[1], "SELECT 2");
+    }
+
+    #[test]
+    fn semicolon_inside_line_comment_is_not_a_split() {
+        let sql = "SELECT 1 -- ignore this; not a split\n;\nSELECT 2;";
+        let stmts = split_script(sql);
+        assert_eq!(
+            stmts,
+            vec!["SELECT 1 -- ignore this; not a split", "SELECT 2"]
+        );
+    }
+
+    #[test]
+    fn semicolon_inside_block_comment_is_not_a_split() {
+        let sql = "SELECT 1 /* ignore; this */ ;\nSELECT 2;";
+        let stmts = split_script(sql);
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].contains("SELECT 1"));
+        assert_eq!(stmts[1], "SELECT 2");
+    }
+
+    #[test]
+    fn delimiter_directive_inside_block_comment_is_ignored() {
+        // A DELIMITER keyword inside /* ... */ must not change the delimiter.
+        let sql = "/* DELIMITER $$ */\nSELECT 1;\nSELECT 2;";
+        let stmts = split_script(sql);
+        assert_eq!(stmts, vec!["/* DELIMITER $$ */\nSELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn multiline_block_comment_spanning_statements() {
+        let sql = "SELECT 1;\n/* this comment\n   spans two lines */\nSELECT 2;";
+        let stmts = split_script(sql);
+        assert_eq!(stmts.len(), 2);
+        assert_eq!(stmts[0], "SELECT 1");
+        assert!(stmts[1].contains("SELECT 2"));
     }
 }

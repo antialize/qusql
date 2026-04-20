@@ -1,0 +1,13 @@
+[package]
+name = "qusql-type-check"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "qusql-type-check"
+path = "src/main.rs"
+doc = false
+
+[dependencies]
+qusql-type = { path = "../../qusql-type" }

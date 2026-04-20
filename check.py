@@ -1,7 +1,12 @@
 #!/usr/bin/python3
 
 """
-Checks that all rust examples in markdown files are also present in rust files. This makes sure that they compile.
+Checks that all rust examples in markdown files are also present in rust files.
+This makes sure that they compile.
+
+Each example must appear either as:
+  1. Consecutive doc-comment lines (//! or ///) in a .rs file, or
+  2. Consecutive source lines in a .rs file (leading/trailing whitespace stripped).
 """
 
 import os.path
@@ -13,6 +18,7 @@ rust_files: list[str] = []
 md_files: list[str] = []
 
 for root, dirs, files in os.walk("."):
+    dirs[:] = [d for d in dirs if d != "target"]
     for file in files:
         if file.endswith(".rs"):
             rust_files.append(os.path.join(root, file))
@@ -69,6 +75,41 @@ def visit_rust(p: str) -> None:
 with ThreadPoolExecutor() as e:
     for p in rust_files:
         e.submit(visit_rust, p)
+
+# -- Pass 2: plain source-line match ------------------------------------------
+# Build an index: stripped_line -> [(file, line_number)].
+# Then for each still-unfound example, check whether all of its lines appear
+# consecutively (after stripping leading/trailing whitespace) in a single file.
+
+file_lines: dict[str, list[str]] = {}
+source_line_index: dict[str, list[tuple[str, int]]] = {}
+
+for p in rust_files:
+    with open(p) as f:
+        lines = [ln.rstrip("\n").strip() for ln in f]
+    file_lines[p] = lines
+    for i, stripped in enumerate(lines):
+        source_line_index.setdefault(stripped, []).append((p, i))
+
+
+def example_in_source(example: str) -> bool:
+    ex_lines = [ln.strip() for ln in example.split("\n")]
+    if not ex_lines:
+        return False
+    first = ex_lines[0]
+    for file, start in source_line_index.get(first, []):
+        flines = file_lines[file]
+        n = len(ex_lines)
+        if start + n > len(flines):
+            continue
+        if all(flines[start + j] == ex_lines[j] for j in range(1, n)):
+            return True
+    return False
+
+
+for i, (_file, _off, example) in enumerate(rust_examples):
+    if not found[i]:
+        found[i] = example_in_source(example)
 
 bad = 0
 

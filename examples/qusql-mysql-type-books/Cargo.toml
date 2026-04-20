@@ -1,0 +1,16 @@
+[package]
+name = "qusql-mysql-type-books"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "books"
+path = "src/main.rs"
+doc = false
+
+[dependencies]
+qusql-mysql = { path = "../../qusql-mysql" }
+qusql-mysql-type = { path = "../../qusql-mysql-type", features = ["chrono"] }
+tokio = { version = "1", features = ["full"] }
+chrono = "0.4"

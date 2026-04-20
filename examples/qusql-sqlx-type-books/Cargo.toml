@@ -1,0 +1,22 @@
+[package]
+name = "qusql-sqlx-type-books"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "qusql_sqlx_type_books"
+path = "src/main.rs"
+doc = false
+
+[dependencies]
+qusql-sqlx-type = { path = "../../qusql-sqlx-type", features = ["uuid"] }
+sqlx = { version = "0.8", default-features = false, features = [
+    "postgres",
+    "runtime-tokio-native-tls",
+    "chrono",
+    "uuid",
+] }
+tokio = { version = "1", features = ["full"] }
+chrono = "0.4"
+uuid = "1"

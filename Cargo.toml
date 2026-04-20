@@ -7,6 +7,13 @@ edition = "2024"
 resolver = "3"
 members = [
     "benchmark",
+    "examples/qusql-sqlx-type-books",
+    "examples/qusql-sqlx-type-mariadb-notes",
+    "examples/qusql-sqlx-type-notes",
+    "examples/qusql-parse-lint",
+    "examples/qusql-mysql-type-books",
+    "examples/qusql-mysql-type-notes",
+    "examples/qusql-type-check",
     "qusql-mysql-test",
     "qusql-mysql-type-macro",
     "qusql-mysql-type",

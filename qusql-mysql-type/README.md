@@ -64,3 +64,10 @@ async fn test() -> Result<(), ConnectionError> {
     Ok(())
 }
 ```
+
+See also the examples:
+
+- [`examples/qusql-mysql-type-notes`](../examples/qusql-mysql-type-notes):
+  simple introductory CLI (single-table schema)
+- [`examples/qusql-mysql-type-books`](../examples/qusql-mysql-type-books):
+  library catalog with JOINs, enums, dates, and an idempotent migration pattern

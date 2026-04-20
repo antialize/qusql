@@ -5,9 +5,9 @@
 
 Parse SQL into an AST
 
-This crate provides an lexer and parser that can parse SQL
-into an Abstract Syntax Tree (AST). Currently primarily focused
-on MariaDB/Mysql.
+This crate provides a lexer and parser that can parse SQL
+into an Abstract Syntax Tree (AST).  MySQL/MariaDB, PostgreSQL/PostGIS,
+and SQLite are all supported.
 
 Example code:
 ```rust
@@ -17,7 +17,6 @@ let options = ParseOptions::new()
     .dialect(SQLDialect::MariaDB)
     .arguments(SQLArguments::QuestionMark)
     .warn_unquoted_identifiers(true);
-
 
 let sql = "SELECT `monkey`,
            FROM `t1` LEFT JOIN `t2` ON `t2`.`id` = `t1.two`
@@ -35,4 +34,7 @@ println!("AST: {:#?}", ast);
 - Code span annotations: All AST notes implements `Spanned` that yields a byte span within the code. This means that errors and warnings generated from the parsing can be precented to the user in a nice ways. Also users of the AST can generate more issues that can also similarly be presented nicely.
 - No dependencies: We use no-std with alloc, and has no other dependencies
 - No unsafe code: We use `#![forbid(unsafe_code)]` to guarantee no unsafe code.
-- Fast parsing: The parser is a hand written recursive decent parser. To speed up parser expressions are parsed using a `O(1)` shift reduce mechanism.
+- Fast parsing: The parser is a hand written recursive descent parser. To speed up parsing, expressions are parsed using a `O(1)` shift reduce mechanism.
+
+See also: [`examples/qusql-parse-lint`](../examples/qusql-parse-lint) - a
+command-line SQL linter built on this crate.
