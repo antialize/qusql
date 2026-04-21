@@ -224,7 +224,7 @@ pub(crate) fn type_function<'a, 'b>(
             for (a, t) in &typed {
                 typer.ensure_base(*a, t, BaseType::String);
             }
-            FullType::new(Type::Base(BaseType::String), false)
+            FullType::new(Type::Base(BaseType::Any), false)
         }
         Function::JsonReplace => {
             let typed = typed_args(typer, args, flags);
