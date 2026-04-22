@@ -73,6 +73,8 @@ pub enum BinaryOperator<'a> {
     /// String/array concatenation `||`
     Concat(Span),
     // PostgreSQL-specific binary operators
+    /// && (array/range overlap)
+    Overlap(Span),
     /// @>
     Contains(Span),
     /// <@
@@ -142,6 +144,7 @@ impl<'a> Spanned for BinaryOperator<'a> {
             | BinaryOperator::JsonExtractUnquote(s)
             | BinaryOperator::Assignment(s)
             | BinaryOperator::Concat(s)
+            | BinaryOperator::Overlap(s)
             | BinaryOperator::Contains(s)
             | BinaryOperator::ContainedBy(s)
             | BinaryOperator::JsonPathMatch(s)
@@ -1244,7 +1247,8 @@ impl<'a> Priority for BinaryOperator<'a> {
             BinaryOperator::Collate(_) => 20,
             BinaryOperator::JsonExtract(_) => PRIORITY_JSON_EXTRACT,
             BinaryOperator::JsonExtractUnquote(_) => PRIORITY_JSON_EXTRACT,
-            BinaryOperator::Contains(_)
+            BinaryOperator::Overlap(_)
+            | BinaryOperator::Contains(_)
             | BinaryOperator::ContainedBy(_)
             | BinaryOperator::JsonPathMatch(_)
             | BinaryOperator::JsonPathExists(_)
@@ -1430,10 +1434,18 @@ pub(crate) fn parse_expression_restricted<'a>(
             Token::Ident(_, Keyword::XOR) if PRIORITY_XOR < max_priority => {
                 r.shift_binop(BinaryOperator::Xor(parser.consume()))
             }
-            Token::Ident(_, Keyword::AND) | Token::DoubleAmpersand
-                if PRIORITY_AND < max_priority =>
+            Token::Ident(_, Keyword::AND) if PRIORITY_AND < max_priority => {
+                r.shift_binop(BinaryOperator::And(parser.consume()))
+            }
+            Token::DoubleAmpersand
+                if PRIORITY_AND < max_priority && !parser.options.dialect.is_postgresql() =>
             {
                 r.shift_binop(BinaryOperator::And(parser.consume()))
+            }
+            Token::DoubleAmpersand
+                if PRIORITY_PG_CUSTOM < max_priority && parser.options.dialect.is_postgresql() =>
+            {
+                r.shift_binop(BinaryOperator::Overlap(parser.consume()))
             }
             Token::Eq if PRIORITY_CMP < max_priority => {
                 r.shift_binop(BinaryOperator::Eq(parser.consume()))

@@ -140,6 +140,7 @@ pub(crate) fn type_binary_expression<'a>(
         BinaryOperator::User(_, _) => (flags, BaseType::Any),
         BinaryOperator::Contains(_)
         | BinaryOperator::ContainedBy(_)
+        | BinaryOperator::Overlap(_)
         | BinaryOperator::JsonPathMatch(_)
         | BinaryOperator::JsonPathExists(_)
         | BinaryOperator::JsonbKeyExists(_)
@@ -294,6 +295,7 @@ pub(crate) fn type_binary_expression<'a>(
         }
         BinaryOperator::Contains(_)
         | BinaryOperator::ContainedBy(_)
+        | BinaryOperator::Overlap(_)
         | BinaryOperator::JsonPathMatch(_)
         | BinaryOperator::JsonPathExists(_)
         | BinaryOperator::JsonbKeyExists(_)

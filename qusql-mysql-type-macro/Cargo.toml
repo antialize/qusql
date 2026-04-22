@@ -1,6 +1,6 @@
 [package]
 name = "qusql-mysql-type-macro"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -30,7 +30,7 @@ list_hack = []
 quote = "1"
 syn = { version = "2", features = ["full", "parsing"] }
 proc-macro2 = "1"
-qusql-type = { path="../qusql-type", version="0.4.0" }
+qusql-type = { path="../qusql-type", version="0.4.1" }
 ariadne = "0.6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
