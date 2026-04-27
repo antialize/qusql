@@ -444,7 +444,11 @@ fn construct_row(
             qusql_type::Type::I32 => quote! {i32},
             qusql_type::Type::U64 => quote! {u64},
             qusql_type::Type::I64 => quote! {i64},
-            qusql_type::Type::Base(qusql_type::BaseType::Any) => todo!("from_any"),
+            qusql_type::Type::Base(qusql_type::BaseType::Any) if owned => quote! {String},
+            qusql_type::Type::Base(qusql_type::BaseType::Any) => {
+                has_borrowed = true;
+                quote! {&'a str}
+            }
             qusql_type::Type::Base(qusql_type::BaseType::Bool) => quote! {bool},
             qusql_type::Type::Base(qusql_type::BaseType::Bytes) if owned => quote! {Vec<u8>},
             qusql_type::Type::Base(qusql_type::BaseType::Bytes) => {
