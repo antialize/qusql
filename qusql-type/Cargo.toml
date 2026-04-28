@@ -1,6 +1,6 @@
 [package]
 name = "qusql-type"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2024"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 keywords = [ "mysql", "postgesql", "sql", "typer" ]

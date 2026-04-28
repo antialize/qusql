@@ -1,0 +1,16 @@
+[package]
+name = "qusql-sqlx-type-test"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dev-dependencies]
+qusql-sqlx-type = { path = "../qusql-sqlx-type" }
+sqlx = { version = "0.8", default-features = false, features = [
+    "postgres",
+    "runtime-tokio-native-tls",
+    "chrono",
+    "migrate",
+    "macros",
+] }
+tokio = { version = "1", features = ["full"] }

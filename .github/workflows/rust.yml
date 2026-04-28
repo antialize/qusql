@@ -26,9 +26,9 @@ jobs:
     steps:
     - uses: actions/checkout@v5
     - name: Build
-      run: cargo check --all-features --all --verbose
+      run: cargo check --all-features --all --verbose --exclude qusql-sqlx-type-test
     - name: Run tests
-      run: cargo test --all-features --all --verbose
+      run: cargo test --all-features --all --verbose --exclude qusql-sqlx-type-test
     - name: Build Rust MySQL examples
       run: cargo build -p qusql-mysql-type-notes -p qusql-mysql-type-books -p qusql-sqlx-type-mariadb-notes
     - name: Run qusql-mysql-type-notes example
@@ -71,6 +71,10 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:test@localhost:5432/test
         run: target/debug/qusql_sqlx_type_books
+      - name: Run qusql-sqlx-type integration tests
+        env:
+          DATABASE_URL: postgres://postgres:test@localhost:5432/test
+        run: cargo test -p qusql-sqlx-type-test
   clippy_check:
     runs-on: ubuntu-latest
     steps:

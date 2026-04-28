@@ -15,6 +15,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.28", features = ["extension-module"] }
-qusql-type = {version="0.4.1", path="../qusql-type" }
+qusql-type = {version="0.5.0", path="../qusql-type" }
 ariadne = "0.6"
 yoke = { version ="0.8", features = ["derive", "alloc"] }

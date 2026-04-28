@@ -486,7 +486,7 @@ fn construct_row(
                 quote! {chrono::NaiveDateTime}
             }
             qusql_type::Type::Base(qusql_type::BaseType::Float) => quote! {f64},
-            qusql_type::Type::Base(qusql_type::BaseType::Integer) => quote! {i64},
+            qusql_type::Type::Base(qusql_type::BaseType::Integer) => quote! {i32},
             qusql_type::Type::Base(qusql_type::BaseType::String) => quote! {String},
             qusql_type::Type::Base(qusql_type::BaseType::Time) => todo!("from_time"),
             qusql_type::Type::Base(qusql_type::BaseType::TimeInterval) => {
@@ -890,7 +890,7 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
                 quote! {chrono::NaiveDateTime}
             }
             qusql_type::Type::Base(qusql_type::BaseType::Float) => quote! {f64},
-            qusql_type::Type::Base(qusql_type::BaseType::Integer) => quote! {i64},
+            qusql_type::Type::Base(qusql_type::BaseType::Integer) => quote! {i32},
             qusql_type::Type::Base(qusql_type::BaseType::String) => quote! {String},
             qusql_type::Type::Base(qusql_type::BaseType::Time) => todo!("from_time"),
             qusql_type::Type::Base(qusql_type::BaseType::TimeInterval) => {
