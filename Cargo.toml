@@ -22,6 +22,7 @@ members = [
     "qusql-py-mysql-type-plugin",
     "qusql-sqlx-type-macro",
     "qusql-sqlx-type",
+    "qusql-sqlx-type-test",
     "qusql-type",
     "qusql-type/mariadb_test",
     "parse-test",
