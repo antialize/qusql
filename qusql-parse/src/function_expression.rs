@@ -11,7 +11,7 @@
 // limitations under the License.
 
 use crate::{
-    Expression, Identifier, OptSpanned, Span, Spanned,
+    Expression, Identifier, Span, Spanned,
     expression::{PRIORITY_MAX, parse_expression_outer, parse_expression_unreserved},
     keywords::Keyword,
     lexer::Token,
@@ -869,11 +869,14 @@ pub struct FunctionCallExpression<'a> {
     pub function: Function<'a>,
     pub args: Vec<Expression<'a>>,
     pub function_span: Span,
+    pub r_paren_span: Span,
 }
 
 impl Spanned for FunctionCallExpression<'_> {
     fn span(&self) -> Span {
-        self.function_span.join_span(&self.args)
+        self.function_span
+            .join_span(&self.args)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -886,6 +889,7 @@ pub struct CharFunctionExpression<'a> {
     pub args: Vec<Expression<'a>>,
     /// Optional USING charset_name clause
     pub using_charset: Option<(Span, Identifier<'a>)>,
+    pub r_paren_span: Span,
 }
 
 impl<'a> Spanned for CharFunctionExpression<'a> {
@@ -893,6 +897,7 @@ impl<'a> Spanned for CharFunctionExpression<'a> {
         self.char_span
             .join_span(&self.args)
             .join_span(&self.using_charset)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -966,7 +971,7 @@ impl<'a> Spanned for WindowFrame<'a> {
 /// When part of CASE
 #[derive(Debug, Clone)]
 pub struct WindowSpec<'a> {
-    /// Span of the opening parenthesis — used as fallback when the spec is empty
+    /// Span of the opening parenthesis -- used as fallback when the spec is empty
     pub lparen_span: Span,
     /// Span of "PARTITION BY" and list of partition expressions, if specified
     pub partition_by: Option<(Span, Vec<Expression<'a>>)>,
@@ -974,14 +979,17 @@ pub struct WindowSpec<'a> {
     pub order_by: Option<(Span, Vec<(Expression<'a>, OrderFlag)>)>,
     /// Window frame clause (ROWS/RANGE BETWEEN ... AND ...), if specified
     pub frame: Option<WindowFrame<'a>>,
+    /// Span of the closing ')'
+    pub rparen_span: Span,
 }
 
 impl<'a> Spanned for WindowSpec<'a> {
     fn span(&self) -> Span {
-        self.partition_by
-            .opt_join_span(&self.order_by)
-            .opt_join_span(&self.frame)
-            .unwrap_or(self.lparen_span.clone())
+        self.lparen_span
+            .join_span(&self.partition_by)
+            .join_span(&self.order_by)
+            .join_span(&self.frame)
+            .join_span(&self.rparen_span)
     }
 }
 
@@ -1003,6 +1011,7 @@ pub struct WindowFunctionCallExpression<'a> {
     pub function: Function<'a>,
     pub args: Vec<Expression<'a>>,
     pub function_span: Span,
+    pub r_paren_span: Span,
     pub over: WindowClause<'a>,
 }
 
@@ -1010,6 +1019,7 @@ impl Spanned for WindowFunctionCallExpression<'_> {
     fn span(&self) -> Span {
         self.function_span
             .join_span(&self.args)
+            .join_span(&self.r_paren_span)
             .join_span(&self.over)
     }
 }
@@ -1019,6 +1029,7 @@ pub struct AggregateFunctionCallExpression<'a> {
     pub function: Function<'a>,
     pub args: Vec<Expression<'a>>,
     pub function_span: Span,
+    pub r_paren_span: Span,
     pub distinct_span: Option<Span>,
     pub within_group: Option<(Span, Vec<(Expression<'a>, OrderFlag)>)>,
     pub filter: Option<(Span, Expression<'a>)>,
@@ -1029,6 +1040,7 @@ impl Spanned for AggregateFunctionCallExpression<'_> {
     fn span(&self) -> Span {
         self.function_span
             .join_span(&self.args)
+            .join_span(&self.r_paren_span)
             .join_span(&self.distinct_span)
             .join_span(&self.within_group)
             .join_span(&self.filter)
@@ -1196,7 +1208,7 @@ fn parse_over_clause<'a>(
         None
     };
 
-    parser.consume_token(Token::RParen)?;
+    let rparen_span = parser.consume_token(Token::RParen)?;
 
     Ok(Some(WindowClause {
         over_span,
@@ -1205,6 +1217,7 @@ fn parse_over_clause<'a>(
             partition_by,
             order_by,
             frame,
+            rparen_span,
         },
     }))
 }
@@ -1285,7 +1298,7 @@ pub(crate) fn parse_aggregate_function<'a>(
             }
         }
     }
-    parser.consume_token(Token::RParen)?;
+    let r_paren_span = parser.consume_token(Token::RParen)?;
 
     let within_group = if let Some(within_span) = parser.skip_keyword(Keyword::WITHIN) {
         let within_group_span = within_span.join_span(&parser.consume_keyword(Keyword::GROUP)?);
@@ -1329,6 +1342,7 @@ pub(crate) fn parse_aggregate_function<'a>(
             function: func,
             args,
             function_span: span,
+            r_paren_span,
             distinct_span,
             within_group,
             filter,
@@ -3453,11 +3467,12 @@ pub(crate) fn parse_function<'a>(
             if parser.skip_keyword(Keyword::FOR).is_some() {
                 args.push(parse_expression_outer(parser)?);
             }
-            parser.consume_token(Token::RParen)?;
+            let r_paren_span = parser.consume_token(Token::RParen)?;
             return Ok(Expression::Function(Box::new(FunctionCallExpression {
                 function: func,
                 args,
                 function_span: span,
+                r_paren_span,
             })));
         } else {
             // Comma-style: push first arg and continue normally
@@ -3472,13 +3487,14 @@ pub(crate) fn parse_function<'a>(
                     },
                 )?;
             }
-            parser.consume_token(Token::RParen)?;
+            let r_paren_span = parser.consume_token(Token::RParen)?;
             if let Some(over) = parse_over_clause(parser)? {
                 return Ok(Expression::WindowFunction(Box::new(
                     WindowFunctionCallExpression {
                         function: func,
                         args,
                         function_span: span,
+                        r_paren_span,
                         over,
                     },
                 )));
@@ -3487,6 +3503,7 @@ pub(crate) fn parse_function<'a>(
                 function: func,
                 args,
                 function_span: span,
+                r_paren_span,
             })));
         }
     }
@@ -3506,7 +3523,7 @@ pub(crate) fn parse_function<'a>(
             }
         }
     }
-    parser.consume_token(Token::RParen)?;
+    let r_paren_span = parser.consume_token(Token::RParen)?;
 
     if let Some(over) = parse_over_clause(parser)? {
         Ok(Expression::WindowFunction(Box::new(
@@ -3514,6 +3531,7 @@ pub(crate) fn parse_function<'a>(
                 function: func,
                 args,
                 function_span: span,
+                r_paren_span,
                 over,
             },
         )))
@@ -3522,6 +3540,7 @@ pub(crate) fn parse_function<'a>(
             function: func,
             args,
             function_span: span,
+            r_paren_span,
         })))
     }
 }
@@ -3562,11 +3581,12 @@ pub(crate) fn parse_char_function<'a>(
     } else {
         None
     };
-    parser.consume_token(Token::RParen)?;
+    let r_paren_span = parser.consume_token(Token::RParen)?;
     Ok(Expression::Char(Box::new(CharFunctionExpression {
         char_span,
         args,
         using_charset,
+        r_paren_span,
     })))
 }
 
@@ -3592,13 +3612,15 @@ pub(crate) fn parse_function_call<'a>(
             }
         }
     }
-    parser.consume_token(Token::RParen)?;
+    let r_paren_span = parser.consume_token(Token::RParen)?;
+
     if let Some(over) = parse_over_clause(parser)? {
         Ok(Expression::WindowFunction(Box::new(
             WindowFunctionCallExpression {
                 function: func,
                 args,
                 function_span,
+                r_paren_span,
                 over,
             },
         )))
@@ -3607,6 +3629,7 @@ pub(crate) fn parse_function_call<'a>(
             function: func,
             args,
             function_span,
+            r_paren_span,
         })))
     }
 }

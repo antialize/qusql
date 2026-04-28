@@ -251,6 +251,7 @@ impl<'a> Spanned for InsertReplace<'a> {
             .join_span(&self.flags)
             .join_span(&self.into_span)
             .join_span(&self.table)
+            .join_span(&self.columns)
             .join_span(&self.values)
             .join_span(&self.select)
             .join_span(&self.set)

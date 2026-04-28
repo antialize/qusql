@@ -1061,7 +1061,11 @@ pub struct CreateOperatorFamily<'a> {
 
 impl<'a> Spanned for CreateOperatorFamily<'a> {
     fn span(&self) -> Span {
-        self.create_operator_family_span.clone()
+        self.create_operator_family_span
+            .join_span(&self.name)
+            .join_span(&self.index_method)
+            .join_span(&self.lparen_span)
+            .join_span(&self.rparen_span)
     }
 }
 
