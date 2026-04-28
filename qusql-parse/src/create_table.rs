@@ -290,6 +290,8 @@ pub enum CreateDefinition<'a> {
         index_name: Option<Identifier<'a>>,
         /// Columns in the index
         cols: Vec<IndexCol<'a>>,
+        /// Span of ")" closing the cols list
+        cols_r_paren: Span,
         /// Index options
         index_options: Vec<IndexOption<'a>>,
     },
@@ -305,12 +307,16 @@ pub enum CreateDefinition<'a> {
         index_name: Option<Identifier<'a>>,
         /// Columns in this table
         cols: Vec<IndexCol<'a>>,
+        /// Span of ")" closing the cols list
+        cols_r_paren: Span,
         /// Span of "REFERENCES"
         references_span: Span,
         /// Referenced table name
         references_table: Identifier<'a>,
         /// Referenced columns
         references_cols: Vec<Identifier<'a>>,
+        /// Span of ")" closing the references_cols list
+        references_cols_r_paren: Span,
         /// Optional MATCH FULL / MATCH SIMPLE / MATCH PARTIAL
         match_type: Option<ForeignKeyMatch>,
         /// ON UPDATE/DELETE actions
@@ -351,6 +357,7 @@ impl<'a> Spanned for CreateDefinition<'a> {
                 index_type,
                 index_name,
                 cols,
+                cols_r_paren,
                 index_options,
             } => index_type
                 .span()
@@ -358,6 +365,7 @@ impl<'a> Spanned for CreateDefinition<'a> {
                 .join_span(constraint_symbol)
                 .join_span(index_name)
                 .join_span(cols)
+                .join_span(cols_r_paren)
                 .join_span(index_options),
             CreateDefinition::ForeignKeyDefinition {
                 constraint_span,
@@ -365,9 +373,11 @@ impl<'a> Spanned for CreateDefinition<'a> {
                 foreign_key_span,
                 index_name,
                 cols,
+                cols_r_paren,
                 references_span,
                 references_table,
                 references_cols,
+                references_cols_r_paren,
                 match_type,
                 ons,
             } => foreign_key_span
@@ -376,9 +386,11 @@ impl<'a> Spanned for CreateDefinition<'a> {
                 .join_span(constraint_symbol)
                 .join_span(index_name)
                 .join_span(cols)
+                .join_span(cols_r_paren)
                 .join_span(references_span)
                 .join_span(references_table)
                 .join_span(references_cols)
+                .join_span(references_cols_r_paren)
                 .join_span(match_type)
                 .join_span(ons),
             CreateDefinition::CheckConstraintDefinition {
@@ -626,6 +638,8 @@ pub struct CreateTable<'a> {
     pub if_not_exists: Option<Span>,
     /// Definitions of table members
     pub create_definitions: Vec<CreateDefinition<'a>>,
+    /// Span of ")" closing the create definitions list
+    pub r_paren_span: Span,
     /// Options specified after the table creation
     pub options: Vec<TableOption<'a>>,
     /// Create table as
@@ -642,6 +656,7 @@ impl<'a> Spanned for CreateTable<'a> {
             .join_span(&self.identifier)
             .join_span(&self.if_not_exists)
             .join_span(&self.create_definitions)
+            .join_span(&self.r_paren_span)
             .join_span(&self.options)
             .join_span(&self.table_as)
             .join_span(&self.partition_by)
@@ -670,7 +685,7 @@ fn parse_foreign_key_definition<'a>(
     };
 
     // Parse columns
-    let cols = parse_index_cols(parser)?;
+    let (cols, cols_r_paren) = parse_index_cols(parser)?;
 
     // Parse REFERENCES
     let references_span = parser.consume_keyword(Keyword::REFERENCES)?;
@@ -685,7 +700,7 @@ fn parse_foreign_key_definition<'a>(
             break;
         }
     }
-    parser.consume_token(Token::RParen)?;
+    let references_cols_r_paren = parser.consume_token(Token::RParen)?;
 
     let match_type = if parser.skip_keyword(Keyword::MATCH).is_some() {
         match &parser.token {
@@ -750,9 +765,11 @@ fn parse_foreign_key_definition<'a>(
         foreign_key_span,
         index_name,
         cols,
+        cols_r_paren,
         references_span,
         references_table,
         references_cols,
+        references_cols_r_paren,
         match_type,
         ons,
     })
@@ -942,7 +959,7 @@ pub(crate) fn parse_create_definition<'a>(
     }
 
     // Parse index columns
-    let cols = parse_index_cols(parser)?;
+    let (cols, cols_r_paren) = parse_index_cols(parser)?;
 
     // Parse index options (USING, COMMENT, etc.) after column list
     parse_index_options(parser, &mut index_options)?;
@@ -953,6 +970,7 @@ pub(crate) fn parse_create_definition<'a>(
         index_type,
         index_name,
         cols,
+        cols_r_paren,
         index_options,
     })
 }
@@ -1106,7 +1124,7 @@ pub(crate) fn parse_create_table<'a>(
             parser.consume_token(Token::Comma)?;
         }
     }
-    parser.consume_token(Token::RParen)?;
+    let r_paren_span = parser.consume_token(Token::RParen)?;
 
     let mut options = Vec::new();
     let mut table_as: Option<CreateTableAs<'_>> = None;
@@ -1510,8 +1528,9 @@ pub(crate) fn parse_create_table<'a>(
         table_span,
         identifier,
         if_not_exists,
-        options,
         create_definitions,
+        r_paren_span,
+        options,
         table_as,
         partition_by,
     })
@@ -1632,13 +1651,14 @@ pub(crate) fn parse_create_table_or_partition_of<'a>(
         let as_span = parser.consume_keyword(Keyword::AS)?;
         let query = parse_compound_query(parser)?;
         Ok(Statement::CreateTable(Box::new(CreateTable {
-            create_span,
+            create_span: create_span.clone(),
             create_options,
             table_span,
             identifier,
             if_not_exists,
-            options: alloc::vec![],
             create_definitions: alloc::vec![],
+            r_paren_span: create_span.clone(),
+            options: alloc::vec![],
             table_as: Some(CreateTableAs {
                 as_span,
                 replace_span: None,

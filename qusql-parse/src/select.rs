@@ -1264,6 +1264,7 @@ impl<'a> Spanned for Select<'a> {
             .join_span(&self.distinct_on)
             .join_span(&self.offset)
             .join_span(&self.fetch)
+            .join_span(&self.locking)
     }
 }
 

@@ -437,6 +437,8 @@ pub struct ExtractExpression<'a> {
     pub from_span: Span,
     /// Date expression
     pub date: Expression<'a>,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for ExtractExpression<'_> {
@@ -445,6 +447,7 @@ impl Spanned for ExtractExpression<'_> {
             .join_span(&self.time_unit.1)
             .join_span(&self.from_span)
             .join_span(&self.date)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -479,6 +482,8 @@ pub struct TrimExpression<'a> {
     pub from_span: Option<Span>,
     /// The string to trim
     pub value: Expression<'a>,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for TrimExpression<'_> {
@@ -488,6 +493,7 @@ impl Spanned for TrimExpression<'_> {
             .join_span(&self.what)
             .join_span(&self.from_span)
             .join_span(&self.value)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -502,11 +508,16 @@ pub struct InExpression<'a> {
     pub in_span: Span,
     /// True if not in
     pub not_in: bool,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for InExpression<'_> {
     fn span(&self) -> Span {
-        self.in_span.join_span(&self.lhs).join_span(&self.rhs)
+        self.in_span
+            .join_span(&self.lhs)
+            .join_span(&self.rhs)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -543,6 +554,8 @@ pub struct MemberOfExpression<'a> {
     pub rhs: Expression<'a>,
     /// Span of "MEMBER OF"
     pub member_of_span: Span,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for MemberOfExpression<'_> {
@@ -550,6 +563,7 @@ impl Spanned for MemberOfExpression<'_> {
         self.member_of_span
             .join_span(&self.lhs)
             .join_span(&self.rhs)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -589,6 +603,8 @@ pub struct CastExpression<'a> {
     pub as_span: Span,
     /// Type to cast to
     pub type_: DataType<'a>,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for CastExpression<'_> {
@@ -597,6 +613,7 @@ impl Spanned for CastExpression<'_> {
             .join_span(&self.expr)
             .join_span(&self.as_span)
             .join_span(&self.type_)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -611,6 +628,8 @@ pub struct ConvertExpression<'a> {
     pub type_: Option<DataType<'a>>,
     /// Charset (for CONVERT(expr USING charset))
     pub using_charset: Option<(Span, Identifier<'a>)>,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for ConvertExpression<'_> {
@@ -619,6 +638,7 @@ impl Spanned for ConvertExpression<'_> {
             .join_span(&self.expr)
             .join_span(&self.type_)
             .join_span(&self.using_charset)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -707,6 +727,8 @@ pub struct GroupConcatExpression<'a> {
     pub distinct_span: Option<Span>,
     /// Expression to count
     pub expr: Expression<'a>,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for GroupConcatExpression<'_> {
@@ -714,6 +736,7 @@ impl Spanned for GroupConcatExpression<'_> {
         self.group_concat_span
             .join_span(&self.distinct_span)
             .join_span(&self.expr)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -767,6 +790,8 @@ pub struct TimestampAddExpression<'a> {
     pub interval: Expression<'a>,
     /// Datetime expression
     pub datetime: Expression<'a>,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for TimestampAddExpression<'_> {
@@ -775,6 +800,7 @@ impl Spanned for TimestampAddExpression<'_> {
             .join_span(&self.unit.1)
             .join_span(&self.interval)
             .join_span(&self.datetime)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -789,6 +815,8 @@ pub struct TimestampDiffExpression<'a> {
     pub e1: Expression<'a>,
     /// Second expression
     pub e2: Expression<'a>,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for TimestampDiffExpression<'_> {
@@ -797,6 +825,7 @@ impl Spanned for TimestampDiffExpression<'_> {
             .join_span(&self.unit.1)
             .join_span(&self.e1)
             .join_span(&self.e2)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -813,6 +842,8 @@ pub struct MatchAgainstExpression<'a> {
     pub expr: Expression<'a>,
     /// Match mode
     pub mode: Option<MatchMode>,
+    /// Span of the closing ')' of AGAINST(...)
+    pub r_paren_span: Span,
 }
 
 impl Spanned for MatchAgainstExpression<'_> {
@@ -822,6 +853,7 @@ impl Spanned for MatchAgainstExpression<'_> {
             .join_span(&self.against_span)
             .join_span(&self.expr)
             .join_span(&self.mode)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -994,11 +1026,15 @@ pub struct ExistsExpression<'a> {
     pub exists_span: Span,
     /// The subquery
     pub subquery: Statement<'a>,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for ExistsExpression<'_> {
     fn span(&self) -> Span {
-        self.exists_span.join_span(&self.subquery)
+        self.exists_span
+            .join_span(&self.subquery)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -1029,13 +1065,17 @@ impl Spanned for Quantifier {
 pub struct QuantifierExpression<'a> {
     /// Which quantifier keyword was written
     pub quantifier: Quantifier,
-    /// The operand — either a subquery expression or an array expression
+    /// The operand - either a subquery expression or an array expression
     pub operand: Expression<'a>,
+    /// Span of the closing ')'
+    pub r_paren_span: Span,
 }
 
 impl Spanned for QuantifierExpression<'_> {
     fn span(&self) -> Span {
-        self.quantifier.join_span(&self.operand)
+        self.quantifier
+            .join_span(&self.operand)
+            .join_span(&self.r_paren_span)
     }
 }
 
@@ -1531,12 +1571,13 @@ pub(crate) fn parse_expression_restricted<'a>(
                         break;
                     }
                 }
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 r.shift_expr(Expression::In(Box::new(InExpression {
                     lhs,
                     rhs,
                     in_span: op,
                     not_in: false,
+                    r_paren_span,
                 })))
             }
             Token::Ident(_, Keyword::IS) if PRIORITY_CMP < max_priority => {
@@ -1709,12 +1750,13 @@ pub(crate) fn parse_expression_restricted<'a>(
                                 break;
                             }
                         }
-                        parser.consume_token(Token::RParen)?;
+                        let r_paren_span = parser.consume_token(Token::RParen)?;
                         r.shift_expr(Expression::In(Box::new(InExpression {
                             lhs,
                             rhs,
                             in_span: op,
                             not_in: true,
+                            r_paren_span,
                         })))
                     }
                     Token::Ident(_, Keyword::LIKE) => {
@@ -1904,11 +1946,12 @@ pub(crate) fn parse_expression_restricted<'a>(
                 let of_span = parser.consume_keyword(Keyword::OF)?;
                 parser.consume_token(Token::LParen)?;
                 let rhs = parse_expression_paren(parser)?;
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 r.shift_expr(Expression::MemberOf(Box::new(MemberOfExpression {
                     lhs,
                     rhs,
                     member_of_span: member_span.join_span(&of_span),
+                    r_paren_span,
                 })))
             }
             Token::Ident(_, Keyword::INTERVAL) => {
@@ -1962,13 +2005,14 @@ pub(crate) fn parse_expression_restricted<'a>(
                     let datetime = parse_expression_outer(parser)?;
                     Ok(Some((unit, interval, datetime)))
                 })?;
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 if let Some((unit, interval, datetime)) = parts {
                     r.shift_expr(Expression::TimestampAdd(Box::new(TimestampAddExpression {
                         timestamp_add_span,
                         unit,
                         interval,
                         datetime,
+                        r_paren_span,
                     })))
                 } else {
                     r.shift_expr(Expression::Invalid(Box::new(InvalidExpression {
@@ -1990,7 +2034,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                     let e2 = parse_expression_outer(parser)?;
                     Ok(Some((unit, e1, e2)))
                 })?;
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 if let Some((unit, e1, e2)) = parts {
                     r.shift_expr(Expression::TimestampDiff(Box::new(
                         TimestampDiffExpression {
@@ -1998,6 +2042,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                             unit,
                             e1,
                             e2,
+                            r_paren_span,
                         },
                     )))
                 } else {
@@ -2088,13 +2133,14 @@ pub(crate) fn parse_expression_restricted<'a>(
                     let type_ = parse_data_type(parser, DataTypeContext::TypeRef)?;
                     Ok(Some((expr, as_span, type_)))
                 })?;
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 if let Some((expr, as_span, type_)) = cast {
                     r.shift_expr(Expression::Cast(Box::new(CastExpression {
                         cast_span,
                         expr,
                         as_span,
                         type_,
+                        r_paren_span,
                     })))
                 } else {
                     r.shift_expr(Expression::Invalid(Box::new(InvalidExpression {
@@ -2120,13 +2166,14 @@ pub(crate) fn parse_expression_restricted<'a>(
                             Ok(Some((expr, Some(type_), None)))
                         }
                     })?;
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 if let Some((expr, type_, charset)) = convert {
                     r.shift_expr(Expression::Convert(Box::new(ConvertExpression {
                         convert_span,
                         expr,
                         type_,
                         using_charset: charset.map(|c| (c.span(), c)),
+                        r_paren_span,
                     })))
                 } else {
                     r.shift_expr(Expression::Invalid(Box::new(InvalidExpression {
@@ -2149,12 +2196,13 @@ pub(crate) fn parse_expression_restricted<'a>(
                 //     [ASC | DESC] [,col_name ...]]
                 // [SEPARATOR str_val]
                 // [LIMIT {[offset,] row_count | row_count OFFSET offset}])
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 if let Some(expr) = expr {
                     r.shift_expr(Expression::GroupConcat(Box::new(GroupConcatExpression {
                         group_concat_span,
                         distinct_span,
                         expr,
+                        r_paren_span,
                     })))
                 } else {
                     r.shift_expr(Expression::Invalid(Box::new(InvalidExpression {
@@ -2207,7 +2255,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                     };
                     Ok(Some((direction, what, from_span, value)))
                 })?;
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 if let Some((direction, what, from_span, value)) = parts {
                     r.shift_expr(Expression::Trim(Box::new(TrimExpression {
                         trim_span,
@@ -2215,6 +2263,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                         what,
                         from_span,
                         value,
+                        r_paren_span,
                     })))
                 } else {
                     r.shift_expr(Expression::Invalid(Box::new(InvalidExpression {
@@ -2234,13 +2283,14 @@ pub(crate) fn parse_expression_restricted<'a>(
                     let date = parse_expression_outer(parser)?;
                     Ok(Some((time_unit, from_span, date)))
                 })?;
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 if let Some((time_unit, from_span, date)) = parts {
                     r.shift_expr(Expression::Extract(Box::new(ExtractExpression {
                         extract_span,
                         time_unit,
                         from_span,
                         date,
+                        r_paren_span,
                     })))
                 } else {
                     r.shift_expr(Expression::Invalid(Box::new(InvalidExpression {
@@ -2304,7 +2354,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                     )));
                 }
 
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
 
                 // If no mode was found inside the parens, allow it after the closing
                 // parenthesis as well (some dialects/placeholders may put it there).
@@ -2343,6 +2393,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                     against_span,
                     expr,
                     mode,
+                    r_paren_span,
                 })))
             }
             Token::Ident(_, Keyword::LEFT) if matches!(parser.peek(), Token::LParen) => {
@@ -2440,7 +2491,8 @@ pub(crate) fn parse_expression_restricted<'a>(
                         r.shift_expr(Expression::Function(Box::new(FunctionCallExpression {
                             function: f,
                             args: Vec::new(),
-                            function_span: s,
+                            function_span: s.clone(),
+                            r_paren_span: s,
                         })))
                     } else {
                         let mut parts = vec![IdentifierPart::Name(
@@ -2576,10 +2628,11 @@ pub(crate) fn parse_expression_restricted<'a>(
                 let exists_span = parser.consume_keyword(Keyword::EXISTS)?;
                 parser.consume_token(Token::LParen)?;
                 let subquery = parse_compound_query(parser)?;
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 let ans = Expression::Exists(Box::new(ExistsExpression {
                     exists_span,
                     subquery,
+                    r_paren_span,
                 }));
                 r.shift_expr(ans)
             }
@@ -2598,10 +2651,11 @@ pub(crate) fn parse_expression_restricted<'a>(
                 };
                 parser.consume_token(Token::LParen)?;
                 let operand = parse_expression_paren(parser)?;
-                parser.consume_token(Token::RParen)?;
+                let r_paren_span = parser.consume_token(Token::RParen)?;
                 r.shift_expr(Expression::Quantifier(Box::new(QuantifierExpression {
                     quantifier,
                     operand,
+                    r_paren_span,
                 })))
             }
             Token::Ident(_, Keyword::CASE) => {

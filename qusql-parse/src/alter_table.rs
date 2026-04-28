@@ -405,6 +405,8 @@ pub struct AddIndex<'a> {
     pub constraint: Option<(Span, Option<Identifier<'a>>)>,
     /// Columns to add the index over
     pub cols: Vec<IndexCol<'a>>,
+    /// Span of ")" closing the cols list
+    pub cols_r_paren: Span,
     /// Options on the index
     pub index_options: Vec<IndexOption<'a>>,
 }
@@ -417,6 +419,7 @@ impl<'a> Spanned for AddIndex<'a> {
             .join_span(&self.name)
             .join_span(&self.constraint)
             .join_span(&self.cols)
+            .join_span(&self.cols_r_paren)
             .join_span(&self.index_options)
     }
 }
@@ -485,7 +488,7 @@ fn parse_add_index<'a>(
     if matches!(parser.token, Token::Ident(_, Keyword::USING)) {
         parse_index_type(parser, &mut index_options)?;
     }
-    let cols = parse_index_cols(parser)?;
+    let (cols, cols_r_paren) = parse_index_cols(parser)?;
     parse_index_options(parser, &mut index_options)?;
 
     Ok(AddIndex {
@@ -495,6 +498,7 @@ fn parse_add_index<'a>(
         name,
         constraint,
         cols,
+        cols_r_paren,
         index_options,
     })
 }
@@ -514,12 +518,16 @@ pub struct AddForeignKey<'a> {
     pub name: Option<Identifier<'a>>,
     /// Columns to add the index over
     pub cols: Vec<IndexCol<'a>>,
+    /// Span of ")" closing the cols list
+    pub cols_r_paren: Span,
     /// Span of "REFERENCES"
     pub references_span: Span,
     /// Refereed table
     pub references_table: Identifier<'a>,
     /// Columns in referred table
     pub references_cols: Vec<Identifier<'a>>,
+    /// Span of ")" closing the references_cols list, if specified
+    pub references_cols_r_paren: Option<Span>,
     /// List of what should happen at specified events
     pub ons: Vec<ForeignKeyOn>,
     /// Span of "NOT VALID" if specified
@@ -534,9 +542,11 @@ impl<'a> Spanned for AddForeignKey<'a> {
             .join_span(&self.if_not_exists)
             .join_span(&self.name)
             .join_span(&self.cols)
+            .join_span(&self.cols_r_paren)
             .join_span(&self.references_span)
             .join_span(&self.references_table)
             .join_span(&self.references_cols)
+            .join_span(&self.references_cols_r_paren)
             .join_span(&self.not_valid)
             .join_span(&self.ons)
     }
@@ -564,14 +574,15 @@ fn parse_add_foreign_key<'a>(
         _ => None,
     };
 
-    let cols = parse_index_cols(parser)?;
+    let (cols, cols_r_paren) = parse_index_cols(parser)?;
     let references_span = parser.consume_keyword(Keyword::REFERENCES)?;
     let references_table = parser.consume_plain_identifier_unreserved()?;
     // Reference columns are optional (omitting uses the referenced table's primary key)
-    let references_cols = if matches!(parser.token, Token::LParen) {
-        parse_cols(parser)?
+    let (references_cols, references_cols_r_paren) = if matches!(parser.token, Token::LParen) {
+        let (c, s) = parse_cols(parser)?;
+        (c, Some(s))
     } else {
-        Vec::new()
+        (Vec::new(), None)
     };
     let mut ons = Vec::new();
     while let Some(on) = parser.skip_keyword(Keyword::ON) {
@@ -624,9 +635,11 @@ fn parse_add_foreign_key<'a>(
         if_not_exists,
         name,
         cols,
+        cols_r_paren,
         references_span,
         references_table,
         references_cols,
+        references_cols_r_paren,
         ons,
         not_valid,
     })
@@ -1256,12 +1269,20 @@ impl<'a> Spanned for AddTableConstraint<'a> {
                 unique_span,
                 nulls_clause,
                 cols,
-            } => unique_span.join_span(nulls_clause).join_span(cols),
+                r_paren,
+            } => unique_span
+                .join_span(nulls_clause)
+                .join_span(cols)
+                .join_span(r_paren),
             TableConstraintType::PrimaryKey {
                 primary_span,
                 key_span,
                 cols,
-            } => primary_span.join_span(key_span).join_span(cols),
+                r_paren,
+            } => primary_span
+                .join_span(key_span)
+                .join_span(cols)
+                .join_span(r_paren),
             TableConstraintType::Check { check_span, expr } => check_span.join_span(expr),
         };
         self.add_span
@@ -1495,11 +1516,13 @@ pub enum TableConstraintType<'a> {
         unique_span: Span,
         nulls_clause: Option<(Span, Option<Span>)>, // (NULLS, NOT?)
         cols: Vec<Identifier<'a>>,
+        r_paren: Span,
     },
     PrimaryKey {
         primary_span: Span,
         key_span: Span,
         cols: Vec<Identifier<'a>>,
+        r_paren: Span,
     },
     Check {
         check_span: Span,
@@ -1637,7 +1660,7 @@ pub(crate) fn parse_operator_class<'a>(
 
 pub(crate) fn parse_index_cols<'a>(
     parser: &mut Parser<'a, '_>,
-) -> Result<Vec<IndexCol<'a>>, ParseError> {
+) -> Result<(Vec<IndexCol<'a>>, Span), ParseError> {
     parser.consume_token(Token::LParen)?;
     let mut ans = Vec::new();
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
@@ -1689,11 +1712,11 @@ pub(crate) fn parse_index_cols<'a>(
         }
         Ok(())
     })?;
-    parser.consume_token(Token::RParen)?;
-    Ok(ans)
+    let r_paren_span = parser.consume_token(Token::RParen)?;
+    Ok((ans, r_paren_span))
 }
 
-fn parse_cols<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<Identifier<'a>>, ParseError> {
+fn parse_cols<'a>(parser: &mut Parser<'a, '_>) -> Result<(Vec<Identifier<'a>>, Span), ParseError> {
     parser.consume_token(Token::LParen)?;
     let mut ans = Vec::new();
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {
@@ -1705,8 +1728,8 @@ fn parse_cols<'a>(parser: &mut Parser<'a, '_>) -> Result<Vec<Identifier<'a>>, Pa
         }
         Ok(())
     })?;
-    parser.consume_token(Token::RParen)?;
-    Ok(ans)
+    let r_paren_span = parser.consume_token(Token::RParen)?;
+    Ok((ans, r_paren_span))
 }
 
 fn parse_add_alter_specification<'a>(
@@ -1749,7 +1772,7 @@ fn parse_add_alter_specification<'a>(
             } else {
                 None
             };
-            let cols = parse_cols(parser)?;
+            let (cols, r_paren) = parse_cols(parser)?;
             let not_valid = if let Some(span) = parser.skip_keyword(Keyword::NOT) {
                 Some(span.join_span(&parser.consume_keyword(Keyword::VALID)?))
             } else {
@@ -1762,6 +1785,7 @@ fn parse_add_alter_specification<'a>(
                     unique_span,
                     nulls_clause,
                     cols,
+                    r_paren,
                 },
                 not_valid,
             }))
@@ -1771,7 +1795,7 @@ fn parse_add_alter_specification<'a>(
             let primary_span = parser.consume_keyword(Keyword::PRIMARY)?;
             parser.postgres_only(&primary_span);
             let key_span = parser.consume_keyword(Keyword::KEY)?;
-            let cols = parse_cols(parser)?;
+            let (cols, r_paren) = parse_cols(parser)?;
             let not_valid = if let Some(span) = parser.skip_keyword(Keyword::NOT) {
                 Some(span.join_span(&parser.consume_keyword(Keyword::VALID)?))
             } else {
@@ -1784,6 +1808,7 @@ fn parse_add_alter_specification<'a>(
                     primary_span,
                     key_span,
                     cols,
+                    r_paren,
                 },
                 not_valid,
             }))
