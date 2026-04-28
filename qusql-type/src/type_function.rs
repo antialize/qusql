@@ -364,7 +364,11 @@ pub(crate) fn type_function<'a, 'b>(
                     }
                 }
             }
-            FullType::new(BaseType::Integer, true)
+            if typer.dialect().is_maria() {
+                FullType::new(BaseType::Integer, true)
+            } else {
+                FullType::new(Type::I64, true)
+            }
         }
         Function::Now => {
             let ret = if context == BaseType::TimeStamp {
@@ -486,7 +490,11 @@ pub(crate) fn type_function<'a, 'b>(
                     typer.err(format!("Expected type Bytes or String got {t}"), span);
                 }
             }
-            FullType::new(Type::I64, not_null)
+            if typer.dialect().is_maria() {
+                FullType::new(BaseType::Integer, not_null)
+            } else {
+                FullType::new(Type::I64, not_null)
+            }
         }
         Function::Strftime => {
             let typed = typed_args(typer, args, flags);
@@ -1769,11 +1777,11 @@ pub(crate) fn type_function<'a, 'b>(
         Function::UuidExtractVersion => tf(BaseType::Integer.into(), &[BaseType::Uuid], &[]),
         // PostgreSQL sequence functions
         Function::Nextval | Function::Currval | Function::Setval => {
-            tf(BaseType::Integer.into(), &[BaseType::Any], &[BaseType::Any])
+            tf(Type::I64, &[BaseType::Any], &[BaseType::Any])
         }
         Function::Lastval => {
             arg_cnt(typer, 0..0, args, span);
-            FullType::new(BaseType::Integer, false)
+            FullType::new(Type::I64, false)
         }
         // PostgreSQL array functions
         Function::ArrayAppend
@@ -3049,7 +3057,11 @@ pub(crate) fn type_aggregate_function<'a, 'b>(
                     }
                 }
             }
-            FullType::new(BaseType::Integer, true)
+            if typer.dialect().is_maria() {
+                FullType::new(BaseType::Integer, true)
+            } else {
+                FullType::new(Type::I64, true)
+            }
         }
         Function::Avg => {
             arg_cnt(typer, 1..1, args, span);
