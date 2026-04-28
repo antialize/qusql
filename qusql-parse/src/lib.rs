@@ -100,6 +100,7 @@ mod statement;
 mod truncate;
 mod update;
 mod values;
+mod visit;
 mod with_query;
 
 pub use alter_role::{AlterRole, AlterRoleAction, AlterRoleValue};
@@ -216,6 +217,7 @@ pub use statement::{
 pub use truncate::{IdentityOption, TruncateTable, TruncateTableSpec};
 pub use update::{Update, UpdateFlag};
 pub use values::{Fetch, FetchDirection, Values};
+pub use visit::{Visitor, walk_expression, walk_select, walk_statement, walk_table_reference};
 pub use with_query::{MaterializedHint, WithBlock, WithQuery};
 
 /// What sql diarect to parse as
