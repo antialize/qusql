@@ -608,6 +608,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 Err(())
             }
             qusql_parse::Statement::DropTrigger(_) => Ok(()),
+            // Sequences have no column-type information; treat as no-ops.
+            qusql_parse::Statement::CreateSequence(_) => Ok(()),
+            qusql_parse::Statement::DropSequence(_) => Ok(()),
             qusql_parse::Statement::DropType(s) => {
                 self.process_drop_type(*s);
                 Ok(())
