@@ -523,7 +523,7 @@ pub struct AddForeignKey<'a> {
     /// Span of "REFERENCES"
     pub references_span: Span,
     /// Refereed table
-    pub references_table: Identifier<'a>,
+    pub references_table: QualifiedName<'a>,
     /// Columns in referred table
     pub references_cols: Vec<Identifier<'a>>,
     /// Span of ")" closing the references_cols list, if specified
@@ -576,7 +576,7 @@ fn parse_add_foreign_key<'a>(
 
     let (cols, cols_r_paren) = parse_index_cols(parser)?;
     let references_span = parser.consume_keyword(Keyword::REFERENCES)?;
-    let references_table = parser.consume_plain_identifier_unreserved()?;
+    let references_table = parse_qualified_name_unreserved(parser)?;
     // Reference columns are optional (omitting uses the referenced table's primary key)
     let (references_cols, references_cols_r_paren) = if matches!(parser.token, Token::LParen) {
         let (c, s) = parse_cols(parser)?;
