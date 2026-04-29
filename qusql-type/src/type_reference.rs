@@ -15,7 +15,7 @@ use crate::{
     type_::{BaseType, FullType},
     type_expression::{ExpressionFlags, type_expression},
     type_select::type_union_select,
-    typer::{ReferenceType, Typer, unqualified_name},
+    typer::{ReferenceType, Typer},
 };
 use alloc::vec::Vec;
 use qusql_parse::{Identifier, OptSpanned, Spanned, TableReference, issue_todo};
@@ -33,15 +33,16 @@ pub(crate) fn type_reference<'a>(
             index_hints,
             ..
         } => {
-            let identifier = unqualified_name(typer.issues, identifier);
-            if let Some(s) = typer.get_schema(identifier.value) {
+            let table = &identifier.identifier;
+            let key = typer.qname_to_key(identifier);
+            if let Some(s) = typer.get_schema_by_key(&key) {
                 let mut columns = Vec::new();
                 for c in &s.columns {
                     let mut type_ = c.type_.clone();
                     type_.not_null = type_.not_null && !force_null;
                     columns.push((c.identifier.clone(), type_));
                 }
-                let name = as_.as_ref().unwrap_or(identifier).clone();
+                let name = as_.as_ref().unwrap_or(table).clone();
                 for v in &typer.reference_types {
                     if v.name == Some(name.clone()) {
                         typer
@@ -54,7 +55,7 @@ pub(crate) fn type_reference<'a>(
                     if matches!(index_hint.type_, qusql_parse::IndexHintType::Index(_)) {
                         for index in &index_hint.index_list {
                             if !typer.schemas.indices.contains_key(&IndexKey {
-                                table: Some(identifier.clone()),
+                                table: Some(table.clone()),
                                 index: index.clone(),
                             }) {
                                 typer.err("Unknown index", index);
@@ -69,7 +70,7 @@ pub(crate) fn type_reference<'a>(
                     columns,
                 });
             } else {
-                typer.issues.err("Unknown table or view", identifier);
+                typer.issues.err("Unknown table or view", table);
             }
         }
         qusql_parse::TableReference::Query { query, as_, .. } => {

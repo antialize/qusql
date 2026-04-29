@@ -12,13 +12,13 @@
 
 use qusql_parse::{Lock, Unlock};
 
-use crate::typer::{Typer, unqualified_name};
+use crate::typer::Typer;
 
 pub(crate) fn type_lock<'a>(typer: &mut Typer<'a, '_>, lock: &Lock<'a>) {
     for member in &lock.members {
-        let identifier = unqualified_name(typer.issues, &member.table_name);
-        if typer.get_schema(identifier.value).is_none() {
-            typer.err("Unknown table", identifier);
+        let key = typer.qname_to_key(&member.table_name);
+        if typer.get_schema_by_key(&key).is_none() {
+            typer.err("Unknown table", &member.table_name.identifier);
         }
     }
 }

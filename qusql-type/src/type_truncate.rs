@@ -12,17 +12,17 @@
 
 use qusql_parse::TruncateTable;
 
-use crate::typer::{Typer, unqualified_name};
+use crate::typer::Typer;
 
 pub(crate) fn type_truncate<'a>(typer: &mut Typer<'a, '_>, truncate: &TruncateTable<'a>) {
     for spec in &truncate.tables {
-        let identifier = unqualified_name(typer.issues, &spec.table_name);
-        match typer.get_schema(identifier.value) {
+        let key = typer.qname_to_key(&spec.table_name);
+        match typer.get_schema_by_key(&key) {
             None => {
-                typer.err("Unknown table", identifier);
+                typer.err("Unknown table", &spec.table_name.identifier);
             }
             Some(schema) if schema.view => {
-                typer.err("Cannot truncate a view", identifier);
+                typer.err("Cannot truncate a view", &spec.table_name.identifier);
             }
             _ => (),
         }
