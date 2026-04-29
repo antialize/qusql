@@ -322,7 +322,7 @@ fn type_kind_from_parse<'a>(
             // are not stored with a prefix in the types map.
             if let Some(types) = types
                 && qname.prefix.is_empty()
-                && let Some(TypeDef::Enum { values, .. }) = types.get(qname.identifier.value)
+                && let Some(TypeDef::Enum { values, .. }) = types.get(&qname.identifier)
             {
                 Type::Enum(values.clone())
             } else {

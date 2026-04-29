@@ -248,11 +248,11 @@ impl<'a, 'b> Typer<'a, 'b> {
         self.ensure_type(span, given, &FullType::new(expected, false));
     }
 
-    pub(crate) fn get_schema(&self, name: &str) -> Option<&'b Schema<'a>> {
+    pub(crate) fn get_schema(&self, name: &'a str) -> Option<&'b Schema<'a>> {
         if let Some(schema) = self.with_schemas.get(name) {
             Some(schema)
         } else {
-            self.schemas.schemas.get(name)
+            self.schemas.schemas.get(&Identifier::new(name, 0..0))
         }
     }
 

@@ -10,9 +10,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::borrow::Borrow;
-
 use crate::{Span, Spanned};
+
+/// Compare two strings in ASCII case-insensitive manner, returning their ordering.
+pub fn ord_ignore_ascii_case(a: &str, b: &str) -> core::cmp::Ordering {
+    for (a_byte, b_byte) in a.bytes().zip(b.bytes()) {
+        let a_lower = a_byte.to_ascii_lowercase();
+        let b_lower = b_byte.to_ascii_lowercase();
+        if a_lower != b_lower {
+            return a_lower.cmp(&b_lower);
+        }
+    }
+    a.len().cmp(&b.len())
+}
 
 /// Simple identifier in code
 /// it derefs to its string value
@@ -26,7 +36,7 @@ pub struct Identifier<'a> {
 
 impl<'a> PartialEq for Identifier<'a> {
     fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
+        self.value.eq_ignore_ascii_case(other.value)
     }
 }
 impl<'a> Eq for Identifier<'a> {}
@@ -39,19 +49,13 @@ impl<'a> PartialOrd for Identifier<'a> {
 
 impl<'a> Ord for Identifier<'a> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.value.cmp(other.value)
+        ord_ignore_ascii_case(self.value, other.value)
     }
 }
 
 impl<'a> alloc::fmt::Display for Identifier<'a> {
     fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
         self.value.fmt(f)
-    }
-}
-
-impl<'a> Borrow<str> for Identifier<'a> {
-    fn borrow(&self) -> &str {
-        self.value
     }
 }
 

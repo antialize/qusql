@@ -38,7 +38,7 @@ pub(crate) fn type_insert_replace<'a>(
     let table = unqualified_name(typer.issues, &ior.table);
     let columns = &ior.columns;
 
-    let (s, auto_increment) = if let Some(schema) = typer.schemas.schemas.get(table.value) {
+    let (s, auto_increment) = if let Some(schema) = typer.schemas.schemas.get(table) {
         if schema.view {
             typer.err("Inserts into views not yet implemented", table);
         }
@@ -171,7 +171,7 @@ pub(crate) fn type_insert_replace<'a>(
     );
     let typer = &mut guard.typer;
 
-    if let Some(s) = typer.schemas.schemas.get(table.value) {
+    if let Some(s) = typer.schemas.schemas.get(table) {
         let mut columns = Vec::new();
         for c in &s.columns {
             columns.push((c.identifier.clone(), c.type_.clone()));
@@ -333,7 +333,7 @@ pub(crate) fn type_insert_replace<'a>(
                 do_update_set_span,
             } => {
                 let mut excluded_columns = Vec::new();
-                if let Some(schema) = typer.schemas.schemas.get(table.value)
+                if let Some(schema) = typer.schemas.schemas.get(table)
                     && !schema.view
                 {
                     for col in &ior.columns {
