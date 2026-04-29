@@ -910,9 +910,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             .as_ref()
             .and_then(|b| b.strings.first())
             .and_then(|s| try_parse_body(self.src, s, self.issues, &self.options.parse_options));
-        let name = f.name.clone();
+        let name = f.name.identifier.clone();
         let def = FunctionDef {
-            name: f.name.clone(),
+            name: f.name.identifier.clone(),
             params: f.params,
             return_type: f.return_type,
             span: f.create_span.join_span(&f.function_span),
