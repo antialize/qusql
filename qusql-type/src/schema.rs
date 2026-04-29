@@ -631,6 +631,10 @@ struct SchemaCtx<'a, 'b> {
     /// The return value of the most recently executed RETURN statement.
     /// Set by the Return arm in process_statement; consumed by eval_function_expr.
     return_value: Option<SqlValue<'a>>,
+    /// Current PostgreSQL search path for unqualified name resolution.
+    /// Updated by `SET [LOCAL] search_path TO ...`.
+    /// For MySQL/MariaDB/SQLite this is always empty.
+    search_path: Vec<Identifier<'a>>,
 }
 
 impl<'a, 'b> SchemaCtx<'a, 'b> {
@@ -650,7 +654,17 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             current_table_rows: Default::default(),
             current_row: Default::default(),
             return_value: None,
+            search_path: if options.parse_options.get_dialect().is_postgresql() {
+                alloc::vec![Identifier::new("public", 0..0)]
+            } else {
+                Vec::new()
+            },
         }
+    }
+
+    /// Returns the current search path as a slice of `&str` for use with `lookup_name`.
+    fn search_path_strs(&self) -> Vec<&'a str> {
+        self.search_path.iter().map(|id| id.value).collect()
     }
 
     /// Build a `QualifiedIdentifier` key using the current dialect convention.
@@ -835,8 +849,11 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 self.process_drop_sequence(*s);
                 Ok(())
             }
-            // Variable / cursor plumbing — ignored.
-            qusql_parse::Statement::Set(_) => Ok(()),
+            // Variable / cursor plumbing — update search_path if relevant, otherwise ignore.
+            qusql_parse::Statement::Set(s) => {
+                self.process_set(*s);
+                Ok(())
+            }
             // Assign and Perform may call known functions with schema effects.
             qusql_parse::Statement::Assign(a) => {
                 for se in a.value.select_exprs {
@@ -901,7 +918,8 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             return;
         };
         if s.if_not_exists.is_some() {
-            if lookup_name(&self.schemas.sequences, &key, &[]).is_some() {
+            let sp = self.search_path_strs();
+            if lookup_name(&self.schemas.sequences, &key, &sp).is_some() {
                 return;
             }
         }
@@ -914,7 +932,8 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 continue;
             };
             if s.if_exists.is_none() {
-                if lookup_name(&self.schemas.sequences, &key, &[]).is_none() {
+                let sp = self.search_path_strs();
+                if lookup_name(&self.schemas.sequences, &key, &sp).is_none() {
                     self.issues.err(
                         alloc::format!("Unknown sequence `{}`", name.identifier.value),
                         &name.identifier,
@@ -1226,6 +1245,44 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         // Ignore Ok/Err from the body: a Err() just means "stopped early" (RAISE EXCEPTION, RETURN, etc.)
         let _ = self.process_statements(statements);
         Ok(())
+    }
+
+    fn process_set(&mut self, s: qusql_parse::Set<'a>) {
+        if !self.options.parse_options.get_dialect().is_postgresql() {
+            return;
+        }
+        for (var, exprs) in s.values {
+            let qusql_parse::SetVariable::Named(qname) = var else {
+                continue;
+            };
+            // Match `search_path` (possibly qualified as `pg_catalog.search_path` etc.)
+            if !qname.identifier.value.eq_ignore_ascii_case("search_path") {
+                continue;
+            }
+            // Each expression is either a bare identifier (schema name) or a string literal.
+            let mut new_path: Vec<Identifier<'a>> = Vec::new();
+            for expr in exprs {
+                match expr {
+                    Expression::Identifier(id) => {
+                        if let Some(part) = id.parts.last()
+                            && let qusql_parse::IdentifierPart::Name(name) = part
+                        {
+                            new_path.push(name.clone());
+                        }
+                    }
+                    Expression::String(s) => {
+                        // quoted schema name — wrap it as a synthetic Identifier
+                        if let alloc::borrow::Cow::Borrowed(b) = &s.value {
+                            new_path.push(Identifier::new(b, 0..0));
+                        } else {
+                            // escaped/owned string — skip (uncommon in search_path)
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            self.search_path = new_path;
+        }
     }
 
     fn process_create_index(&mut self, ci: qusql_parse::CreateIndex<'a>) {
@@ -2307,11 +2364,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     None => QualifiedIdentifier::Unqualified(fn_ident.clone()),
                 };
                 let is_pg = self.options.parse_options.get_dialect().is_postgresql();
-                let func_info = lookup_name(&self.schemas.functions, &key, &[]).and_then(|func| {
-                    func.body
-                        .as_ref()
-                        .map(|b| (func.params.clone(), b.statements.clone()))
-                });
+                let search_path: Vec<&str> = self.search_path_strs();
+                let func_info =
+                    lookup_name(&self.schemas.functions, &key, &search_path).and_then(|func| {
+                        func.body
+                            .as_ref()
+                            .map(|b| (func.params.clone(), b.statements.clone()))
+                    });
                 let Some((params, statements)) = func_info else {
                     self.issues.err(
                         alloc::format!(
@@ -2387,7 +2446,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 } else {
                     QualifiedIdentifier::Unqualified(Identifier::new(seq_name, 0..0))
                 };
-                let sp: &[&str] = &[];
+                let sp = self.search_path_strs();
                 let found = lookup_name(&self.schemas.sequences, &key, &sp).is_some();
                 if !found {
                     self.issues

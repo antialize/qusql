@@ -291,10 +291,10 @@ impl<'a, 'b> Typer<'a, 'b> {
         &self,
         key: &QualifiedIdentifier<'a>,
     ) -> Option<&'b Schema<'a>> {
-        if let QualifiedIdentifier::Unqualified(name) = key {
-            if let Some(s) = self.with_schemas.get(name.value) {
-                return Some(s);
-            }
+        if let QualifiedIdentifier::Unqualified(name) = key
+            && let Some(s) = self.with_schemas.get(name.value)
+        {
+            return Some(s);
         }
         lookup_name(&self.schemas.schemas, key, self.search_path())
     }
