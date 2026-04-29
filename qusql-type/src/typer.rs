@@ -15,7 +15,7 @@ use alloc::boxed::Box;
 
 use crate::{
     ArgumentKey, Type, TypeOptions,
-    schema::{QualifiedIdentifier, Schema, Schemas},
+    schema::{QualifiedIdentifier, Schema, Schemas, lookup_name},
     type_::{ArgType, BaseType, FullType},
 };
 use alloc::sync::Arc;
@@ -291,19 +291,12 @@ impl<'a, 'b> Typer<'a, 'b> {
         &self,
         key: &QualifiedIdentifier<'a>,
     ) -> Option<&'b Schema<'a>> {
-        let table = key.table_name();
-        if let Some(s) = self.with_schemas.get(table.value) {
-            return Some(s);
+        if let QualifiedIdentifier::Unqualified(name) = key {
+            if let Some(s) = self.with_schemas.get(name.value) {
+                return Some(s);
+            }
         }
-        self.schemas.schemas.get(table)
-    }
-
-    /// Look up a table/view schema by unqualified name string (backward-compat helper).
-    pub(crate) fn get_schema(&self, name: &'a str) -> Option<&'b Schema<'a>> {
-        self.get_schema_by_key(&QualifiedIdentifier::Unqualified(Identifier::new(
-            name,
-            0..0,
-        )))
+        lookup_name(&self.schemas.schemas, key, self.search_path())
     }
 
     pub(crate) fn err(

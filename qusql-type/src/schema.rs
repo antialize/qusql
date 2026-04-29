@@ -188,10 +188,9 @@ pub enum TypeDef<'a> {
     },
 }
 
-/// A schema-qualified or unqualified table/view identifier.
+/// A schema-qualified or unqualified table/view identifier (interim stub).
 ///
-/// Used as a map key; will replace bare `Identifier` keys once
-/// the schema maps switch to qualified keys in a later commit.
+/// The full version with `QualifiedIdentifier`-keyed maps comes in the A commit.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum QualifiedIdentifier<'a> {
     Unqualified(Identifier<'a>),
@@ -199,19 +198,27 @@ pub enum QualifiedIdentifier<'a> {
 }
 
 impl<'a> QualifiedIdentifier<'a> {
-    /// The table (rightmost) identifier.
     pub fn table_name(&self) -> &Identifier<'a> {
         match self {
             QualifiedIdentifier::Unqualified(id) | QualifiedIdentifier::Qualified(_, id) => id,
         }
     }
-    /// The schema (leftmost) identifier, if any.
     pub fn schema_name(&self) -> Option<&Identifier<'a>> {
         match self {
             QualifiedIdentifier::Unqualified(_) => None,
             QualifiedIdentifier::Qualified(s, _) => Some(s),
         }
     }
+}
+
+/// Look up a name in an `Identifier`-keyed map using a `QualifiedIdentifier` key.
+/// Extracts the table (rightmost) part and does a plain map lookup.
+pub fn lookup_name<'a, 'b, T>(
+    map: &'b BTreeMap<Identifier<'a>, T>,
+    name: &QualifiedIdentifier<'a>,
+    _search_path: &[&'a str],
+) -> Option<&'b T> {
+    map.get(name.table_name())
 }
 
 /// A description of tables, view, procedures and function in a schemas definition file

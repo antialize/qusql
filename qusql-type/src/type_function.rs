@@ -15,7 +15,7 @@ use qusql_parse::{Expression, Function, Identifier, Span};
 
 use crate::{
     Type,
-    schema::parse_column,
+    schema::{QualifiedIdentifier, lookup_name, parse_column},
     type_::{BaseType, FullType},
     type_expression::{ExpressionFlags, type_expression},
     typer::{Restrict, Typer},
@@ -3002,16 +3002,32 @@ pub(crate) fn type_function<'a, 'b>(
         Function::Other(parts) => {
             // Type all arguments regardless of whether we know the function
             typed_args(typer, args, flags);
-            // Look up by the unqualified name (last part)
-            let fn_name = parts.last().map(|id| id.value).unwrap_or_default();
-            let lookup_key = Identifier {
-                value: fn_name,
+            // Look up by function name, respecting dialect schema conventions
+            let fn_ident = Identifier {
+                value: parts.last().map(|id| id.value).unwrap_or_default(),
                 span: parts
                     .last()
                     .map(|id| id.span.clone())
                     .unwrap_or_else(|| span.clone()),
             };
-            if let Some(def) = typer.schemas.functions.get(&lookup_key) {
+            let fn_name = fn_ident.value;
+            let is_pg = typer.dialect().is_postgresql();
+            let lookup_key = match parts.as_slice() {
+                [_] => QualifiedIdentifier::Unqualified(fn_ident.clone()),
+                [schema, _] if is_pg => {
+                    QualifiedIdentifier::Qualified(schema.clone(), fn_ident.clone())
+                }
+                _ => {
+                    let msg = if is_pg {
+                        "Expected at most schema.function qualified name"
+                    } else {
+                        "Schema-qualified function names are not supported in MySQL"
+                    };
+                    typer.issues.err(msg, span);
+                    QualifiedIdentifier::Unqualified(fn_ident.clone())
+                }
+            };
+            if let Some(def) = lookup_name(&typer.schemas.functions, &lookup_key, typer.search_path()) {
                 let col = parse_column(
                     def.return_type.clone(),
                     def.name.clone(),

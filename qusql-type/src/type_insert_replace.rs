@@ -18,9 +18,10 @@ use qusql_parse::{
 
 use crate::{
     BaseType, SelectTypeColumn, Type,
+    schema::lookup_name,
     type_expression::{ExpressionFlags, type_expression},
     type_select::{SelectType, type_select, type_select_exprs},
-    typer::{ReferenceType, Typer, did_you_mean, typer_stack, unqualified_name},
+    typer::{ReferenceType, Typer, did_you_mean, typer_stack},
 };
 
 /// Does the insert yield an auto increment id
@@ -35,76 +36,79 @@ pub(crate) fn type_insert_replace<'a>(
     typer: &mut Typer<'a, '_>,
     ior: &InsertReplace<'a>,
 ) -> (AutoIncrementId, Option<SelectType<'a>>) {
-    let table = unqualified_name(typer.issues, &ior.table);
+    let table = &ior.table.identifier;
+    let table_key = typer.qname_to_key(&ior.table);
+    let search_path = typer.search_path();
     let columns = &ior.columns;
 
-    let (s, auto_increment) = if let Some(schema) = typer.schemas.schemas.get(table) {
-        if schema.view {
-            typer.err("Inserts into views not yet implemented", table);
-        }
-        let mut col_types = Vec::new();
+    let (s, auto_increment) =
+        if let Some(schema) = lookup_name(&typer.schemas.schemas, &table_key, search_path) {
+            if schema.view {
+                typer.err("Inserts into views not yet implemented", table);
+            }
+            let mut col_types = Vec::new();
 
-        for col in columns {
-            if let Some(schema_col) = schema.get_column(col.value) {
-                col_types.push((schema_col.type_.clone(), col.span()));
+            for col in columns {
+                if let Some(schema_col) = schema.get_column(col.value) {
+                    col_types.push((schema_col.type_.clone(), col.span()));
+                } else {
+                    typer.err("No such column in schema", col);
+                }
+            }
+
+            if let Some(set) = &ior.set {
+                for col in &schema.columns {
+                    if col.auto_increment
+                        || col.default
+                        || !col.type_.not_null
+                        || col.as_.is_some()
+                        || col.generated
+                        || set.pairs.iter().any(|v| v.column == col.identifier)
+                    {
+                        continue;
+                    }
+                    typer.err(
+                        format!(
+                            "No value for column {} provided, but it has no default value",
+                            &col.identifier
+                        ),
+                        set,
+                    );
+                }
             } else {
-                typer.err("No such column in schema", col);
-            }
-        }
-
-        if let Some(set) = &ior.set {
-            for col in &schema.columns {
-                if col.auto_increment
-                    || col.default
-                    || !col.type_.not_null
-                    || col.as_.is_some()
-                    || col.generated
-                    || set.pairs.iter().any(|v| v.column == col.identifier)
-                {
-                    continue;
+                for col in &schema.columns {
+                    if col.auto_increment
+                        || col.default
+                        || !col.type_.not_null
+                        || col.as_.is_some()
+                        || col.generated
+                        || columns.contains(&col.identifier)
+                    {
+                        continue;
+                    }
+                    typer.err(
+                        format!(
+                            "No value for column {} provided, but it has no default value",
+                            &col.identifier
+                        ),
+                        &columns.opt_span().unwrap_or(table.span()),
+                    );
                 }
-                typer.err(
-                    format!(
-                        "No value for column {} provided, but it has no default value",
-                        &col.identifier
-                    ),
-                    set,
-                );
             }
+
+            (
+                Some(col_types),
+                schema.columns.iter().any(|c| c.auto_increment),
+            )
         } else {
-            for col in &schema.columns {
-                if col.auto_increment
-                    || col.default
-                    || !col.type_.not_null
-                    || col.as_.is_some()
-                    || col.generated
-                    || columns.contains(&col.identifier)
-                {
-                    continue;
-                }
-                typer.err(
-                    format!(
-                        "No value for column {} provided, but it has no default value",
-                        &col.identifier
-                    ),
-                    &columns.opt_span().unwrap_or(table.span()),
-                );
-            }
-        }
-
-        (
-            Some(col_types),
-            schema.columns.iter().any(|c| c.auto_increment),
-        )
-    } else {
-        typer.err("Unknown table", table);
-        (None, false)
-    };
+            typer.err("Unknown table", table);
+            (None, false)
+        };
 
     if let Some(values) = &ior.values {
         for row in &values.1 {
             for (j, e) in row.iter().enumerate() {
-                if let Some((et, ets)) = s.as_ref().and_then(|v| v.get(j)) {
+                if let Some((et, ets)) = s.as_ref().and_then(|v: &Vec<_>| v.get(j)) {
                     let t = type_expression(typer, e, ExpressionFlags::default(), et.base());
                     if typer.matched_type(&t, et).is_none() {
                         typer
@@ -171,7 +175,7 @@ pub(crate) fn type_insert_replace<'a>(
     );
     let typer = &mut guard.typer;
 
-    if let Some(s) = typer.schemas.schemas.get(table) {
+    if let Some(s) = lookup_name(&typer.schemas.schemas, &table_key, search_path) {
         let mut columns = Vec::new();
         for c in &s.columns {
             columns.push((c.identifier.clone(), c.type_.clone()));
@@ -333,7 +337,7 @@ pub(crate) fn type_insert_replace<'a>(
                 do_update_set_span,
             } => {
                 let mut excluded_columns = Vec::new();
-                if let Some(schema) = typer.schemas.schemas.get(table)
+                if let Some(schema) = lookup_name(&typer.schemas.schemas, &table_key, search_path)
                     && !schema.view
                 {
                     for col in &ior.columns {

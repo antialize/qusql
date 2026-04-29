@@ -13,18 +13,20 @@
 use qusql_parse::{Call, FunctionParamDirection};
 
 use crate::{
-    schema::parse_column,
+    schema::{lookup_name, parse_column},
     type_::BaseType,
     type_expression::{ExpressionFlags, type_expression},
-    typer::{Typer, unqualified_name},
+    typer::Typer,
 };
 use alloc::vec::Vec;
 
 pub(crate) fn type_call<'a>(typer: &mut Typer<'a, '_>, call: &Call<'a>) {
-    let identifier = unqualified_name(typer.issues, &call.name);
+    let identifier = &call.name.identifier;
+    let key = typer.qname_to_key(&call.name);
+    let search_path = typer.search_path();
 
     // Look up the procedure in the schema.
-    let proc = typer.schemas.procedures.get(identifier);
+    let proc = lookup_name(&typer.schemas.procedures, &key, search_path);
 
     if proc.is_none() {
         typer.err("Unknown procedure", identifier);
