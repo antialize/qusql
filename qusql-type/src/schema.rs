@@ -1047,11 +1047,12 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 qusql_parse::CreateDefinition::ForeignKeyDefinition { .. } => {}
                 qusql_parse::CreateDefinition::CheckConstraintDefinition { .. } => {}
                 qusql_parse::CreateDefinition::LikeTable { source_table, .. } => {
-                    let source_key = match self.parse_qname(&source_table) {
+                    let source_key = match self.parse_qname_for_lookup(&source_table) {
                         Some(k) => k,
                         None => continue,
                     };
-                    if let Some(src) = lookup_name(&self.schemas.schemas, &source_key, &[]) {
+                    let sp = self.search_path_strs();
+                    if let Some(src) = lookup_name(&self.schemas.schemas, &source_key, &sp) {
                         let cols: Vec<Column<'a>> = src.columns.to_vec();
                         for col in cols {
                             if schema.get_column(col.identifier.value).is_none() {
@@ -1233,11 +1234,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn process_call(&mut self, c: qusql_parse::Call<'a>) -> Result<(), ()> {
-        let Some(key) = self.parse_qname(&c.name) else {
+        let Some(key) = self.parse_qname_for_lookup(&c.name) else {
             return Ok(());
         };
+        let search_path: Vec<&str> = self.search_path_strs();
         // Look up the procedure and clone its body statements.
-        let body = lookup_name(&self.schemas.procedures, &key, &[]).and_then(|p| p.body.clone());
+        let body =
+            lookup_name(&self.schemas.procedures, &key, &search_path).and_then(|p| p.body.clone());
         let Some(statements) = body else {
             // Unknown or body-less procedure — no schema effect.
             return Ok(());
@@ -1286,12 +1289,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn process_create_index(&mut self, ci: qusql_parse::CreateIndex<'a>) {
-        let Some(lookup_key) = self.parse_qname(&ci.table_name) else {
+        let Some(lookup_key) = self.parse_qname_for_lookup(&ci.table_name) else {
             return;
         };
         let t = lookup_key.table_name().clone();
+        let sp = self.search_path_strs();
         // Look up the table to validate columns and get the resolved schema for the IndexKey.
-        let resolved_schema = match lookup_name_key(&self.schemas.schemas, &lookup_key, &[]) {
+        let resolved_schema = match lookup_name_key(&self.schemas.schemas, &lookup_key, &sp) {
             Some((resolved_key, table)) => {
                 let schema = resolved_key.schema_name().cloned();
                 for col in &ci.column_names {
@@ -2272,9 +2276,10 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             return Err(());
         }
         let name = identifier.identifier.value;
-        let table_key = self.make_table_key(None, Identifier::new(name, 0..0));
+        let table_key = QualifiedIdentifier::Unqualified(Identifier::new(name, 0..0));
+        let sp = self.search_path_strs();
         let known = self.rows.contains_key(name)
-            || lookup_name(&self.schemas.schemas, &table_key, &[]).is_some();
+            || lookup_name(&self.schemas.schemas, &table_key, &sp).is_some();
         if !known {
             self.issues.err(
                 alloc::format!("Unknown table `{name}` referenced in schema evaluator"),
