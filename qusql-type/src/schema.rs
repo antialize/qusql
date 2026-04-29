@@ -2393,7 +2393,6 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     Some(s) => QualifiedIdentifier::Qualified(s, fn_ident.clone()),
                     None => QualifiedIdentifier::Unqualified(fn_ident.clone()),
                 };
-                let is_pg = self.options.parse_options.get_dialect().is_postgresql();
                 let search_path: Vec<&str> = self.search_path_strs();
                 let func_info =
                     lookup_name(&self.schemas.functions, &key, &search_path).and_then(|func| {

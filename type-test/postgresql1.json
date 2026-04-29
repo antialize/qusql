@@ -1,7 +1,7 @@
 {
   "tables": [
     {
-      "name": "boards",
+      "name": "public.boards",
       "columns": [
         {
           "name": "id",
@@ -47,7 +47,7 @@
       ]
     },
     {
-      "name": "coordinate_systems",
+      "name": "public.coordinate_systems",
       "columns": [
         {
           "name": "id",
@@ -79,7 +79,7 @@
       ]
     },
     {
-      "name": "geography_columns",
+      "name": "public.geography_columns",
       "view": true,
       "columns": [
         {
@@ -120,7 +120,7 @@
       ]
     },
     {
-      "name": "geometry_columns",
+      "name": "public.geometry_columns",
       "view": true,
       "columns": [
         {
@@ -161,7 +161,7 @@
       ]
     },
     {
-      "name": "schema_revisions",
+      "name": "public.schema_revisions",
       "columns": [
         {
           "name": "id",
@@ -188,7 +188,7 @@
       ]
     },
     {
-      "name": "snapshots",
+      "name": "public.snapshots",
       "columns": [
         {
           "name": "id",
@@ -210,7 +210,7 @@
       ]
     },
     {
-      "name": "spatial_ref_sys",
+      "name": "public.spatial_ref_sys",
       "columns": [
         {
           "name": "srid",
@@ -236,7 +236,7 @@
       ]
     },
     {
-      "name": "tag_definitions",
+      "name": "public.tag_definitions",
       "columns": [
         {
           "name": "id",
@@ -264,7 +264,7 @@
       ]
     },
     {
-      "name": "tasks",
+      "name": "public.tasks",
       "columns": [
         {
           "name": "id",
@@ -340,7 +340,7 @@
       ]
     },
     {
-      "name": "tasks_history",
+      "name": "public.tasks_history",
       "columns": [
         {
           "name": "id",

@@ -1762,4 +1762,137 @@ mod tests {
             panic!("{errors} errors in test");
         }
     }
+
+    /// CREATE SCHEMA / qualified table names work in PostgreSQL.
+    #[test]
+    fn postgres_schema_support() {
+        let schema_src = "
+        CREATE SCHEMA myschema;
+
+        CREATE TABLE myschema.items (
+            id   bigint NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+            name text   NOT NULL
+        );
+
+        -- Unqualified name lands in 'public' schema
+        CREATE TABLE products (
+            id    bigint NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+            label text   NOT NULL
+        );
+        ";
+
+        let opts = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+        let mut issues = Issues::new(schema_src);
+        let schema = parse_schemas(schema_src, &mut issues, &opts);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        // Qualified SELECT against myschema.items
+        {
+            let src = "SELECT id, name FROM myschema.items WHERE id = $1";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &opts);
+            check_no_errors("qualified SELECT", src, issues.get(), &mut errors);
+            if let StatementType::Select { columns, arguments } = q {
+                assert_eq!(columns.len(), 2, "expected 2 columns");
+                assert_eq!(arguments.len(), 1, "expected 1 argument");
+            } else {
+                errors += 1;
+                println!("qualified SELECT: expected Select");
+            }
+        }
+
+        // Unqualified SELECT against public.products
+        {
+            let src = "SELECT id, label FROM products WHERE id = $1";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &opts);
+            check_no_errors("unqualified SELECT", src, issues.get(), &mut errors);
+            if let StatementType::Select { columns, .. } = q {
+                assert_eq!(columns.len(), 2, "expected 2 columns");
+            } else {
+                errors += 1;
+                println!("unqualified SELECT: expected Select");
+            }
+        }
+
+        // INSERT into qualified table
+        {
+            let src = "INSERT INTO myschema.items (name) VALUES ($1)";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &opts);
+            check_no_errors("qualified INSERT", src, issues.get(), &mut errors);
+            assert!(matches!(q, StatementType::Insert { .. }), "expected Insert");
+        }
+
+        // DROP SCHEMA removes all tables in that schema
+        {
+            let schema_src2 = "
+            CREATE SCHEMA tmp;
+            CREATE TABLE tmp.t (id bigint NOT NULL);
+            DROP SCHEMA tmp;
+            ";
+            let mut issues2 = Issues::new(schema_src2);
+            let s2 = parse_schemas(schema_src2, &mut issues2, &opts);
+            check_no_errors("drop schema", schema_src2, issues2.get(), &mut errors);
+            // tmp.t should be gone
+            let src = "SELECT id FROM tmp.t";
+            let mut issues2 = Issues::new(src);
+            let q = type_statement(&s2, src, &mut issues2, &opts);
+            assert!(
+                !issues2.is_ok(),
+                "expected error: tmp.t should not exist after DROP SCHEMA"
+            );
+            let _ = q;
+        }
+
+        if errors != 0 {
+            panic!("{errors} errors in postgres_schema_support test");
+        }
+    }
+
+    /// CREATE SCHEMA must fail in MySQL; schema-qualified names must also fail.
+    #[test]
+    fn mysql_create_schema_fails() {
+        let opts_maria = TypeOptions::new()
+            .dialect(SQLDialect::MariaDB)
+            .arguments(SQLArguments::QuestionMark);
+
+        // CREATE SCHEMA is not supported in MySQL
+        {
+            let src = "CREATE SCHEMA myschema;";
+            let mut issues = Issues::new(src);
+            let _ = parse_schemas(src, &mut issues, &opts_maria);
+            assert!(
+                !issues.is_ok(),
+                "CREATE SCHEMA should produce an error in MySQL"
+            );
+        }
+
+        // Schema-qualified table name in CREATE TABLE should fail in MySQL
+        {
+            let src = "CREATE TABLE myschema.items (id int NOT NULL);";
+            let mut issues = Issues::new(src);
+            let _ = parse_schemas(src, &mut issues, &opts_maria);
+            assert!(
+                !issues.is_ok(),
+                "schema.table in CREATE TABLE should fail in MySQL"
+            );
+        }
+
+        // Schema-qualified table name in SELECT should fail in MySQL
+        {
+            let tbl_src = "CREATE TABLE items (id int NOT NULL);";
+            let mut issues = Issues::new(tbl_src);
+            let schema = parse_schemas(tbl_src, &mut issues, &opts_maria);
+            assert!(issues.is_ok());
+
+            let src = "SELECT id FROM myschema.items";
+            let mut issues = Issues::new(src);
+            let _ = type_statement(&schema, src, &mut issues, &opts_maria);
+            assert!(!issues.is_ok(), "schema.table in FROM should fail in MySQL");
+        }
+    }
 }

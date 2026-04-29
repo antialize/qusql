@@ -335,7 +335,7 @@ fn run_schema(args: SchemaArgs) {
         .schemas
         .into_iter()
         .map(|(name, schema)| JsonTable {
-            name: name.table_name().value.to_string(),
+            name: name.to_string(),
             view: schema.view,
             columns: schema
                 .columns
