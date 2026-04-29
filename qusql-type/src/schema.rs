@@ -334,6 +334,7 @@ fn type_kind_from_parse<'a>(
     is_postgresql: bool,
     types: Option<&BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>>,
     issues: &mut Issues<'a>,
+    search_path: &[&'a str],
 ) -> Type<'a> {
     match type_ {
         qusql_parse::Type::TinyInt(v) => {
@@ -430,7 +431,6 @@ fn type_kind_from_parse<'a>(
                     }
                     _ => return BaseType::String.into(),
                 };
-                let search_path: &[&str] = if is_postgresql { &["public"] } else { &[] };
                 match lookup_name(types, &key, search_path) {
                     Some(TypeDef::Enum { values, .. }) => Type::Enum(values.clone()),
                     _ => BaseType::String.into(),
@@ -452,6 +452,7 @@ fn type_kind_from_parse<'a>(
             is_postgresql,
             types,
             issues,
+            search_path,
         ))),
         qusql_parse::Type::Table(ref span, _) => {
             issues.err("TABLE type is not yet supported", span);
@@ -495,6 +496,7 @@ pub(crate) fn parse_column<'a>(
     _issues: &mut Issues<'a>,
     options: Option<&TypeOptions>,
     types: Option<&BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>>,
+    search_path: &[&'a str],
 ) -> Column<'a> {
     let mut not_null = false;
     let mut unsigned = false;
@@ -539,6 +541,7 @@ pub(crate) fn parse_column<'a>(
         is_postgresql,
         types,
         _issues,
+        search_path,
     );
     Column {
         identifier,
@@ -980,12 +983,14 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     identifier,
                     data_type,
                 } => {
+                    let sp = self.search_path_strs();
                     let column = parse_column(
                         data_type,
                         identifier.clone(),
                         self.issues,
                         Some(self.options),
                         Some(&self.schemas.types),
+                        &sp,
                     );
                     if let Some(oc) = schema.get_column(column.identifier.value) {
                         self.issues
@@ -1381,6 +1386,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn process_alter_table(&mut self, a: qusql_parse::AlterTable<'a>) {
+        let sp = self.search_path_strs();
         let key = match self.parse_qname(&a.table) {
             Some(k) => k,
             None => return,
@@ -1410,12 +1416,14 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 &mut self.schemas.indices,
                 self.options,
                 &self.schemas.types,
+                &sp,
             );
         }
     }
 }
 
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments)]
 fn process_alter_specification<'a>(
     s: qusql_parse::AlterSpecification<'a>,
     e: &mut Schema<'a>,
@@ -1424,6 +1432,7 @@ fn process_alter_specification<'a>(
     indices: &mut alloc::collections::BTreeMap<IndexKey<'a>, Span>,
     options: &TypeOptions,
     types: &BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>,
+    search_path: &[&'a str],
 ) {
     match s {
         qusql_parse::AlterSpecification::AddIndex(AddIndex {
@@ -1494,6 +1503,7 @@ fn process_alter_specification<'a>(
                     issues,
                     Some(options),
                     Some(types),
+                    search_path,
                 );
                 *c = new_col;
             }
@@ -1523,6 +1533,7 @@ fn process_alter_specification<'a>(
                     issues,
                     Some(options),
                     Some(types),
+                    search_path,
                 ));
             }
         }
@@ -1547,7 +1558,14 @@ fn process_alter_specification<'a>(
                 qusql_parse::AlterColumnAction::SetDefault { .. } => c.default = true,
                 qusql_parse::AlterColumnAction::DropDefault { .. } => c.default = false,
                 qusql_parse::AlterColumnAction::Type { type_, .. } => {
-                    *c = parse_column(type_, column, issues, Some(options), Some(types));
+                    *c = parse_column(
+                        type_,
+                        column,
+                        issues,
+                        Some(options),
+                        Some(types),
+                        search_path,
+                    );
                 }
                 qusql_parse::AlterColumnAction::SetNotNull { .. } => c.type_.not_null = true,
                 qusql_parse::AlterColumnAction::DropNotNull { .. } => c.type_.not_null = false,
@@ -1656,7 +1674,14 @@ fn process_alter_specification<'a>(
             ..
         }) => match e.get_column_mut(column.value) {
             Some(c) => {
-                *c = parse_column(definition, new_column, issues, Some(options), Some(types));
+                *c = parse_column(
+                    definition,
+                    new_column,
+                    issues,
+                    Some(options),
+                    Some(types),
+                    search_path,
+                );
             }
             None => {
                 issues

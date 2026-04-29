@@ -66,6 +66,7 @@ pub(crate) fn type_call<'a>(typer: &mut Typer<'a, '_>, call: &Call<'a>) {
             typer.issues,
             Some(typer.options),
             Some(&typer.schemas.types),
+            typer.search_path(),
         );
         let arg_type = type_expression(
             typer,

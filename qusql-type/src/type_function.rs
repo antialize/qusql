@@ -3034,6 +3034,7 @@ pub(crate) fn type_function<'a, 'b>(
                     typer.issues,
                     Some(typer.options),
                     Some(&typer.schemas.types),
+                    typer.search_path(),
                 );
                 col.type_
             } else {
