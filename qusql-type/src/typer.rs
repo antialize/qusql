@@ -15,7 +15,7 @@ use alloc::boxed::Box;
 
 use crate::{
     ArgumentKey, Type, TypeOptions,
-    schema::{Schema, Schemas},
+    schema::{QualifiedIdentifier, Schema, Schemas},
     type_::{ArgType, BaseType, FullType},
 };
 use alloc::sync::Arc;
@@ -248,12 +248,62 @@ impl<'a, 'b> Typer<'a, 'b> {
         self.ensure_type(span, given, &FullType::new(expected, false));
     }
 
-    pub(crate) fn get_schema(&self, name: &'a str) -> Option<&'b Schema<'a>> {
-        if let Some(schema) = self.with_schemas.get(name) {
-            Some(schema)
-        } else {
-            self.schemas.schemas.get(&Identifier::new(name, 0..0))
+    /// Convert a parsed `QualifiedName` to a `QualifiedIdentifier` for use in map lookups.
+    ///
+    /// Unlike `table_key`, unqualified names are kept as `Unqualified` so the search path
+    /// in `lookup_name` / `get_schema_by_key` resolves them — this avoids hardcoding "public".
+    /// Emits an error for MySQL-qualified names or names with more than one prefix level.
+    pub(crate) fn qname_to_key(&mut self, name: &QualifiedName<'a>) -> QualifiedIdentifier<'a> {
+        let is_pg = self.dialect().is_postgresql();
+        match name.prefix.as_slice() {
+            [] => QualifiedIdentifier::Unqualified(name.identifier.clone()),
+            [(schema, _)] if is_pg => {
+                QualifiedIdentifier::Qualified(schema.clone(), name.identifier.clone())
+            }
+            _ => {
+                let msg = if is_pg {
+                    "Expected at most schema.table qualified name"
+                } else {
+                    "Schema-qualified names are not supported in MySQL"
+                };
+                self.issues.err(msg, &name.prefix.opt_span().unwrap());
+                QualifiedIdentifier::Unqualified(name.identifier.clone())
+            }
         }
+    }
+
+    /// The current search path: `["public"]` for PostgreSQL, empty for MySQL / MariaDB / SQLite.
+    ///
+    /// Used with `lookup_name` / `get_schema_by_key` when looking up `Unqualified` names.
+    pub(crate) fn search_path(&self) -> &'static [&'static str] {
+        if self.dialect().is_postgresql() {
+            &["public"]
+        } else {
+            &[]
+        }
+    }
+
+    /// Look up a table/view by its already-converted `QualifiedIdentifier` key.
+    ///
+    /// Checks CTEs (for `Unqualified` keys) before falling back to the schemas map
+    /// with the current search path applied.
+    pub(crate) fn get_schema_by_key(
+        &self,
+        key: &QualifiedIdentifier<'a>,
+    ) -> Option<&'b Schema<'a>> {
+        let table = key.table_name();
+        if let Some(s) = self.with_schemas.get(table.value) {
+            return Some(s);
+        }
+        self.schemas.schemas.get(table)
+    }
+
+    /// Look up a table/view schema by unqualified name string (backward-compat helper).
+    pub(crate) fn get_schema(&self, name: &'a str) -> Option<&'b Schema<'a>> {
+        self.get_schema_by_key(&QualifiedIdentifier::Unqualified(Identifier::new(
+            name,
+            0..0,
+        )))
     }
 
     pub(crate) fn err(
@@ -364,4 +414,31 @@ pub(crate) fn unqualified_name<'b, 'c>(
         );
     }
     &name.identifier
+}
+
+/// Resolve a potentially schema-qualified table name from a `QualifiedName`.
+///
+/// Returns `(schema, table)` where `schema` is `None` for unqualified names.
+/// Issues an error and returns `(None, table)` if:
+/// - The name has more than one prefix level.
+/// - The name has a schema prefix in a non-PostgreSQL dialect.
+pub(crate) fn resolve_table_name<'b, 'c>(
+    issues: &mut Issues<'_>,
+    options: &TypeOptions,
+    name: &'c QualifiedName<'b>,
+) -> (Option<&'c Identifier<'b>>, &'c Identifier<'b>) {
+    let is_pg = options.parse_options.get_dialect().is_postgresql();
+    match name.prefix.as_slice() {
+        [] => (None, &name.identifier),
+        [(schema, _)] if is_pg => (Some(schema), &name.identifier),
+        _ => {
+            let msg = if is_pg {
+                "Expected at most schema.table qualified name"
+            } else {
+                "Schema-qualified names are not supported in MySQL"
+            };
+            issues.err(msg, &name.prefix.opt_span().unwrap());
+            (None, &name.identifier)
+        }
+    }
 }

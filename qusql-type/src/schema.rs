@@ -188,6 +188,32 @@ pub enum TypeDef<'a> {
     },
 }
 
+/// A schema-qualified or unqualified table/view identifier.
+///
+/// Used as a map key; will replace bare `Identifier` keys once
+/// the schema maps switch to qualified keys in a later commit.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum QualifiedIdentifier<'a> {
+    Unqualified(Identifier<'a>),
+    Qualified(Identifier<'a>, Identifier<'a>),
+}
+
+impl<'a> QualifiedIdentifier<'a> {
+    /// The table (rightmost) identifier.
+    pub fn table_name(&self) -> &Identifier<'a> {
+        match self {
+            QualifiedIdentifier::Unqualified(id) | QualifiedIdentifier::Qualified(_, id) => id,
+        }
+    }
+    /// The schema (leftmost) identifier, if any.
+    pub fn schema_name(&self) -> Option<&Identifier<'a>> {
+        match self {
+            QualifiedIdentifier::Unqualified(_) => None,
+            QualifiedIdentifier::Qualified(s, _) => Some(s),
+        }
+    }
+}
+
 /// A description of tables, view, procedures and function in a schemas definition file
 #[derive(Debug, Default)]
 pub struct Schemas<'a> {
