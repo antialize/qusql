@@ -108,7 +108,7 @@ pub(crate) fn type_insert_replace<'a>(
     if let Some(values) = &ior.values {
         for row in &values.1 {
             for (j, e) in row.iter().enumerate() {
-                if let Some((et, ets)) = s.as_ref().and_then(|v: &Vec<_>| v.get(j)) {
+                if let Some((et, ets)) = s.as_ref().and_then(|v| v.get(j)) {
                     let t = type_expression(typer, e, ExpressionFlags::default(), et.base());
                     if typer.matched_type(&t, et).is_none() {
                         typer

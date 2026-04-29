@@ -85,8 +85,8 @@
 //!
 //! assert!(issues.is_ok());
 //!
-//! for (name, schema) in schemas.schemas {
-//!     println!("{name}: {schema:?}")
+//! for (key, schema) in schemas.schemas {
+//!     println!("{}: {schema:?}", key.table_name())
 //! }
 //! ```
 
@@ -94,13 +94,13 @@ use crate::{
     Type, TypeOptions,
     type_::{BaseType, FullType},
     type_statement,
-    typer::unqualified_name,
+    typer::{resolve_table_name, unqualified_name},
 };
 use alloc::{borrow::Cow, boxed::Box, collections::BTreeMap, rc::Rc, sync::Arc, vec::Vec};
 use qusql_parse::{
     AddColumn, AddIndex, AlterColumn, DataType, DataTypeProperty, DropColumn, Expression,
-    FunctionParam, Identifier, IdentifierPart, Issues, ModifyColumn, Span, Spanned, Statement,
-    parse_statements,
+    FunctionParam, Identifier, IdentifierPart, Issues, ModifyColumn, OptSpanned, QualifiedName,
+    Span, Spanned, Statement, parse_statements,
 };
 
 /// A column in a schema
@@ -174,6 +174,8 @@ pub struct FunctionDef<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IndexKey<'a> {
+    /// Schema name (PostgreSQL only); `None` for MySQL/MariaDB/SQLite.
+    pub schema: Option<Identifier<'a>>,
     pub table: Option<Identifier<'a>>,
     pub index: Identifier<'a>,
 }
@@ -188,21 +190,26 @@ pub enum TypeDef<'a> {
     },
 }
 
-/// A schema-qualified or unqualified table/view identifier (interim stub).
+/// A schema-qualified or unqualified table/view identifier used as a `Schemas.schemas` map key.
 ///
-/// The full version with `QualifiedIdentifier`-keyed maps comes in the A commit.
+/// In PostgreSQL mode every name is stored as `Qualified`; unqualified names use the
+/// implicit `"public"` schema.  In MySQL / MariaDB / SQLite mode every name is `Unqualified`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum QualifiedIdentifier<'a> {
+    /// Unqualified table name (MySQL / MariaDB / SQLite)
     Unqualified(Identifier<'a>),
+    /// Schema-qualified table name, e.g. `"public"."tablename"` (PostgreSQL)
     Qualified(Identifier<'a>, Identifier<'a>),
 }
 
 impl<'a> QualifiedIdentifier<'a> {
+    /// The table (rightmost) identifier.
     pub fn table_name(&self) -> &Identifier<'a> {
         match self {
             QualifiedIdentifier::Unqualified(id) | QualifiedIdentifier::Qualified(_, id) => id,
         }
     }
+    /// The schema (leftmost) identifier, if any.
     pub fn schema_name(&self) -> Option<&Identifier<'a>> {
         match self {
             QualifiedIdentifier::Unqualified(_) => None,
@@ -211,29 +218,80 @@ impl<'a> QualifiedIdentifier<'a> {
     }
 }
 
-/// Look up a name in an `Identifier`-keyed map using a `QualifiedIdentifier` key.
-/// Extracts the table (rightmost) part and does a plain map lookup.
-pub fn lookup_name<'a, 'b, T>(
-    map: &'b BTreeMap<Identifier<'a>, T>,
+/// Like [`lookup_name`] but returns both the canonical map key and the value.
+/// Useful when the resolved schema is needed (e.g. to build an `IndexKey`).
+pub fn lookup_name_key<'a, 'b, T>(
+    map: &'b BTreeMap<QualifiedIdentifier<'a>, T>,
     name: &QualifiedIdentifier<'a>,
-    _search_path: &[&'a str],
-) -> Option<&'b T> {
-    map.get(name.table_name())
+    search_path: &[&'a str],
+) -> Option<(&'b QualifiedIdentifier<'a>, &'b T)> {
+    if let Some(kv) = map.get_key_value(name) {
+        return Some(kv);
+    }
+    if let QualifiedIdentifier::Unqualified(table) = name {
+        for schema in search_path {
+            let qualified =
+                QualifiedIdentifier::Qualified(Identifier::new(schema, 0..0), table.clone());
+            if let Some(kv) = map.get_key_value(&qualified) {
+                return Some(kv);
+            }
+        }
+    }
+    None
 }
 
-/// A description of tables, view, procedures and function in a schemas definition file
+/// Look up a name in a schema-qualified map, with optional search-path fallback.
+///
+/// For an exact (qualified) hit the answer is immediate.  When `name` is
+/// `Unqualified` and the key in `map` is `Qualified`, each entry in
+/// `search_path` is tried in order so that e.g. a bare table reference is
+/// resolved against the PostgreSQL `search_path`.  Pass an empty slice for
+/// MySQL / MariaDB / SQLite.
+pub fn lookup_name<'a, 'b, T>(
+    map: &'b BTreeMap<QualifiedIdentifier<'a>, T>,
+    name: &QualifiedIdentifier<'a>,
+    search_path: &[&'a str],
+) -> Option<&'b T> {
+    lookup_name_key(map, name, search_path).map(|(_, v)| v)
+}
+
+/// Mutable variant of [`lookup_name`]: returns a mutable reference to the map value.
+pub fn lookup_name_mut<'a, 'b, T>(
+    map: &'b mut BTreeMap<QualifiedIdentifier<'a>, T>,
+    name: &QualifiedIdentifier<'a>,
+    search_path: &[&'a str],
+) -> Option<&'b mut T> {
+    if map.contains_key(name) {
+        return map.get_mut(name);
+    }
+    if let QualifiedIdentifier::Unqualified(table) = name {
+        for schema in search_path {
+            let qualified =
+                QualifiedIdentifier::Qualified(Identifier::new(schema, 0..0), table.clone());
+            if map.contains_key(&qualified) {
+                return map.get_mut(&qualified);
+            }
+        }
+    }
+    None
+}
+
+/// A description of tables, views, procedures, and functions in a schema definition file.
 #[derive(Debug, Default)]
 pub struct Schemas<'a> {
-    /// Map from name to Tables or views
-    pub schemas: BTreeMap<Identifier<'a>, Schema<'a>>,
-    /// Map from name to procedure
-    pub procedures: BTreeMap<Identifier<'a>, ProcedureDef<'a>>,
-    /// Map from name to function
-    pub functions: BTreeMap<Identifier<'a>, FunctionDef<'a>>,
-    /// Map from (table, index) to location
+    /// Map from qualified table/view name to its schema definition.
+    ///
+    /// PostgreSQL: all keys are `QualifiedIdentifier::Qualified`; unqualified names are
+    /// stored under `"public"`.  MySQL/MariaDB/SQLite: all keys are `QualifiedIdentifier::Unqualified`.
+    pub schemas: BTreeMap<QualifiedIdentifier<'a>, Schema<'a>>,
+    /// Map from qualified name to stored procedure.
+    pub procedures: BTreeMap<QualifiedIdentifier<'a>, ProcedureDef<'a>>,
+    /// Map from qualified name to stored function.
+    pub functions: BTreeMap<QualifiedIdentifier<'a>, FunctionDef<'a>>,
+    /// Map from (table, index) to location.
     pub indices: BTreeMap<IndexKey<'a>, Span>,
-    /// Map from type name to type definition (e.g. enums created with `CREATE TYPE ... AS ENUM`)
-    pub types: BTreeMap<Identifier<'a>, TypeDef<'a>>,
+    /// Map from qualified type name to type definition (e.g. enums created with `CREATE TYPE … AS ENUM`).
+    pub types: BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>,
 }
 
 /// Try to parse a borrowed string as SQL statements.
@@ -261,7 +319,8 @@ fn type_kind_from_parse<'a>(
     type_: qusql_parse::Type<'a>,
     unsigned: bool,
     is_sqlite: bool,
-    types: Option<&BTreeMap<Identifier<'a>, TypeDef<'a>>>,
+    is_postgresql: bool,
+    types: Option<&BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>>,
     issues: &mut Issues<'a>,
 ) -> Type<'a> {
     match type_ {
@@ -351,13 +410,19 @@ fn type_kind_from_parse<'a>(
         qusql_parse::Type::Bytea => BaseType::Bytes.into(),
         qusql_parse::Type::Named(qname) => {
             // Look up user-defined types (e.g. enums created with CREATE TYPE ... AS ENUM).
-            // Only unqualified names are looked up; schema-qualified names (e.g. public.mytype)
-            // are not stored with a prefix in the types map.
-            if let Some(types) = types
-                && qname.prefix.is_empty()
-                && let Some(TypeDef::Enum { values, .. }) = types.get(&qname.identifier)
-            {
-                Type::Enum(values.clone())
+            if let Some(types) = types {
+                let key = match qname.prefix.as_slice() {
+                    [] => QualifiedIdentifier::Unqualified(qname.identifier.clone()),
+                    [(schema, _)] if is_postgresql => {
+                        QualifiedIdentifier::Qualified(schema.clone(), qname.identifier.clone())
+                    }
+                    _ => return BaseType::String.into(),
+                };
+                let search_path: &[&str] = if is_postgresql { &["public"] } else { &[] };
+                match lookup_name(types, &key, search_path) {
+                    Some(TypeDef::Enum { values, .. }) => Type::Enum(values.clone()),
+                    _ => BaseType::String.into(),
+                }
             } else {
                 BaseType::String.into()
             }
@@ -369,7 +434,12 @@ fn type_kind_from_parse<'a>(
         qusql_parse::Type::Macaddr => BaseType::String.into(),
         qusql_parse::Type::Macaddr8 => BaseType::String.into(),
         qusql_parse::Type::Array(inner, _) => Type::Array(Box::new(type_kind_from_parse(
-            *inner, false, is_sqlite, types, issues,
+            *inner,
+            unsigned,
+            is_sqlite,
+            is_postgresql,
+            types,
+            issues,
         ))),
         qusql_parse::Type::Table(ref span, _) => {
             issues.err("TABLE type is not yet supported", span);
@@ -412,7 +482,7 @@ pub(crate) fn parse_column<'a>(
     identifier: Identifier<'a>,
     _issues: &mut Issues<'a>,
     options: Option<&TypeOptions>,
-    types: Option<&BTreeMap<Identifier<'a>, TypeDef<'a>>>,
+    types: Option<&BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>>,
 ) -> Column<'a> {
     let mut not_null = false;
     let mut unsigned = false;
@@ -423,6 +493,9 @@ pub(crate) fn parse_column<'a>(
     let mut primary_key = false;
     let is_sqlite = options
         .map(|v| v.parse_options.get_dialect().is_sqlite())
+        .unwrap_or_default();
+    let is_postgresql = options
+        .map(|v| v.parse_options.get_dialect().is_postgresql())
         .unwrap_or_default();
     for p in data_type.properties {
         match p {
@@ -447,7 +520,14 @@ pub(crate) fn parse_column<'a>(
     if primary_key {
         not_null = true;
     }
-    let type_ = type_kind_from_parse(data_type.type_, unsigned, is_sqlite, types, _issues);
+    let type_ = type_kind_from_parse(
+        data_type.type_,
+        unsigned,
+        is_sqlite,
+        is_postgresql,
+        types,
+        _issues,
+    );
     Column {
         identifier,
         type_: FullType {
@@ -561,6 +641,71 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         }
     }
 
+    /// Build a `QualifiedIdentifier` key using the current dialect convention.
+    /// PostgreSQL: unqualified names get the `"public"` schema prefix.
+    /// MySQL/MariaDB/SQLite: all names are `Unqualified`.
+    fn make_table_key(
+        &self,
+        schema: Option<Identifier<'a>>,
+        table: Identifier<'a>,
+    ) -> QualifiedIdentifier<'a> {
+        if self.options.parse_options.get_dialect().is_postgresql() {
+            QualifiedIdentifier::Qualified(
+                schema.unwrap_or_else(|| Identifier::new("public", 0..0)),
+                table,
+            )
+        } else {
+            QualifiedIdentifier::Unqualified(table)
+        }
+    }
+
+    /// Parse a `QualifiedName` into a `QualifiedIdentifier` key, respecting dialect rules.
+    /// Returns `None` and emits an error if the qualification is invalid for the dialect.
+    fn parse_qname(&mut self, qname: &QualifiedName<'a>) -> Option<QualifiedIdentifier<'a>> {
+        let is_pg = self.options.parse_options.get_dialect().is_postgresql();
+        match qname.prefix.as_slice() {
+            [] => Some(self.make_table_key(None, qname.identifier.clone())),
+            [(schema, _)] if is_pg => {
+                Some(self.make_table_key(Some(schema.clone()), qname.identifier.clone()))
+            }
+            _ => {
+                let msg = if is_pg {
+                    "Expected at most schema.table qualified name"
+                } else {
+                    "Schema-qualified names are not supported in MySQL"
+                };
+                self.issues.err(msg, &qname.prefix.opt_span().unwrap());
+                None
+            }
+        }
+    }
+
+    /// Like [`parse_qname`] but keeps unqualified names as `Unqualified` rather than
+    /// pre-qualifying them with `"public"`.  Use this for lookups where `lookup_name`
+    /// + `search_path_strs()` should resolve the schema, rather than hardcoding one.
+    fn parse_qname_for_lookup(
+        &mut self,
+        qname: &QualifiedName<'a>,
+    ) -> Option<QualifiedIdentifier<'a>> {
+        let is_pg = self.options.parse_options.get_dialect().is_postgresql();
+        match qname.prefix.as_slice() {
+            [] => Some(QualifiedIdentifier::Unqualified(qname.identifier.clone())),
+            [(schema, _)] if is_pg => Some(QualifiedIdentifier::Qualified(
+                schema.clone(),
+                qname.identifier.clone(),
+            )),
+            _ => {
+                let msg = if is_pg {
+                    "Expected at most schema.table qualified name"
+                } else {
+                    "Schema-qualified names are not supported in MySQL"
+                };
+                self.issues.err(msg, &qname.prefix.opt_span().unwrap());
+                None
+            }
+        }
+    }
+
     /// Process a list of top-level schema statements.  Each statement is
     /// independent: errors in one do not stop processing of the next.
     fn process_top_level_statements(&mut self, statements: Vec<qusql_parse::Statement<'a>>) {
@@ -632,18 +777,16 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 self.process_drop_index(*ci);
                 Ok(())
             }
+            qusql_parse::Statement::CreateSchema(_) => Ok(()),
             qusql_parse::Statement::DropDatabase(s) => {
                 self.issues.err("not implemented", &s);
-                Err(())
+                Ok(())
             }
             qusql_parse::Statement::DropServer(s) => {
                 self.issues.err("not implemented", &s);
                 Err(())
             }
             qusql_parse::Statement::DropTrigger(_) => Ok(()),
-            // Sequences have no column-type information; treat as no-ops.
-            qusql_parse::Statement::CreateSequence(_) => Ok(()),
-            qusql_parse::Statement::DropSequence(_) => Ok(()),
             qusql_parse::Statement::DropType(s) => {
                 self.process_drop_type(*s);
                 Ok(())
@@ -663,7 +806,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             qusql_parse::Statement::Grant(_) => Ok(()),
             qusql_parse::Statement::CommentOn(_) => Ok(()),
             qusql_parse::Statement::Analyze(_) => Ok(()),
-            // Variable / cursor plumbing — no schema effect.
+            qusql_parse::Statement::CreateSequence(_) => Ok(()),
+            qusql_parse::Statement::DropSequence(_) => Ok(()),
+            // Variable / cursor plumbing — ignored.
             qusql_parse::Statement::Set(_) => Ok(()),
             // Assign and Perform may call known functions with schema effects.
             qusql_parse::Statement::Assign(a) => {
@@ -726,10 +871,14 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
 
     fn process_create_table(&mut self, t: qusql_parse::CreateTable<'a>) {
         let mut replace = false;
-        let id = unqualified_name(self.issues, &t.identifier);
+        let Some(key) = self.parse_qname(&t.identifier) else {
+            return;
+        };
+        let id = key.table_name().clone();
+        let identifier_span = id.span.clone();
         let mut schema = Schema {
             view: false,
-            identifier_span: id.span.clone(),
+            identifier_span,
             columns: Default::default(),
         };
         for o in t.create_options {
@@ -801,11 +950,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     if let Some(name) = index_name {
                         let ident = if self.options.parse_options.get_dialect().is_postgresql() {
                             IndexKey {
+                                schema: key.schema_name().cloned(),
                                 table: None,
                                 index: name.clone(),
                             }
                         } else {
                             IndexKey {
+                                schema: None,
                                 table: Some(id.clone()),
                                 index: name.clone(),
                             }
@@ -821,8 +972,11 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 qusql_parse::CreateDefinition::ForeignKeyDefinition { .. } => {}
                 qusql_parse::CreateDefinition::CheckConstraintDefinition { .. } => {}
                 qusql_parse::CreateDefinition::LikeTable { source_table, .. } => {
-                    let source_id = unqualified_name(self.issues, &source_table);
-                    if let Some(src) = self.schemas.schemas.get(source_id) {
+                    let source_key = match self.parse_qname(&source_table) {
+                        Some(k) => k,
+                        None => continue,
+                    };
+                    if let Some(src) = lookup_name(&self.schemas.schemas, &source_key, &[]) {
                         let cols: Vec<Column<'a>> = src.columns.to_vec();
                         for col in cols {
                             if schema.get_column(col.identifier.value).is_none() {
@@ -835,7 +989,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 }
             }
         }
-        match self.schemas.schemas.entry(id.clone()) {
+        match self.schemas.schemas.entry(key.clone()) {
             alloc::collections::btree_map::Entry::Occupied(mut e) => {
                 if replace {
                     e.insert(schema);
@@ -911,11 +1065,11 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 });
             }
         }
-        match self
-            .schemas
-            .schemas
-            .entry(unqualified_name(self.issues, &v.name).clone())
-        {
+        let view_key = match self.parse_qname(&v.name) {
+            Some(k) => k,
+            None => return,
+        };
+        match self.schemas.schemas.entry(view_key) {
             alloc::collections::btree_map::Entry::Occupied(mut e) => {
                 if replace {
                     e.insert(schema);
@@ -943,7 +1097,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             .as_ref()
             .and_then(|b| b.strings.first())
             .and_then(|s| try_parse_body(self.src, s, self.issues, &self.options.parse_options));
-        let name = f.name.identifier.clone();
+        let Some(key) = self.parse_qname(&f.name) else {
+            return;
+        };
         let def = FunctionDef {
             name: f.name.identifier.clone(),
             params: f.params,
@@ -951,13 +1107,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             span: f.create_span.join_span(&f.function_span),
             body,
         };
-        match self.schemas.functions.entry(name) {
+        match self.schemas.functions.entry(key) {
             alloc::collections::btree_map::Entry::Occupied(mut e) => {
                 if replace {
                     e.insert(def);
                 } else if f.if_not_exists.is_none() {
                     self.issues
-                        .err("Function already defined", &f.name)
+                        .err("Function already defined", &f.name.identifier)
                         .frag("Defined here", &e.get().span);
                 }
             }
@@ -974,7 +1130,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 replace = true;
             }
         }
-        let name = p.name.clone();
+        let key = self.make_table_key(None, p.name.clone());
         let body = p.body.map(|stmt| match stmt {
             qusql_parse::Statement::Block(b) => b.statements,
             other => alloc::vec![other],
@@ -985,7 +1141,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             span: p.create_span.join_span(&p.procedure_span),
             body,
         };
-        match self.schemas.procedures.entry(name) {
+        match self.schemas.procedures.entry(key) {
             alloc::collections::btree_map::Entry::Occupied(mut e) => {
                 if replace {
                     e.insert(def);
@@ -1002,14 +1158,11 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn process_call(&mut self, c: qusql_parse::Call<'a>) -> Result<(), ()> {
-        let proc_name = c.name.identifier.value;
+        let Some(key) = self.parse_qname(&c.name) else {
+            return Ok(());
+        };
         // Look up the procedure and clone its body statements.
-        let body = self
-            .schemas
-            .procedures
-            .values()
-            .find(|p| p.name.value == proc_name)
-            .and_then(|p| p.body.clone());
+        let body = lookup_name(&self.schemas.procedures, &key, &[]).and_then(|p| p.body.clone());
         let Some(statements) = body else {
             // Unknown or body-less procedure — no schema effect.
             return Ok(());
@@ -1020,31 +1173,43 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn process_create_index(&mut self, ci: qusql_parse::CreateIndex<'a>) {
-        let t = unqualified_name(self.issues, &ci.table_name);
-        if let Some(table) = self.schemas.schemas.get(t) {
-            for col in &ci.column_names {
-                if let qusql_parse::IndexColExpr::Column(name) = &col.expr
-                    && table.get_column(name.value).is_none()
-                {
-                    self.issues
-                        .err("No such column in table", col)
-                        .frag("Table defined here", &table.identifier_span);
+        let Some(lookup_key) = self.parse_qname(&ci.table_name) else {
+            return;
+        };
+        let t = lookup_key.table_name().clone();
+        // Look up the table to validate columns and get the resolved schema for the IndexKey.
+        let resolved_schema = match lookup_name_key(&self.schemas.schemas, &lookup_key, &[]) {
+            Some((resolved_key, table)) => {
+                let schema = resolved_key.schema_name().cloned();
+                for col in &ci.column_names {
+                    if let qusql_parse::IndexColExpr::Column(name) = &col.expr
+                        && table.get_column(name.value).is_none()
+                    {
+                        self.issues
+                            .err("No such column in table", col)
+                            .frag("Table defined here", &table.identifier_span);
+                    }
                 }
+                schema
             }
-        } else {
-            self.issues.err("No such table", &ci.table_name);
-        }
+            None => {
+                self.issues.err("No such table", &ci.table_name);
+                None
+            }
+        };
         let index_name = match &ci.index_name {
             Some(name) => name.clone(),
             None => return,
         };
         let ident = if self.options.parse_options.get_dialect().is_postgresql() {
             IndexKey {
+                schema: resolved_schema,
                 table: None,
                 index: index_name.clone(),
             }
         } else {
             IndexKey {
+                schema: None,
                 table: Some(t.clone()),
                 index: index_name.clone(),
             }
@@ -1059,7 +1224,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn process_create_type_enum(&mut self, s: qusql_parse::CreateTypeEnum<'a>) {
-        let name = unqualified_name(self.issues, &s.name);
+        let Some(key) = self.parse_qname(&s.name) else {
+            return;
+        };
         let mut replace = false;
         for o in &s.create_options {
             if matches!(o, qusql_parse::CreateOption::OrReplace(_)) {
@@ -1071,7 +1238,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             values,
             span: s.as_enum_span,
         };
-        match self.schemas.types.entry(name.clone()) {
+        match self.schemas.types.entry(key) {
             alloc::collections::btree_map::Entry::Occupied(mut e) => {
                 if replace {
                     e.insert(typedef);
@@ -1087,19 +1254,21 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     fn process_drop_type(&mut self, s: qusql_parse::DropType<'a>) {
         let if_exists = s.if_exists;
         for name in s.names {
-            let id = unqualified_name(self.issues, &name);
-            if self.schemas.types.remove(id).is_none() && if_exists.is_none() {
+            let Some(key) = self.parse_qname(&name) else {
+                continue;
+            };
+            if self.schemas.types.remove(&key).is_none() && if_exists.is_none() {
                 self.issues.err("Type not found", &name);
             }
         }
     }
 
     fn process_alter_table(&mut self, a: qusql_parse::AlterTable<'a>) {
-        let e = match self
-            .schemas
-            .schemas
-            .entry(unqualified_name(self.issues, &a.table).clone())
-        {
+        let key = match self.parse_qname(&a.table) {
+            Some(k) => k,
+            None => return,
+        };
+        let e = match self.schemas.schemas.entry(key) {
             alloc::collections::btree_map::Entry::Occupied(e) => {
                 let e = e.into_mut();
                 if e.view {
@@ -1137,7 +1306,7 @@ fn process_alter_specification<'a>(
     issues: &mut Issues<'a>,
     indices: &mut alloc::collections::BTreeMap<IndexKey<'a>, Span>,
     options: &TypeOptions,
-    types: &BTreeMap<Identifier<'a>, TypeDef<'a>>,
+    types: &BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>,
 ) {
     match s {
         qusql_parse::AlterSpecification::AddIndex(AddIndex {
@@ -1168,13 +1337,20 @@ fn process_alter_specification<'a>(
             }
             if let Some(name) = &name {
                 let ident = if options.parse_options.get_dialect().is_postgresql() {
+                    let (schema, _) = resolve_table_name(issues, options, table_ref);
                     IndexKey {
+                        schema: Some(
+                            schema
+                                .cloned()
+                                .unwrap_or_else(|| Identifier::new("public", 0..0)),
+                        ),
                         table: None,
                         index: name.clone(),
                     }
                 } else {
                     IndexKey {
-                        table: Some(unqualified_name(issues, table_ref).clone()),
+                        schema: None,
+                        table: Some(resolve_table_name(issues, options, table_ref).1.clone()),
                         index: name.clone(),
                     }
                 };
@@ -1271,13 +1447,20 @@ fn process_alter_specification<'a>(
         qusql_parse::AlterSpecification::DropIndex(drop_idx) => {
             let is_postgresql = options.parse_options.get_dialect().is_postgresql();
             let key = if is_postgresql {
+                let (schema, _) = resolve_table_name(issues, options, table_ref);
                 IndexKey {
+                    schema: Some(
+                        schema
+                            .cloned()
+                            .unwrap_or_else(|| Identifier::new("public", 0..0)),
+                    ),
                     table: None,
                     index: drop_idx.name.clone(),
                 }
             } else {
                 IndexKey {
-                    table: Some(unqualified_name(issues, table_ref).clone()),
+                    schema: None,
+                    table: Some(resolve_table_name(issues, options, table_ref).1.clone()),
                     index: drop_idx.name.clone(),
                 }
             };
@@ -1303,14 +1486,20 @@ fn process_alter_specification<'a>(
             ..
         }) => {
             let is_postgresql = options.parse_options.get_dialect().is_postgresql();
-            let table_id = unqualified_name(issues, table_ref).clone();
+            let (schema_ref, table_id_ref) = resolve_table_name(issues, options, table_ref);
+            let schema_id = schema_ref
+                .cloned()
+                .unwrap_or_else(|| Identifier::new("public", 0..0));
+            let table_id = table_id_ref.clone();
             let old_key = if is_postgresql {
                 IndexKey {
+                    schema: Some(schema_id.clone()),
                     table: None,
                     index: old_index_name.clone(),
                 }
             } else {
                 IndexKey {
+                    schema: None,
                     table: Some(table_id.clone()),
                     index: old_index_name.clone(),
                 }
@@ -1319,11 +1508,13 @@ fn process_alter_specification<'a>(
                 Some(span) => {
                     let new_key = if is_postgresql {
                         IndexKey {
+                            schema: Some(schema_id),
                             table: None,
                             index: new_index_name,
                         }
                     } else {
                         IndexKey {
+                            schema: None,
                             table: Some(table_id),
                             index: new_index_name,
                         }
@@ -1378,11 +1569,11 @@ fn process_alter_specification<'a>(
 impl<'a, 'b> SchemaCtx<'a, 'b> {
     fn process_drop_table(&mut self, t: qusql_parse::DropTable<'a>) {
         for i in t.tables {
-            match self
-                .schemas
-                .schemas
-                .entry(unqualified_name(self.issues, &i).clone())
-            {
+            let key = match self.parse_qname(&i) {
+                Some(k) => k,
+                None => continue,
+            };
+            match self.schemas.schemas.entry(key) {
                 alloc::collections::btree_map::Entry::Occupied(e) => {
                     if e.get().view {
                         self.issues
@@ -1404,11 +1595,11 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
 
     fn process_drop_view(&mut self, v: qusql_parse::DropView<'a>) {
         for i in v.views {
-            match self
-                .schemas
-                .schemas
-                .entry(unqualified_name(self.issues, &i).clone())
-            {
+            let key = match self.parse_qname(&i) {
+                Some(k) => k,
+                None => continue,
+            };
+            match self.schemas.schemas.entry(key) {
                 alloc::collections::btree_map::Entry::Occupied(e) => {
                     if !e.get().view {
                         self.issues
@@ -1430,45 +1621,33 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
 
     fn process_drop_function(&mut self, f: qusql_parse::DropFunction<'a>) {
         for (func_name, _args) in &f.functions {
-            match self
-                .schemas
-                .functions
-                .entry(unqualified_name(self.issues, func_name).clone())
-            {
-                alloc::collections::btree_map::Entry::Occupied(e) => {
-                    e.remove();
-                }
-                alloc::collections::btree_map::Entry::Vacant(_) => {
-                    if f.if_exists.is_none() {
-                        self.issues.err(
-                            "A function with this name does not exist to drop",
-                            func_name,
-                        );
-                    }
-                }
+            let Some(key) = self.parse_qname(func_name) else {
+                continue;
+            };
+            if self.schemas.functions.remove(&key).is_none() && f.if_exists.is_none() {
+                self.issues.err(
+                    "A function with this name does not exist to drop",
+                    func_name,
+                );
             }
         }
     }
 
     fn process_drop_procedure(&mut self, p: qusql_parse::DropProcedure<'a>) {
-        let name = unqualified_name(self.issues, &p.procedure);
-        match self.schemas.procedures.entry(name.clone()) {
-            alloc::collections::btree_map::Entry::Occupied(e) => {
-                e.remove();
-            }
-            alloc::collections::btree_map::Entry::Vacant(_) => {
-                if p.if_exists.is_none() {
-                    self.issues.err(
-                        "A procedure with this name does not exist to drop",
-                        &p.procedure,
-                    );
-                }
-            }
+        let Some(key) = self.parse_qname(&p.procedure) else {
+            return;
+        };
+        if self.schemas.procedures.remove(&key).is_none() && p.if_exists.is_none() {
+            self.issues.err(
+                "A procedure with this name does not exist to drop",
+                &p.procedure,
+            );
         }
     }
 
     fn process_drop_index(&mut self, ci: qusql_parse::DropIndex<'a>) {
         let key = IndexKey {
+            schema: None,
             table: ci.on.as_ref().map(|(_, t)| t.identifier.clone()),
             index: ci.index_name.clone(),
         };
@@ -1646,14 +1825,16 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn process_alter_type(&mut self, a: qusql_parse::AlterType<'a>) {
-        let name = unqualified_name(self.issues, &a.name);
+        let Some(key) = self.parse_qname(&a.name) else {
+            return;
+        };
         match a.action {
             qusql_parse::AlterTypeAction::AddValue {
                 if_not_exists_span,
                 new_enum_value,
                 ..
             } => {
-                let Some(TypeDef::Enum { values, .. }) = self.schemas.types.get_mut(name) else {
+                let Some(TypeDef::Enum { values, .. }) = self.schemas.types.get_mut(&key) else {
                     self.issues.err("Type not found", &a.name);
                     return;
                 };
@@ -1668,8 +1849,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 }
             }
             qusql_parse::AlterTypeAction::RenameTo { new_name, .. } => {
-                if let Some(typedef) = self.schemas.types.remove(name) {
-                    self.schemas.types.insert(new_name, typedef);
+                let new_key = self.make_table_key(key.schema_name().cloned(), new_name);
+                if let Some(typedef) = self.schemas.types.remove(&key) {
+                    self.schemas.types.insert(new_key, typedef);
                 } else {
                     self.issues.err("Type not found", &a.name);
                 }
@@ -1679,7 +1861,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 new_enum_value,
                 ..
             } => {
-                let Some(TypeDef::Enum { values, .. }) = self.schemas.types.get_mut(name) else {
+                let Some(TypeDef::Enum { values, .. }) = self.schemas.types.get_mut(&key) else {
                     self.issues.err("Type not found", &a.name);
                     return;
                 };
@@ -1699,6 +1881,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
 
     fn process_truncate_table(&mut self, t: qusql_parse::TruncateTable<'a>) {
         for spec in t.tables {
+            // Truncate only clears tracked row state; just need the bare table name.
             let name = unqualified_name(self.issues, &spec.table_name);
             self.rows.remove(name.value);
         }
@@ -1706,17 +1889,25 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
 
     fn process_rename_table(&mut self, r: qusql_parse::RenameTable<'a>) {
         for pair in r.table_to_tables {
-            let old_id = unqualified_name(self.issues, &pair.table);
-            let new_id = unqualified_name(self.issues, &pair.new_table);
+            let old_key = match self.parse_qname(&pair.table) {
+                Some(k) => k,
+                None => continue,
+            };
+            let new_key = match self.parse_qname(&pair.new_table) {
+                Some(k) => k,
+                None => continue,
+            };
+            let old_name = old_key.table_name().value;
+            let new_name = new_key.table_name().value;
             // Rename in schemas map.
-            if let Some(schema) = self.schemas.schemas.remove(old_id) {
-                self.schemas.schemas.insert(new_id.clone(), schema);
+            if let Some(schema) = self.schemas.schemas.remove(&old_key) {
+                self.schemas.schemas.insert(new_key, schema);
             } else {
                 self.issues.err("Table not found", &pair.table);
             }
             // Rename tracked rows if present.
-            if let Some(rows) = self.rows.remove(old_id.value) {
-                self.rows.insert(new_id.value, rows);
+            if let Some(rows) = self.rows.remove(old_name) {
+                self.rows.insert(new_name, rows);
             }
         }
     }
@@ -1868,16 +2059,36 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     .schemas
                     .schemas
                     .iter()
-                    .flat_map(|(table_id, schema)| {
+                    .flat_map(|(key, schema)| {
                         schema.columns.iter().map(move |col| {
                             Rc::new(alloc::vec![
-                                ("table_name", SqlValue::SourceText(table_id.value)),
+                                ("table_name", SqlValue::SourceText(key.table_name().value)),
                                 ("column_name", SqlValue::SourceText(col.identifier.value)),
                             ])
                         })
                     })
                     .collect();
                 return Ok(rows);
+            }
+            // Handle a schema-qualified table reference, e.g. `migrations.schema_revisions`.
+            if identifier.prefix.len() == 1 {
+                let schema_name = identifier.prefix[0].0.value;
+                let table_name = identifier.identifier.value;
+                let qualified_key = QualifiedIdentifier::Qualified(
+                    Identifier::new(schema_name, 0..0),
+                    Identifier::new(table_name, 0..0),
+                );
+                let known = lookup_name(&self.schemas.schemas, &qualified_key, &[]).is_some();
+                if !known {
+                    self.issues.err(
+                        alloc::format!(
+                            "Unknown table `{schema_name}.{table_name}` referenced in schema evaluator"
+                        ),
+                        identifier,
+                    );
+                    return Err(());
+                }
+                return Ok(self.rows.get(table_name).cloned().unwrap_or_default());
             }
             self.issues.err(
                 "Qualified table name in FROM clause is not supported in schema evaluator",
@@ -1886,8 +2097,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             return Err(());
         }
         let name = identifier.identifier.value;
-        let known =
-            self.rows.contains_key(name) || self.schemas.schemas.keys().any(|k| k.value == name);
+        let table_key = self.make_table_key(None, Identifier::new(name, 0..0));
+        let known = self.rows.contains_key(name)
+            || lookup_name(&self.schemas.schemas, &table_key, &[]).is_some();
         if !known {
             self.issues.err(
                 alloc::format!("Unknown table `{name}` referenced in schema evaluator"),
@@ -1969,22 +2181,28 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     ) -> Result<SqlValue<'a>, ()> {
         use qusql_parse::Function;
         match &f.function {
-            Function::Other(parts) if parts.len() == 1 => {
-                let func_name = parts[0].value;
-                let func_info = self
-                    .schemas
-                    .functions
-                    .values()
-                    .find(|func| func.name.value == func_name)
-                    .and_then(|func| {
-                        func.body
-                            .as_ref()
-                            .map(|b| (func.params.clone(), b.statements.clone()))
-                    });
+            Function::Other(parts) if !parts.is_empty() => {
+                let fn_ident = parts.last().unwrap().clone();
+                let schema_ident = (parts.len() >= 2).then(|| parts[parts.len() - 2].clone());
+                let key = match schema_ident {
+                    Some(s) => QualifiedIdentifier::Qualified(s, fn_ident.clone()),
+                    None => QualifiedIdentifier::Unqualified(fn_ident.clone()),
+                };
+                let is_pg = self.options.parse_options.get_dialect().is_postgresql();
+                let func_info = lookup_name(&self.schemas.functions, &key, &[]).and_then(|func| {
+                    func.body
+                        .as_ref()
+                        .map(|b| (func.params.clone(), b.statements.clone()))
+                });
                 let Some((params, statements)) = func_info else {
                     self.issues.err(
                         alloc::format!(
-                            "Unknown function or function has no evaluable body: {func_name}"
+                            "Unknown function or function has no evaluable body: {}",
+                            parts
+                                .iter()
+                                .map(|p| p.value)
+                                .collect::<alloc::vec::Vec<_>>()
+                                .join(".")
                         ),
                         f,
                     );
@@ -2257,7 +2475,7 @@ pub fn parse_schemas<'a>(
     };
 
     // Compute nullity of generated columns
-    for (name, schema) in &mut schemas.schemas {
+    for (key, schema) in &mut schemas.schemas {
         if schema.columns.iter().all(|v| v.as_.is_none()) {
             continue;
         }
@@ -2267,7 +2485,7 @@ pub fn parse_schemas<'a>(
             columns.push((c.identifier.clone(), c.type_.clone()));
         }
         typer.reference_types.push(crate::typer::ReferenceType {
-            name: Some(name.clone()),
+            name: Some(key.table_name().clone()),
             span: schema.identifier_span.clone(),
             columns,
         });

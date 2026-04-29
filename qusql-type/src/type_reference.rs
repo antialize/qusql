@@ -55,6 +55,7 @@ pub(crate) fn type_reference<'a>(
                     if matches!(index_hint.type_, qusql_parse::IndexHintType::Index(_)) {
                         for index in &index_hint.index_list {
                             if !typer.schemas.indices.contains_key(&IndexKey {
+                                schema: None,
                                 table: Some(table.clone()),
                                 index: index.clone(),
                             }) {
