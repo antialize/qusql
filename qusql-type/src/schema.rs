@@ -96,7 +96,14 @@ use crate::{
     type_statement,
     typer::{resolve_table_name, unqualified_name},
 };
-use alloc::{borrow::Cow, boxed::Box, collections::BTreeMap, rc::Rc, sync::Arc, vec::Vec};
+use alloc::{
+    borrow::Cow,
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+    rc::Rc,
+    sync::Arc,
+    vec::Vec,
+};
 use qusql_parse::{
     AddColumn, AddIndex, AlterColumn, DataType, DataTypeProperty, DropColumn, Expression,
     FunctionParam, Identifier, IdentifierPart, Issues, ModifyColumn, OptSpanned, QualifiedName,
@@ -284,6 +291,8 @@ pub struct Schemas<'a> {
     /// PostgreSQL: all keys are `QualifiedIdentifier::Qualified`; unqualified names are
     /// stored under `"public"`.  MySQL/MariaDB/SQLite: all keys are `QualifiedIdentifier::Unqualified`.
     pub schemas: BTreeMap<QualifiedIdentifier<'a>, Schema<'a>>,
+    /// Set of schema names registered via `CREATE SCHEMA` (PostgreSQL only).
+    pub schema_names: BTreeSet<Identifier<'a>>,
     /// Map from qualified name to stored procedure.
     pub procedures: BTreeMap<QualifiedIdentifier<'a>, ProcedureDef<'a>>,
     /// Map from qualified name to stored function.
@@ -292,6 +301,9 @@ pub struct Schemas<'a> {
     pub indices: BTreeMap<IndexKey<'a>, Span>,
     /// Map from qualified type name to type definition (e.g. enums created with `CREATE TYPE … AS ENUM`).
     pub types: BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>,
+    /// Map of sequence names registered via `CREATE SEQUENCE` (PostgreSQL only).
+    /// The value is `()` — only existence is tracked.
+    pub sequences: BTreeMap<QualifiedIdentifier<'a>, ()>,
 }
 
 /// Try to parse a borrowed string as SQL statements.
@@ -777,9 +789,18 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 self.process_drop_index(*ci);
                 Ok(())
             }
-            qusql_parse::Statement::CreateSchema(_) => Ok(()),
+            qusql_parse::Statement::CreateSchema(s) => {
+                self.process_create_schema(*s);
+                Ok(())
+            }
             qusql_parse::Statement::DropDatabase(s) => {
-                self.issues.err("not implemented", &s);
+                // In PostgreSQL, DROP SCHEMA and DROP DATABASE both parse to DropDatabase.
+                // We implement DROP SCHEMA; DROP DATABASE itself is left as an error.
+                if self.options.parse_options.get_dialect().is_postgresql() {
+                    self.process_drop_schema(*s);
+                } else {
+                    self.issues.err("not implemented", &s);
+                }
                 Ok(())
             }
             qusql_parse::Statement::DropServer(s) => {
@@ -806,8 +827,14 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             qusql_parse::Statement::Grant(_) => Ok(()),
             qusql_parse::Statement::CommentOn(_) => Ok(()),
             qusql_parse::Statement::Analyze(_) => Ok(()),
-            qusql_parse::Statement::CreateSequence(_) => Ok(()),
-            qusql_parse::Statement::DropSequence(_) => Ok(()),
+            qusql_parse::Statement::CreateSequence(s) => {
+                self.process_create_sequence(*s);
+                Ok(())
+            }
+            qusql_parse::Statement::DropSequence(s) => {
+                self.process_drop_sequence(*s);
+                Ok(())
+            }
             // Variable / cursor plumbing — ignored.
             qusql_parse::Statement::Set(_) => Ok(()),
             // Assign and Perform may call known functions with schema effects.
@@ -866,6 +893,35 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 );
                 Err(())
             }
+        }
+    }
+
+    fn process_create_sequence(&mut self, s: qusql_parse::CreateSequence<'a>) {
+        let Some(key) = self.parse_qname(&s.name) else {
+            return;
+        };
+        if s.if_not_exists.is_some() {
+            if lookup_name(&self.schemas.sequences, &key, &[]).is_some() {
+                return;
+            }
+        }
+        self.schemas.sequences.insert(key, ());
+    }
+
+    fn process_drop_sequence(&mut self, s: qusql_parse::DropSequence<'a>) {
+        for name in s.sequences {
+            let Some(key) = self.parse_qname(&name) else {
+                continue;
+            };
+            if s.if_exists.is_none() {
+                if lookup_name(&self.schemas.sequences, &key, &[]).is_none() {
+                    self.issues.err(
+                        alloc::format!("Unknown sequence `{}`", name.identifier.value),
+                        &name.identifier,
+                    );
+                }
+            }
+            self.schemas.sequences.remove(&key);
         }
     }
 
@@ -1646,10 +1702,24 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn process_drop_index(&mut self, ci: qusql_parse::DropIndex<'a>) {
-        let key = IndexKey {
-            schema: None,
-            table: ci.on.as_ref().map(|(_, t)| t.identifier.clone()),
-            index: ci.index_name.clone(),
+        let is_pg = self.options.parse_options.get_dialect().is_postgresql();
+        let key = if is_pg {
+            let schema = ci
+                .on
+                .as_ref()
+                .and_then(|(_, t)| t.prefix.first().map(|(s, _)| s.clone()))
+                .unwrap_or_else(|| Identifier::new("public", 0..0));
+            IndexKey {
+                schema: Some(schema),
+                table: None,
+                index: ci.index_name.clone(),
+            }
+        } else {
+            IndexKey {
+                schema: None,
+                table: ci.on.as_ref().map(|(_, t)| t.identifier.clone()),
+                index: ci.index_name.clone(),
+            }
         };
         if self.schemas.indices.remove(&key).is_none() && ci.if_exists.is_none() {
             self.issues.err("No such index", &ci);
@@ -1885,6 +1955,54 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             let name = unqualified_name(self.issues, &spec.table_name);
             self.rows.remove(name.value);
         }
+    }
+
+    fn process_create_schema(&mut self, s: qusql_parse::CreateSchema<'a>) {
+        if !self.options.parse_options.get_dialect().is_postgresql() {
+            self.issues.err(
+                "CREATE SCHEMA is not supported in MySQL; use CREATE DATABASE",
+                &s,
+            );
+            return;
+        }
+        let Some(name) = s.name else {
+            // AUTHORIZATION-only CREATE SCHEMA — nothing to register
+            return;
+        };
+        match self.schemas.schema_names.get(&name) {
+            Some(_) if s.if_not_exists.is_none() => {
+                self.issues.err("Schema already exists", &name);
+            }
+            _ => {
+                self.schemas.schema_names.insert(name);
+            }
+        }
+    }
+
+    fn process_drop_schema(&mut self, s: qusql_parse::DropDatabase<'a>) {
+        if !self.schemas.schema_names.remove(&s.database) && s.if_exists.is_none() {
+            self.issues.err("Schema does not exist", &s.database);
+        }
+        // Remove all tables/views registered under this schema.
+        self.schemas
+            .schemas
+            .retain(|k, _| k.schema_name().map(|n| n == &s.database) != Some(true));
+        // Remove all functions in this schema.
+        self.schemas
+            .functions
+            .retain(|k, _| k.schema_name().map(|n| n == &s.database) != Some(true));
+        // Remove all procedures in this schema.
+        self.schemas
+            .procedures
+            .retain(|k, _| k.schema_name().map(|n| n == &s.database) != Some(true));
+        // Remove all types in this schema.
+        self.schemas
+            .types
+            .retain(|k, _| k.schema_name().map(|n| n == &s.database) != Some(true));
+        // Remove all indices associated with this schema.
+        self.schemas
+            .indices
+            .retain(|k, _| k.schema.as_ref() != Some(&s.database));
     }
 
     fn process_rename_table(&mut self, r: qusql_parse::RenameTable<'a>) {
@@ -2248,6 +2366,36 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     !self.eval_select_matching_rows(&s)?.is_empty(),
                 ))
             }
+            Function::Nextval => {
+                let arg = f.args.first().ok_or(())?;
+                let seq_str = match self.eval_expr(arg)? {
+                    SqlValue::SourceText(s) => alloc::borrow::Cow::Borrowed(s),
+                    SqlValue::OwnedText(s) => alloc::borrow::Cow::Owned(s),
+                    _ => {
+                        self.issues.err("nextval: argument must be a string", f);
+                        return Err(());
+                    }
+                };
+                // Parse "schema.sequence" or "sequence" from the string argument and
+                // check that the sequence was registered via CREATE SEQUENCE.
+                let seq_name = seq_str.as_ref();
+                let key = if let Some((schema, seq)) = seq_name.split_once('.') {
+                    QualifiedIdentifier::Qualified(
+                        Identifier::new(schema, 0..0),
+                        Identifier::new(seq, 0..0),
+                    )
+                } else {
+                    QualifiedIdentifier::Unqualified(Identifier::new(seq_name, 0..0))
+                };
+                let sp: &[&str] = &[];
+                let found = lookup_name(&self.schemas.sequences, &key, &sp).is_some();
+                if !found {
+                    self.issues
+                        .err(alloc::format!("nextval: unknown sequence `{seq_name}`"), f);
+                    return Err(());
+                }
+                Ok(SqlValue::Integer(1))
+            }
             _ => {
                 self.issues
                     .err("Unimplemented function in schema evaluator", f);
@@ -2454,10 +2602,12 @@ pub fn parse_schemas<'a>(
 
     let mut schemas = Schemas {
         schemas: Default::default(),
+        schema_names: Default::default(),
         procedures: Default::default(),
         functions: Default::default(),
         indices: Default::default(),
         types: Default::default(),
+        sequences: Default::default(),
     };
 
     SchemaCtx::new(&mut schemas, issues, src, options).process_top_level_statements(statements);
