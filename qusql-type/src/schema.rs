@@ -94,7 +94,7 @@ use crate::{
     Type, TypeOptions,
     type_::{BaseType, FullType},
     type_statement,
-    typer::{resolve_table_name, unqualified_name},
+    typer::resolve_table_name,
 };
 use alloc::{
     borrow::Cow,
@@ -209,6 +209,17 @@ pub enum QualifiedIdentifier<'a> {
     Qualified(Identifier<'a>, Identifier<'a>),
 }
 
+impl<'a> core::fmt::Display for QualifiedIdentifier<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            QualifiedIdentifier::Unqualified(id) => write!(f, "{}", id.value),
+            QualifiedIdentifier::Qualified(schema, table) => {
+                write!(f, "{}.{}", schema.value, table.value)
+            }
+        }
+    }
+}
+
 impl<'a> QualifiedIdentifier<'a> {
     /// The table (rightmost) identifier.
     pub fn table_name(&self) -> &Identifier<'a> {
@@ -225,18 +236,45 @@ impl<'a> QualifiedIdentifier<'a> {
     }
 }
 
+/// Abstracts over search-path representations so callers don't need to allocate a
+/// `Vec<&str>` just to invoke the lookup helpers.
+///
+/// Implemented for `[&'s str]` (covering `&'static [&'static str]` from the typer) and
+/// `[Identifier<'a>]` (so `SchemaCtx` can pass `self.search_path` directly).
+pub trait SearchPath<'a>: Copy {
+    fn iter_schemas(self) -> impl Iterator<Item = &'a str>;
+}
+
+impl<'b> SearchPath<'b> for &[&'b str] {
+    fn iter_schemas(self) -> impl Iterator<Item = &'b str> {
+        self.iter().copied()
+    }
+}
+
+impl<'b> SearchPath<'b> for &[Identifier<'b>] {
+    fn iter_schemas(self) -> impl Iterator<Item = &'b str> {
+        self.iter().map(|id| id.value)
+    }
+}
+
+impl<'a> SearchPath<'a> for () {
+    fn iter_schemas(self) -> impl Iterator<Item = &'a str> {
+        core::iter::empty()
+    }
+}
+
 /// Like [`lookup_name`] but returns both the canonical map key and the value.
 /// Useful when the resolved schema is needed (e.g. to build an `IndexKey`).
-pub fn lookup_name_key<'a, 'b, T>(
+pub fn lookup_name_key<'a, 'b, T, S: SearchPath<'a>>(
     map: &'b BTreeMap<QualifiedIdentifier<'a>, T>,
     name: &QualifiedIdentifier<'a>,
-    search_path: &[&'a str],
+    search_path: S,
 ) -> Option<(&'b QualifiedIdentifier<'a>, &'b T)> {
     if let Some(kv) = map.get_key_value(name) {
         return Some(kv);
     }
     if let QualifiedIdentifier::Unqualified(table) = name {
-        for schema in search_path {
+        for schema in search_path.iter_schemas() {
             let qualified =
                 QualifiedIdentifier::Qualified(Identifier::new(schema, 0..0), table.clone());
             if let Some(kv) = map.get_key_value(&qualified) {
@@ -254,25 +292,25 @@ pub fn lookup_name_key<'a, 'b, T>(
 /// `search_path` is tried in order so that e.g. a bare table reference is
 /// resolved against the PostgreSQL `search_path`.  Pass an empty slice for
 /// MySQL / MariaDB / SQLite.
-pub fn lookup_name<'a, 'b, T>(
+pub fn lookup_name<'a, 'b, T, S: SearchPath<'a>>(
     map: &'b BTreeMap<QualifiedIdentifier<'a>, T>,
     name: &QualifiedIdentifier<'a>,
-    search_path: &[&'a str],
+    search_path: S,
 ) -> Option<&'b T> {
     lookup_name_key(map, name, search_path).map(|(_, v)| v)
 }
 
 /// Mutable variant of [`lookup_name`]: returns a mutable reference to the map value.
-pub fn lookup_name_mut<'a, 'b, T>(
+pub fn lookup_name_mut<'a, 'b, T, S: SearchPath<'a>>(
     map: &'b mut BTreeMap<QualifiedIdentifier<'a>, T>,
     name: &QualifiedIdentifier<'a>,
-    search_path: &[&'a str],
+    search_path: S,
 ) -> Option<&'b mut T> {
     if map.contains_key(name) {
         return map.get_mut(name);
     }
     if let QualifiedIdentifier::Unqualified(table) = name {
-        for schema in search_path {
+        for schema in search_path.iter_schemas() {
             let qualified =
                 QualifiedIdentifier::Qualified(Identifier::new(schema, 0..0), table.clone());
             if map.contains_key(&qualified) {
@@ -327,14 +365,14 @@ fn try_parse_body<'a>(
     })
 }
 
-fn type_kind_from_parse<'a>(
+fn type_kind_from_parse<'a, S: SearchPath<'a>>(
     type_: qusql_parse::Type<'a>,
     unsigned: bool,
     is_sqlite: bool,
     is_postgresql: bool,
     types: Option<&BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>>,
     issues: &mut Issues<'a>,
-    search_path: &[&'a str],
+    search_path: S,
 ) -> Type<'a> {
     match type_ {
         qusql_parse::Type::TinyInt(v) => {
@@ -490,13 +528,13 @@ fn type_kind_from_parse<'a>(
     }
 }
 
-pub(crate) fn parse_column<'a>(
+pub(crate) fn parse_column<'a, S: SearchPath<'a>>(
     data_type: DataType<'a>,
     identifier: Identifier<'a>,
     _issues: &mut Issues<'a>,
     options: Option<&TypeOptions>,
     types: Option<&BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>>,
-    search_path: &[&'a str],
+    search_path: S,
 ) -> Column<'a> {
     let mut not_null = false;
     let mut unsigned = false;
@@ -624,7 +662,9 @@ struct SchemaCtx<'a, 'b> {
     /// Set when evaluating a known function body.
     bindings: BTreeMap<&'a str, SqlValue<'a>>,
     /// In-memory row store for tables populated during schema evaluation.
-    rows: BTreeMap<&'a str, Vec<Row<'a>>>,
+    /// Keyed by the canonical `QualifiedIdentifier` so that tables with the same
+    /// bare name in different schemas are stored and retrieved independently.
+    rows: BTreeMap<QualifiedIdentifier<'a>, Vec<Row<'a>>>,
     /// Table rows made available to aggregate functions during eval_condition.
     /// Temporarily swapped via core::mem::take so eval functions can take &mut self.
     current_table_rows: Vec<Row<'a>>,
@@ -663,11 +703,6 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 Vec::new()
             },
         }
-    }
-
-    /// Returns the current search path as a slice of `&str` for use with `lookup_name`.
-    fn search_path_strs(&self) -> Vec<&'a str> {
-        self.search_path.iter().map(|id| id.value).collect()
     }
 
     /// Build a `QualifiedIdentifier` key using the current dialect convention.
@@ -711,7 +746,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
 
     /// Like [`parse_qname`] but keeps unqualified names as `Unqualified` rather than
     /// pre-qualifying them with `"public"`.  Use this for lookups where `lookup_name`
-    /// + `search_path_strs()` should resolve the schema, rather than hardcoding one.
+    /// + the search path (passed as `self.search_path.as_slice()`) should resolve the schema.
     fn parse_qname_for_lookup(
         &mut self,
         qname: &QualifiedName<'a>,
@@ -922,11 +957,10 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         let Some(key) = self.parse_qname(&s.name) else {
             return;
         };
-        if s.if_not_exists.is_some() {
-            let sp = self.search_path_strs();
-            if lookup_name(&self.schemas.sequences, &key, &sp).is_some() {
-                return;
-            }
+        if s.if_not_exists.is_some()
+            && lookup_name(&self.schemas.sequences, &key, self.search_path.as_slice()).is_some()
+        {
+            return;
         }
         self.schemas.sequences.insert(key, ());
     }
@@ -936,14 +970,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             let Some(key) = self.parse_qname(&name) else {
                 continue;
             };
-            if s.if_exists.is_none() {
-                let sp = self.search_path_strs();
-                if lookup_name(&self.schemas.sequences, &key, &sp).is_none() {
-                    self.issues.err(
-                        alloc::format!("Unknown sequence `{}`", name.identifier.value),
-                        &name.identifier,
-                    );
-                }
+            if s.if_exists.is_none()
+                && lookup_name(&self.schemas.sequences, &key, self.search_path.as_slice()).is_none()
+            {
+                self.issues.err(
+                    alloc::format!("Unknown sequence `{}`", name.identifier.value),
+                    &name.identifier,
+                );
             }
             self.schemas.sequences.remove(&key);
         }
@@ -985,14 +1018,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     identifier,
                     data_type,
                 } => {
-                    let sp = self.search_path_strs();
                     let column = parse_column(
                         data_type,
                         identifier.clone(),
                         self.issues,
                         Some(self.options),
                         Some(&self.schemas.types),
-                        &sp,
+                        self.search_path.as_slice(),
                     );
                     if let Some(oc) = schema.get_column(column.identifier.value) {
                         self.issues
@@ -1058,8 +1090,11 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                         Some(k) => k,
                         None => continue,
                     };
-                    let sp = self.search_path_strs();
-                    if let Some(src) = lookup_name(&self.schemas.schemas, &source_key, &sp) {
+                    if let Some(src) = lookup_name(
+                        &self.schemas.schemas,
+                        &source_key,
+                        self.search_path.as_slice(),
+                    ) {
                         let cols: Vec<Column<'a>> = src.columns.to_vec();
                         for col in cols {
                             if schema.get_column(col.identifier.value).is_none() {
@@ -1244,10 +1279,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         let Some(key) = self.parse_qname_for_lookup(&c.name) else {
             return Ok(());
         };
-        let search_path: Vec<&str> = self.search_path_strs();
         // Look up the procedure and clone its body statements.
-        let body =
-            lookup_name(&self.schemas.procedures, &key, &search_path).and_then(|p| p.body.clone());
+        let body = lookup_name(&self.schemas.procedures, &key, self.search_path.as_slice())
+            .and_then(|p| p.body.clone());
         let Some(statements) = body else {
             // Unknown or body-less procedure — no schema effect.
             return Ok(());
@@ -1300,9 +1334,12 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             return;
         };
         let t = lookup_key.table_name().clone();
-        let sp = self.search_path_strs();
         // Look up the table to validate columns and get the resolved schema for the IndexKey.
-        let resolved_schema = match lookup_name_key(&self.schemas.schemas, &lookup_key, &sp) {
+        let resolved_schema = match lookup_name_key(
+            &self.schemas.schemas,
+            &lookup_key,
+            self.search_path.as_slice(),
+        ) {
             Some((resolved_key, table)) => {
                 let schema = resolved_key.schema_name().cloned();
                 for col in &ci.column_names {
@@ -1388,7 +1425,6 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
     }
 
     fn process_alter_table(&mut self, a: qusql_parse::AlterTable<'a>) {
-        let sp = self.search_path_strs();
         let key = match self.parse_qname(&a.table) {
             Some(k) => k,
             None => return,
@@ -1418,7 +1454,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 &mut self.schemas.indices,
                 self.options,
                 &self.schemas.types,
-                &sp,
+                self.search_path.as_slice(),
             );
         }
     }
@@ -1426,7 +1462,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
 
 #[allow(clippy::too_many_lines)]
 #[allow(clippy::too_many_arguments)]
-fn process_alter_specification<'a>(
+fn process_alter_specification<'a, S: SearchPath<'a>>(
     s: qusql_parse::AlterSpecification<'a>,
     e: &mut Schema<'a>,
     table_ref: &qusql_parse::QualifiedName<'a>,
@@ -1434,7 +1470,7 @@ fn process_alter_specification<'a>(
     indices: &mut alloc::collections::BTreeMap<IndexKey<'a>, Span>,
     options: &TypeOptions,
     types: &BTreeMap<QualifiedIdentifier<'a>, TypeDef<'a>>,
-    search_path: &[&'a str],
+    search_path: S,
 ) {
     match s {
         qusql_parse::AlterSpecification::AddIndex(AddIndex {
@@ -1900,18 +1936,17 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         // rows the update has no effect on our model.
         let span = u.update_span;
         for tref in u.tables {
-            if let qusql_parse::TableReference::Table { identifier, .. } = tref
-                && identifier.prefix.is_empty()
-                && self
-                    .rows
-                    .get(identifier.identifier.value)
-                    .is_some_and(|r| !r.is_empty())
-            {
-                self.issues.err(
-                    "UPDATE on a table with tracked rows is not supported in schema evaluator",
-                    &span,
-                );
-                return Err(());
+            if let qusql_parse::TableReference::Table { identifier, .. } = tref {
+                let Some(key) = self.parse_qname(&identifier) else {
+                    continue;
+                };
+                if lookup_name(&self.rows, &key, ()).is_some_and(|r| !r.is_empty()) {
+                    self.issues.err(
+                        "UPDATE on a table with tracked rows is not supported in schema evaluator",
+                        &span,
+                    );
+                    return Err(());
+                }
             }
         }
         Ok(())
@@ -1932,12 +1967,10 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         let has_unsupported = !using.is_empty() || order_by.is_some() || limit.is_some();
         if has_unsupported {
             for table in &tables {
-                if table.prefix.is_empty()
-                    && self
-                        .rows
-                        .get(table.identifier.value)
-                        .is_some_and(|r| !r.is_empty())
-                {
+                let Some(key) = self.parse_qname(table) else {
+                    continue;
+                };
+                if lookup_name(&self.rows, &key, ()).is_some_and(|r| !r.is_empty()) {
                     self.issues.err(
                         "DELETE with USING/ORDER BY/LIMIT on a table with tracked rows \
                          is not supported in schema evaluator",
@@ -1951,32 +1984,33 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         if let Some((where_expr, _)) = where_ {
             // Evaluate the WHERE for each tracked row; keep rows that do NOT match.
             for table in &tables {
-                if table.prefix.is_empty() {
-                    let name = table.identifier.value;
-                    let Some(source_rows) = self.rows.get(name) else {
-                        continue;
-                    };
-                    let source_rows = source_rows.clone();
-                    let mut new_rows = Vec::new();
-                    for row in source_rows {
-                        let saved = self.current_row.replace(row.clone());
-                        let matches = self.eval_expr(&where_expr).map(|v| v.is_truthy());
-                        self.current_row = saved;
-                        match matches {
-                            Ok(true) => {} // row is deleted
-                            Ok(false) => new_rows.push(row),
-                            Err(()) => return Err(()),
-                        }
+                let Some(key) = self.parse_qname(table) else {
+                    continue;
+                };
+                let Some(source_rows) = self.rows.get(&key) else {
+                    continue;
+                };
+                let source_rows = source_rows.clone();
+                let mut new_rows = Vec::new();
+                for row in source_rows {
+                    let saved = self.current_row.replace(row.clone());
+                    let matches = self.eval_expr(&where_expr).map(|v| v.is_truthy());
+                    self.current_row = saved;
+                    match matches {
+                        Ok(true) => {} // row is deleted
+                        Ok(false) => new_rows.push(row),
+                        Err(()) => return Err(()),
                     }
-                    self.rows.insert(name, new_rows);
                 }
+                self.rows.insert(key, new_rows);
             }
         } else {
             // No WHERE - all rows in every target table are deleted.
             for table in tables {
-                if table.prefix.is_empty() {
-                    self.rows.remove(table.identifier.value);
-                }
+                let Some(key) = self.parse_qname(&table) else {
+                    continue;
+                };
+                self.rows.remove(&key);
             }
         }
         Ok(())
@@ -2039,9 +2073,10 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
 
     fn process_truncate_table(&mut self, t: qusql_parse::TruncateTable<'a>) {
         for spec in t.tables {
-            // Truncate only clears tracked row state; just need the bare table name.
-            let name = unqualified_name(self.issues, &spec.table_name);
-            self.rows.remove(name.value);
+            let Some(key) = self.parse_qname(&spec.table_name) else {
+                continue;
+            };
+            self.rows.remove(&key);
         }
     }
 
@@ -2110,26 +2145,22 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 Some(k) => k,
                 None => continue,
             };
-            let old_name = old_key.table_name().value;
-            let new_name = new_key.table_name().value;
             // Rename in schemas map.
             if let Some(schema) = self.schemas.schemas.remove(&old_key) {
-                self.schemas.schemas.insert(new_key, schema);
+                self.schemas.schemas.insert(new_key.clone(), schema);
             } else {
                 self.issues.err("Table not found", &pair.table);
             }
             // Rename tracked rows if present.
-            if let Some(rows) = self.rows.remove(old_name) {
-                self.rows.insert(new_name, rows);
+            if let Some(rows) = self.rows.remove(&old_key) {
+                self.rows.insert(new_key, rows);
             }
         }
     }
 
     fn process_insert(&mut self, i: qusql_parse::InsertReplace<'a>) -> Result<(), ()> {
-        // Only unqualified table names are tracked.
-        let table_name = match i.table.prefix.as_slice() {
-            [] => i.table.identifier.value,
-            _ => return Ok(()),
+        let Some(table_key) = self.parse_qname(&i.table) else {
+            return Ok(());
         };
         let col_names: Vec<&'a str> = i.columns.iter().map(|c| c.value).collect();
 
@@ -2141,7 +2172,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     row.push((pair.column.value, val));
                 }
             }
-            self.rows.entry(table_name).or_default().push(Rc::new(row));
+            self.rows.entry(table_key).or_default().push(Rc::new(row));
             return Ok(());
         }
 
@@ -2154,7 +2185,10 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                         row.push((col, val));
                     }
                 }
-                self.rows.entry(table_name).or_default().push(Rc::new(row));
+                self.rows
+                    .entry(table_key.clone())
+                    .or_default()
+                    .push(Rc::new(row));
             }
             return Ok(());
         }
@@ -2171,6 +2205,7 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             Vec::new()
         };
         let source_rows = self.eval_statement_rows(&select_stmt)?;
+        let mut built_rows = Vec::with_capacity(source_rows.len());
         for source_row in source_rows {
             let saved_row = self.current_row.replace(source_row);
             let mut row: Vec<(&'a str, SqlValue<'a>)> = Vec::new();
@@ -2180,8 +2215,9 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 }
             }
             self.current_row = saved_row;
-            self.rows.entry(table_name).or_default().push(Rc::new(row));
+            built_rows.push(Rc::new(row));
         }
+        self.rows.entry(table_key).or_default().extend(built_rows);
         Ok(())
     }
 
@@ -2259,15 +2295,14 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
             );
             return Err(());
         };
-        if !identifier.prefix.is_empty() {
-            // Synthesize information_schema.columns from the current schema state.
-            if identifier.prefix.len() == 1
-                && identifier.prefix[0]
-                    .0
-                    .value
-                    .eq_ignore_ascii_case("information_schema")
-                && identifier.identifier.value.eq_ignore_ascii_case("columns")
+
+        let table_key: QualifiedIdentifier = match identifier.prefix.as_slice() {
+            [] => QualifiedIdentifier::Unqualified(identifier.identifier.clone()),
+            [(schema, _)]
+                if schema.value.eq_ignore_ascii_case("information_schema")
+                    && identifier.identifier.value.eq_ignore_ascii_case("columns") =>
             {
+                // Synthesize information_schema.columns from the current schema state.
                 let rows = self
                     .schemas
                     .schemas
@@ -2283,45 +2318,30 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     .collect();
                 return Ok(rows);
             }
-            // Handle a schema-qualified table reference, e.g. `migrations.schema_revisions`.
-            if identifier.prefix.len() == 1 {
-                let schema_name = identifier.prefix[0].0.value;
-                let table_name = identifier.identifier.value;
-                let qualified_key = QualifiedIdentifier::Qualified(
-                    Identifier::new(schema_name, 0..0),
-                    Identifier::new(table_name, 0..0),
-                );
-                let known = lookup_name(&self.schemas.schemas, &qualified_key, &[]).is_some();
-                if !known {
-                    self.issues.err(
-                        alloc::format!(
-                            "Unknown table `{schema_name}.{table_name}` referenced in schema evaluator"
-                        ),
-                        identifier,
-                    );
-                    return Err(());
-                }
-                return Ok(self.rows.get(table_name).cloned().unwrap_or_default());
+            [(schema, _)] => {
+                QualifiedIdentifier::Qualified(schema.clone(), identifier.identifier.clone())
             }
+            _ => {
+                self.issues.err(
+                    "Qualified table name in FROM clause is not supported in schema evaluator",
+                    identifier,
+                );
+                return Err(());
+            }
+        };
+
+        let Some((resolved_key, _)) = lookup_name_key(
+            &self.schemas.schemas,
+            &table_key,
+            self.search_path.as_slice(),
+        ) else {
             self.issues.err(
-                "Qualified table name in FROM clause is not supported in schema evaluator",
+                alloc::format!("Unknown table `{table_key}` referenced in schema evaluator"),
                 identifier,
             );
             return Err(());
-        }
-        let name = identifier.identifier.value;
-        let table_key = QualifiedIdentifier::Unqualified(Identifier::new(name, 0..0));
-        let sp = self.search_path_strs();
-        let known = self.rows.contains_key(name)
-            || lookup_name(&self.schemas.schemas, &table_key, &sp).is_some();
-        if !known {
-            self.issues.err(
-                alloc::format!("Unknown table `{name}` referenced in schema evaluator"),
-                &identifier.identifier,
-            );
-            return Err(());
-        }
-        Ok(self.rows.get(name).cloned().unwrap_or_default())
+        };
+        Ok(self.rows.get(resolved_key).cloned().unwrap_or_default())
     }
 
     /// Evaluate any SELECT-like statement (plain SELECT or UNION/INTERSECT/EXCEPT compound
@@ -2402,13 +2422,13 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                     Some(s) => QualifiedIdentifier::Qualified(s, fn_ident.clone()),
                     None => QualifiedIdentifier::Unqualified(fn_ident.clone()),
                 };
-                let search_path: Vec<&str> = self.search_path_strs();
                 let func_info =
-                    lookup_name(&self.schemas.functions, &key, &search_path).and_then(|func| {
-                        func.body
-                            .as_ref()
-                            .map(|b| (func.params.clone(), b.statements.clone()))
-                    });
+                    lookup_name(&self.schemas.functions, &key, self.search_path.as_slice())
+                        .and_then(|func| {
+                            func.body
+                                .as_ref()
+                                .map(|b| (func.params.clone(), b.statements.clone()))
+                        });
                 let Some((params, statements)) = func_info else {
                     self.issues.err(
                         alloc::format!(
@@ -2484,8 +2504,8 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 } else {
                     QualifiedIdentifier::Unqualified(Identifier::new(seq_name, 0..0))
                 };
-                let sp = self.search_path_strs();
-                let found = lookup_name(&self.schemas.sequences, &key, &sp).is_some();
+                let found = lookup_name(&self.schemas.sequences, &key, self.search_path.as_slice())
+                    .is_some();
                 if !found {
                     self.issues
                         .err(alloc::format!("nextval: unknown sequence `{seq_name}`"), f);

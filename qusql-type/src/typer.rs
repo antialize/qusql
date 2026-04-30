@@ -396,19 +396,6 @@ pub(crate) fn typer_stack<
     }
 }
 
-pub(crate) fn unqualified_name<'b, 'c>(
-    issues: &mut Issues<'_>,
-    name: &'c QualifiedName<'b>,
-) -> &'c Identifier<'b> {
-    if !name.prefix.is_empty() {
-        issues.err(
-            "Expected unqualified name",
-            &name.prefix.opt_span().unwrap(),
-        );
-    }
-    &name.identifier
-}
-
 /// Resolve a potentially schema-qualified table name from a `QualifiedName`.
 ///
 /// Returns `(schema, table)` where `schema` is `None` for unqualified names.
