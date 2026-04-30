@@ -811,8 +811,10 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 Ok(())
             }
             qusql_parse::Statement::DropDatabase(s) => {
-                // In PostgreSQL, DROP SCHEMA and DROP DATABASE both parse to DropDatabase.
-                // We implement DROP SCHEMA; DROP DATABASE itself is left as an error.
+                self.issues.err("not implemented", &s);
+                Err(())
+            }
+            qusql_parse::Statement::DropSchema(s) => {
                 if self.options.parse_options.get_dialect().is_postgresql() {
                     self.process_drop_schema(*s);
                 } else {
@@ -2065,30 +2067,37 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
         }
     }
 
-    fn process_drop_schema(&mut self, s: qusql_parse::DropDatabase<'a>) {
-        if !self.schemas.schema_names.remove(&s.database) && s.if_exists.is_none() {
-            self.issues.err("Schema does not exist", &s.database);
+    fn process_drop_schema(&mut self, s: qusql_parse::DropSchema<'a>) {
+        if !self.schemas.schema_names.remove(&s.schema) && s.if_exists.is_none() {
+            self.issues.err("Schema does not exist", &s.schema);
         }
         // Remove all tables/views registered under this schema.
         self.schemas
             .schemas
-            .retain(|k, _| k.schema_name().map(|n| n == &s.database) != Some(true));
+            .retain(|k, _| k.schema_name().map(|n| n == &s.schema) != Some(true));
         // Remove all functions in this schema.
         self.schemas
             .functions
-            .retain(|k, _| k.schema_name().map(|n| n == &s.database) != Some(true));
+            .retain(|k, _| k.schema_name().map(|n| n == &s.schema) != Some(true));
         // Remove all procedures in this schema.
         self.schemas
             .procedures
-            .retain(|k, _| k.schema_name().map(|n| n == &s.database) != Some(true));
+            .retain(|k, _| k.schema_name().map(|n| n == &s.schema) != Some(true));
         // Remove all types in this schema.
         self.schemas
             .types
-            .retain(|k, _| k.schema_name().map(|n| n == &s.database) != Some(true));
+            .retain(|k, _| k.schema_name().map(|n| n == &s.schema) != Some(true));
         // Remove all indices associated with this schema.
         self.schemas
             .indices
-            .retain(|k, _| k.schema.as_ref() != Some(&s.database));
+            .retain(|k, _| k.schema.as_ref() != Some(&s.schema));
+        // Remove all sequences in this schema.
+        self.schemas
+            .sequences
+            .retain(|k, _| k.schema_name().map(|n| n == &s.schema) != Some(true));
+        // Remove in-memory rows for tables that belonged to this schema.
+        self.rows
+            .retain(|k, _| k.schema_name().map(|n| n == &s.schema) != Some(true));
     }
 
     fn process_rename_table(&mut self, r: qusql_parse::RenameTable<'a>) {

@@ -29,8 +29,8 @@ use crate::{
     delete::{Delete, parse_delete},
     drop::{
         DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
-        DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropType, DropView,
-        parse_drop,
+        DropProcedure, DropSchema, DropSequence, DropServer, DropTable, DropTrigger, DropType,
+        DropView, parse_drop,
     },
     expression::{
         Expression, NullExpression, PRIORITY_CMP, PRIORITY_MAX, parse_expression_unreserved,
@@ -1380,6 +1380,7 @@ pub enum Statement<'a> {
     DropSequence(Box<DropSequence<'a>>),
     DropEvent(Box<DropEvent<'a>>),
     DropDatabase(Box<DropDatabase<'a>>),
+    DropSchema(Box<DropSchema<'a>>),
     DropServer(Box<DropServer<'a>>),
     DropTrigger(Box<DropTrigger<'a>>),
     DropView(Box<DropView<'a>>),
@@ -1503,6 +1504,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Update(v) => v.span(),
             Statement::Unlock(v) => v.span(),
             Statement::DropDatabase(v) => v.span(),
+            Statement::DropSchema(v) => v.span(),
             Statement::DropDomain(v) => v.span(),
             Statement::DropType(v) => v.span(),
             Statement::DropEvent(v) => v.span(),

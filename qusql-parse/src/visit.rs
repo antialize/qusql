@@ -435,6 +435,7 @@ pub fn walk_statement<'a, V: Visitor<'a>>(v: &mut V, stmt: &Statement<'a>) -> Re
         | Statement::DropSequence(_)
         | Statement::DropEvent(_)
         | Statement::DropDatabase(_)
+        | Statement::DropSchema(_)
         | Statement::DropServer(_)
         | Statement::DropTrigger(_)
         | Statement::DropView(_)
