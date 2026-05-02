@@ -1,0 +1,374 @@
+{
+  "tables": [
+    {
+      "name": "deployments",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer"
+        },
+        {
+          "name": "host",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "object",
+          "type": "integer"
+        },
+        {
+          "name": "time",
+          "type": "datetime",
+          "not_null": true
+        },
+        {
+          "name": "type",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "docker_deployments",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "not_null": true,
+          "auto_increment": true
+        },
+        {
+          "name": "project",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "container",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "host",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "startTime",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "endTime",
+          "type": "integer"
+        },
+        {
+          "name": "config",
+          "type": "string"
+        },
+        {
+          "name": "hash",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "user",
+          "type": "string"
+        },
+        {
+          "name": "setup",
+          "type": "string"
+        },
+        {
+          "name": "postSetup",
+          "type": "string"
+        },
+        {
+          "name": "timeout",
+          "type": "integer",
+          "has_default": true
+        },
+        {
+          "name": "softTakeover",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "startMagic",
+          "type": "string"
+        },
+        {
+          "name": "stopTimeout",
+          "type": "integer",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "usePodman",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "userService",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "deployUser",
+          "type": "string"
+        },
+        {
+          "name": "serviceFile",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "docker_image_tag_pins",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "not_null": true,
+          "auto_increment": true
+        },
+        {
+          "name": "project",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "tag",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "docker_images",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "not_null": true,
+          "auto_increment": true
+        },
+        {
+          "name": "project",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "tag",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "manifest",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "hash",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "user",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "time",
+          "type": "f64",
+          "not_null": true
+        },
+        {
+          "name": "pin",
+          "type": "bool",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "labels",
+          "type": "string"
+        },
+        {
+          "name": "removed",
+          "type": "f64"
+        },
+        {
+          "name": "used",
+          "type": "f64"
+        }
+      ]
+    },
+    {
+      "name": "kvp",
+      "columns": [
+        {
+          "name": "key",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "messages",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "not_null": true,
+          "auto_increment": true
+        },
+        {
+          "name": "host",
+          "type": "integer"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "subtype",
+          "type": "string"
+        },
+        {
+          "name": "message",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "time",
+          "type": "f64"
+        },
+        {
+          "name": "dismissed",
+          "type": "bool",
+          "not_null": true
+        },
+        {
+          "name": "dismissedTime",
+          "type": "f64"
+        }
+      ]
+    },
+    {
+      "name": "objects",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "type",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "time",
+          "type": "datetime",
+          "not_null": true
+        },
+        {
+          "name": "newest",
+          "type": "bool",
+          "not_null": true
+        },
+        {
+          "name": "category",
+          "type": "string"
+        },
+        {
+          "name": "author",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "sessions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "not_null": true,
+          "auto_increment": true
+        },
+        {
+          "name": "user",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "host",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "sid",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "pwd",
+          "type": "integer"
+        },
+        {
+          "name": "otp",
+          "type": "integer"
+        }
+      ]
+    }
+  ]
+}

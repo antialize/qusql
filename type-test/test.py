@@ -30,6 +30,7 @@ WORKSPACE = SCRIPT_DIR.parent
 # Map of schema-name -> dialect flag passed to type_test
 DIALECT: dict[str, str] = {
     "mysql1": "maria-db",
+    "simpleadmin": "sqlite",
 }
 DEFAULT_DIALECT = "postgre-sql"
 
