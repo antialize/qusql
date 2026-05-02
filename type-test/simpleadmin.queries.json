@@ -1,0 +1,1599 @@
+[
+  {
+    "query": "get_user_content",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_max_object_id",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer"
+      }
+    ],
+    "arguments": []
+  },
+  {
+    "query": "get_max_object_version",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "version",
+        "type": "integer"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "mark_objects_not_newest",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "insert_object",
+    "kind": "insert",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "index": 2,
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "index": 3,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 4,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 5,
+        "type": "string"
+      },
+      {
+        "index": 6,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 7,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_object_by_name_and_type",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "category",
+        "type": "string"
+      },
+      {
+        "name": "comment",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "author",
+        "type": "string"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_object_by_id_and_type",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "category",
+        "type": "string"
+      },
+      {
+        "name": "comment",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "author",
+        "type": "string"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_newest_object_by_id",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "category",
+        "type": "string"
+      },
+      {
+        "name": "comment",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "author",
+        "type": "string"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_object_content_by_id",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "update_object_content",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_object_version_info",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "version",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "author",
+        "type": "string"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_object_id_by_name_type",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_object_ids_by_type",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_object_id_names_by_type",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "list_all_objects",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": []
+  },
+  {
+    "query": "get_object_content",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_object_with_history_info",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "category",
+        "type": "string"
+      },
+      {
+        "name": "comment",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "author",
+        "type": "string"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "search_objects",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "comment",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      },
+      {
+        "index": 2,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_object_version_list",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "version",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "author",
+        "type": "string"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_object_by_name_type_full",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "category",
+        "type": "string"
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "comment",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "author",
+        "type": "string"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_objects_with_created_time",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "datetime",
+        "not_null": true
+      },
+      {
+        "name": "created",
+        "type": "datetime"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_non_developer_objects",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "datetime",
+        "not_null": true
+      },
+      {
+        "name": "category",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_deployments_for_host",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "title",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "upsert_deployment",
+    "kind": "replace",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 2,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 3,
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "index": 4,
+        "type": "string",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "delete_deployment",
+    "kind": "delete",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "delete_all_deployments_for_host",
+    "kind": "delete",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_deployments_by_types",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "title",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "host",
+        "type": "integer",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "integer"
+      },
+      {
+        "index": 2,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_recent_messages",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "host",
+        "type": "integer"
+      },
+      {
+        "name": "type",
+        "type": "string"
+      },
+      {
+        "name": "subtype",
+        "type": "string"
+      },
+      {
+        "name": "message",
+        "type": "string"
+      },
+      {
+        "name": "url",
+        "type": "string"
+      },
+      {
+        "name": "time",
+        "type": "f64"
+      },
+      {
+        "name": "dismissed",
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "name": "dismissedTime",
+        "type": "f64"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "float"
+      }
+    ]
+  },
+  {
+    "query": "get_message_text",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "message",
+        "type": "string"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "count_undismissed_messages",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "count",
+        "type": "i64",
+        "not_null": true
+      }
+    ],
+    "arguments": []
+  },
+  {
+    "query": "insert_message",
+    "kind": "insert",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      },
+      {
+        "index": 2,
+        "type": "string"
+      },
+      {
+        "index": 3,
+        "type": "f64"
+      }
+    ]
+  },
+  {
+    "query": "list_docker_images_with_deployment_stats",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "manifest",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "tag",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "f64",
+        "not_null": true
+      },
+      {
+        "name": "project",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "hash",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "start",
+        "type": "integer"
+      },
+      {
+        "name": "end",
+        "type": "integer"
+      },
+      {
+        "name": "active",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "pin",
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "name": "used",
+        "type": "f64"
+      },
+      {
+        "name": "newest",
+        "type": "integer"
+      },
+      {
+        "name": "tagPin",
+        "type": "bool",
+        "not_null": true
+      }
+    ],
+    "arguments": []
+  },
+  {
+    "query": "soft_delete_docker_image",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "f64"
+      },
+      {
+        "index": 1,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_docker_image_by_hash",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "hash",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "f64",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_docker_image_by_tag",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "hash",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "f64",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "insert_docker_image",
+    "kind": "insert",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 2,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 3,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 4,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 5,
+        "type": "f64",
+        "not_null": true
+      },
+      {
+        "index": 6,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_docker_image_manifest",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "manifest",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      },
+      {
+        "index": 2,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "delete_docker_image",
+    "kind": "delete",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      },
+      {
+        "index": 2,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_docker_image_by_id",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "hash",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "f64",
+        "not_null": true
+      },
+      {
+        "name": "project",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "tag",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "pin",
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "name": "labels",
+        "type": "string"
+      },
+      {
+        "name": "removed",
+        "type": "f64"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_docker_images_by_tag_project",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "hash",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "time",
+        "type": "f64",
+        "not_null": true
+      },
+      {
+        "name": "project",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "tag",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "pin",
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "name": "labels",
+        "type": "string"
+      },
+      {
+        "name": "removed",
+        "type": "f64"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "update_docker_image_pin",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_latest_docker_deployment",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "endTime",
+        "type": "integer"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      },
+      {
+        "index": 2,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "end_docker_deployment",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "insert_docker_deployment",
+    "kind": "insert",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 2,
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "index": 3,
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "index": 4,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 5,
+        "type": "string"
+      },
+      {
+        "index": 6,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_docker_deployment",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "description",
+        "type": "string"
+      },
+      {
+        "name": "host",
+        "type": "integer",
+        "not_null": true
+      },
+      {
+        "name": "project",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "hash",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "delete_docker_deployments_for_container",
+    "kind": "delete",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "insert_docker_image_tag_pin",
+    "kind": "insert",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "string",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "delete_docker_image_tag_pin",
+    "kind": "delete",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "get_kvp",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "value",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "upsert_kvp",
+    "kind": "replace",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "string",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "get_session",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "pwd",
+        "type": "integer"
+      },
+      {
+        "name": "otp",
+        "type": "integer"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "host",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "insert_session",
+    "kind": "insert",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 2,
+        "type": "integer"
+      },
+      {
+        "index": 3,
+        "type": "integer"
+      },
+      {
+        "index": 4,
+        "type": "string",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "delete_session",
+    "kind": "delete",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "update_session_otp",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "update_session_pwd",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "update_session_pwd_otp",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "integer"
+      },
+      {
+        "index": 2,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "clear_session_pwd",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "clear_session_otp",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      }
+    ]
+  }
+]
