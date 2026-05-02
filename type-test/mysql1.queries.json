@@ -1,0 +1,370 @@
+[
+  {
+    "query": "get_device_by_id",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "label",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "notes",
+        "type": "string"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "name": "role",
+        "type": "enum('sensor', 'relay', 'gateway', 'store')",
+        "not_null": true
+      },
+      {
+        "name": "load",
+        "type": "f32",
+        "not_null": true
+      },
+      {
+        "name": "registered_at",
+        "type": "timestamp",
+        "not_null": true
+      },
+      {
+        "name": "max_rate",
+        "type": "u32",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "list_active_devices",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "label",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "role",
+        "type": "enum('sensor', 'relay', 'gateway', 'store')",
+        "not_null": true
+      },
+      {
+        "name": "load",
+        "type": "f32",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "bool"
+      },
+      {
+        "index": 1,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "insert_device",
+    "kind": "insert",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "string"
+      },
+      {
+        "index": 2,
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "index": 3,
+        "type": "enum('sensor', 'relay', 'gateway', 'store')",
+        "not_null": true
+      },
+      {
+        "index": 4,
+        "type": "f32",
+        "not_null": true
+      },
+      {
+        "index": 5,
+        "type": "u32",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "update_device_load",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "f32",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "index": 2,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "delete_device",
+    "kind": "delete",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_channels_for_device",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "device_id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "token",
+        "type": "bytes",
+        "not_null": true
+      },
+      {
+        "name": "config",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "sample_rate",
+        "type": "f64",
+        "not_null": true
+      },
+      {
+        "name": "kind",
+        "type": "enum('counter', 'gauge', 'histogram', 'event')",
+        "not_null": true
+      },
+      {
+        "name": "last_seen",
+        "type": "datetime"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_firing_alert_rules",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "channel_id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "notify_on",
+        "type": "set('error', 'warning', 'recovery')",
+        "not_null": true
+      },
+      {
+        "name": "threshold",
+        "type": "f64"
+      },
+      {
+        "name": "cooldown",
+        "type": "u32",
+        "not_null": true
+      },
+      {
+        "name": "priority",
+        "type": "u16",
+        "not_null": true
+      },
+      {
+        "name": "fired",
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "query": "insert_alert_event",
+    "kind": "insert",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "u64",
+        "not_null": true
+      },
+      {
+        "index": 2,
+        "type": "set('error', 'completion')",
+        "not_null": true
+      },
+      {
+        "index": 3,
+        "type": "f64"
+      },
+      {
+        "index": 4,
+        "type": "f64",
+        "not_null": true
+      },
+      {
+        "index": 5,
+        "type": "f64",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "get_channel_status_view",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "device_id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "kind",
+        "type": "enum('counter', 'gauge', 'histogram', 'event')"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "fired",
+        "type": "bool"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_storage_items_for_channel",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "channel_id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "json",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "payload",
+        "type": "bytes",
+        "not_null": true
+      },
+      {
+        "name": "workspace_id",
+        "type": "i32",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      },
+      {
+        "index": 1,
+        "type": "integer"
+      }
+    ]
+  }
+]

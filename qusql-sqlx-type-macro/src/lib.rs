@@ -463,6 +463,7 @@ fn issues_to_errors(issues: Vec<Issue>, source: &str, span: Span) -> Vec<proc_ma
 /// Construct row struct members, and fill in statements
 fn construct_row(
     columns: &[SelectTypeColumn],
+    is_postgres: bool,
 ) -> (Vec<proc_macro2::TokenStream>, Vec<proc_macro2::TokenStream>) {
     let mut row_members = Vec::new();
     let mut row_construct = Vec::new();
@@ -486,7 +487,13 @@ fn construct_row(
                 quote! {chrono::NaiveDateTime}
             }
             qusql_type::Type::Base(qusql_type::BaseType::Float) => quote! {f64},
-            qusql_type::Type::Base(qusql_type::BaseType::Integer) => quote! {i32},
+            qusql_type::Type::Base(qusql_type::BaseType::Integer) => {
+                if is_postgres {
+                    quote! {i32}
+                } else {
+                    quote! {i64}
+                }
+            }
             qusql_type::Type::Base(qusql_type::BaseType::String) => quote! {String},
             qusql_type::Type::Base(qusql_type::BaseType::Time) => todo!("from_time"),
             qusql_type::Type::Base(qusql_type::BaseType::TimeInterval) => {
@@ -612,7 +619,7 @@ pub fn query(input: TokenStream) -> TokenStream {
                 arguments,
                 dialect,
             );
-            let (row_members, row_construct) = construct_row(columns);
+            let (row_members, row_construct) = construct_row(columns, dialect.is_postgresql());
             let s = quote! { {
                 use ::sqlx::Arguments as _;
                 let _ = std::include_bytes!(#sp);
@@ -644,7 +651,8 @@ pub fn query(input: TokenStream) -> TokenStream {
             );
             let s = match returning.as_ref() {
                 Some(returning) => {
-                    let (row_members, row_construct) = construct_row(returning);
+                    let (row_members, row_construct) =
+                        construct_row(returning, dialect.is_postgresql());
                     quote! { {
                         use ::sqlx::Arguments as _;
                         let _ = std::include_bytes!(#sp);
@@ -687,7 +695,8 @@ pub fn query(input: TokenStream) -> TokenStream {
             );
             let s = match returning.as_ref() {
                 Some(returning) => {
-                    let (row_members, row_construct) = construct_row(returning);
+                    let (row_members, row_construct) =
+                        construct_row(returning, dialect.is_postgresql());
                     quote! { {
                         use ::sqlx::Arguments as _;
                         let _ = std::include_bytes!(#sp);
@@ -730,7 +739,8 @@ pub fn query(input: TokenStream) -> TokenStream {
 
             let s = match returning.as_ref() {
                 Some(returning) => {
-                    let (row_members, row_construct) = construct_row(returning);
+                    let (row_members, row_construct) =
+                        construct_row(returning, dialect.is_postgresql());
                     quote! { {
                         use ::sqlx::Arguments as _;
                         let _ = std::include_bytes!(#sp);
@@ -772,7 +782,8 @@ pub fn query(input: TokenStream) -> TokenStream {
             );
             let s = match returning.as_ref() {
                 Some(returning) => {
-                    let (row_members, row_construct) = construct_row(returning);
+                    let (row_members, row_construct) =
+                        construct_row(returning, dialect.is_postgresql());
                     quote! { {
                         use ::sqlx::Arguments as _;
                         const _SCHEMA_HASH: u64 = #schema_hash;
@@ -868,7 +879,10 @@ pub fn query(input: TokenStream) -> TokenStream {
 }
 
 /// Fill in row values in a query_as struct
-fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream> {
+fn construct_row2(
+    columns: &[SelectTypeColumn],
+    is_postgres: bool,
+) -> Vec<proc_macro2::TokenStream> {
     let mut row_construct = Vec::new();
     for (i, c) in columns.iter().enumerate() {
         let mut t = match c.type_.t {
@@ -890,7 +904,13 @@ fn construct_row2(columns: &[SelectTypeColumn]) -> Vec<proc_macro2::TokenStream>
                 quote! {chrono::NaiveDateTime}
             }
             qusql_type::Type::Base(qusql_type::BaseType::Float) => quote! {f64},
-            qusql_type::Type::Base(qusql_type::BaseType::Integer) => quote! {i32},
+            qusql_type::Type::Base(qusql_type::BaseType::Integer) => {
+                if is_postgres {
+                    quote! {i32}
+                } else {
+                    quote! {i64}
+                }
+            }
             qusql_type::Type::Base(qusql_type::BaseType::String) => quote! {String},
             qusql_type::Type::Base(qusql_type::BaseType::Time) => todo!("from_time"),
             qusql_type::Type::Base(qusql_type::BaseType::TimeInterval) => {
@@ -1021,7 +1041,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 dialect,
             );
 
-            let row_construct = construct_row2(columns);
+            let row_construct = construct_row2(columns, dialect.is_postgresql());
             let row = query_as.as_;
             let s = quote! { {
                 use ::sqlx::Arguments as _;
@@ -1077,7 +1097,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 dialect,
             );
 
-            let row_construct = construct_row2(returning);
+            let row_construct = construct_row2(returning, dialect.is_postgresql());
             let row = query_as.as_;
             let s = quote! { {
                 use ::sqlx::Arguments as _;
@@ -1121,7 +1141,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 dialect,
             );
 
-            let row_construct = construct_row2(returning);
+            let row_construct = construct_row2(returning, dialect.is_postgresql());
             let row = query_as.as_;
             let s = quote! { {
                 use ::sqlx::Arguments as _;
@@ -1165,7 +1185,7 @@ pub fn query_as(input: TokenStream) -> TokenStream {
                 dialect,
             );
 
-            let row_construct = construct_row2(returning);
+            let row_construct = construct_row2(returning, dialect.is_postgresql());
             let row = query_as.as_;
             let s = quote! { {
                 use ::sqlx::Arguments as _;

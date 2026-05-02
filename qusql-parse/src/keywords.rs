@@ -50,6 +50,9 @@ impl Restrict {
     /// Restrict keywords: SET
     pub const UPDATE_TABLE: Self = Restrict(0b10000);
 
+    /// Restrict keywords: LEFT, RIGHT, INNER, CROSS, FULL, NATURAL, JOIN, STRAIGHT_JOIN
+    pub const FROM_ALIAS: Self = Restrict(0b100000);
+
     // End restrict set list
 }
 
@@ -100,7 +103,7 @@ pub(crate) enum Keyword {
     CONTINUE,            // reserved: mariadb
     CONVERT,             // reserved: mariadb
     CREATE,              // reserved: mariadb, postgres, sqlite
-    CROSS,               // reserved: mariadb, postgres
+    CROSS,               // reserved: mariadb, postgres; from_alias
     CURRENT_CATALOG,     // reserved: postgres; expr_ident
     CURRENT_DATE,        // reserved: mariadb, postgres; expr_ident
     CURRENT_ROLE,        // reserved: mariadb, postgres; expr_ident
@@ -152,7 +155,7 @@ pub(crate) enum Keyword {
     FORCE,               // reserved: mariadb
     FOREIGN,             // reserved: mariadb, postgres, sqlite
     FROM,                // reserved: mariadb, postgres, sqlite
-    FULL,                // reserved: postgres
+    FULL,                // reserved: postgres; from_alias
     FULLTEXT,            // reserved: mariadb
     GRANT,               // reserved: mariadb, postgres
     GROUP,               // reserved: mariadb, postgres, sqlite
@@ -168,7 +171,7 @@ pub(crate) enum Keyword {
     INDEX,               // reserved: mariadb, sqlite
     INFILE,              // reserved: mariadb
     INITIALLY,           // reserved: postgres
-    INNER,               // reserved: mariadb, postgres
+    INNER,               // reserved: mariadb, postgres; from_alias
     INOUT,               // reserved: mariadb
     INSENSITIVE,         // reserved: mariadb
     INSERT,              // reserved: mariadb, sqlite; expr_ident
@@ -184,13 +187,13 @@ pub(crate) enum Keyword {
     INTO,                // reserved: mariadb, postgres, sqlite
     IS,                  // reserved: mariadb, postgres, sqlite
     ITERATE,             // reserved: mariadb
-    JOIN,                // reserved: mariadb, postgres, sqlite
+    JOIN,                // reserved: mariadb, postgres, sqlite; from_alias
     KEY,                 // reserved: mariadb
     KEYS,                // reserved: mariadb
     KILL,                // reserved: mariadb
     LEADING,             // reserved: mariadb, postgres
     LEAVE,               // reserved: mariadb
-    LEFT,                // reserved: mariadb, postgres
+    LEFT,                // reserved: mariadb, postgres; from_alias
     LIKE,                // reserved: mariadb, postgres
     LIMIT,               // reserved: mariadb, postgres, sqlite
     LINEAR,              // reserved: mariadb
@@ -214,7 +217,7 @@ pub(crate) enum Keyword {
     MINUTE_SECOND,       // reserved: mariadb
     MOD,                 // reserved: mariadb; expr_ident
     MODIFIES,            // reserved: mariadb
-    NATURAL,             // reserved: mariadb, postgres
+    NATURAL,             // reserved: mariadb, postgres; from_alias
     NOT,                 // reserved: mariadb, postgres, sqlite
     NOTHING,             // reserved: sqlite
     NO_WRITE_TO_BINLOG,  // reserved: mariadb
@@ -228,7 +231,7 @@ pub(crate) enum Keyword {
     OR,                  // reserved: mariadb, postgres, sqlite
     ORDER,               // reserved: mariadb, postgres, sqlite
     OUT,                 // reserved: mariadb
-    OUTER,               // reserved: mariadb, postgres
+    OUTER,               // reserved: mariadb, postgres; from_alias
     OUTFILE,             // reserved: mariadb
     OVER,                // reserved: mariadb
     OVERLAPS,            // reserved: postgres
@@ -258,7 +261,7 @@ pub(crate) enum Keyword {
     RETURN,              // reserved: mariadb
     RETURNING,           // reserved: mariadb, postgres, sqlite
     REVOKE,              // reserved: mariadb
-    RIGHT,               // reserved: mariadb, postgres; expr_ident
+    RIGHT,               // reserved: mariadb, postgres; expr_ident; from_alias
     RLIKE,               // reserved: mariadb
     ROWS,                // reserved: mariadb
     SCHEMAS,             // reserved: mariadb
@@ -286,7 +289,7 @@ pub(crate) enum Keyword {
     STATS_AUTO_RECALC,   // reserved: mariadb
     STATS_PERSISTENT,    // reserved: mariadb
     STATS_SAMPLE_PAGES,  // reserved: mariadb
-    STRAIGHT_JOIN,       // reserved: mariadb
+    STRAIGHT_JOIN,       // reserved: mariadb; from_alias
     TABLE,               // reserved: mariadb, postgres, sqlite
     TERMINATED,          // reserved: mariadb
     THEN,                // reserved: mariadb, postgres, sqlite

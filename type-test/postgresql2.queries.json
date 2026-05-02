@@ -1,0 +1,355 @@
+[
+  {
+    "query": "get_media_archive",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "path",
+        "type": "string"
+      },
+      {
+        "name": "status",
+        "type": "i16",
+        "not_null": true
+      },
+      {
+        "name": "creation_time",
+        "type": "timestamp",
+        "not_null": true
+      },
+      {
+        "name": "total_blob_bytes",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "config",
+        "type": "string"
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "insert_media_archive",
+    "kind": "insert",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "creation_time",
+        "type": "timestamp",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      },
+      {
+        "index": 1,
+        "type": "i16",
+        "not_null": true
+      },
+      {
+        "index": 2,
+        "type": "i64",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "update_media_archive_status",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "i16",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "get_blob_by_id",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "hash_a",
+        "type": "i64"
+      },
+      {
+        "name": "hash_b",
+        "type": "i64"
+      },
+      {
+        "name": "stored_bytes",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "tier",
+        "type": "i16",
+        "not_null": true
+      },
+      {
+        "name": "complete",
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "name": "creation_time",
+        "type": "timestamp",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "insert_blob",
+    "kind": "insert",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "creation_time",
+        "type": "timestamp",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "i64"
+      },
+      {
+        "index": 1,
+        "type": "i64"
+      },
+      {
+        "index": 2,
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "index": 3,
+        "type": "i16",
+        "not_null": true
+      },
+      {
+        "index": 4,
+        "type": "bool",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "list_blobs_for_archive",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "stored_bytes",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "tier",
+        "type": "i16",
+        "not_null": true
+      },
+      {
+        "name": "complete",
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "name": "metadata",
+        "type": "bytes",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "list_pending_local_files",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "dir",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "filename",
+        "type": "string"
+      },
+      {
+        "name": "size",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "upload_status",
+        "type": "i16",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "query": "insert_render_queue",
+    "kind": "insert",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "get_track_by_identifier",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "provider_id",
+        "type": "i32"
+      },
+      {
+        "name": "path",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "identifier",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "content_type",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "title",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "license_type",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "size",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "upload_status",
+        "type": "i16",
+        "not_null": true
+      },
+      {
+        "name": "deleted",
+        "type": "bool",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "insert_processing_job",
+    "kind": "insert",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "name": "last_used",
+        "type": "timestamp",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "i64",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "i64",
+        "not_null": true
+      }
+    ]
+  }
+]
