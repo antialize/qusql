@@ -1,0 +1,324 @@
+[
+  {
+    "query": "get_board",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "not_null": true
+      },
+      {
+        "name": "last_modified",
+        "type": "timestamp",
+        "not_null": true
+      },
+      {
+        "name": "change_count",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "is_open",
+        "type": "bool",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "uuid"
+      }
+    ]
+  },
+  {
+    "query": "insert_board",
+    "kind": "insert",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "index": 2,
+        "type": "i32",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "update_board_change_count",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "uuid"
+      }
+    ]
+  },
+  {
+    "query": "delete_board",
+    "kind": "delete",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "uuid"
+      }
+    ]
+  },
+  {
+    "query": "list_tasks_for_board",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "board_id",
+        "type": "uuid",
+        "not_null": true
+      },
+      {
+        "name": "properties",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "change_index",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "is_active",
+        "type": "bool",
+        "not_null": true
+      },
+      {
+        "name": "sort_order",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "created_by",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "uuid"
+      },
+      {
+        "index": 1,
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "query": "insert_task",
+    "kind": "insert",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "uuid",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 2,
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "index": 3,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 4,
+        "type": "uuid",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "update_task_properties",
+    "kind": "update",
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "index": 1,
+        "type": "integer"
+      },
+      {
+        "index": 2,
+        "type": "uuid"
+      }
+    ]
+  },
+  {
+    "query": "get_tag_by_name",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "last_modified",
+        "type": "timestamp",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "query": "insert_tag_definition",
+    "kind": "insert",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "query": "list_schema_revisions",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "sequence_index",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "applied_at",
+        "type": "timestamp",
+        "not_null": true
+      }
+    ],
+    "arguments": []
+  },
+  {
+    "query": "get_schema_revision_by_name",
+    "kind": "select",
+    "columns": [
+      {
+        "name": "id",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "not_null": true
+      },
+      {
+        "name": "sequence_index",
+        "type": "i32",
+        "not_null": true
+      },
+      {
+        "name": "applied_at",
+        "type": "timestamp",
+        "not_null": true
+      }
+    ],
+    "arguments": [
+      {
+        "index": 0,
+        "type": "string"
+      }
+    ]
+  }
+]

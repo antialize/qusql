@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """
-Test runner for type_test schema typing.
+Test runner for type_test schema typing and query typing.
 
-Each test case is a pair of:
+Each schema test case is a pair of:
   <name>.sql   - the SQL schema file
-  <name>.json  - the expected JSON output (produced by type_test)
+  <name>.json  - the expected JSON schema output (produced by type_test schema)
+
+Each query test case is a triplet of:
+  <name>.sql         - the SQL schema file (shared with schema test)
+  <name>.queries.sql - SQL queries with `-- query: <name>` separators
+  <name>.queries.json - the expected JSON query-type output (produced by type_test queries)
 
 Usage:
-  python3 test.py               # run default tests (expected to pass)
-  python3 test.py --all         # run all tests including known-failing ones
+  python3 test.py               # run all schema + query tests
   python3 test.py --update      # overwrite expected outputs with current output
-  python3 test.py mysql1        # run a single test by name (no extension)
+  python3 test.py mysql1        # run schema test for mysql1
+  python3 test.py mysql1.queries # run query test for mysql1
 """
 
 import argparse
@@ -22,15 +27,15 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).parent.resolve()
 WORKSPACE = SCRIPT_DIR.parent
 
-# Map of test-name -> dialect flag passed to type_test
+# Map of schema-name -> dialect flag passed to type_test
 DIALECT: dict[str, str] = {
     "mysql1": "maria-db",
 }
 DEFAULT_DIALECT = "postgre-sql"
 
 
-def run_type_test(sql_file: Path, dialect: str) -> tuple[int, str]:
-    """Run type_test via cargo run and return (exit_code, stdout)."""
+def run_schema_test_cmd(sql_file: Path, dialect: str) -> tuple[int, str]:
+    """Run `type_test schema` and return (exit_code, stdout)."""
     result = subprocess.run(
         [
             "cargo",
@@ -38,7 +43,34 @@ def run_type_test(sql_file: Path, dialect: str) -> tuple[int, str]:
             "-p",
             "type_test",
             "--",
+            "schema",
             str(sql_file),
+            "--dialect",
+            dialect,
+            "--error-format",
+            "pretty",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=WORKSPACE,
+    )
+    return result.returncode, result.stdout.strip()
+
+
+def run_queries_test_cmd(
+    schema_file: Path, queries_file: Path, dialect: str
+) -> tuple[int, str]:
+    """Run `type_test queries` and return (exit_code, stdout)."""
+    result = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "-p",
+            "type_test",
+            "--",
+            "queries",
+            str(schema_file),
+            str(queries_file),
             "--dialect",
             dialect,
             "--error-format",
@@ -105,8 +137,60 @@ def diff_tables(expected: dict, actual: dict) -> list[str]:
     return lines
 
 
-def run_test(name: str, *, update: bool) -> bool:
-    """Run a single test. Returns True if passed (or skipped)."""
+def diff_query_results(expected: list, actual: list) -> list[str]:
+    """Return a concise list of change descriptions between two query-type result lists."""
+    lines = []
+    exp_map = {q["query"]: q for q in expected}
+    act_map = {q["query"]: q for q in actual}
+
+    for name in sorted(exp_map.keys() - act_map.keys()):
+        lines.append(f"  - query removed: {name}")
+    for name in sorted(act_map.keys() - exp_map.keys()):
+        lines.append(f"  + query added:   {name}")
+
+    for name in sorted(exp_map.keys() & act_map.keys()):
+        eq = exp_map[name]
+        aq = act_map[name]
+        prefix = f"  query {name!r}"
+
+        if eq.get("kind") != aq.get("kind"):
+            lines.append(f"{prefix}: kind {eq.get('kind')!r} -> {aq.get('kind')!r}")
+
+        # Compare columns
+        exp_cols = eq.get("columns") or []
+        act_cols = aq.get("columns") or []
+        if len(exp_cols) != len(act_cols):
+            lines.append(f"{prefix}: columns count {len(exp_cols)} -> {len(act_cols)}")
+        else:
+            for i, (ec, ac) in enumerate(zip(exp_cols, act_cols)):
+                for field in ("name", "type", "not_null"):
+                    ev = ec.get(field)
+                    av = ac.get(field)
+                    if ev != av:
+                        lines.append(f"{prefix} column[{i}]: {field} {ev!r} -> {av!r}")
+
+        # Compare arguments
+        exp_args = eq.get("arguments", [])
+        act_args = aq.get("arguments", [])
+        if len(exp_args) != len(act_args):
+            lines.append(
+                f"{prefix}: arguments count {len(exp_args)} -> {len(act_args)}"
+            )
+        else:
+            for i, (ea, aa) in enumerate(zip(exp_args, act_args)):
+                for field in ("index", "name", "type", "not_null"):
+                    ev = ea.get(field)
+                    av = aa.get(field)
+                    if ev != av:
+                        lines.append(
+                            f"{prefix} argument[{i}]: {field} {ev!r} -> {av!r}"
+                        )
+
+    return lines
+
+
+def run_schema_test(name: str, *, update: bool) -> bool:
+    """Run a single schema test. Returns True if passed (or skipped)."""
     sql_file = SCRIPT_DIR / f"{name}.sql"
     json_file = SCRIPT_DIR / f"{name}.json"
     dialect = DIALECT.get(name, DEFAULT_DIALECT)
@@ -115,7 +199,7 @@ def run_test(name: str, *, update: bool) -> bool:
         print(f"[{name}] SKIP - {sql_file.name} not found")
         return True
 
-    exit_code, output = run_type_test(sql_file, dialect)
+    exit_code, output = run_schema_test_cmd(sql_file, dialect)
 
     if update:
         if exit_code != 0:
@@ -127,7 +211,6 @@ def run_test(name: str, *, update: bool) -> bool:
 
     # ---- test mode ----
     if not json_file.exists():
-        # For known-failing tests without an expected file, a non-zero exit is expected
         print(f"[{name}] SKIP - no expected output (run --update to create)")
         print(output)
         return True
@@ -168,8 +251,71 @@ def run_test(name: str, *, update: bool) -> bool:
     return False
 
 
+def run_queries_test(base_name: str, *, update: bool) -> bool:
+    """Run a single query-typing test. Returns True if passed (or skipped)."""
+    schema_file = SCRIPT_DIR / f"{base_name}.sql"
+    queries_file = SCRIPT_DIR / f"{base_name}.queries.sql"
+    json_file = SCRIPT_DIR / f"{base_name}.queries.json"
+    dialect = DIALECT.get(base_name, DEFAULT_DIALECT)
+    label = f"{base_name}.queries"
+
+    if not schema_file.exists():
+        print(f"[{label}] SKIP - {schema_file.name} not found")
+        return True
+    if not queries_file.exists():
+        print(f"[{label}] SKIP - {queries_file.name} not found")
+        return True
+
+    exit_code, output = run_queries_test_cmd(schema_file, queries_file, dialect)
+
+    if update:
+        if exit_code != 0:
+            print(f"[{label}] SKIP update - type_test exited with {exit_code}")
+            return False
+        json_file.write_text(output + "\n")
+        print(f"[{label}] updated {json_file.name}")
+        return True
+
+    # ---- test mode ----
+    if not json_file.exists():
+        print(f"[{label}] SKIP - no expected output (run --update to create)")
+        print(output)
+        return True
+
+    expected_text = json_file.read_text().strip()
+
+    if exit_code != 0:
+        print(f"[{label}] FAIL - type_test exited {exit_code}")
+        print(f"  (raw output): {output[:500]}")
+        return False
+
+    try:
+        actual = json.loads(output)
+        expected = json.loads(expected_text)
+    except json.JSONDecodeError as e:
+        print(f"[{label}] FAIL - JSON parse error: {e}")
+        return False
+
+    if actual == expected:
+        print(f"[{label}] ok")
+        return True
+
+    changes = diff_query_results(expected, actual)
+    print(f"[{label}] FAIL - query types changed:")
+    for line in changes:
+        print(line)
+    if not changes:
+        print("  (unknown difference - re-run with --update to inspect)")
+    return False
+
+
 def discover_tests() -> list[str]:
-    names = [sql.stem for sql in sorted(SCRIPT_DIR.glob("*.sql"))]
+    """Return all schema base names (from *.sql files, excluding *.queries.sql)."""
+    names = [
+        sql.stem
+        for sql in sorted(SCRIPT_DIR.glob("*.sql"))
+        if not sql.stem.endswith(".queries")
+    ]
     return names
 
 
@@ -179,7 +325,9 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "tests", nargs="*", help="test names to run (default: all passing tests)"
+        "tests",
+        nargs="*",
+        help="test names to run (default: all tests); append '.queries' to run only query tests",
     )
     parser.add_argument(
         "--update",
@@ -189,13 +337,37 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.tests:
-        names = [Path(t).stem for t in args.tests]
+        requested = [Path(t).stem for t in args.tests]
     else:
-        names = discover_tests()
+        requested = None
+
+    base_names = discover_tests()
+
+    # Resolve the list of (kind, base_name) pairs to run.
+    # kind is "schema" or "queries".
+    to_run: list[tuple[str, str]] = []
+    if requested is not None:
+        for name in requested:
+            if name.endswith(".queries"):
+                to_run.append(("queries", name[: -len(".queries")]))
+            else:
+                to_run.append(("schema", name))
+                # Also run the corresponding queries test if the file exists.
+                if (SCRIPT_DIR / f"{name}.queries.sql").exists():
+                    to_run.append(("queries", name))
+    else:
+        for name in base_names:
+            to_run.append(("schema", name))
+            if (SCRIPT_DIR / f"{name}.queries.sql").exists():
+                to_run.append(("queries", name))
 
     passed = failed = 0
-    for name in names:
-        if run_test(name, update=args.update):
+    for kind, name in to_run:
+        if kind == "schema":
+            ok = run_schema_test(name, update=args.update)
+        else:
+            ok = run_queries_test(name, update=args.update)
+        if ok:
             passed += 1
         else:
             failed += 1
