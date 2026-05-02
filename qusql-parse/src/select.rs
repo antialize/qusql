@@ -710,10 +710,11 @@ fn parse_table_reference_named<'a>(
 
     // TODO [PARTITION (partition_names)] [[AS] alias]
     let as_span = parser.skip_keyword(Keyword::AS);
+    let base_restrict = parser.reserved() | additional_restrict;
     let as_ = if as_span.is_some()
-        || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(parser.reserved() | additional_restrict)))
+        || (matches!(&parser.token, Token::Ident(_, k) if !k.restricted(base_restrict | Restrict::FROM_ALIAS)))
     {
-        Some(parser.consume_plain_identifier_restrict(parser.reserved() | additional_restrict)?)
+        Some(parser.consume_plain_identifier_restrict(base_restrict)?)
     } else {
         None
     };
