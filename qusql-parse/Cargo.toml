@@ -1,6 +1,6 @@
 [package]
 name = "qusql-parse"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 authors = ["Jakob Truelsen <antialize@gmail.com>"]
 keywords = [ "mysql", "postgresql", "sql", "lexer", "parser" ]
