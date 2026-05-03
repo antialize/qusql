@@ -3009,6 +3009,7 @@ pub(crate) fn type_function<'a, 'b>(
                     .last()
                     .map(|id| id.span.clone())
                     .unwrap_or_else(|| span.clone()),
+                case_sensitive: false,
             };
             let fn_name = fn_ident.value;
             let is_pg = typer.dialect().is_postgresql();

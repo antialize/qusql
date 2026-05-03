@@ -926,7 +926,11 @@ pub(crate) fn parse_create_definition<'a>(
                 Token::String(s, _) => {
                     let val = *s;
                     let span = parser.consume();
-                    Some(Identifier { value: val, span })
+                    Some(Identifier {
+                        value: val,
+                        span,
+                        case_sensitive: false,
+                    })
                 }
                 _ => None,
             }
@@ -945,7 +949,11 @@ pub(crate) fn parse_create_definition<'a>(
                 Token::String(s, _) => {
                     let val = *s;
                     let span = parser.consume();
-                    Some(Identifier { value: val, span })
+                    Some(Identifier {
+                        value: val,
+                        span,
+                        case_sensitive: false,
+                    })
                 }
                 _ => None,
             }

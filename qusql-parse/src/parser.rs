@@ -437,7 +437,7 @@ impl<'a, 'b> Parser<'a, 'b> {
                 Ok(Identifier::new(v, self.consume()))
             }
             Token::String(v, StringType::DoubleQuoted) if self.options.dialect.is_postgresql() => {
-                Ok(Identifier::new(v, self.consume()))
+                Ok(Identifier::new_case_sensitive(v, self.consume()))
             }
             _ => self.expected_failure("identifier"),
         }

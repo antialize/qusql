@@ -1636,7 +1636,11 @@ pub(crate) fn parse_operator_class<'a>(
                 parser.postgres_only(&span);
                 Ok(Some(QualifiedName {
                     prefix: Vec::new(),
-                    identifier: Identifier { value, span },
+                    identifier: Identifier {
+                        value,
+                        span,
+                        case_sensitive: false,
+                    },
                 }))
             }
             _ => Ok(None),
