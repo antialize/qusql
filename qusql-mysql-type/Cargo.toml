@@ -1,6 +1,6 @@
 [package]
 name = "qusql-mysql-type"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2024"
 license = "Apache-2.0"
 keywords = [ "mysql" ]
@@ -26,6 +26,6 @@ chrono = ["dep:chrono", "qusql-mysql/chrono"]
 list_hack = ["qusql-mysql/list_hack", "qusql-mysql-type-macro/list_hack"]
 
 [dependencies]
-qusql-mysql-type-macro={path="../qusql-mysql-type-macro", version="0.1.7"}
+qusql-mysql-type-macro={path="../qusql-mysql-type-macro", version="0.1.8"}
 qusql-mysql={path="../qusql-mysql", version="0.1.0"}
 chrono = {version = "0.4", optional=true}
