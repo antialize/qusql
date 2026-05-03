@@ -2540,6 +2540,7 @@ pub(crate) fn parse_expression_restricted<'a>(
                                         _ => "",
                                     },
                                     span: fn_span.clone(),
+                                    case_sensitive: false,
                                 };
                                 all_idents.push(fn_ident);
                                 // function_span covers from first qualifier to function name

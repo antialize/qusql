@@ -1,7 +1,7 @@
 {
   "tables": [
     {
-      "name": "archive_blobs",
+      "name": "public.archive_blobs",
       "columns": [
         {
           "name": "archive_id",
@@ -21,7 +21,7 @@
       ]
     },
     {
-      "name": "archive_updates",
+      "name": "public.archive_updates",
       "columns": [
         {
           "name": "id",
@@ -43,7 +43,7 @@
       ]
     },
     {
-      "name": "blobs",
+      "name": "public.blobs",
       "columns": [
         {
           "name": "id",
@@ -83,7 +83,7 @@
       ]
     },
     {
-      "name": "blobs_delete",
+      "name": "public.blobs_delete",
       "columns": [
         {
           "name": "id",
@@ -117,7 +117,7 @@
       ]
     },
     {
-      "name": "caption_tracks",
+      "name": "public.caption_tracks",
       "columns": [
         {
           "name": "id",
@@ -155,7 +155,7 @@
       ]
     },
     {
-      "name": "geography_columns",
+      "name": "public.geography_columns",
       "view": true,
       "columns": [
         {
@@ -196,7 +196,7 @@
       ]
     },
     {
-      "name": "geometry_columns",
+      "name": "public.geometry_columns",
       "view": true,
       "columns": [
         {
@@ -237,7 +237,7 @@
       ]
     },
     {
-      "name": "ingest_queue",
+      "name": "public.ingest_queue",
       "columns": [
         {
           "name": "id",
@@ -253,7 +253,7 @@
       ]
     },
     {
-      "name": "job_blobs",
+      "name": "public.job_blobs",
       "columns": [
         {
           "name": "job_id",
@@ -278,7 +278,7 @@
       ]
     },
     {
-      "name": "local_files",
+      "name": "public.local_files",
       "columns": [
         {
           "name": "id",
@@ -314,7 +314,7 @@
       ]
     },
     {
-      "name": "media_archives",
+      "name": "public.media_archives",
       "columns": [
         {
           "name": "id",
@@ -364,7 +364,7 @@
       ]
     },
     {
-      "name": "prediction_models",
+      "name": "public.prediction_models",
       "columns": [
         {
           "name": "id",
@@ -400,7 +400,7 @@
       ]
     },
     {
-      "name": "processing_jobs",
+      "name": "public.processing_jobs",
       "columns": [
         {
           "name": "id",
@@ -427,7 +427,7 @@
       ]
     },
     {
-      "name": "render_queue",
+      "name": "public.render_queue",
       "columns": [
         {
           "name": "id",
@@ -448,7 +448,7 @@
       ]
     },
     {
-      "name": "spatial_ref_sys",
+      "name": "public.spatial_ref_sys",
       "columns": [
         {
           "name": "srid",
@@ -474,7 +474,7 @@
       ]
     },
     {
-      "name": "storage_tiers",
+      "name": "public.storage_tiers",
       "columns": [
         {
           "name": "id",
@@ -489,7 +489,7 @@
       ]
     },
     {
-      "name": "tracks",
+      "name": "public.tracks",
       "columns": [
         {
           "name": "id",
@@ -560,7 +560,7 @@
       ]
     },
     {
-      "name": "worker_checkpoint",
+      "name": "public.worker_checkpoint",
       "columns": [
         {
           "name": "payload",

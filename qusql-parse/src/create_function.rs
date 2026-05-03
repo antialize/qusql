@@ -17,6 +17,7 @@ use crate::{
     keywords::Keyword,
     lexer::Token,
     parser::{ParseError, Parser},
+    qualified_name::{QualifiedName, parse_qualified_name_unreserved},
     statement::parse_statement,
 };
 use alloc::vec::Vec;
@@ -184,7 +185,7 @@ impl<'a> Spanned for FunctionBody<'a> {
 ///     _ => panic!("We should get an create function statement")
 /// };
 ///
-/// assert!(create.name.as_str() == "add_func3");
+/// assert!(create.name.identifier.as_str() == "add_func3");
 /// println!("{:#?}", create.return_)
 /// ```
 #[derive(Clone, Debug)]
@@ -197,8 +198,8 @@ pub struct CreateFunction<'a> {
     pub function_span: Span,
     /// Span of "IF NOT EXISTS" if specified
     pub if_not_exists: Option<Span>,
-    /// Name o created function
-    pub name: Identifier<'a>,
+    /// Name of created function (may be schema-qualified in PostgreSQL, e.g. `schema.fn_name`)
+    pub name: QualifiedName<'a>,
     /// Names and types of function arguments
     pub params: Vec<FunctionParam<'a>>,
     /// Span of "RETURNS"
@@ -246,7 +247,7 @@ pub(crate) fn parse_create_function<'a>(
         None
     };
 
-    let name = parser.consume_plain_identifier_unreserved()?;
+    let name = parse_qualified_name_unreserved(parser)?;
     let mut params = Vec::new();
     parser.consume_token(Token::LParen)?;
     parser.recovered("')'", &|t| t == &Token::RParen, |parser| {

@@ -150,8 +150,8 @@ pub use delete::{Delete, DeleteFlag};
 pub use drop::{
     CascadeOrRestrict, DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction,
     DropFunctionArg, DropFunctionArgMode, DropIndex, DropOperator, DropOperatorClass,
-    DropOperatorFamily, DropOperatorItem, DropProcedure, DropSequence, DropServer, DropTable,
-    DropTrigger, DropType, DropView,
+    DropOperatorFamily, DropOperatorItem, DropProcedure, DropSchema, DropSequence, DropServer,
+    DropTable, DropTrigger, DropType, DropView,
 };
 pub use expression::{
     ArgExpression, ArrayExpression, ArraySubscriptExpression, BetweenExpression, BinaryExpression,

@@ -248,10 +248,8 @@ impl<'a> Spanned for DropDatabase<'a> {
 fn parse_drop_database<'a>(
     parser: &mut Parser<'a, '_>,
     drop_span: Span,
-    kw: Keyword,
 ) -> Result<DropDatabase<'a>, ParseError> {
-    // TODO complain about temporary
-    let database_span = parser.consume_keyword(kw)?;
+    let database_span = parser.consume_keyword(Keyword::DATABASE)?;
     let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
         Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
     } else {
@@ -263,6 +261,64 @@ fn parse_drop_database<'a>(
         database_span,
         if_exists,
         database,
+    })
+}
+
+/// Represent a drop schema statement
+/// ```
+/// # use qusql_parse::{SQLDialect, SQLArguments, ParseOptions, parse_statements, DropSchema, Statement, Issues};
+/// # let options = ParseOptions::new().dialect(SQLDialect::PostgreSQL);
+/// #
+/// let sql = "DROP SCHEMA myschema;";
+/// let mut issues = Issues::new(sql);
+/// let mut stmts = parse_statements(sql, &mut issues, &options);
+///
+/// # assert!(issues.is_ok());
+/// #
+/// let s: DropSchema = match stmts.pop() {
+///     Some(Statement::DropSchema(s)) => *s,
+///     _ => panic!("We should get a drop schema statement")
+/// };
+///
+/// assert!(s.schema.as_str() == "myschema");
+/// ```
+#[derive(Debug, Clone)]
+pub struct DropSchema<'a> {
+    /// Span of "DROP"
+    pub drop_span: Span,
+    /// Span of "SCHEMA"
+    pub schema_span: Span,
+    /// Span of "IF EXISTS" if specified
+    pub if_exists: Option<Span>,
+    /// Name of schema to drop
+    pub schema: Identifier<'a>,
+}
+
+impl<'a> Spanned for DropSchema<'a> {
+    fn span(&self) -> Span {
+        self.drop_span
+            .join_span(&self.schema_span)
+            .join_span(&self.if_exists)
+            .join_span(&self.schema)
+    }
+}
+
+fn parse_drop_schema<'a>(
+    parser: &mut Parser<'a, '_>,
+    drop_span: Span,
+) -> Result<DropSchema<'a>, ParseError> {
+    let schema_span = parser.consume_keyword(Keyword::SCHEMA)?;
+    let if_exists = if let Some(span) = parser.skip_keyword(Keyword::IF) {
+        Some(parser.consume_keyword(Keyword::EXISTS)?.join_span(&span))
+    } else {
+        None
+    };
+    let schema = parser.consume_plain_identifier_unreserved()?;
+    Ok(DropSchema {
+        drop_span,
+        schema_span,
+        if_exists,
+        schema,
     })
 }
 
@@ -1302,9 +1358,12 @@ pub(crate) fn parse_drop<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a
         Token::Ident(_, Keyword::VIEW) => Ok(Statement::DropView(Box::new(parse_drop_view(
             parser, drop_span, temporary,
         )?))),
-        Token::Ident(_, kw @ Keyword::DATABASE | kw @ Keyword::SCHEMA) => Ok(
-            Statement::DropDatabase(Box::new(parse_drop_database(parser, drop_span, *kw)?)),
-        ),
+        Token::Ident(_, Keyword::DATABASE) => Ok(Statement::DropDatabase(Box::new(
+            parse_drop_database(parser, drop_span)?,
+        ))),
+        Token::Ident(_, Keyword::SCHEMA) => Ok(Statement::DropSchema(Box::new(parse_drop_schema(
+            parser, drop_span,
+        )?))),
         Token::Ident(_, Keyword::DOMAIN) => Ok(Statement::DropDomain(Box::new(parse_drop_domain(
             parser, drop_span,
         )?))),

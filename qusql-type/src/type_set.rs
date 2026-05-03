@@ -19,7 +19,9 @@ use crate::{
 };
 
 pub(crate) fn type_set<'a>(typer: &mut Typer<'a, '_>, set: &Set<'a>) {
-    for (_, expr) in &set.values {
-        type_expression(typer, expr, ExpressionFlags::default(), BaseType::Any);
+    for (_, exprs) in &set.values {
+        for expr in exprs {
+            type_expression(typer, expr, ExpressionFlags::default(), BaseType::Any);
+        }
     }
 }

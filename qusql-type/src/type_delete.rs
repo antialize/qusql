@@ -18,7 +18,7 @@ use crate::{
     type_expression::{ExpressionFlags, type_expression},
     type_reference::type_reference,
     type_select::{SelectType, type_select_exprs},
-    typer::{ReferenceType, Typer, typer_stack, unqualified_name},
+    typer::{ReferenceType, Typer, typer_stack},
 };
 
 pub(crate) fn type_delete<'a>(
@@ -47,9 +47,9 @@ pub(crate) fn type_delete<'a>(
             type_reference(typer, reference, false);
         }
         for table in &delete.tables {
-            let identifier = unqualified_name(typer.issues, table);
-            if typer.get_schema(identifier.value).is_none() {
-                typer.err("Unknown table or view", identifier);
+            let key = typer.qname_to_key(table);
+            if typer.get_schema_by_key(&key).is_none() {
+                typer.err("Unknown table or view", &table.identifier);
             }
         }
     } else {
@@ -59,8 +59,9 @@ pub(crate) fn type_delete<'a>(
                 &delete.tables.opt_span().unwrap(),
             );
         }
-        let identifier = unqualified_name(typer.issues, &delete.tables[0]);
-        if let Some(s) = typer.get_schema(identifier.value) {
+        let identifier = &delete.tables[0].identifier;
+        let key = typer.qname_to_key(&delete.tables[0]);
+        if let Some(s) = typer.get_schema_by_key(&key) {
             let mut columns = Vec::new();
             for col in &s.columns {
                 columns.push((col.identifier.clone(), col.type_.clone()));

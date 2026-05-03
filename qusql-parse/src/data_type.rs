@@ -57,7 +57,7 @@ pub enum DataTypeProperty<'a> {
         /// Span of the `REFERENCES` keyword
         span: Span,
         /// Referenced table
-        table: Identifier<'a>,
+        table: QualifiedName<'a>,
         /// Referenced columns (may be empty if omitted)
         columns: Vec<Identifier<'a>>,
         /// Optional MATCH FULL / MATCH SIMPLE / MATCH PARTIAL
@@ -1008,7 +1008,7 @@ pub(crate) fn parse_data_type<'a>(
             }
             (Token::Ident(_, Keyword::REFERENCES), Column) => {
                 let span = parser.consume_keyword(Keyword::REFERENCES)?;
-                let table = parser.consume_plain_identifier_unreserved()?;
+                let table = parse_qualified_name_unreserved(parser)?;
                 let mut columns = Vec::new();
                 if matches!(parser.token, Token::LParen) {
                     parser.consume_token(Token::LParen)?;

@@ -29,8 +29,8 @@ use crate::{
     delete::{Delete, parse_delete},
     drop::{
         DropDatabase, DropDomain, DropEvent, DropExtension, DropFunction, DropIndex, DropOperator,
-        DropProcedure, DropSequence, DropServer, DropTable, DropTrigger, DropType, DropView,
-        parse_drop,
+        DropProcedure, DropSchema, DropSequence, DropServer, DropTable, DropTrigger, DropType,
+        DropView, parse_drop,
     },
     expression::{
         Expression, NullExpression, PRIORITY_CMP, PRIORITY_MAX, parse_expression_unreserved,
@@ -73,12 +73,19 @@ impl<'a> Spanned for Analyze<'a> {
 #[derive(Clone, Debug)]
 pub struct Set<'a> {
     pub set_span: Span,
-    pub values: Vec<(SetVariable<'a>, Expression<'a>)>,
+    /// `LOCAL` modifier in `SET LOCAL name TO value` (PostgreSQL)
+    pub local_span: Option<Span>,
+    /// `SESSION` modifier in `SET SESSION name TO value` (PostgreSQL)
+    pub session_span: Option<Span>,
+    pub values: Vec<(SetVariable<'a>, Vec<Expression<'a>>)>,
 }
 
 impl<'a> Spanned for Set<'a> {
     fn span(&self) -> Span {
-        self.set_span.join_span(&self.values)
+        self.set_span
+            .join_span(&self.local_span)
+            .join_span(&self.session_span)
+            .join_span(&self.values)
     }
 }
 
@@ -166,17 +173,55 @@ fn parse_set_variable<'a>(parser: &mut Parser<'a, '_>) -> Result<SetVariable<'a>
 
 fn parse_set<'a>(parser: &mut Parser<'a, '_>) -> Result<Set<'a>, ParseError> {
     let set_span = parser.consume_keyword(Keyword::SET)?;
+    // Optional LOCAL / SESSION scope modifier (PostgreSQL only)
+    let local_span = parser.skip_keyword(Keyword::LOCAL);
+    parser.postgres_only(&local_span);
+    let session_span = if local_span.is_none() {
+        parser.skip_keyword(Keyword::SESSION)
+    } else {
+        None
+    };
+    parser.postgres_only(&session_span);
     let mut values = Vec::new();
+    let is_pg = parser.options.dialect.is_postgresql();
     loop {
         let name = parse_set_variable(parser)?;
-        parser.consume_token(Token::Eq)?;
-        let val = parse_expression_unreserved(parser, PRIORITY_MAX)?;
-        values.push((name, val));
+        // TO is PostgreSQL syntax; = is accepted by all dialects
+        let to_span = parser.skip_keyword(Keyword::TO);
+        parser.postgres_only(&to_span);
+        let use_to = to_span.is_some();
+        if !use_to {
+            parser.consume_token(Token::Eq)?;
+        }
+        let mut exprs = Vec::new();
+        loop {
+            let val = parse_expression_unreserved(parser, PRIORITY_MAX)?;
+            exprs.push(val);
+            // In PostgreSQL, both TO and = allow comma-separated value lists for the
+            // same variable (e.g. SET search_path = public, myschema).
+            // In MySQL/MariaDB/SQLite, commas separate distinct variable assignments.
+            if is_pg {
+                if parser.skip_token(Token::Comma).is_none() {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        values.push((name, exprs));
+        if is_pg {
+            break; // PostgreSQL SET assigns exactly one variable per statement
+        }
         if parser.skip_token(Token::Comma).is_none() {
             break;
         }
     }
-    Ok(Set { set_span, values })
+    Ok(Set {
+        set_span,
+        local_span,
+        session_span,
+        values,
+    })
 }
 
 fn parse_plpgsql_declare_section<'a>(
@@ -1335,6 +1380,7 @@ pub enum Statement<'a> {
     DropSequence(Box<DropSequence<'a>>),
     DropEvent(Box<DropEvent<'a>>),
     DropDatabase(Box<DropDatabase<'a>>),
+    DropSchema(Box<DropSchema<'a>>),
     DropServer(Box<DropServer<'a>>),
     DropTrigger(Box<DropTrigger<'a>>),
     DropView(Box<DropView<'a>>),
@@ -1458,6 +1504,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::Update(v) => v.span(),
             Statement::Unlock(v) => v.span(),
             Statement::DropDatabase(v) => v.span(),
+            Statement::DropSchema(v) => v.span(),
             Statement::DropDomain(v) => v.span(),
             Statement::DropType(v) => v.span(),
             Statement::DropEvent(v) => v.span(),

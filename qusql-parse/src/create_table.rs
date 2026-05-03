@@ -312,7 +312,7 @@ pub enum CreateDefinition<'a> {
         /// Span of "REFERENCES"
         references_span: Span,
         /// Referenced table name
-        references_table: Identifier<'a>,
+        references_table: QualifiedName<'a>,
         /// Referenced columns
         references_cols: Vec<Identifier<'a>>,
         /// Span of ")" closing the references_cols list
@@ -689,7 +689,7 @@ fn parse_foreign_key_definition<'a>(
 
     // Parse REFERENCES
     let references_span = parser.consume_keyword(Keyword::REFERENCES)?;
-    let references_table = parser.consume_plain_identifier_unreserved()?;
+    let references_table = parse_qualified_name_unreserved(parser)?;
 
     // Parse referenced columns
     parser.consume_token(Token::LParen)?;
@@ -926,7 +926,11 @@ pub(crate) fn parse_create_definition<'a>(
                 Token::String(s, _) => {
                     let val = *s;
                     let span = parser.consume();
-                    Some(Identifier { value: val, span })
+                    Some(Identifier {
+                        value: val,
+                        span,
+                        case_sensitive: false,
+                    })
                 }
                 _ => None,
             }
@@ -945,7 +949,11 @@ pub(crate) fn parse_create_definition<'a>(
                 Token::String(s, _) => {
                     let val = *s;
                     let span = parser.consume();
-                    Some(Identifier { value: val, span })
+                    Some(Identifier {
+                        value: val,
+                        span,
+                        case_sensitive: false,
+                    })
                 }
                 _ => None,
             }

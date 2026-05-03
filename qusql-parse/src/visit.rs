@@ -267,8 +267,10 @@ pub fn walk_statement<'a, V: Visitor<'a>>(v: &mut V, stmt: &Statement<'a>) -> Re
         }
 
         Statement::Set(s) => {
-            for (_, expr) in &s.values {
-                v.visit_expression(expr)?;
+            for (_, exprs) in &s.values {
+                for expr in exprs {
+                    v.visit_expression(expr)?;
+                }
             }
             Ok(V::T::default())
         }
@@ -433,6 +435,7 @@ pub fn walk_statement<'a, V: Visitor<'a>>(v: &mut V, stmt: &Statement<'a>) -> Re
         | Statement::DropSequence(_)
         | Statement::DropEvent(_)
         | Statement::DropDatabase(_)
+        | Statement::DropSchema(_)
         | Statement::DropServer(_)
         | Statement::DropTrigger(_)
         | Statement::DropView(_)

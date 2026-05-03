@@ -3446,7 +3446,8 @@ pub(crate) fn parse_function<'a>(
         Token::Ident(v, k) if !k.restricted(parser.reserved()) => {
             Function::Other(alloc::vec![Identifier {
                 value: v,
-                span: span.clone()
+                span: span.clone(),
+                case_sensitive: false,
             }])
         }
         _ => {

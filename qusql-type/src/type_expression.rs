@@ -451,6 +451,7 @@ pub(crate) fn type_expression<'a>(
                 typer.issues,
                 None,
                 None,
+                (),
             );
             if typer.dialect().is_maria() {
                 match e.type_.type_ {
@@ -621,6 +622,7 @@ pub(crate) fn type_expression<'a>(
                     typer.issues,
                     None,
                     None,
+                    (),
                 );
                 let inner = type_expression(typer, &e.expr, flags, col.type_.base());
                 FullType::new(col.type_.t, inner.not_null)
@@ -638,6 +640,7 @@ pub(crate) fn type_expression<'a>(
                 typer.issues,
                 None,
                 None,
+                (),
             );
             let inner = type_expression(typer, &e.expr, flags, col.type_.base());
             // Constrain any argument placeholders (e.g. $2::jsonb) by matching

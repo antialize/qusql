@@ -1,0 +1,295 @@
+{
+  "tables": [
+    {
+      "name": "books.authors",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "bio",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "books.books",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "author_id",
+          "type": "uuid",
+          "not_null": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "isbn",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "published_on",
+          "type": "date",
+          "not_null": true
+        },
+        {
+          "name": "genre",
+          "type": "enum('Fiction', 'NonFiction', 'Science', 'History', 'Biography', 'Children')",
+          "not_null": true
+        },
+        {
+          "name": "total_copies",
+          "type": "i32",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "loans.loans",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "book_id",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "borrower_name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "borrowed_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        },
+        {
+          "name": "due_date",
+          "type": "date",
+          "not_null": true
+        },
+        {
+          "name": "returned_at",
+          "type": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "migrations.schema_revisions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "sequence_index",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "applied_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "public.geography_columns",
+      "view": true,
+      "columns": [
+        {
+          "name": "f_table_catalog",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_schema",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_geography_column",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "coord_dimension",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "srid",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "public.geometry_columns",
+      "view": true,
+      "columns": [
+        {
+          "name": "f_table_catalog",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_schema",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_table_name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "f_geometry_column",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "coord_dimension",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "srid",
+          "type": "integer",
+          "not_null": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "not_null": true
+        }
+      ]
+    },
+    {
+      "name": "public.spatial_ref_sys",
+      "columns": [
+        {
+          "name": "srid",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "auth_name",
+          "type": "string"
+        },
+        {
+          "name": "auth_srid",
+          "type": "i32"
+        },
+        {
+          "name": "srtext",
+          "type": "string"
+        },
+        {
+          "name": "proj4text",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "reviews.reviews",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i32",
+          "not_null": true,
+          "generated": true
+        },
+        {
+          "name": "book_id",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "reviewer_name",
+          "type": "string",
+          "not_null": true
+        },
+        {
+          "name": "rating",
+          "type": "i32",
+          "not_null": true
+        },
+        {
+          "name": "body",
+          "type": "string"
+        },
+        {
+          "name": "reviewed_at",
+          "type": "timestamp",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    },
+    {
+      "name": "reviews.simple_table",
+      "columns": [
+        {
+          "name": "id",
+          "type": "i64",
+          "not_null": true,
+          "has_default": true
+        }
+      ]
+    }
+  ]
+}
