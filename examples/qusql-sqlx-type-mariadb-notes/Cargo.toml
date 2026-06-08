@@ -11,8 +11,8 @@ doc = false
 
 [dependencies]
 qusql-sqlx-type = { path = "../../qusql-sqlx-type" }
-sqlx = { version = "0.8", default-features = false, features = [
+sqlx = { version = "0.9", default-features = false, features = [
     "mysql",
-    "runtime-tokio-native-tls",
+    "runtime-tokio",
 ] }
 tokio = { version = "1", features = ["full"] }

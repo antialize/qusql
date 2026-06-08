@@ -257,7 +257,7 @@ pub fn arg_out<T, T2: ArgOut<T, IDX>, const IDX: usize>(v: T2) -> T2 {
 }
 
 #[doc(hidden)]
-pub fn convert_list_query(query: &str, list_sizes: &[usize]) -> String {
+pub fn convert_list_query(query: &str, list_sizes: &[usize]) -> sqlx::AssertSqlSafe<String> {
     let mut query_iter = query.split("_LIST_");
     let mut query = query_iter.next().expect("None empty query").to_string();
     for size in list_sizes {
@@ -277,7 +277,7 @@ pub fn convert_list_query(query: &str, list_sizes: &[usize]) -> String {
     if query_iter.next().is_some() {
         panic!("Too many _LIST_ in query");
     }
-    query
+    sqlx::AssertSqlSafe(query)
 }
 
 #[cfg(test)]
@@ -286,10 +286,13 @@ mod tests {
 
     #[test]
     fn test_convert_list_query() {
+        use sqlx::SqlSafeStr;
         // This assert would fire and test will fail.
         // Please note, that private functions can be tested too!
         assert_eq!(
-            &convert_list_query("FOO (_LIST_) X _LIST_ O _LIST_ BAR (_LIST_)", &[0, 1, 2, 3]),
+            convert_list_query("FOO (_LIST_) X _LIST_ O _LIST_ BAR (_LIST_)", &[0, 1, 2, 3])
+                .into_sql_str()
+                .as_str(),
             "FOO (NULL) X ? O ?, ? BAR (?, ?, ?)"
         );
     }

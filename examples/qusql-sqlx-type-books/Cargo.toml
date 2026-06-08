@@ -11,9 +11,9 @@ doc = false
 
 [dependencies]
 qusql-sqlx-type = { path = "../../qusql-sqlx-type", features = ["uuid"] }
-sqlx = { version = "0.8", default-features = false, features = [
+sqlx = { version = "0.9", default-features = false, features = [
     "postgres",
-    "runtime-tokio-native-tls",
+    "runtime-tokio",
     "chrono",
     "uuid",
 ] }
