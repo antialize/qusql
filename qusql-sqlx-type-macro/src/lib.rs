@@ -412,7 +412,7 @@ fn quote_args(
         quote!(#query)
     } else {
         quote!(
-            &qusql_sqlx_type::convert_list_query(#query, &[#(#list_lengths),*])
+            qusql_sqlx_type::convert_list_query(#query, &[#(#list_lengths),*])
         )
     };
 
@@ -622,6 +622,7 @@ pub fn query(input: TokenStream) -> TokenStream {
             let (row_members, row_construct) = construct_row(columns, dialect.is_postgresql());
             let s = quote! { {
                 use ::sqlx::Arguments as _;
+                use ::sqlx::SqlSafeStr;
                 let _ = std::include_bytes!(#sp);
                 #(#errors; )*
                 #args_tokens;

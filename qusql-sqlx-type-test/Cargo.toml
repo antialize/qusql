@@ -6,9 +6,9 @@ publish = false
 
 [dev-dependencies]
 qusql-sqlx-type = { path = "../qusql-sqlx-type" }
-sqlx = { version = "0.8", default-features = false, features = [
+sqlx = { version = "0.9", default-features = false, features = [
     "postgres",
-    "runtime-tokio-native-tls",
+    "runtime-tokio",
     "chrono",
     "migrate",
     "macros",
