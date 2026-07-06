@@ -766,9 +766,9 @@ fn consume_operator_or_identifier<'a>(
         Token::DoublePipe => Ok(Identifier::new("||", parser.consume())),
         Token::DoubleAmpersand => Ok(Identifier::new("&&", parser.consume())),
         Token::Spaceship => Ok(Identifier::new("<=>", parser.consume())),
-        Token::RArrow => Ok(Identifier::new("->", parser.consume())),
-        Token::RArrowJson => Ok(Identifier::new("->>", parser.consume())),
-        Token::RDoubleArrowJson => Ok(Identifier::new("#>>", parser.consume())),
+        Token::RArrow => Ok(Identifier::new("=>", parser.consume())),
+        Token::RArrowJson => Ok(Identifier::new("->", parser.consume())),
+        Token::RDoubleArrowJson => Ok(Identifier::new("->>", parser.consume())),
         Token::DoubleExclamationMark => Ok(Identifier::new("!!", parser.consume())),
         Token::PostgresOperator(op) => Ok(Identifier::new(op, parser.consume())),
         // Regular identifiers

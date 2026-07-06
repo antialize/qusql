@@ -5,12 +5,14 @@ edition = "2024"
 publish = false
 
 [dev-dependencies]
-qusql-sqlx-type = { path = "../qusql-sqlx-type" }
+qusql-sqlx-type = { path = "../qusql-sqlx-type", features = ["json"] }
 sqlx = { version = "0.9", default-features = false, features = [
     "postgres",
     "runtime-tokio",
     "chrono",
+    "json",
     "migrate",
     "macros",
 ] }
 tokio = { version = "1", features = ["full"] }
+serde_json = "1"

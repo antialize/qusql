@@ -110,7 +110,7 @@
       },
       {
         "name": "properties",
-        "type": "string",
+        "type": "json",
         "not_null": true
       },
       {
@@ -173,7 +173,7 @@
       },
       {
         "index": 1,
-        "type": "string",
+        "type": "json",
         "not_null": true
       },
       {
@@ -199,7 +199,7 @@
     "arguments": [
       {
         "index": 0,
-        "type": "string",
+        "type": "json",
         "not_null": true
       },
       {

@@ -454,8 +454,15 @@ fn type_kind_from_parse<'a, S: SearchPath<'a>>(
             BaseType::Float.into()
         }
         qusql_parse::Type::Timestamptz => BaseType::TimeStamp.into(),
-        qusql_parse::Type::Json => BaseType::String.into(),
-        qusql_parse::Type::Jsonb => BaseType::String.into(),
+        qusql_parse::Type::Json | qusql_parse::Type::Jsonb => {
+            if is_postgresql {
+                // In PostgreSQL `json`/`jsonb` are distinct wire types; decoding
+                // them as text fails, so surface them as JSON.
+                Type::JSON
+            } else {
+                BaseType::String.into()
+            }
+        }
         qusql_parse::Type::Bit(_, _) => BaseType::Bytes.into(),
         qusql_parse::Type::VarBit(_) => BaseType::Bytes.into(),
         qusql_parse::Type::Bytea => BaseType::Bytes.into(),

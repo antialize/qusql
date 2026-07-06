@@ -176,3 +176,54 @@ async fn test_int4_arithmetic_stays_i32(pool: PgPool) {
         .unwrap();
     let _: i32 = row.v;
 }
+
+/// A `jsonb` column must decode as JSON (`serde_json::Value`), not text.
+#[sqlx::test]
+async fn test_jsonb_column_is_json(pool: PgPool) {
+    setup(&pool).await;
+    sqlx::query("UPDATE type_test_items SET props = $1 WHERE name = 'alpha'")
+        .bind(serde_json::json!({"a": {"b": 42}}))
+        .execute(&pool)
+        .await
+        .unwrap();
+    let row = query!("SELECT props FROM type_test_items WHERE name = 'alpha'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let props: serde_json::Value = row.props;
+    assert_eq!(props["a"]["b"], serde_json::json!(42));
+}
+
+/// `jsonb -> text` returns a JSON value (`serde_json::Value`).
+#[sqlx::test]
+async fn test_json_extract_operator_is_json(pool: PgPool) {
+    setup(&pool).await;
+    sqlx::query("UPDATE type_test_items SET props = $1 WHERE name = 'alpha'")
+        .bind(serde_json::json!({"a": {"b": 42}}))
+        .execute(&pool)
+        .await
+        .unwrap();
+    let row = query!("SELECT props -> 'a' AS k FROM type_test_items WHERE name = 'alpha'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let k: serde_json::Value = row.k.unwrap();
+    assert_eq!(k["b"], serde_json::json!(42));
+}
+
+/// `jsonb ->> text` returns unquoted text (`String`).
+#[sqlx::test]
+async fn test_json_extract_text_operator_is_string(pool: PgPool) {
+    setup(&pool).await;
+    sqlx::query("UPDATE type_test_items SET props = $1 WHERE name = 'alpha'")
+        .bind(serde_json::json!({"a": "hello"}))
+        .execute(&pool)
+        .await
+        .unwrap();
+    let row = query!("SELECT props ->> 'a' AS k FROM type_test_items WHERE name = 'alpha'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let k: Option<String> = row.k;
+    assert_eq!(k.as_deref(), Some("hello"));
+}

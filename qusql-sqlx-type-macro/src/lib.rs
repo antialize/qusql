@@ -512,7 +512,14 @@ fn construct_row(
             qusql_type::Type::Args(_, _) => todo!("from_args"),
             qusql_type::Type::F32 => quote! {f32},
             qusql_type::Type::F64 => quote! {f64},
-            qusql_type::Type::JSON => quote! {String},
+            qusql_type::Type::JSON => {
+                if is_postgres {
+                    // PostgreSQL `json`/`jsonb` must be decoded as JSON, not text.
+                    quote! {qusql_sqlx_type::JsonValue}
+                } else {
+                    quote! {String}
+                }
+            }
             qusql_type::Type::Geometry => quote! {Vec<u8>},
             qusql_type::Type::Range(_) => quote! {Vec<u8>},
             qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},
@@ -930,7 +937,14 @@ fn construct_row2(
             qusql_type::Type::Args(_, _) => todo!("from_args"),
             qusql_type::Type::F32 => quote! {f32},
             qusql_type::Type::F64 => quote! {f64},
-            qusql_type::Type::JSON => quote! {String},
+            qusql_type::Type::JSON => {
+                if is_postgres {
+                    // PostgreSQL `json`/`jsonb` must be decoded as JSON, not text.
+                    quote! {qusql_sqlx_type::JsonValue}
+                } else {
+                    quote! {String}
+                }
+            }
             qusql_type::Type::Geometry => quote! {Vec<u8>},
             qusql_type::Type::Range(_) => quote! {Vec<u8>},
             qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},

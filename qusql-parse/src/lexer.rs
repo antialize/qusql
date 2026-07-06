@@ -146,7 +146,7 @@ impl<'a> Token<'a> {
             Token::QuestionMark => "'?'",
             Token::RArrow => "'=>'",
             Token::RArrowJson => "'->'",
-            Token::RDoubleArrowJson => "->>'",
+            Token::RDoubleArrowJson => "'->>'",
             Token::RBrace => "'}'",
             Token::RBracket => "']'",
             Token::RParen => "')'",
