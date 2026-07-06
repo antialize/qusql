@@ -235,6 +235,7 @@ mod json_support {
     arg_io!(String, serde_json::Value);
     arg_io!(serde_json::Value, serde_json::Value);
     arg_io!(&str, serde_json::Value);
+    arg_io!(Any, serde_json::Value);
     arg_io!(Any, Vec<serde_json::Value>);
     impl ArgIn<Any> for &[serde_json::Value] {}
     impl ArgIn<Option<Any>> for &[serde_json::Value] {}
@@ -244,6 +245,12 @@ mod json_support {
 #[cfg(feature = "json")]
 #[doc(hidden)]
 pub type JsonValue = serde_json::Value;
+
+/// Re-export of [`serde_json::Value`] when the `json` feature is enabled,
+/// or [`String`] otherwise.
+#[cfg(not(feature = "json"))]
+#[doc(hidden)]
+pub type JsonValue = String;
 
 #[doc(hidden)]
 pub fn check_arg<T, T2: ArgIn<T>>(_: &T2) {}

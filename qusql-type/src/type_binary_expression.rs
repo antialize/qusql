@@ -287,11 +287,21 @@ pub(crate) fn type_binary_expression<'a>(
             typer.ensure_base(lhs, &lhs_type, BaseType::String);
             lhs_type
         }
-        BinaryOperator::JsonExtract(_) | BinaryOperator::JsonExtractUnquote(_) => {
-            // JSON operators: -> returns JSON, ->> returns unquoted string
-            // LHS is the JSON document, RHS is the path (string)
+        BinaryOperator::JsonExtract(_) => {
+            // `->` extracts a JSON value: `jsonb -> text → jsonb` /
+            // `json -> text → json` (PostgreSQL) and the JSON_EXTRACT shorthand
+            // in MySQL. The result is a JSON value, not text.
+            // LHS is the JSON document, RHS is the key/index (string).
+            // The result is NULL when the key/index is absent, so it is always nullable.
             typer.ensure_base(rhs, &rhs_type, BaseType::String);
-            FullType::new(BaseType::String, lhs_type.not_null && rhs_type.not_null)
+            FullType::new(Type::JSON, false)
+        }
+        BinaryOperator::JsonExtractUnquote(_) => {
+            // `->>` extracts a JSON value as unquoted text: `jsonb ->> text → text`.
+            // LHS is the JSON document, RHS is the key/index (string).
+            // The result is NULL when the key/index is absent, so it is always nullable.
+            typer.ensure_base(rhs, &rhs_type, BaseType::String);
+            FullType::new(BaseType::String, false)
         }
         BinaryOperator::Contains(_)
         | BinaryOperator::ContainedBy(_)
@@ -303,8 +313,15 @@ pub(crate) fn type_binary_expression<'a>(
         | BinaryOperator::JsonbAllKeyExists(_) => {
             FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
         }
-        BinaryOperator::JsonGetPath(_) | BinaryOperator::JsonGetPathText(_) => {
-            FullType::new(BaseType::String, lhs_type.not_null && rhs_type.not_null)
+        BinaryOperator::JsonGetPath(_) => {
+            // `#>` extracts a JSON value at a path: `jsonb #> text[] → jsonb`.
+            // The result is NULL when the path is absent, so it is always nullable.
+            FullType::new(Type::JSON, false)
+        }
+        BinaryOperator::JsonGetPathText(_) => {
+            // `#>>` extracts a JSON value at a path as text: `jsonb #>> text[] → text`.
+            // The result is NULL when the path is absent, so it is always nullable.
+            FullType::new(BaseType::String, false)
         }
         BinaryOperator::JsonDeletePath(_) => {
             // Returns the modified jsonb value

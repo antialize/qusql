@@ -1511,6 +1511,7 @@ mod tests {
             path text NOT NULL UNIQUE,
             v my_enum NOT NULL,
             time timestamptz NOT NULL DEFAULT now(),
+            props jsonb NOT NULL DEFAULT '{}',
             old_id bigint,
             CONSTRAINT t1__old
             FOREIGN KEY(old_id) 
@@ -1682,6 +1683,74 @@ mod tests {
             if let StatementType::Select { arguments, columns } = q {
                 check_arguments(name, &arguments, "", &mut errors);
                 check_columns(name, src, &columns, "k:str!", &mut errors);
+            } else {
+                println!("{name} should be select");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "json_extract";
+            let src = "SELECT props -> 'a' AS k FROM t1";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                // `->` returns a JSON value (jsonb in PostgreSQL), not text.
+                // Nullable: a missing key yields SQL NULL.
+                check_columns(name, src, &columns, "k:json", &mut errors);
+            } else {
+                println!("{name} should be select");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "json_extract_text";
+            let src = "SELECT props ->> 'a' AS k FROM t1";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                // `->>` returns the value as unquoted text.
+                // Nullable: a missing key yields SQL NULL.
+                check_columns(name, src, &columns, "k:str", &mut errors);
+            } else {
+                println!("{name} should be select");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "json_get_path";
+            let src = "SELECT props #> '{a,b}' AS k FROM t1";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                // `#>` returns a JSON value at a path, not text.
+                // Nullable: a missing path yields SQL NULL.
+                check_columns(name, src, &columns, "k:json", &mut errors);
+            } else {
+                println!("{name} should be select");
+                errors += 1;
+            }
+        }
+
+        {
+            let name = "json_get_path_text";
+            let src = "SELECT props #>> '{a,b}' AS k FROM t1";
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &options);
+            check_no_errors(name, src, issues.get(), &mut errors);
+            if let StatementType::Select { arguments, columns } = q {
+                check_arguments(name, &arguments, "", &mut errors);
+                // `#>>` returns the value at a path as unquoted text.
+                // Nullable: a missing path yields SQL NULL.
+                check_columns(name, src, &columns, "k:str", &mut errors);
             } else {
                 println!("{name} should be select");
                 errors += 1;
