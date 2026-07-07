@@ -158,11 +158,12 @@ pub use expression::{
     BinaryOperator, BoolExpression, CaseExpression, CastExpression, ConvertExpression,
     DefaultExpression, ExistsExpression, Expression, ExtractExpression, FieldAccessExpression,
     FloatExpression, GroupConcatExpression, IdentifierExpression, IdentifierPart, InExpression,
-    IntegerExpression, IntervalExpression, InvalidExpression, Is, IsExpression, ListHackExpression,
-    MatchAgainstExpression, MatchMode, MemberOfExpression, NullExpression, Quantifier,
-    QuantifierExpression, RowExpression, SubqueryExpression, TimeUnit, TimestampAddExpression,
-    TimestampDiffExpression, TrimDirection, TrimExpression, TypeCastExpression, UnaryExpression,
-    UnaryOperator, UserVariableExpression, Variable, VariableExpression, When,
+    IntegerExpression, IntervalExpression, InvalidExpression, Is, IsExpression, LikeExpression,
+    LikeOperator, ListHackExpression, MatchAgainstExpression, MatchMode, MemberOfExpression,
+    NullExpression, Quantifier, QuantifierExpression, RowExpression, SubqueryExpression, TimeUnit,
+    TimestampAddExpression, TimestampDiffExpression, TrimDirection, TrimExpression,
+    TypeCastExpression, UnaryExpression, UnaryOperator, UserVariableExpression, Variable,
+    VariableExpression, When,
 };
 pub use flush::{Flush, FlushOption};
 pub use function_expression::{

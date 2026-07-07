@@ -514,6 +514,14 @@ pub fn walk_expression<'a, V: Visitor<'a>>(v: &mut V, expr: &Expression<'a>) -> 
             v.visit_expression(&e.low)?;
             v.visit_expression(&e.high)
         }
+        Expression::Like(e) => {
+            v.visit_expression(&e.lhs)?;
+            v.visit_expression(&e.rhs)?;
+            if let Some(escape) = &e.escape {
+                v.visit_expression(escape)?;
+            }
+            Ok(V::T::default())
+        }
         Expression::MemberOf(e) => {
             v.visit_expression(&e.lhs)?;
             v.visit_expression(&e.rhs)
