@@ -3105,6 +3105,16 @@ pub(crate) fn type_aggregate_function<'a, 'b>(
                 FullType::invalid()
             }
         }
+        Function::BitAnd | Function::BitOr | Function::BitXor => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                let t = type_expression(typer, arg, flags.without_values(), BaseType::Integer);
+                typer.ensure_base(arg, &t, BaseType::Integer);
+            }
+            // Never NULL: returns a neutral value (all bits 1 for BIT_AND, 0 for
+            // BIT_OR/BIT_XOR) when there are no matching rows.
+            FullType::new(Type::U64, true)
+        }
         Function::JsonArrayAgg => {
             arg_cnt(typer, 1..1, args, span);
             if let Some(arg) = args.first() {
