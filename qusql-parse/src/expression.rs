@@ -545,6 +545,51 @@ impl Spanned for BetweenExpression<'_> {
     }
 }
 
+/// The operator used in a [`LikeExpression`]
+#[derive(Debug, Clone)]
+pub enum LikeOperator {
+    /// LIKE
+    Like(Span),
+    /// NOT LIKE
+    NotLike(Span),
+    /// SIMILAR TO (PostgreSQL)
+    SimilarTo(Span),
+}
+
+impl Spanned for LikeOperator {
+    fn span(&self) -> Span {
+        match self {
+            LikeOperator::Like(s) | LikeOperator::NotLike(s) | LikeOperator::SimilarTo(s) => {
+                s.clone()
+            }
+        }
+    }
+}
+
+/// Like expression (expr [NOT] LIKE pattern [ESCAPE escape_char]), also used for
+/// PostgreSQL's `SIMILAR TO` which shares the same grammar shape.
+#[derive(Debug, Clone)]
+pub struct LikeExpression<'a> {
+    /// The value being tested
+    pub lhs: Expression<'a>,
+    /// The pattern to match against
+    pub rhs: Expression<'a>,
+    /// The operator: LIKE, NOT LIKE or SIMILAR TO
+    pub op: LikeOperator,
+    /// Optional ESCAPE clause specifying the escape character
+    pub escape: Option<Expression<'a>>,
+}
+
+impl Spanned for LikeExpression<'_> {
+    fn span(&self) -> Span {
+        self.op
+            .span()
+            .join_span(&self.lhs)
+            .join_span(&self.rhs)
+            .join_span(&self.escape)
+    }
+}
+
 /// Member of expression
 #[derive(Debug, Clone)]
 pub struct MemberOfExpression<'a> {
@@ -1140,6 +1185,8 @@ pub enum Expression<'a> {
     In(Box<InExpression<'a>>),
     /// Between expression
     Between(Box<BetweenExpression<'a>>),
+    /// Like / Not like / Similar to expression
+    Like(Box<LikeExpression<'a>>),
     /// Member of expression
     MemberOf(Box<MemberOfExpression<'a>>),
     /// Is expression
@@ -1200,6 +1247,7 @@ impl<'a> Spanned for Expression<'a> {
             Expression::Exists(v) => v.span(),
             Expression::In(e) => e.span(),
             Expression::Between(e) => e.span(),
+            Expression::Like(e) => e.span(),
             Expression::MemberOf(e) => e.span(),
             Expression::Is(e) => e.span(),
             Expression::Invalid(s) => s.span(),
@@ -1760,8 +1808,20 @@ pub(crate) fn parse_expression_restricted<'a>(
                         })))
                     }
                     Token::Ident(_, Keyword::LIKE) => {
-                        r.stack.push(ReduceMember::Expression(lhs));
-                        r.shift_binop(BinaryOperator::NotLike(parser.consume().join_span(&op)))
+                        let like_span = parser.consume().join_span(&op);
+                        let rhs = parse_expression_unreserved(parser, PRIORITY_CMP)?;
+                        let escape = if matches!(parser.token, Token::Ident(_, Keyword::ESCAPE)) {
+                            parser.consume();
+                            Some(parse_expression_unreserved(parser, PRIORITY_CMP)?)
+                        } else {
+                            None
+                        };
+                        r.shift_expr(Expression::Like(Box::new(LikeExpression {
+                            lhs,
+                            rhs,
+                            op: LikeOperator::NotLike(like_span),
+                            escape,
+                        })))
                     }
                     Token::Ident(_, Keyword::REGEXP) if parser.options.dialect.is_maria() => {
                         r.stack.push(ReduceMember::Expression(lhs));
@@ -1810,8 +1870,31 @@ pub(crate) fn parse_expression_restricted<'a>(
                     not_between: false,
                 })))
             }
-            Token::Ident(_, Keyword::LIKE) if PRIORITY_CMP < max_priority => {
-                r.shift_binop(BinaryOperator::Like(parser.consume()))
+            Token::Ident(_, Keyword::LIKE)
+                if PRIORITY_CMP < max_priority
+                    && matches!(r.stack.last(), Some(ReduceMember::Expression(_))) =>
+            {
+                if let Err(e) = r.reduce(PRIORITY_CMP) {
+                    parser.err_here(e)?;
+                }
+                let lhs = match r.stack.pop() {
+                    Some(ReduceMember::Expression(e)) => e,
+                    _ => parser.err_here("Expected expression before LIKE")?,
+                };
+                let like_span = parser.consume();
+                let rhs = parse_expression_unreserved(parser, PRIORITY_CMP)?;
+                let escape = if matches!(parser.token, Token::Ident(_, Keyword::ESCAPE)) {
+                    parser.consume();
+                    Some(parse_expression_unreserved(parser, PRIORITY_CMP)?)
+                } else {
+                    None
+                };
+                r.shift_expr(Expression::Like(Box::new(LikeExpression {
+                    lhs,
+                    rhs,
+                    op: LikeOperator::Like(like_span),
+                    escape,
+                })))
             }
             Token::Ident(_, Keyword::SIMILAR)
                 if PRIORITY_CMP < max_priority
@@ -1825,10 +1908,21 @@ pub(crate) fn parse_expression_restricted<'a>(
                     Some(ReduceMember::Expression(e)) => e,
                     _ => parser.err_here("Expected expression before SIMILAR")?,
                 };
-                let op_span = parser.consume_keywords(&[Keyword::SIMILAR, Keyword::TO])?;
-                parser.postgres_only(&op_span);
-                r.stack.push(ReduceMember::Expression(lhs));
-                r.shift_binop(BinaryOperator::Like(op_span))
+                let like_span = parser.consume_keywords(&[Keyword::SIMILAR, Keyword::TO])?;
+                parser.postgres_only(&like_span);
+                let rhs = parse_expression_unreserved(parser, PRIORITY_CMP)?;
+                let escape = if matches!(parser.token, Token::Ident(_, Keyword::ESCAPE)) {
+                    parser.consume();
+                    Some(parse_expression_unreserved(parser, PRIORITY_CMP)?)
+                } else {
+                    None
+                };
+                r.shift_expr(Expression::Like(Box::new(LikeExpression {
+                    lhs,
+                    rhs,
+                    op: LikeOperator::SimilarTo(like_span),
+                    escape,
+                })))
             }
             Token::Ident(_, Keyword::REGEXP)
                 if PRIORITY_CMP < max_priority && parser.options.dialect.is_maria() =>
@@ -2062,9 +2156,6 @@ pub(crate) fn parse_expression_restricted<'a>(
             }
             Token::Minus if PRIORITY_ADD < max_priority => {
                 r.shift_binop(BinaryOperator::Subtract(parser.consume()))
-            }
-            Token::Ident(_, Keyword::LIKE) if PRIORITY_CMP < max_priority => {
-                r.shift_binop(BinaryOperator::Like(parser.consume()))
             }
             Token::Mul if !matches!(r.stack.last(), Some(ReduceMember::Expression(_))) => r
                 .shift_expr(Expression::Identifier(Box::new(IdentifierExpression {
@@ -2806,7 +2897,7 @@ mod tests {
 
     use crate::{
         BinaryExpression, ParseOptions, SQLDialect,
-        expression::{BinaryOperator, Expression, PRIORITY_MAX, Quantifier},
+        expression::{BinaryOperator, Expression, LikeOperator, PRIORITY_MAX, Quantifier},
         issue::Issues,
         parser::Parser,
     };
@@ -2901,6 +2992,127 @@ mod tests {
         if let Err(e) = f(&res) {
             panic!("Error parsing {}: {}\nGot {:#?}", src, e, res);
         }
+    }
+
+    fn test_expr_sqlite(src: &'static str, f: impl FnOnce(&Expression<'_>) -> Result<(), String>) {
+        let mut issues = Issues::new(src);
+        let options = ParseOptions::new().dialect(SQLDialect::Sqlite);
+        let mut parser = Parser::new(src, &mut issues, &options);
+        let res = parse_expression_unreserved(&mut parser, PRIORITY_MAX)
+            .expect("Expression in test_expr_sqlite");
+        if let Err(e) = f(&res) {
+            panic!("Error parsing {}: {}\nGot {:#?}", src, e, res);
+        }
+    }
+
+    fn test_like<'a>(
+        e: &Expression<'a>,
+        not_like: bool,
+        similar_to: bool,
+        has_escape: bool,
+    ) -> Result<(), String> {
+        match e {
+            Expression::Like(l) => {
+                let (nl, st) = match &l.op {
+                    LikeOperator::Like(_) => (false, false),
+                    LikeOperator::NotLike(_) => (true, false),
+                    LikeOperator::SimilarTo(_) => (false, true),
+                };
+                if nl != not_like {
+                    return Err(format!("Expected not_like={} got {}", not_like, nl));
+                }
+                if st != similar_to {
+                    return Err(format!("Expected similar_to={} got {}", similar_to, st));
+                }
+                if l.escape.is_some() != has_escape {
+                    return Err(format!(
+                        "Expected escape.is_some()={} got {}",
+                        has_escape,
+                        l.escape.is_some()
+                    ));
+                }
+                Ok(())
+            }
+            _ => Err(format!("Expected Like expression, got {:?}", e)),
+        }
+    }
+
+    #[test]
+    fn like_no_escape() {
+        test_expr("a LIKE '%x%'", |e| test_like(e, false, false, false));
+        test_expr_pg("a LIKE '%x%'", |e| test_like(e, false, false, false));
+        test_expr_sqlite("a LIKE '%x%'", |e| test_like(e, false, false, false));
+    }
+
+    #[test]
+    fn like_with_escape() {
+        test_expr("a LIKE 'a$_c' ESCAPE '$'", |e| {
+            test_like(e, false, false, true)
+        });
+        test_expr_pg("a LIKE 'a$_c' ESCAPE '$'", |e| {
+            test_like(e, false, false, true)
+        });
+        test_expr_sqlite("a LIKE 'a$_c' ESCAPE '$'", |e| {
+            test_like(e, false, false, true)
+        });
+    }
+
+    #[test]
+    fn not_like_with_escape() {
+        test_expr("a NOT LIKE 'a$_c' ESCAPE '$'", |e| {
+            test_like(e, true, false, true)
+        });
+        test_expr_sqlite("a NOT LIKE 'a$_c' ESCAPE '$'", |e| {
+            test_like(e, true, false, true)
+        });
+    }
+
+    #[test]
+    fn similar_to_with_escape() {
+        test_expr_pg("a SIMILAR TO 'a%' ESCAPE '$'", |e| {
+            test_like(e, false, true, true)
+        });
+    }
+
+    #[test]
+    fn like_reported_sqlite_backslash_escape() {
+        // https://github.com/... reported bug: backslash-escaped LIKE pattern with
+        // an explicit ESCAPE clause failed to parse under SQLite.
+        test_expr_sqlite(r"X LIKE 'tmp\_ci\_%' ESCAPE '\'", |e| match e {
+            Expression::Like(l) => {
+                test_like(e, false, false, true)?;
+                match &l.rhs {
+                    Expression::String(s) if s.value.as_ref() == r"tmp\_ci\_%" => Ok(()),
+                    other => Err(format!("Unexpected pattern {:?}", other)),
+                }?;
+                match &l.escape {
+                    Some(Expression::String(s)) if s.value.as_ref() == r"\" => Ok(()),
+                    other => Err(format!("Unexpected escape {:?}", other)),
+                }
+            }
+            _ => Err(format!("Expected Like expression, got {:?}", e)),
+        });
+    }
+
+    #[test]
+    fn like_and_precedence() {
+        // ESCAPE should only bind to the LIKE it directly follows.
+        test_expr("a LIKE 'x' AND b LIKE 'y' ESCAPE '$'", |e| match e {
+            Expression::Binary(b) => {
+                let BinaryExpression {
+                    op: BinaryOperator::And(_),
+                    lhs,
+                    rhs,
+                    ..
+                } = b.as_ref()
+                else {
+                    return Err("Expected outer AND".to_string());
+                };
+                test_like(lhs, false, false, false)?;
+                test_like(rhs, false, false, true)
+            }
+            _ => Err(format!("Expected Binary expression, got {:?}", e)),
+        });
     }
 
     #[test]

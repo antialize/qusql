@@ -873,6 +873,17 @@ mod tests {
         }
 
         {
+            let name = "q11b";
+            let src = "SELECT 1 FROM `t3` WHERE `text` LIKE '%T%' ESCAPE 'ab'";
+            let mut issues: Issues<'_> = Issues::new(src);
+            type_statement(&schema, src, &mut issues, &options);
+            if !issues.get().iter().any(|i| i.level == Level::Error) {
+                println!("{name} should be an error (ESCAPE must be one character)");
+                errors += 1;
+            }
+        }
+
+        {
             let name = "q12";
             let src = "SELECT JSON_REPLACE('{ \"A\": 1, \"B\": [2, 3]}', '$.B[1]', 4, '$.C[3]', 3) AS `k` FROM `t3`";
             let mut issues: Issues<'_> = Issues::new(src);

@@ -701,6 +701,32 @@ pub(crate) fn type_expression<'a>(
                 lhs_type.not_null && low_type.not_null && high_type.not_null,
             )
         }
+        Expression::Like(e) => {
+            // Mirror BinaryOperator::Like handling: when this expression is known to
+            // be asserted true (e.g. in a WHERE clause), propagate not_null to operands.
+            let like_flags = if flags.true_ {
+                flags.with_not_null(true).with_true(false)
+            } else {
+                flags
+            };
+            let lhs_type = type_expression(typer, &e.lhs, like_flags, BaseType::String);
+            let rhs_type = type_expression(typer, &e.rhs, like_flags, BaseType::String);
+            typer.ensure_base(&e.lhs, &lhs_type, BaseType::String);
+            typer.ensure_base(&e.rhs, &rhs_type, BaseType::String);
+            let mut not_null = lhs_type.not_null && rhs_type.not_null;
+            if let Some(escape) = &e.escape {
+                let escape_type =
+                    type_expression(typer, escape, flags.without_values(), BaseType::String);
+                typer.ensure_base(escape, &escape_type, BaseType::String);
+                not_null = not_null && escape_type.not_null;
+                if let Expression::String(s) = escape
+                    && s.value.chars().count() != 1
+                {
+                    typer.err("ESCAPE string must be exactly one character", s);
+                }
+            }
+            FullType::new(BaseType::Bool, not_null)
+        }
         Expression::Quantifier(e) => match &e.operand {
             Expression::Subquery(q) => {
                 let select_type = type_union_select(typer, &q.expression, false);
