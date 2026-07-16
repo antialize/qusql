@@ -84,10 +84,11 @@ pub enum Type<'a> {
     Invalid,
     JSON,
     Geometry,
-    /// A PostgreSQL range type. The inner BaseType is the element type.
-    Range(BaseType),
-    /// A PostgreSQL multirange type. The inner BaseType is the element type.
-    MultiRange(BaseType),
+    /// A PostgreSQL range type. The inner type is the element type (e.g. `I32` for
+    /// `int4range`, `I64` for `int8range`, `Base(Date)` for `daterange`, ...).
+    Range(Box<Type<'a>>),
+    /// A PostgreSQL multirange type. The inner type is the element type.
+    MultiRange(Box<Type<'a>>),
     Array(Box<Type<'a>>),
     Set(Arc<Vec<Cow<'a, str>>>),
     U16,

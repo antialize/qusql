@@ -278,3 +278,41 @@ async fn test_range_functions(pool: PgPool) {
     assert_eq!(lo, Some(1));
     assert_eq!(hi, Some(10));
 }
+
+/// Reported real-world usage: a writable CTE that unions a range into an
+/// `int8multirange` column via `+ multirange(int8range(...))`, then `unnest()`s the
+/// updated value. Also verifies that `int8multirange`/`int8range` decode with `i64`
+/// bounds (not `i32`, which is what `int4range`/`int4multirange` use).
+#[sqlx::test]
+async fn test_int8multirange_update_returning_unnest(pool: PgPool) {
+    setup(&pool).await;
+    sqlx::query("DELETE FROM partial_files")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let id: uuid::Uuid =
+        sqlx::query_scalar("INSERT INTO partial_files DEFAULT VALUES RETURNING id")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+
+    let row = query!(
+        "WITH the_update AS (
+          UPDATE partial_files
+          SET last_modified = now(),
+            uploaded_bytes = uploaded_bytes + multirange(int8range($2, $3, '[)'))
+          WHERE id = $1
+          RETURNING uploaded_bytes
+        )
+        SELECT unnest(uploaded_bytes) AS \"range\"
+        FROM the_update",
+        id,
+        0i64,
+        4_294_967_296i64 // larger than i32::MAX, to prove i64 bounds are actually used
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let range: qusql_sqlx_type::PgRange<i64> = row.range.expect("unnest() row must be present");
+    assert_eq!(range, qusql_sqlx_type::PgRange::from(0..4_294_967_296i64));
+}

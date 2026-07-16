@@ -113,23 +113,17 @@ impl<'a, 'b> Typer<'a, 'b> {
             }
             (Type::Array(_), other) if other.base() != BaseType::Any => return None,
             (other, Type::Array(_)) if other.base() != BaseType::Any => return None,
-            // Ranges/multiranges match if their element types are compatible; a range
+            // Ranges/multiranges match recursively on their element types; a range
             // never matches a multirange, nor a concrete non-range/multirange type.
-            (Type::Range(e1), Type::Range(e2)) => {
-                return match (*e1, *e2) {
-                    (a, b) if a == b => Some(Type::Range(a)),
-                    (BaseType::Any, b) => Some(Type::Range(b)),
-                    (a, BaseType::Any) => Some(Type::Range(a)),
-                    _ => None,
-                };
+            (Type::Range(i1), Type::Range(i2)) => {
+                return self
+                    .matched_type(i1, i2)
+                    .map(|inner| Type::Range(Box::new(inner)));
             }
-            (Type::MultiRange(e1), Type::MultiRange(e2)) => {
-                return match (*e1, *e2) {
-                    (a, b) if a == b => Some(Type::MultiRange(a)),
-                    (BaseType::Any, b) => Some(Type::MultiRange(b)),
-                    (a, BaseType::Any) => Some(Type::MultiRange(a)),
-                    _ => None,
-                };
+            (Type::MultiRange(i1), Type::MultiRange(i2)) => {
+                return self
+                    .matched_type(i1, i2)
+                    .map(|inner| Type::MultiRange(Box::new(inner)));
             }
             (Type::Range(_), Type::MultiRange(_)) | (Type::MultiRange(_), Type::Range(_)) => {
                 return None;

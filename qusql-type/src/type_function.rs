@@ -80,14 +80,15 @@ fn range_constructor<'a, 'b>(
     args: &[Expression<'a>],
     span: &Span,
     flags: ExpressionFlags,
-    elem: BaseType,
+    elem: Type<'a>,
 ) -> FullType<'a> {
     arg_cnt(typer, 2..3, args, span);
+    let expected = FullType::new(elem.clone(), false);
     let mut arg_iter = args.iter();
     for _ in 0..2 {
         if let Some(arg) = arg_iter.next() {
-            let t = type_expression(typer, arg, flags.without_values(), elem);
-            typer.ensure_base(arg, &t, elem);
+            let t = type_expression(typer, arg, flags.without_values(), elem.base());
+            typer.ensure_type(arg, &t, &expected);
         }
     }
     if let Some(arg) = arg_iter.next() {
@@ -99,7 +100,7 @@ fn range_constructor<'a, 'b>(
     }
     // The constructed range is never SQL NULL, even if a bound argument is NULL
     // (a NULL bound means an unbounded/infinite side of the range).
-    FullType::new(Type::Range(elem), true)
+    FullType::new(Type::Range(Box::new(elem)), true)
 }
 
 /// Type a PostgreSQL multirange constructor function, e.g. `int4multirange(r1, r2, ...)`.
@@ -108,14 +109,14 @@ fn multirange_constructor<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     args: &[Expression<'a>],
     flags: ExpressionFlags,
-    elem: BaseType,
+    elem: Type<'a>,
 ) -> FullType<'a> {
-    let expected = FullType::new(Type::Range(elem), false);
+    let expected = FullType::new(Type::Range(Box::new(elem.clone())), false);
     for arg in args {
         let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
         typer.ensure_type(arg, &t, &expected);
     }
-    FullType::new(Type::MultiRange(elem), true)
+    FullType::new(Type::MultiRange(Box::new(elem)), true)
 }
 
 pub(crate) fn type_function<'a, 'b>(
@@ -1379,7 +1380,7 @@ pub(crate) fn type_function<'a, 'b>(
             if let Some(arg) = args.first() {
                 let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
                 match t.t {
-                    Type::Range(elem) | Type::MultiRange(elem) => FullType::new(elem, false),
+                    Type::Range(elem) | Type::MultiRange(elem) => FullType::new(*elem, false),
                     _ => FullType::new(BaseType::String, t.not_null),
                 }
             } else {
@@ -1508,7 +1509,7 @@ pub(crate) fn type_function<'a, 'b>(
             if let Some(arg) = args.first() {
                 let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
                 match t.t {
-                    Type::Range(elem) | Type::MultiRange(elem) => FullType::new(elem, false),
+                    Type::Range(elem) | Type::MultiRange(elem) => FullType::new(*elem, false),
                     _ => FullType::new(BaseType::String, t.not_null),
                 }
             } else {
@@ -1931,20 +1932,30 @@ pub(crate) fn type_function<'a, 'b>(
                 FullType::invalid()
             }
         }
-        Function::Int4Range => range_constructor(typer, args, span, flags, BaseType::Integer),
-        Function::Int8Range => range_constructor(typer, args, span, flags, BaseType::Integer),
-        Function::NumRange => range_constructor(typer, args, span, flags, BaseType::Float),
-        Function::TsRange => range_constructor(typer, args, span, flags, BaseType::DateTime),
-        Function::TstzRange => range_constructor(typer, args, span, flags, BaseType::TimeStamp),
-        Function::DateRange => range_constructor(typer, args, span, flags, BaseType::Date),
-        Function::Int4Multirange => multirange_constructor(typer, args, flags, BaseType::Integer),
-        Function::Int8Multirange => multirange_constructor(typer, args, flags, BaseType::Integer),
-        Function::NumMultirange => multirange_constructor(typer, args, flags, BaseType::Float),
-        Function::TsMultirange => multirange_constructor(typer, args, flags, BaseType::DateTime),
-        Function::TstzMultirange => {
-            multirange_constructor(typer, args, flags, BaseType::TimeStamp)
+        Function::Int4Range => range_constructor(typer, args, span, flags, Type::I32),
+        Function::Int8Range => range_constructor(typer, args, span, flags, Type::I64),
+        Function::NumRange => range_constructor(typer, args, span, flags, BaseType::Float.into()),
+        Function::TsRange => {
+            range_constructor(typer, args, span, flags, BaseType::DateTime.into())
         }
-        Function::DateMultirange => multirange_constructor(typer, args, flags, BaseType::Date),
+        Function::TstzRange => {
+            range_constructor(typer, args, span, flags, BaseType::TimeStamp.into())
+        }
+        Function::DateRange => {
+            range_constructor(typer, args, span, flags, BaseType::Date.into())
+        }
+        Function::Int4Multirange => multirange_constructor(typer, args, flags, Type::I32),
+        Function::Int8Multirange => multirange_constructor(typer, args, flags, Type::I64),
+        Function::NumMultirange => multirange_constructor(typer, args, flags, BaseType::Float.into()),
+        Function::TsMultirange => {
+            multirange_constructor(typer, args, flags, BaseType::DateTime.into())
+        }
+        Function::TstzMultirange => {
+            multirange_constructor(typer, args, flags, BaseType::TimeStamp.into())
+        }
+        Function::DateMultirange => {
+            multirange_constructor(typer, args, flags, BaseType::Date.into())
+        }
         // PostgreSQL system information functions (9.27)
         Function::CurrentDatabase => {
             arg_cnt(typer, 0..0, args, span);

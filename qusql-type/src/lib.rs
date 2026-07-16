@@ -2030,41 +2030,41 @@ mod tests {
         // Range constructors (8.17.6)
         check_expr(
             "SELECT int4range(1, 10)",
-            Some(Type::Range(BaseType::Integer)),
+            Some(Type::Range(Box::new(Type::I32))),
         );
         check_expr(
             "SELECT int4range(1, 10, '[]')",
-            Some(Type::Range(BaseType::Integer)),
+            Some(Type::Range(Box::new(Type::I32))),
         );
         check_expr(
             "SELECT int8range(1, 10)",
-            Some(Type::Range(BaseType::Integer)),
+            Some(Type::Range(Box::new(Type::I64))),
         );
         check_expr(
             "SELECT numrange(1.1, 2.2)",
-            Some(Type::Range(BaseType::Float)),
+            Some(Type::Range(Box::new(BaseType::Float.into()))),
         );
         check_expr(
             "SELECT daterange('2010-01-01'::date, '2010-01-02'::date)",
-            Some(Type::Range(BaseType::Date)),
+            Some(Type::Range(Box::new(BaseType::Date.into()))),
         );
         check_expr(
             "SELECT tstzrange(now(), now())",
-            Some(Type::Range(BaseType::TimeStamp)),
+            Some(Type::Range(Box::new(BaseType::TimeStamp.into()))),
         );
 
         // Multirange constructors
         check_expr(
             "SELECT int4multirange(int4range(1, 2), int4range(3, 4))",
-            Some(Type::MultiRange(BaseType::Integer)),
+            Some(Type::MultiRange(Box::new(Type::I32))),
         );
         check_expr(
             "SELECT int4multirange()",
-            Some(Type::MultiRange(BaseType::Integer)),
+            Some(Type::MultiRange(Box::new(Type::I32))),
         );
         check_expr(
             "SELECT multirange(int4range(1, 2))",
-            Some(Type::MultiRange(BaseType::Integer)),
+            Some(Type::MultiRange(Box::new(Type::I32))),
         );
 
         // Range/multirange operators (Table 9.54, 9.55)
@@ -2098,25 +2098,22 @@ mod tests {
         );
         check_expr(
             "SELECT numrange(5.0, 15.0) + numrange(10.0, 20.0)",
-            Some(Type::Range(BaseType::Float)),
+            Some(Type::Range(Box::new(BaseType::Float.into()))),
         );
         check_expr(
             "SELECT int8range(5, 15) * int8range(10, 20)",
-            Some(Type::Range(BaseType::Integer)),
+            Some(Type::Range(Box::new(Type::I64))),
         );
         check_expr(
             "SELECT int8range(5, 15) - int8range(10, 20)",
-            Some(Type::Range(BaseType::Integer)),
+            Some(Type::Range(Box::new(Type::I64))),
         );
         // Plain integer bit-shift/bitwise ops must still work as before.
         check_expr("SELECT 1 << 2", Some(Type::Base(BaseType::Integer)));
         check_expr("SELECT 1 & 2", Some(Type::Base(BaseType::Integer)));
 
         // Range/multirange functions (Table 9.56, 9.57)
-        check_expr(
-            "SELECT upper(int8range(15, 25))",
-            Some(Type::Base(BaseType::Integer)),
-        );
+        check_expr("SELECT upper(int8range(15, 25))", Some(Type::I64));
         check_expr(
             "SELECT lower(numrange(1.1, 2.2))",
             Some(Type::Base(BaseType::Float)),
@@ -2143,15 +2140,15 @@ mod tests {
         );
         check_expr(
             "SELECT range_merge(int4range(1, 2), int4range(3, 4))",
-            Some(Type::Range(BaseType::Integer)),
+            Some(Type::Range(Box::new(Type::I32))),
         );
         check_expr(
             "SELECT range_merge('{[1,2), [3,4)}'::int4multirange)",
-            Some(Type::Range(BaseType::Integer)),
+            Some(Type::Range(Box::new(Type::I32))),
         );
         check_expr(
             "SELECT unnest('{[1,2), [3,4)}'::int4multirange)",
-            Some(Type::Range(BaseType::Integer)),
+            Some(Type::Range(Box::new(Type::I32))),
         );
 
         // Columns typed from the schema, including lower()/upper() on a `tsrange` column
@@ -2162,7 +2159,7 @@ mod tests {
         );
         check_expr(
             "SELECT r FROM unnest('{[1,2), [3,4)}'::int4multirange) AS u(r)",
-            Some(Type::Range(BaseType::Integer)),
+            Some(Type::Range(Box::new(Type::I32))),
         );
 
         // Mismatched element types / mismatched range vs. multirange must be type errors.
@@ -2171,6 +2168,69 @@ mod tests {
 
         if errors != 0 {
             panic!("{errors} errors in postgresql_range_types test");
+        }
+    }
+
+    /// A writable CTE that unions a range into an `int8multirange` column and then
+    /// `unnest()`s the result. Reported as a real-world usage that should type-check.
+    #[test]
+    fn postgresql_multirange_update_returning_unnest() {
+        let schema_src = "
+        CREATE TABLE partial_files (
+            id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+            uploaded_bytes int8multirange NOT NULL DEFAULT '{}',
+            last_modified timestamptz NOT NULL DEFAULT now()
+        );
+        ";
+
+        let opts = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+        let mut issues = Issues::new(schema_src);
+        let schema = parse_schemas(schema_src, &mut issues, &opts);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        let src = "
+        WITH the_update AS (
+          UPDATE partial_files
+          SET last_modified = now(),
+            uploaded_bytes = uploaded_bytes + multirange(int8range($2, $3, '[)'))
+          WHERE id = $1
+          RETURNING uploaded_bytes
+        )
+        SELECT unnest(uploaded_bytes) AS \"range\"
+        FROM the_update
+        ";
+        let mut issues = Issues::new(src);
+        let q = type_statement(&schema, src, &mut issues, &opts);
+        check_no_errors("query", src, issues.get(), &mut errors);
+        if let StatementType::Select { columns, arguments } = q {
+            match columns.first() {
+                Some(c) if c.type_.t == Type::Range(Box::new(Type::I64)) => {}
+                Some(c) => {
+                    println!(
+                        "query: expected column 0 of type range(i64) got {}",
+                        c.type_.t
+                    );
+                    errors += 1;
+                }
+                None => {
+                    println!("query: expected a column, got none");
+                    errors += 1;
+                }
+            }
+            if arguments.len() != 3 {
+                println!("query: expected 3 arguments, got {}", arguments.len());
+                errors += 1;
+            }
+        } else {
+            println!("query: expected Select");
+            errors += 1;
+        }
+
+        if errors != 0 {
+            panic!("{errors} errors in postgresql_multirange_update_returning_unnest test");
         }
     }
 }

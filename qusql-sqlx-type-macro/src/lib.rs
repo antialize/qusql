@@ -271,8 +271,8 @@ fn get_schemas() -> Arc<SchemaCacheEntry> {
     entry
 }
 
-/// Rust type used to bind/read a PostgreSQL range column, keyed by the canonical
-/// [`qusql_type::BaseType`] of its element.
+/// Rust type used to bind/read a PostgreSQL range column, keyed by the (boxed) element
+/// `qusql_type::Type` of a `qusql_type::Type::Range`/`Type::MultiRange`.
 ///
 /// `sqlx::postgres::types::PgRange<T>` (re-exported as `qusql_sqlx_type::PgRange`) only has
 /// built-in `sqlx` support for a handful of element types without pulling in extra optional
@@ -281,7 +281,7 @@ fn get_schemas() -> Arc<SchemaCacheEntry> {
 /// PostgreSQL never produce range types, and unsupported element types fall back to
 /// `fallback`.
 fn quote_range_elem_type(
-    elem: qusql_type::BaseType,
+    elem: &qusql_type::Type<'_>,
     is_postgres: bool,
     fallback: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
@@ -289,12 +289,17 @@ fn quote_range_elem_type(
         return fallback;
     }
     match elem {
-        qusql_type::BaseType::Integer => quote! { qusql_sqlx_type::PgRange<i32> },
-        qusql_type::BaseType::Date => quote! { qusql_sqlx_type::PgRange<chrono::NaiveDate> },
-        qusql_type::BaseType::DateTime => {
+        // `int4range`/`int4multirange`
+        qusql_type::Type::I32 => quote! { qusql_sqlx_type::PgRange<i32> },
+        // `int8range`/`int8multirange`
+        qusql_type::Type::I64 => quote! { qusql_sqlx_type::PgRange<i64> },
+        qusql_type::Type::Base(qusql_type::BaseType::Date) => {
+            quote! { qusql_sqlx_type::PgRange<chrono::NaiveDate> }
+        }
+        qusql_type::Type::Base(qusql_type::BaseType::DateTime) => {
             quote! { qusql_sqlx_type::PgRange<chrono::NaiveDateTime> }
         }
-        qusql_type::BaseType::TimeStamp => {
+        qusql_type::Type::Base(qusql_type::BaseType::TimeStamp) => {
             quote! { qusql_sqlx_type::PgRange<chrono::DateTime<chrono::Utc>> }
         }
         _ => fallback,
@@ -362,7 +367,7 @@ fn quote_args(
     let mut list_lengths = Vec::new();
 
     for ((qa, ta), name) in args.iter().zip(at).zip(&arg_names) {
-        let mut t = match ta.t {
+        let mut t = match &ta.t {
             qusql_type::Type::U8 => quote! {u8},
             qusql_type::Type::I8 => quote! {i8},
             qusql_type::Type::U16 => quote! {u16},
@@ -502,7 +507,7 @@ fn construct_row(
     let mut row_members = Vec::new();
     let mut row_construct = Vec::new();
     for (i, c) in columns.iter().enumerate() {
-        let mut t = match c.type_.t {
+        let mut t = match &c.type_.t {
             qusql_type::Type::U8 => quote! {u8},
             qusql_type::Type::I8 => quote! {i8},
             qusql_type::Type::U16 => quote! {u16},
@@ -930,7 +935,7 @@ fn construct_row2(
 ) -> Vec<proc_macro2::TokenStream> {
     let mut row_construct = Vec::new();
     for (i, c) in columns.iter().enumerate() {
-        let mut t = match c.type_.t {
+        let mut t = match &c.type_.t {
             qusql_type::Type::U8 => quote! {u8},
             qusql_type::Type::I8 => quote! {i8},
             qusql_type::Type::U16 => quote! {u16},

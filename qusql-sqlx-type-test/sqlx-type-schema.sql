@@ -13,3 +13,10 @@ CREATE TABLE IF NOT EXISTS type_test_items (
 );
 
 CREATE SEQUENCE IF NOT EXISTS type_test_seq;
+
+CREATE TABLE IF NOT EXISTS partial_files (
+    id              uuid            PRIMARY KEY DEFAULT gen_random_uuid(),
+    uploaded_bytes  int8multirange  NOT NULL DEFAULT '{}',
+    last_modified   timestamptz     NOT NULL DEFAULT now()
+);
+
