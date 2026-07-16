@@ -271,6 +271,36 @@ fn get_schemas() -> Arc<SchemaCacheEntry> {
     entry
 }
 
+/// Rust type used to bind/read a PostgreSQL range column, keyed by the canonical
+/// [`qusql_type::BaseType`] of its element.
+///
+/// `sqlx::postgres::types::PgRange<T>` (re-exported as `qusql_sqlx_type::PgRange`) only has
+/// built-in `sqlx` support for a handful of element types without pulling in extra optional
+/// dependencies (in particular `NUMRANGE`/numeric would need the `bigdecimal` or
+/// `rust_decimal` crate, which this crate does not integrate). Dialects other than
+/// PostgreSQL never produce range types, and unsupported element types fall back to
+/// `fallback`.
+fn quote_range_elem_type(
+    elem: qusql_type::BaseType,
+    is_postgres: bool,
+    fallback: proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    if !is_postgres {
+        return fallback;
+    }
+    match elem {
+        qusql_type::BaseType::Integer => quote! { qusql_sqlx_type::PgRange<i32> },
+        qusql_type::BaseType::Date => quote! { qusql_sqlx_type::PgRange<chrono::NaiveDate> },
+        qusql_type::BaseType::DateTime => {
+            quote! { qusql_sqlx_type::PgRange<chrono::NaiveDateTime> }
+        }
+        qusql_type::BaseType::TimeStamp => {
+            quote! { qusql_sqlx_type::PgRange<chrono::DateTime<chrono::Utc>> }
+        }
+        _ => fallback,
+    }
+}
+
 /// Produce quoted arguments for a query
 fn quote_args(
     errors: &mut Vec<proc_macro2::TokenStream>,
@@ -285,6 +315,7 @@ fn quote_args(
         SQLDialect::Sqlite => quote!(sqlx::sqlite::Sqlite),
         SQLDialect::PostgreSQL | SQLDialect::PostGIS => quote!(sqlx::postgres::Postgres),
     };
+    let is_postgres = dialect.is_postgresql();
 
     let mut at = Vec::new();
     let inv = qusql_type::FullType::invalid();
@@ -369,7 +400,10 @@ fn quote_args(
             qusql_type::Type::F64 => quote! {f64},
             qusql_type::Type::JSON => quote! {qusql_sqlx_type::Any},
             qusql_type::Type::Geometry => quote! {qusql_sqlx_type::Any},
-            qusql_type::Type::Range(_) => quote! {qusql_sqlx_type::Any},
+            qusql_type::Type::Range(elem) => {
+                quote_range_elem_type(elem, is_postgres, quote! {qusql_sqlx_type::Any})
+            }
+            qusql_type::Type::MultiRange(_) => quote! {qusql_sqlx_type::Any},
             qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},
         };
         if !ta.not_null {
@@ -521,7 +555,10 @@ fn construct_row(
                 }
             }
             qusql_type::Type::Geometry => quote! {Vec<u8>},
-            qusql_type::Type::Range(_) => quote! {Vec<u8>},
+            qusql_type::Type::MultiRange(_) => quote! {Vec<u8>},
+            qusql_type::Type::Range(elem) => {
+                quote_range_elem_type(elem, is_postgres, quote! {Vec<u8>})
+            }
             qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},
         };
         let name = match &c.name {
@@ -946,7 +983,10 @@ fn construct_row2(
                 }
             }
             qusql_type::Type::Geometry => quote! {Vec<u8>},
-            qusql_type::Type::Range(_) => quote! {Vec<u8>},
+            qusql_type::Type::MultiRange(_) => quote! {Vec<u8>},
+            qusql_type::Type::Range(elem) => {
+                quote_range_elem_type(elem, is_postgres, quote! {Vec<u8>})
+            }
             qusql_type::Type::Array(_) => quote! {qusql_sqlx_type::Any},
         };
         let name = match &c.name {

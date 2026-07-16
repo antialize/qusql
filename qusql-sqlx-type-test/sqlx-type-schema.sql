@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS type_test_items (
     score       integer     NOT NULL DEFAULT 0,
     active      boolean     NOT NULL DEFAULT true,
     ratio       float8      NOT NULL DEFAULT 0.0,
-    props       jsonb       NOT NULL DEFAULT '{}'
+    props       jsonb       NOT NULL DEFAULT '{}',
+    validity    daterange
 );
 
 CREATE SEQUENCE IF NOT EXISTS type_test_seq;

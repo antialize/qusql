@@ -301,6 +301,7 @@ fn map_type(ta: &FullType<'_>) -> proc_macro2::TokenStream {
         qusql_type::Type::Geometry => quote! {qusql_mysql_type::Any},
         qusql_type::Type::Array(_) => quote! {qusql_mysql_type::Any},
         qusql_type::Type::Range(_) => todo!(),
+        qusql_type::Type::MultiRange(_) => todo!(),
     };
     if !ta.not_null {
         quote! {Option<#t>}
@@ -489,6 +490,7 @@ fn construct_row(
             qusql_type::Type::Geometry => quote! {Vec<u8>},
             qusql_type::Type::Array(_) => quote! {qusql_mysql_type::Any},
             qusql_type::Type::Range(_) => todo!(),
+            qusql_type::Type::MultiRange(_) => todo!(),
         };
         let name = match &c.name {
             Some(v) => v,

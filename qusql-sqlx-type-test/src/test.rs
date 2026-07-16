@@ -227,3 +227,54 @@ async fn test_json_extract_text_operator_is_string(pool: PgPool) {
     let k: Option<String> = row.k;
     assert_eq!(k.as_deref(), Some("hello"));
 }
+
+/// A `daterange` column must decode as `qusql_sqlx_type::PgRange<chrono::NaiveDate>`.
+#[sqlx::test]
+async fn test_daterange_column_is_pgrange(pool: PgPool) {
+    setup(&pool).await;
+    let range = qusql_sqlx_type::PgRange::from(
+        chrono::NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()
+            ..chrono::NaiveDate::from_ymd_opt(2024, 2, 1).unwrap(),
+    );
+    sqlx::query("UPDATE type_test_items SET validity = $1 WHERE name = 'alpha'")
+        .bind(range.clone())
+        .execute(&pool)
+        .await
+        .unwrap();
+    let row = query!("SELECT validity FROM type_test_items WHERE name = 'alpha'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let validity: Option<qusql_sqlx_type::PgRange<chrono::NaiveDate>> = row.validity;
+    assert_eq!(validity, Some(range));
+}
+
+/// `int4range(1, 10)` must decode as `qusql_sqlx_type::PgRange<i32>`.
+#[sqlx::test]
+async fn test_int4range_function_is_pgrange(pool: PgPool) {
+    let row = query!("SELECT int4range(1, 10) AS r")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let r: qusql_sqlx_type::PgRange<i32> = row.r;
+    assert_eq!(r, qusql_sqlx_type::PgRange::from(1..10));
+}
+
+/// `isempty()`/`lower()`/`upper()` on a range must type as `bool`/`i32`.
+#[sqlx::test]
+async fn test_range_functions(pool: PgPool) {
+    let row = query!(
+        "SELECT isempty(int4range(1, 10)) AS is_empty, \
+         lower(int4range(1, 10)) AS lo, \
+         upper(int4range(1, 10)) AS hi"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let is_empty: bool = row.is_empty;
+    let lo: Option<i32> = row.lo;
+    let hi: Option<i32> = row.hi;
+    assert!(!is_empty);
+    assert_eq!(lo, Some(1));
+    assert_eq!(hi, Some(10));
+}
