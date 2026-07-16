@@ -365,6 +365,19 @@ fn try_parse_body<'a>(
     })
 }
 
+/// Map a PostgreSQL range/multirange subtype to its canonical element `BaseType`.
+pub(crate) fn range_subtype_to_base(sub: &qusql_parse::RangeSubtype) -> BaseType {
+    use qusql_parse::RangeSubtype;
+    match sub {
+        RangeSubtype::Int4 => BaseType::Integer,
+        RangeSubtype::Int8 => BaseType::Integer,
+        RangeSubtype::Num => BaseType::Float,
+        RangeSubtype::Ts => BaseType::DateTime,
+        RangeSubtype::Tstz => BaseType::TimeStamp,
+        RangeSubtype::Date => BaseType::Date,
+    }
+}
+
 fn type_kind_from_parse<'a, S: SearchPath<'a>>(
     type_: qusql_parse::Type<'a>,
     unsigned: bool,
@@ -513,18 +526,8 @@ fn type_kind_from_parse<'a, S: SearchPath<'a>>(
         qusql_parse::Type::TsVector => BaseType::String.into(),
         qusql_parse::Type::Uuid => BaseType::Uuid.into(),
         qusql_parse::Type::Xml => BaseType::String.into(),
-        qusql_parse::Type::Range(sub) | qusql_parse::Type::MultiRange(sub) => {
-            use qusql_parse::RangeSubtype;
-            let elem = match sub {
-                RangeSubtype::Int4 => BaseType::Integer,
-                RangeSubtype::Int8 => BaseType::Integer,
-                RangeSubtype::Num => BaseType::Float,
-                RangeSubtype::Ts => BaseType::DateTime,
-                RangeSubtype::Tstz => BaseType::TimeStamp,
-                RangeSubtype::Date => BaseType::Date,
-            };
-            Type::Range(elem)
-        }
+        qusql_parse::Type::Range(sub) => Type::Range(range_subtype_to_base(&sub)),
+        qusql_parse::Type::MultiRange(sub) => Type::MultiRange(range_subtype_to_base(&sub)),
         qusql_parse::Type::Point
         | qusql_parse::Type::Line
         | qusql_parse::Type::Lseg

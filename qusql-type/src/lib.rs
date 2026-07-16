@@ -1975,4 +1975,202 @@ mod tests {
             assert!(!issues.is_ok(), "schema.table in FROM should fail in MySQL");
         }
     }
+
+    /// PostgreSQL range and multirange types: parsing, operators and functions.
+    /// See https://www.postgresql.org/docs/15/rangetypes.html and
+    /// https://www.postgresql.org/docs/15/functions-range.html
+    #[test]
+    fn postgresql_range_types() {
+        let schema_src = "
+        CREATE TABLE reservation (
+            id bigint NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+            during tsrange NOT NULL,
+            ids int4multirange NOT NULL
+        );
+        ";
+
+        let opts = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+        let mut issues = Issues::new(schema_src);
+        let schema = parse_schemas(schema_src, &mut issues, &opts);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        // Checks that `src` types as a single-column SELECT with the given type, or,
+        // when `expected` is `None`, that typing `src` produces a type error.
+        let mut check_expr = |src: &'static str, expected: Option<Type<'static>>| {
+            let mut issues = Issues::new(src);
+            let q = type_statement(&schema, src, &mut issues, &opts);
+            let Some(expected) = expected else {
+                if issues.is_ok() {
+                    println!("{src}: expected a type error");
+                    errors += 1;
+                }
+                return;
+            };
+            check_no_errors(src, src, issues.get(), &mut errors);
+            if let StatementType::Select { columns, .. } = q {
+                match columns.first() {
+                    Some(c) if c.type_.t == expected => {}
+                    Some(c) => {
+                        println!("{src}: expected type {expected} got {}", c.type_.t);
+                        errors += 1;
+                    }
+                    None => {
+                        println!("{src}: expected a column, got none");
+                        errors += 1;
+                    }
+                }
+            } else {
+                println!("{src}: expected Select");
+                errors += 1;
+            }
+        };
+        // Range constructors (8.17.6)
+        check_expr(
+            "SELECT int4range(1, 10)",
+            Some(Type::Range(BaseType::Integer)),
+        );
+        check_expr(
+            "SELECT int4range(1, 10, '[]')",
+            Some(Type::Range(BaseType::Integer)),
+        );
+        check_expr(
+            "SELECT int8range(1, 10)",
+            Some(Type::Range(BaseType::Integer)),
+        );
+        check_expr(
+            "SELECT numrange(1.1, 2.2)",
+            Some(Type::Range(BaseType::Float)),
+        );
+        check_expr(
+            "SELECT daterange('2010-01-01'::date, '2010-01-02'::date)",
+            Some(Type::Range(BaseType::Date)),
+        );
+        check_expr(
+            "SELECT tstzrange(now(), now())",
+            Some(Type::Range(BaseType::TimeStamp)),
+        );
+
+        // Multirange constructors
+        check_expr(
+            "SELECT int4multirange(int4range(1, 2), int4range(3, 4))",
+            Some(Type::MultiRange(BaseType::Integer)),
+        );
+        check_expr(
+            "SELECT int4multirange()",
+            Some(Type::MultiRange(BaseType::Integer)),
+        );
+        check_expr(
+            "SELECT multirange(int4range(1, 2))",
+            Some(Type::MultiRange(BaseType::Integer)),
+        );
+
+        // Range/multirange operators (Table 9.54, 9.55)
+        check_expr(
+            "SELECT int4range(10, 20) @> 3",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT numrange(11.1, 22.2) && numrange(20.0, 30.0)",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT int8range(1, 10) << int8range(100, 110)",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT int8range(50, 60) >> int8range(20, 30)",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT int8range(1, 20) &< int8range(18, 20)",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT int8range(7, 20) &> int8range(5, 10)",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT numrange(1.1, 2.2) -|- numrange(2.2, 3.3)",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT numrange(5.0, 15.0) + numrange(10.0, 20.0)",
+            Some(Type::Range(BaseType::Float)),
+        );
+        check_expr(
+            "SELECT int8range(5, 15) * int8range(10, 20)",
+            Some(Type::Range(BaseType::Integer)),
+        );
+        check_expr(
+            "SELECT int8range(5, 15) - int8range(10, 20)",
+            Some(Type::Range(BaseType::Integer)),
+        );
+        // Plain integer bit-shift/bitwise ops must still work as before.
+        check_expr("SELECT 1 << 2", Some(Type::Base(BaseType::Integer)));
+        check_expr("SELECT 1 & 2", Some(Type::Base(BaseType::Integer)));
+
+        // Range/multirange functions (Table 9.56, 9.57)
+        check_expr(
+            "SELECT upper(int8range(15, 25))",
+            Some(Type::Base(BaseType::Integer)),
+        );
+        check_expr(
+            "SELECT lower(numrange(1.1, 2.2))",
+            Some(Type::Base(BaseType::Float)),
+        );
+        check_expr(
+            "SELECT isempty(numrange(1.0, 5.0))",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT lower_inc(numrange(1.1, 2.2))",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT upper_inc(numrange(1.1, 2.2))",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT lower_inf('(,)'::daterange)",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT upper_inf('(,)'::daterange)",
+            Some(Type::Base(BaseType::Bool)),
+        );
+        check_expr(
+            "SELECT range_merge(int4range(1, 2), int4range(3, 4))",
+            Some(Type::Range(BaseType::Integer)),
+        );
+        check_expr(
+            "SELECT range_merge('{[1,2), [3,4)}'::int4multirange)",
+            Some(Type::Range(BaseType::Integer)),
+        );
+        check_expr(
+            "SELECT unnest('{[1,2), [3,4)}'::int4multirange)",
+            Some(Type::Range(BaseType::Integer)),
+        );
+
+        // Columns typed from the schema, including lower()/upper() on a `tsrange` column
+        // and the `int4multirange` -> `int4range` unnest() table-function overload.
+        check_expr(
+            "SELECT lower(during) FROM reservation",
+            Some(Type::Base(BaseType::DateTime)),
+        );
+        check_expr(
+            "SELECT r FROM unnest('{[1,2), [3,4)}'::int4multirange) AS u(r)",
+            Some(Type::Range(BaseType::Integer)),
+        );
+
+        // Mismatched element types / mismatched range vs. multirange must be type errors.
+        check_expr("SELECT int4range(1, 2) + numrange(1.0, 2.0)", None);
+        check_expr("SELECT int4range(1, 2) + '{[1,2)}'::int4multirange", None);
+
+        if errors != 0 {
+            panic!("{errors} errors in postgresql_range_types test");
+        }
+    }
 }

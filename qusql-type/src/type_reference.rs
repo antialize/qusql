@@ -137,16 +137,21 @@ pub(crate) fn type_reference<'a>(
             match name {
                 qusql_parse::TableFunctionName::Unnest(unnest_span) => {
                     // Each argument to UNNEST expands to one column.
-                    // The column type is the element type of the array argument.
+                    // The column type is the element type of an array argument, or
+                    // the range type of a multirange argument.
                     let mut columns: Vec<(Identifier<'a>, FullType<'a>)> = Vec::new();
                     for (idx, arg) in args.iter().enumerate() {
                         let arr_type =
                             type_expression(typer, arg, ExpressionFlags::default(), BaseType::Any);
-                        let elem_type = if let crate::type_::Type::Array(inner) = arr_type.t {
-                            FullType::new(*inner, false)
-                        } else {
-                            // If we can't determine it's an array, use Any/nullable
-                            FullType::new(BaseType::Any, false)
+                        let elem_type = match arr_type.t {
+                            crate::type_::Type::Array(inner) => FullType::new(*inner, false),
+                            crate::type_::Type::MultiRange(elem) => {
+                                FullType::new(crate::type_::Type::Range(elem), false)
+                            }
+                            _ => {
+                                // If we can't determine it's an array or multirange, use Any/nullable
+                                FullType::new(BaseType::Any, false)
+                            }
                         };
                         // Use col_list alias if provided, otherwise generate "unnest1", "unnest2", ...
                         let col_name = if let Some(alias) = col_list.get(idx) {

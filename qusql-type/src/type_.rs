@@ -86,6 +86,8 @@ pub enum Type<'a> {
     Geometry,
     /// A PostgreSQL range type. The inner BaseType is the element type.
     Range(BaseType),
+    /// A PostgreSQL multirange type. The inner BaseType is the element type.
+    MultiRange(BaseType),
     Array(Box<Type<'a>>),
     Set(Arc<Vec<Cow<'a, str>>>),
     U16,
@@ -120,6 +122,7 @@ impl<'a> Display for Type<'a> {
             Type::JSON => f.write_str("json"),
             Type::Geometry => f.write_str("geometry"),
             Type::Range(inner) => write!(f, "range({inner})"),
+            Type::MultiRange(inner) => write!(f, "multirange({inner})"),
             Type::Array(inner) => {
                 inner.fmt(f)?;
                 f.write_str("[]")
@@ -172,6 +175,7 @@ impl<'a> Type<'a> {
             Type::JSON => BaseType::Any,
             Type::Geometry => BaseType::Any,
             Type::Range(_) => BaseType::Any,
+            Type::MultiRange(_) => BaseType::Any,
             Type::Array(_) => BaseType::Any,
             Type::Null => BaseType::Any,
             Type::Set(_) => BaseType::String,
