@@ -70,7 +70,7 @@ pub(crate) fn type_insert_replace<'a>(
                     typer.err(
                         format!(
                             "No value for column {} provided, but it has no default value",
-                            &col.identifier
+                            col.identifier
                         ),
                         set,
                     );
@@ -89,7 +89,7 @@ pub(crate) fn type_insert_replace<'a>(
                     typer.err(
                         format!(
                             "No value for column {} provided, but it has no default value",
-                            &col.identifier
+                            col.identifier
                         ),
                         &columns.opt_span().unwrap_or(table.span()),
                     );
