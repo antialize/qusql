@@ -119,11 +119,14 @@ pub(crate) fn type_binary_expression<'a>(
                 (flags, BaseType::String)
             }
         }
-        BinaryOperator::ShiftLeft(_)
-        | BinaryOperator::ShiftRight(_)
-        | BinaryOperator::BitAnd(_)
-        | BinaryOperator::BitOr(_)
-        | BinaryOperator::BitXor(_) => {
+        BinaryOperator::ShiftLeft(_) | BinaryOperator::ShiftRight(_) => {
+            // Overloaded: integer bit-shift (`<<`/`>>` between integers) and the
+            // PostgreSQL range "strictly left of"/"strictly right of" operators
+            // (`<<`/`>>` between ranges/multiranges). Use `Any` here and decide the
+            // concrete meaning after both operand types are known.
+            (flags.without_values(), BaseType::Any)
+        }
+        BinaryOperator::BitAnd(_) | BinaryOperator::BitOr(_) | BinaryOperator::BitXor(_) => {
             if flags.true_ {
                 (
                     flags.with_not_null(true).with_true(false),
@@ -207,11 +210,28 @@ pub(crate) fn type_binary_expression<'a>(
             }
             FullType::new(BaseType::Bool, true)
         }
-        BinaryOperator::ShiftLeft(_)
-        | BinaryOperator::ShiftRight(_)
-        | BinaryOperator::BitAnd(_)
-        | BinaryOperator::BitOr(_)
-        | BinaryOperator::BitXor(_) => {
+        BinaryOperator::ShiftLeft(_) | BinaryOperator::ShiftRight(_) => {
+            // Range/multirange "strictly left of" / "strictly right of" when both sides are
+            // compatible ranges/multiranges, otherwise the usual integer bit-shift.
+            if matches!(lhs_type.t, Type::Range(_) | Type::MultiRange(_))
+                || matches!(rhs_type.t, Type::Range(_) | Type::MultiRange(_))
+            {
+                if typer.matched_type(&lhs_type, &rhs_type).is_none() {
+                    typer
+                        .err("Type error in range operator", &op_span)
+                        .frag(format!("Of type {}", lhs_type.t), lhs)
+                        .frag(format!("Of type {}", rhs_type.t), rhs);
+                    FullType::invalid()
+                } else {
+                    FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+                }
+            } else {
+                typer.ensure_base(lhs, &lhs_type, BaseType::Integer);
+                typer.ensure_base(rhs, &rhs_type, BaseType::Integer);
+                FullType::new(BaseType::Integer, lhs_type.not_null && rhs_type.not_null)
+            }
+        }
+        BinaryOperator::BitAnd(_) | BinaryOperator::BitOr(_) | BinaryOperator::BitXor(_) => {
             typer.ensure_base(lhs, &lhs_type, BaseType::Integer);
             typer.ensure_base(rhs, &rhs_type, BaseType::Integer);
             FullType::new(BaseType::Integer, lhs_type.not_null && rhs_type.not_null)
@@ -340,8 +360,22 @@ pub(crate) fn type_binary_expression<'a>(
             // Returns the type of the value being assigned (rhs)
             rhs_type
         }
-        BinaryOperator::User(_, _) => {
-            FullType::new(BaseType::Any, lhs_type.not_null && rhs_type.not_null)
+        BinaryOperator::User(name, _) => {
+            // PostgreSQL range/multirange operators that don't have a dedicated
+            // `BinaryOperator` variant and fall back to `User`.
+            if matches!(*name, "&<" | "&>" | "-|-") {
+                if typer.matched_type(&lhs_type, &rhs_type).is_none() {
+                    typer
+                        .err("Type error in range operator", &op_span)
+                        .frag(format!("Of type {}", lhs_type.t), lhs)
+                        .frag(format!("Of type {}", rhs_type.t), rhs);
+                    FullType::invalid()
+                } else {
+                    FullType::new(BaseType::Bool, lhs_type.not_null && rhs_type.not_null)
+                }
+            } else {
+                FullType::new(BaseType::Any, lhs_type.not_null && rhs_type.not_null)
+            }
         }
         o @ BinaryOperator::Operator(_, _) => {
             typer.err("Not supported", o);

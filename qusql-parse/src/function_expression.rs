@@ -832,6 +832,26 @@ pub enum Function<'a> {
     ArrayUpper,
     Cardinality,
     TrimArray,
+    // PostgreSQL range/multirange functions
+    IsEmpty,
+    LowerInc,
+    LowerInf,
+    UpperInc,
+    UpperInf,
+    RangeMerge,
+    Multirange,
+    Int4Range,
+    Int8Range,
+    NumRange,
+    TsRange,
+    TstzRange,
+    DateRange,
+    Int4Multirange,
+    Int8Multirange,
+    NumMultirange,
+    TsMultirange,
+    TstzMultirange,
+    DateMultirange,
     // PostgreSQL text search functions
     ArrayToTsvector,
     GetCurrentTsConfig,
@@ -2603,6 +2623,65 @@ pub(crate) fn parse_function<'a>(
         }
         Token::Ident(_, Keyword::TRIM_ARRAY) if parser.options.dialect.is_postgresql() => {
             Function::TrimArray
+        }
+
+        // PostgreSQL range/multirange functions
+        Token::Ident(_, Keyword::ISEMPTY) if parser.options.dialect.is_postgresql() => {
+            Function::IsEmpty
+        }
+        Token::Ident(_, Keyword::LOWER_INC) if parser.options.dialect.is_postgresql() => {
+            Function::LowerInc
+        }
+        Token::Ident(_, Keyword::LOWER_INF) if parser.options.dialect.is_postgresql() => {
+            Function::LowerInf
+        }
+        Token::Ident(_, Keyword::UPPER_INC) if parser.options.dialect.is_postgresql() => {
+            Function::UpperInc
+        }
+        Token::Ident(_, Keyword::UPPER_INF) if parser.options.dialect.is_postgresql() => {
+            Function::UpperInf
+        }
+        Token::Ident(_, Keyword::RANGE_MERGE) if parser.options.dialect.is_postgresql() => {
+            Function::RangeMerge
+        }
+        Token::Ident(_, Keyword::MULTIRANGE) if parser.options.dialect.is_postgresql() => {
+            Function::Multirange
+        }
+        Token::Ident(_, Keyword::INT4RANGE) if parser.options.dialect.is_postgresql() => {
+            Function::Int4Range
+        }
+        Token::Ident(_, Keyword::INT8RANGE) if parser.options.dialect.is_postgresql() => {
+            Function::Int8Range
+        }
+        Token::Ident(_, Keyword::NUMRANGE) if parser.options.dialect.is_postgresql() => {
+            Function::NumRange
+        }
+        Token::Ident(_, Keyword::TSRANGE) if parser.options.dialect.is_postgresql() => {
+            Function::TsRange
+        }
+        Token::Ident(_, Keyword::TSTZRANGE) if parser.options.dialect.is_postgresql() => {
+            Function::TstzRange
+        }
+        Token::Ident(_, Keyword::DATERANGE) if parser.options.dialect.is_postgresql() => {
+            Function::DateRange
+        }
+        Token::Ident(_, Keyword::INT4MULTIRANGE) if parser.options.dialect.is_postgresql() => {
+            Function::Int4Multirange
+        }
+        Token::Ident(_, Keyword::INT8MULTIRANGE) if parser.options.dialect.is_postgresql() => {
+            Function::Int8Multirange
+        }
+        Token::Ident(_, Keyword::NUMMULTIRANGE) if parser.options.dialect.is_postgresql() => {
+            Function::NumMultirange
+        }
+        Token::Ident(_, Keyword::TSMULTIRANGE) if parser.options.dialect.is_postgresql() => {
+            Function::TsMultirange
+        }
+        Token::Ident(_, Keyword::TSTZMULTIRANGE) if parser.options.dialect.is_postgresql() => {
+            Function::TstzMultirange
+        }
+        Token::Ident(_, Keyword::DATEMULTIRANGE) if parser.options.dialect.is_postgresql() => {
+            Function::DateMultirange
         }
 
         // PostgreSQL text search functions

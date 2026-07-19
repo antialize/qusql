@@ -113,6 +113,25 @@ impl<'a, 'b> Typer<'a, 'b> {
             }
             (Type::Array(_), other) if other.base() != BaseType::Any => return None,
             (other, Type::Array(_)) if other.base() != BaseType::Any => return None,
+            // Ranges/multiranges match recursively on their element types; a range
+            // never matches a multirange, nor a concrete non-range/multirange type.
+            (Type::Range(i1), Type::Range(i2)) => {
+                return self
+                    .matched_type(i1, i2)
+                    .map(|inner| Type::Range(Box::new(inner)));
+            }
+            (Type::MultiRange(i1), Type::MultiRange(i2)) => {
+                return self
+                    .matched_type(i1, i2)
+                    .map(|inner| Type::MultiRange(Box::new(inner)));
+            }
+            (Type::Range(_), Type::MultiRange(_)) | (Type::MultiRange(_), Type::Range(_)) => {
+                return None;
+            }
+            (Type::Range(_), other) if other.base() != BaseType::Any => return None,
+            (other, Type::Range(_)) if other.base() != BaseType::Any => return None,
+            (Type::MultiRange(_), other) if other.base() != BaseType::Any => return None,
+            (other, Type::MultiRange(_)) if other.base() != BaseType::Any => return None,
             _ => {}
         }
 

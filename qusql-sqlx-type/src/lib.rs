@@ -252,6 +252,33 @@ pub type JsonValue = serde_json::Value;
 #[doc(hidden)]
 pub type JsonValue = String;
 
+#[cfg(feature = "postgres")]
+mod postgres_support {
+    //! PostgreSQL `RANGE` bindings when the `postgres` feature is enabled.
+    use super::*;
+
+    // `PgRange<T>` is used both as the argument tag and as the concrete Rust
+    // representation of a range column, so it is registered as its own tag (as is
+    // done for e.g. `chrono::DateTime<chrono::Utc>` above).
+    arg_io!(PgRange<i32>, PgRange<i32>);
+    arg_io!(PgRange<i64>, PgRange<i64>);
+    arg_io!(PgRange<chrono::NaiveDate>, PgRange<chrono::NaiveDate>);
+    arg_io!(
+        PgRange<chrono::NaiveDateTime>,
+        PgRange<chrono::NaiveDateTime>
+    );
+    arg_io!(
+        PgRange<chrono::DateTime<chrono::Utc>>,
+        PgRange<chrono::DateTime<chrono::Utc>>
+    );
+}
+
+/// Re-export of [`sqlx::postgres::types::PgRange`], available when the `postgres`
+/// feature is enabled. Used to bind/read PostgreSQL `RANGE` columns (e.g. `int4range`,
+/// `int8range`, `daterange`, `tsrange`, `tstzrange`).
+#[cfg(feature = "postgres")]
+pub use sqlx::postgres::types::PgRange;
+
 #[doc(hidden)]
 pub fn check_arg<T, T2: ArgIn<T>>(_: &T2) {}
 

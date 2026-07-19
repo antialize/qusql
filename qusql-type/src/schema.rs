@@ -365,6 +365,21 @@ fn try_parse_body<'a>(
     })
 }
 
+/// Map a PostgreSQL range/multirange subtype to its canonical element `Type`, preserving
+/// the concrete integer width (`I32` for `int4range`, `I64` for `int8range`, ...) so that
+/// e.g. `int4range` and `int8range` are not conflated.
+pub(crate) fn range_subtype_to_type<'a>(sub: &qusql_parse::RangeSubtype) -> Type<'a> {
+    use qusql_parse::RangeSubtype;
+    match sub {
+        RangeSubtype::Int4 => Type::I32,
+        RangeSubtype::Int8 => Type::I64,
+        RangeSubtype::Num => BaseType::Float.into(),
+        RangeSubtype::Ts => BaseType::DateTime.into(),
+        RangeSubtype::Tstz => BaseType::TimeStamp.into(),
+        RangeSubtype::Date => BaseType::Date.into(),
+    }
+}
+
 fn type_kind_from_parse<'a, S: SearchPath<'a>>(
     type_: qusql_parse::Type<'a>,
     unsigned: bool,
@@ -513,17 +528,9 @@ fn type_kind_from_parse<'a, S: SearchPath<'a>>(
         qusql_parse::Type::TsVector => BaseType::String.into(),
         qusql_parse::Type::Uuid => BaseType::Uuid.into(),
         qusql_parse::Type::Xml => BaseType::String.into(),
-        qusql_parse::Type::Range(sub) | qusql_parse::Type::MultiRange(sub) => {
-            use qusql_parse::RangeSubtype;
-            let elem = match sub {
-                RangeSubtype::Int4 => BaseType::Integer,
-                RangeSubtype::Int8 => BaseType::Integer,
-                RangeSubtype::Num => BaseType::Float,
-                RangeSubtype::Ts => BaseType::DateTime,
-                RangeSubtype::Tstz => BaseType::TimeStamp,
-                RangeSubtype::Date => BaseType::Date,
-            };
-            Type::Range(elem)
+        qusql_parse::Type::Range(sub) => Type::Range(Box::new(range_subtype_to_type(&sub))),
+        qusql_parse::Type::MultiRange(sub) => {
+            Type::MultiRange(Box::new(range_subtype_to_type(&sub)))
         }
         qusql_parse::Type::Point
         | qusql_parse::Type::Line

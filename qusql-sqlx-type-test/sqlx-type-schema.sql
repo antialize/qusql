@@ -8,7 +8,15 @@ CREATE TABLE IF NOT EXISTS type_test_items (
     score       integer     NOT NULL DEFAULT 0,
     active      boolean     NOT NULL DEFAULT true,
     ratio       float8      NOT NULL DEFAULT 0.0,
-    props       jsonb       NOT NULL DEFAULT '{}'
+    props       jsonb       NOT NULL DEFAULT '{}',
+    validity    daterange
 );
 
 CREATE SEQUENCE IF NOT EXISTS type_test_seq;
+
+CREATE TABLE IF NOT EXISTS partial_files (
+    id              uuid            PRIMARY KEY DEFAULT gen_random_uuid(),
+    uploaded_bytes  int8multirange  NOT NULL DEFAULT '{}',
+    last_modified   timestamptz     NOT NULL DEFAULT now()
+);
+

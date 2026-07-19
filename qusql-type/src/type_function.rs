@@ -72,6 +72,53 @@ fn typed_args<'a, 'b, 'c>(
     typed
 }
 
+/// Type a PostgreSQL range constructor function, e.g. `int4range(lower, upper [, bounds])`.
+/// Takes 2 or 3 arguments: the lower and upper bounds (of the range's element type), and
+/// an optional bounds-inclusivity string (`"()"`, `"(]"`, `"[)"`, or `"[]"`).
+fn range_constructor<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
+    args: &[Expression<'a>],
+    span: &Span,
+    flags: ExpressionFlags,
+    elem: Type<'a>,
+) -> FullType<'a> {
+    arg_cnt(typer, 2..3, args, span);
+    let expected = FullType::new(elem.clone(), false);
+    let mut arg_iter = args.iter();
+    for _ in 0..2 {
+        if let Some(arg) = arg_iter.next() {
+            let t = type_expression(typer, arg, flags.without_values(), elem.base());
+            typer.ensure_type(arg, &t, &expected);
+        }
+    }
+    if let Some(arg) = arg_iter.next() {
+        let t = type_expression(typer, arg, flags.without_values(), BaseType::String);
+        typer.ensure_base(arg, &t, BaseType::String);
+    }
+    for arg in arg_iter {
+        type_expression(typer, arg, flags.without_values(), BaseType::Any);
+    }
+    // The constructed range is never SQL NULL, even if a bound argument is NULL
+    // (a NULL bound means an unbounded/infinite side of the range).
+    FullType::new(Type::Range(Box::new(elem)), true)
+}
+
+/// Type a PostgreSQL multirange constructor function, e.g. `int4multirange(r1, r2, ...)`.
+/// Takes zero or more arguments, each of which must be a range of the given element type.
+fn multirange_constructor<'a, 'b>(
+    typer: &mut Typer<'a, 'b>,
+    args: &[Expression<'a>],
+    flags: ExpressionFlags,
+    elem: Type<'a>,
+) -> FullType<'a> {
+    let expected = FullType::new(Type::Range(Box::new(elem.clone())), false);
+    for arg in args {
+        let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
+        typer.ensure_type(arg, &t, &expected);
+    }
+    FullType::new(Type::MultiRange(Box::new(elem)), true)
+}
+
 pub(crate) fn type_function<'a, 'b>(
     typer: &mut Typer<'a, 'b>,
     func: &Function<'a>,
@@ -1326,15 +1373,15 @@ pub(crate) fn type_function<'a, 'b>(
             FullType::new(BaseType::String, false)
         }
         Function::LCase | Function::Lower => {
-            // PostgreSQL overloads lower(): string lowercase AND range lower-bound.
-            // For a range arg, return the element type; for string/any, return String.
+            // PostgreSQL overloads lower(): string lowercase AND range/multirange lower-bound.
+            // For a range/multirange arg, return the element type (nullable, since the
+            // bound may be NULL for an empty or unbounded range); for string/any, return String.
             arg_cnt(typer, 1..1, args, span);
             if let Some(arg) = args.first() {
                 let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
-                if let Type::Range(elem) = t.t {
-                    FullType::new(elem, false)
-                } else {
-                    FullType::new(BaseType::String, t.not_null)
+                match t.t {
+                    Type::Range(elem) | Type::MultiRange(elem) => FullType::new(*elem, false),
+                    _ => FullType::new(BaseType::String, t.not_null),
                 }
             } else {
                 FullType::invalid()
@@ -1457,13 +1504,13 @@ pub(crate) fn type_function<'a, 'b>(
             &[],
         ),
         Function::UCase | Function::Upper => {
-            // PostgreSQL overloads upper(): string uppercase AND range upper-bound.
+            // PostgreSQL overloads upper(): string uppercase AND range/multirange upper-bound.
             arg_cnt(typer, 1..1, args, span);
             if let Some(arg) = args.first() {
                 let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
-                match t.base() {
-                    BaseType::Any | BaseType::String => FullType::new(BaseType::String, t.not_null),
-                    _ => FullType::new(BaseType::Any, t.not_null),
+                match t.t {
+                    Type::Range(elem) | Type::MultiRange(elem) => FullType::new(*elem, false),
+                    _ => FullType::new(BaseType::String, t.not_null),
                 }
             } else {
                 FullType::invalid()
@@ -1760,7 +1807,20 @@ pub(crate) fn type_function<'a, 'b>(
             tf(BaseType::Float.into(), &[BaseType::Any], &[BaseType::Any])
         }
         Function::TsvectorToArray => tf(BaseType::Any.into(), &[BaseType::Any], &[]),
-        Function::Unnest => tf(BaseType::Any.into(), &[BaseType::Any], &[]),
+        Function::Unnest => {
+            // PostgreSQL overloads unnest(): array element AND multirange -> range.
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
+                match t.t {
+                    Type::Array(inner) => FullType::new(*inner, false),
+                    Type::MultiRange(elem) => FullType::new(Type::Range(elem), false),
+                    _ => FullType::new(BaseType::Any, false),
+                }
+            } else {
+                FullType::invalid()
+            }
+        }
         // Text search debug functions
         Function::TsDebug | Function::TsLexize | Function::TsParse | Function::TsTokenType
         | Function::TsStat => tf(BaseType::Any.into(), &[BaseType::Any], &[BaseType::Any]),
@@ -1808,6 +1868,94 @@ pub(crate) fn type_function<'a, 'b>(
             tf(BaseType::Integer.into(), &[BaseType::Any], &[BaseType::Any])
         }
         Function::ArrayPositions => tf(BaseType::Any.into(), &[BaseType::Any, BaseType::Any], &[]),
+        // PostgreSQL range/multirange functions
+        Function::IsEmpty
+        | Function::LowerInc
+        | Function::UpperInc
+        | Function::LowerInf
+        | Function::UpperInf => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
+                if matches!(t.t, Type::Range(_) | Type::MultiRange(_)) || t.base() == BaseType::Any {
+                    FullType::new(BaseType::Bool, t.not_null)
+                } else {
+                    typer.err(format!("Expected range type got {}", t.t), arg);
+                    FullType::invalid()
+                }
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::RangeMerge => match args {
+            [a] => {
+                let t = type_expression(typer, a, flags.without_values(), BaseType::Any);
+                match t.t {
+                    Type::MultiRange(elem) => FullType::new(Type::Range(elem), t.not_null),
+                    _ => {
+                        typer.err(format!("Expected multirange type got {}", t.t), a);
+                        FullType::invalid()
+                    }
+                }
+            }
+            [a, b] => {
+                let ta = type_expression(typer, a, flags.without_values(), BaseType::Any);
+                let tb = type_expression(typer, b, flags.without_values(), BaseType::Any);
+                if let Some(t) = typer.matched_type(&ta, &tb) {
+                    FullType::new(t, ta.not_null && tb.not_null)
+                } else {
+                    typer
+                        .err("Type error in range_merge", span)
+                        .frag(format!("Of type {}", ta.t), a)
+                        .frag(format!("Of type {}", tb.t), b);
+                    FullType::invalid()
+                }
+            }
+            _ => {
+                arg_cnt(typer, 1..2, args, span);
+                typed_args(typer, args, flags);
+                FullType::invalid()
+            }
+        },
+        Function::Multirange => {
+            arg_cnt(typer, 1..1, args, span);
+            if let Some(arg) = args.first() {
+                let t = type_expression(typer, arg, flags.without_values(), BaseType::Any);
+                match t.t {
+                    Type::Range(elem) => FullType::new(Type::MultiRange(elem), t.not_null),
+                    _ => {
+                        typer.err(format!("Expected range type got {}", t.t), arg);
+                        FullType::invalid()
+                    }
+                }
+            } else {
+                FullType::invalid()
+            }
+        }
+        Function::Int4Range => range_constructor(typer, args, span, flags, Type::I32),
+        Function::Int8Range => range_constructor(typer, args, span, flags, Type::I64),
+        Function::NumRange => range_constructor(typer, args, span, flags, BaseType::Float.into()),
+        Function::TsRange => {
+            range_constructor(typer, args, span, flags, BaseType::DateTime.into())
+        }
+        Function::TstzRange => {
+            range_constructor(typer, args, span, flags, BaseType::TimeStamp.into())
+        }
+        Function::DateRange => {
+            range_constructor(typer, args, span, flags, BaseType::Date.into())
+        }
+        Function::Int4Multirange => multirange_constructor(typer, args, flags, Type::I32),
+        Function::Int8Multirange => multirange_constructor(typer, args, flags, Type::I64),
+        Function::NumMultirange => multirange_constructor(typer, args, flags, BaseType::Float.into()),
+        Function::TsMultirange => {
+            multirange_constructor(typer, args, flags, BaseType::DateTime.into())
+        }
+        Function::TstzMultirange => {
+            multirange_constructor(typer, args, flags, BaseType::TimeStamp.into())
+        }
+        Function::DateMultirange => {
+            multirange_constructor(typer, args, flags, BaseType::Date.into())
+        }
         // PostgreSQL system information functions (9.27)
         Function::CurrentDatabase => {
             arg_cnt(typer, 0..0, args, span);
