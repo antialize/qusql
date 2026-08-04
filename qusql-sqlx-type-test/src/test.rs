@@ -316,3 +316,28 @@ async fn test_int8multirange_update_returning_unnest(pool: PgPool) {
     let range: qusql_sqlx_type::PgRange<i64> = row.range.expect("unnest() row must be present");
     assert_eq!(range, qusql_sqlx_type::PgRange::from(0..4_294_967_296i64));
 }
+
+/// Reported real-world usage: `INSERT ... SELECT * FROM UNNEST($1::bigint[], $2::bigint[],
+/// $3::bytea[]) ON CONFLICT DO NOTHING RETURNING ...` bound with a `Vec<&[u8]>` (borrowed
+/// byte slices) for the `bytea[]` argument, rather than an owned `Vec<Vec<u8>>`.
+#[sqlx::test]
+async fn test_insert_unnest_bytea_array_borrowed_slices(pool: PgPool) {
+    setup(&pool).await;
+    let ins_a: Vec<i64> = vec![1, 1];
+    let ins_b: Vec<i64> = vec![10, 20];
+    let ins_data: Vec<&[u8]> = vec![b"one", b"two"];
+
+    let rows = query!(
+        "INSERT INTO bytea_array_items (a, b, data)
+        SELECT * FROM UNNEST($1::bigint[], $2::bigint[], $3::bytea[])
+        ON CONFLICT DO NOTHING
+        RETURNING a, b",
+        &ins_a,
+        &ins_b,
+        &ins_data
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(rows.len(), 2);
+}

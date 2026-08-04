@@ -2276,6 +2276,65 @@ mod tests {
         }
     }
 
+    /// `INSERT ... SELECT * FROM UNNEST(...)` where one of the unnested arrays is `bytea[]`.
+    /// Reported as a real-world usage that should type-check.
+    #[test]
+    fn postgresql_insert_unnest_bytea_array() {
+        let schema_src = "
+        CREATE TABLE t1 (
+            a bigint NOT NULL,
+            b bigint NOT NULL,
+            payload bytea NOT NULL,
+            PRIMARY KEY (a, b)
+        );
+        ";
+
+        let opts = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+        let mut issues = Issues::new(schema_src);
+        let schema = parse_schemas(schema_src, &mut issues, &opts);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        let src = "INSERT INTO t1 (a, b, payload)
+                    SELECT * FROM UNNEST($1::bigint[], $2::bigint[], $3::bytea[])
+                    ON CONFLICT DO NOTHING
+                    RETURNING a, b";
+        let mut issues = Issues::new(src);
+        let q = type_statement(&schema, src, &mut issues, &opts);
+        check_no_errors("query", src, issues.get(), &mut errors);
+        if let StatementType::Insert {
+            arguments,
+            returning,
+            ..
+        } = q
+        {
+            match returning {
+                Some(columns) if columns.len() == 2 => {}
+                Some(columns) => {
+                    println!("query: expected 2 returning columns, got {}", columns.len());
+                    errors += 1;
+                }
+                None => {
+                    println!("query: expected returning columns, got none");
+                    errors += 1;
+                }
+            }
+            if arguments.len() != 3 {
+                println!("query: expected 3 arguments, got {}", arguments.len());
+                errors += 1;
+            }
+        } else {
+            println!("query: expected Insert");
+            errors += 1;
+        }
+
+        if errors != 0 {
+            panic!("{errors} errors in postgresql_insert_unnest_bytea_array test");
+        }
+    }
+
     /// A writable CTE that unions a range into an `int8multirange` column and then
     /// `unnest()`s the result. Reported as a real-world usage that should type-check.
     #[test]

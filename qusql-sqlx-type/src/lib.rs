@@ -170,6 +170,7 @@ arg_io!(Any, Vec<i32>);
 arg_io!(Any, Vec<i64>);
 arg_io!(Any, Vec<String>);
 arg_io!(Any, Vec<Vec<u8>>);
+arg_io!(Any, Vec<&[u8]>);
 arg_io!(Any, Vec<bool>);
 arg_io!(Any, Vec<f64>);
 
