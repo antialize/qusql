@@ -2171,6 +2171,53 @@ mod tests {
         }
     }
 
+    /// A row-constructor `IN` a subquery that yields matching columns via
+    /// `UNNEST($1::bigint[], $2::bigint[])`. Reported as a real-world usage that
+    /// should type-check.
+    #[test]
+    fn postgresql_row_in_unnest_subquery() {
+        let schema_src = "
+        CREATE TABLE t1 (
+            id bigint NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+            a bigint NOT NULL,
+            b bigint NOT NULL
+        );
+        ";
+
+        let opts = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+        let mut issues = Issues::new(schema_src);
+        let schema = parse_schemas(schema_src, &mut issues, &opts);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        let src = "SELECT id, a, b FROM t1
+                WHERE (a, b) IN (
+                    SELECT * FROM UNNEST($1::bigint[], $2::bigint[])
+                )";
+        let mut issues = Issues::new(src);
+        let q = type_statement(&schema, src, &mut issues, &opts);
+        check_no_errors("query", src, issues.get(), &mut errors);
+        if let StatementType::Select { columns, arguments } = q {
+            if columns.len() != 3 {
+                println!("query: expected 3 columns, got {}", columns.len());
+                errors += 1;
+            }
+            if arguments.len() != 2 {
+                println!("query: expected 2 arguments, got {}", arguments.len());
+                errors += 1;
+            }
+        } else {
+            println!("query: expected Select");
+            errors += 1;
+        }
+
+        if errors != 0 {
+            panic!("{errors} errors in postgresql_row_in_unnest_subquery test");
+        }
+    }
+
     /// A writable CTE that unions a range into an `int8multirange` column and then
     /// `unnest()`s the result. Reported as a real-world usage that should type-check.
     #[test]
