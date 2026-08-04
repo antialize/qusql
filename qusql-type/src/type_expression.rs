@@ -818,12 +818,28 @@ pub(crate) fn type_expression<'a>(
             _ => {
                 // Array operand: ANY($1) or ANY($1::type[])
                 let arr_type = type_expression(typer, &e.operand, flags, BaseType::Any);
-                let inner = if let Type::Array(inner) = arr_type.t {
-                    *inner
-                } else {
-                    Type::Base(BaseType::Any)
-                };
-                FullType::new(inner, false)
+                match arr_type.t {
+                    Type::Array(inner) => FullType::new(*inner, false),
+                    Type::Args(base, args) => {
+                        // Bare argument with no cast (e.g. `= ANY($1)`): the surrounding
+                        // comparison's context tells us the element type, so constrain
+                        // the argument to an array of that type instead of a scalar.
+                        let elem = if context != BaseType::Any {
+                            context
+                        } else {
+                            base
+                        };
+                        for (idx, arg_type, _) in args.iter() {
+                            typer.constrain_arg(
+                                *idx,
+                                arg_type,
+                                &FullType::new(Type::Array(Box::new(Type::Base(elem))), false),
+                            );
+                        }
+                        FullType::new(elem, false)
+                    }
+                    _ => FullType::new(BaseType::Any, false),
+                }
             }
         },
         Expression::FieldAccess(e) => {

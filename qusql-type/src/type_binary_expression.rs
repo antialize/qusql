@@ -160,7 +160,22 @@ pub(crate) fn type_binary_expression<'a>(
     };
 
     let lhs_type = type_expression(typer, lhs, flags, context);
-    let rhs_type = type_expression(typer, rhs, flags, context);
+    // For comparisons, thread the lhs's resolved type down as context for the rhs so a
+    // bare, uncast `ANY($1)` can infer $1 is an array of the lhs's element type.
+    let rhs_context = match op {
+        BinaryOperator::Eq(_)
+        | BinaryOperator::Neq(_)
+        | BinaryOperator::GtEq(_)
+        | BinaryOperator::Gt(_)
+        | BinaryOperator::LtEq(_)
+        | BinaryOperator::Lt(_)
+            if lhs_type.base() != BaseType::Any =>
+        {
+            lhs_type.base()
+        }
+        _ => context,
+    };
+    let rhs_type = type_expression(typer, rhs, flags, rhs_context);
     match op {
         BinaryOperator::Or(_) => {
             typer.ensure_base(lhs, &lhs_type, BaseType::Bool);

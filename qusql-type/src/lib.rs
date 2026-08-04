@@ -2218,6 +2218,64 @@ mod tests {
         }
     }
 
+    /// `col = ANY($1)` with a plain, uncast argument (no `$1::bigint[]`) should infer the
+    /// argument as an array matching the column type. Reported as a real-world usage that
+    /// should type-check with exactly one (array-typed) argument.
+    #[test]
+    fn postgresql_eq_any_uncast_arg() {
+        let schema_src = "
+        CREATE TABLE t1 (
+            a_id bigint NOT NULL,
+            b_id bigint NOT NULL
+        );
+        CREATE TABLE t2 (
+            id bigint NOT NULL PRIMARY KEY,
+            x bigint NOT NULL
+        );
+        ";
+
+        let opts = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+        let mut issues = Issues::new(schema_src);
+        let schema = parse_schemas(schema_src, &mut issues, &opts);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        let src = "SELECT a_id, b_id, x FROM t1, t2 WHERE a_id = ANY($1) AND b_id = t2.id";
+        let mut issues = Issues::new(src);
+        let q = type_statement(&schema, src, &mut issues, &opts);
+        check_no_errors("query", src, issues.get(), &mut errors);
+        if let StatementType::Select { columns, arguments } = q {
+            if columns.len() != 3 {
+                println!("query: expected 3 columns, got {}", columns.len());
+                errors += 1;
+            }
+            match arguments.first() {
+                Some((_, t)) if t.t == Type::Array(Box::new(BaseType::Integer.into())) => {}
+                Some((_, t)) => {
+                    println!("query: expected argument 0 of type integer[] got {}", t.t);
+                    errors += 1;
+                }
+                None => {
+                    println!("query: expected an argument, got none");
+                    errors += 1;
+                }
+            }
+            if arguments.len() != 1 {
+                println!("query: expected 1 argument, got {}", arguments.len());
+                errors += 1;
+            }
+        } else {
+            println!("query: expected Select");
+            errors += 1;
+        }
+
+        if errors != 0 {
+            panic!("{errors} errors in postgresql_eq_any_uncast_arg test");
+        }
+    }
+
     /// A writable CTE that unions a range into an `int8multirange` column and then
     /// `unnest()`s the result. Reported as a real-world usage that should type-check.
     #[test]
