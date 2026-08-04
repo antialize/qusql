@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::{boxed::Box, format, string::ToString, sync::Arc, vec};
+use alloc::{boxed::Box, format, string::ToString, sync::Arc, vec, vec::Vec};
 use qusql_parse::{Expression, Identifier, Spanned, UnaryOperator, Variable, issue_todo};
 
 use crate::{
@@ -320,6 +320,78 @@ pub(crate) fn type_expression<'a>(
             } else {
                 flags
             };
+
+            if let Expression::Row(row) = &e.lhs {
+                // Row constructor lhs: `(a, b, ...) IN (subquery yielding matching columns)`
+                // or `(a, b, ...) IN ((c, d, ...), ...)`. Compare element-wise by position.
+                let mut lhs_types: Vec<FullType> = row
+                    .elements
+                    .iter()
+                    .map(|el| type_expression(typer, el, f2, BaseType::Any))
+                    .collect();
+                let mut not_null = lhs_types.iter().all(|t| t.not_null);
+                // Hack to allow null arguments on the right hand side of an in expression
+                // where the lhs is not null
+                for t in &mut lhs_types {
+                    t.not_null = false;
+                }
+                for rhs in &e.rhs {
+                    let rhs_types: Vec<FullType> = match rhs {
+                        Expression::Subquery(q) => {
+                            let rhs_type = type_union_select(typer, &q.expression, false);
+                            if rhs_type.columns.len() != lhs_types.len() {
+                                typer.err(
+                                    format!(
+                                        "Row of {} columns compared to subquery yielding {} columns",
+                                        lhs_types.len(),
+                                        rhs_type.columns.len()
+                                    ),
+                                    &q.expression,
+                                );
+                            }
+                            rhs_type.columns.into_iter().map(|c| c.type_).collect()
+                        }
+                        Expression::Row(rhs_row) => {
+                            if rhs_row.elements.len() != lhs_types.len() {
+                                typer.err(
+                                    format!(
+                                        "Row of {} columns compared to row of {} columns",
+                                        lhs_types.len(),
+                                        rhs_row.elements.len()
+                                    ),
+                                    rhs,
+                                );
+                            }
+                            rhs_row
+                                .elements
+                                .iter()
+                                .map(|el| {
+                                    type_expression(
+                                        typer,
+                                        el,
+                                        flags.without_values(),
+                                        BaseType::Any,
+                                    )
+                                })
+                                .collect()
+                        }
+                        _ => {
+                            issue_todo!(typer.issues, rhs);
+                            Vec::new()
+                        }
+                    };
+                    for (lhs_t, rhs_t) in lhs_types.iter().zip(rhs_types.iter()) {
+                        not_null &= rhs_t.not_null;
+                        if typer.matched_type(lhs_t, rhs_t).is_none() {
+                            typer
+                                .err("Incompatible types", &e.in_span)
+                                .frag(lhs_t.t.to_string(), &e.lhs)
+                                .frag(rhs_t.to_string(), rhs);
+                        }
+                    }
+                }
+                return FullType::new(BaseType::Bool, not_null);
+            }
 
             let mut lhs_type = type_expression(typer, &e.lhs, f2, BaseType::Any);
             let mut not_null = lhs_type.not_null;
@@ -746,12 +818,28 @@ pub(crate) fn type_expression<'a>(
             _ => {
                 // Array operand: ANY($1) or ANY($1::type[])
                 let arr_type = type_expression(typer, &e.operand, flags, BaseType::Any);
-                let inner = if let Type::Array(inner) = arr_type.t {
-                    *inner
-                } else {
-                    Type::Base(BaseType::Any)
-                };
-                FullType::new(inner, false)
+                match arr_type.t {
+                    Type::Array(inner) => FullType::new(*inner, false),
+                    Type::Args(base, args) => {
+                        // Bare argument with no cast (e.g. `= ANY($1)`): the surrounding
+                        // comparison's context tells us the element type, so constrain
+                        // the argument to an array of that type instead of a scalar.
+                        let elem = if context != BaseType::Any {
+                            context
+                        } else {
+                            base
+                        };
+                        for (idx, arg_type, _) in args.iter() {
+                            typer.constrain_arg(
+                                *idx,
+                                arg_type,
+                                &FullType::new(Type::Array(Box::new(Type::Base(elem))), false),
+                            );
+                        }
+                        FullType::new(elem, false)
+                    }
+                    _ => FullType::new(BaseType::Any, false),
+                }
             }
         },
         Expression::FieldAccess(e) => {

@@ -20,3 +20,10 @@ CREATE TABLE IF NOT EXISTS partial_files (
     last_modified   timestamptz     NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS bytea_array_items (
+    a       bigint  NOT NULL,
+    b       bigint  NOT NULL,
+    data    bytea   NOT NULL,
+    PRIMARY KEY (a, b)
+);
+

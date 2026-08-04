@@ -2171,6 +2171,170 @@ mod tests {
         }
     }
 
+    /// A row-constructor `IN` a subquery that yields matching columns via
+    /// `UNNEST($1::bigint[], $2::bigint[])`. Reported as a real-world usage that
+    /// should type-check.
+    #[test]
+    fn postgresql_row_in_unnest_subquery() {
+        let schema_src = "
+        CREATE TABLE t1 (
+            id bigint NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+            a bigint NOT NULL,
+            b bigint NOT NULL
+        );
+        ";
+
+        let opts = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+        let mut issues = Issues::new(schema_src);
+        let schema = parse_schemas(schema_src, &mut issues, &opts);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        let src = "SELECT id, a, b FROM t1
+                WHERE (a, b) IN (
+                    SELECT * FROM UNNEST($1::bigint[], $2::bigint[])
+                )";
+        let mut issues = Issues::new(src);
+        let q = type_statement(&schema, src, &mut issues, &opts);
+        check_no_errors("query", src, issues.get(), &mut errors);
+        if let StatementType::Select { columns, arguments } = q {
+            if columns.len() != 3 {
+                println!("query: expected 3 columns, got {}", columns.len());
+                errors += 1;
+            }
+            if arguments.len() != 2 {
+                println!("query: expected 2 arguments, got {}", arguments.len());
+                errors += 1;
+            }
+        } else {
+            println!("query: expected Select");
+            errors += 1;
+        }
+
+        if errors != 0 {
+            panic!("{errors} errors in postgresql_row_in_unnest_subquery test");
+        }
+    }
+
+    /// `col = ANY($1)` with a plain, uncast argument (no `$1::bigint[]`) should infer the
+    /// argument as an array matching the column type. Reported as a real-world usage that
+    /// should type-check with exactly one (array-typed) argument.
+    #[test]
+    fn postgresql_eq_any_uncast_arg() {
+        let schema_src = "
+        CREATE TABLE t1 (
+            a_id bigint NOT NULL,
+            b_id bigint NOT NULL
+        );
+        CREATE TABLE t2 (
+            id bigint NOT NULL PRIMARY KEY,
+            x bigint NOT NULL
+        );
+        ";
+
+        let opts = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+        let mut issues = Issues::new(schema_src);
+        let schema = parse_schemas(schema_src, &mut issues, &opts);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        let src = "SELECT a_id, b_id, x FROM t1, t2 WHERE a_id = ANY($1) AND b_id = t2.id";
+        let mut issues = Issues::new(src);
+        let q = type_statement(&schema, src, &mut issues, &opts);
+        check_no_errors("query", src, issues.get(), &mut errors);
+        if let StatementType::Select { columns, arguments } = q {
+            if columns.len() != 3 {
+                println!("query: expected 3 columns, got {}", columns.len());
+                errors += 1;
+            }
+            match arguments.first() {
+                Some((_, t)) if t.t == Type::Array(Box::new(BaseType::Integer.into())) => {}
+                Some((_, t)) => {
+                    println!("query: expected argument 0 of type integer[] got {}", t.t);
+                    errors += 1;
+                }
+                None => {
+                    println!("query: expected an argument, got none");
+                    errors += 1;
+                }
+            }
+            if arguments.len() != 1 {
+                println!("query: expected 1 argument, got {}", arguments.len());
+                errors += 1;
+            }
+        } else {
+            println!("query: expected Select");
+            errors += 1;
+        }
+
+        if errors != 0 {
+            panic!("{errors} errors in postgresql_eq_any_uncast_arg test");
+        }
+    }
+
+    /// `INSERT ... SELECT * FROM UNNEST(...)` where one of the unnested arrays is `bytea[]`.
+    /// Reported as a real-world usage that should type-check.
+    #[test]
+    fn postgresql_insert_unnest_bytea_array() {
+        let schema_src = "
+        CREATE TABLE t1 (
+            a bigint NOT NULL,
+            b bigint NOT NULL,
+            payload bytea NOT NULL,
+            PRIMARY KEY (a, b)
+        );
+        ";
+
+        let opts = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+        let mut issues = Issues::new(schema_src);
+        let schema = parse_schemas(schema_src, &mut issues, &opts);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        let src = "INSERT INTO t1 (a, b, payload)
+                    SELECT * FROM UNNEST($1::bigint[], $2::bigint[], $3::bytea[])
+                    ON CONFLICT DO NOTHING
+                    RETURNING a, b";
+        let mut issues = Issues::new(src);
+        let q = type_statement(&schema, src, &mut issues, &opts);
+        check_no_errors("query", src, issues.get(), &mut errors);
+        if let StatementType::Insert {
+            arguments,
+            returning,
+            ..
+        } = q
+        {
+            match returning {
+                Some(columns) if columns.len() == 2 => {}
+                Some(columns) => {
+                    println!("query: expected 2 returning columns, got {}", columns.len());
+                    errors += 1;
+                }
+                None => {
+                    println!("query: expected returning columns, got none");
+                    errors += 1;
+                }
+            }
+            if arguments.len() != 3 {
+                println!("query: expected 3 arguments, got {}", arguments.len());
+                errors += 1;
+            }
+        } else {
+            println!("query: expected Insert");
+            errors += 1;
+        }
+
+        if errors != 0 {
+            panic!("{errors} errors in postgresql_insert_unnest_bytea_array test");
+        }
+    }
+
     /// A writable CTE that unions a range into an `int8multirange` column and then
     /// `unnest()`s the result. Reported as a real-world usage that should type-check.
     #[test]
