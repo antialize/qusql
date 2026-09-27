@@ -1422,6 +1422,64 @@ mod tests {
         } else {
             panic!("Expected quoted identifier with escaped backtick");
         }
+
+        // Make sure double-quoting works as a string in this dialect
+        if let Token::String(value, StringType::DoubleQuoted) = lex_single("\"my_table\"", &dialect)
+        {
+            assert_eq!(value, "my_table");
+        } else {
+            panic!("Expected double-quoted string");
+        }
+    }
+
+    /// Tests double-quoted identifiers in postgresql dialect.
+    #[test]
+    fn test_double_quoted_identifiers() {
+        for dialect in [SQLDialect::PostgreSQL, SQLDialect::PostGIS] {
+            // Unquoted identifiers
+            if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("my_table", &dialect) {
+                assert_eq!(name, "my_table");
+            } else {
+                panic!("Expected unquoted identifier");
+            }
+
+            if let Token::Ident(name, Keyword::NOT_A_KEYWORD) = lex_single("column123", &dialect) {
+                assert_eq!(name, "column123");
+            } else {
+                panic!("Expected unquoted identifier");
+            }
+
+            // Double-quoted identifier
+            if let Token::Ident(name, Keyword::DOUBLE_QUOTED_IDENTIFIER) =
+                lex_single("\"ColumnOneTwoThree\"", &dialect)
+            {
+                assert_eq!(name, "ColumnOneTwoThree");
+            } else {
+                panic!("Expected double-quoted identifier");
+            }
+
+            if let Token::Ident(name, Keyword::DOUBLE_QUOTED_IDENTIFIER) =
+                lex_single("\"select\"", &dialect)
+            {
+                assert_eq!(name, "select");
+            } else {
+                panic!("Expected double-quoted identifier");
+            }
+
+            if let Token::Ident(name, Keyword::DOUBLE_QUOTED_IDENTIFIER) =
+                lex_single("\"a\"\"b\"", &dialect)
+            {
+                assert_eq!(name, "a\"\"b");
+            } else {
+                panic!("Expected double-quoted identifier");
+            }
+
+            assert_eq!(
+                lex_single("\"unterminated", &dialect),
+                Token::Invalid,
+                "Expected invalid unterminated double-quoted identifier"
+            );
+        }
     }
 
     /// Tests that numbers are correctly recognized in various formats, including integers, floats, and scientific notation.
