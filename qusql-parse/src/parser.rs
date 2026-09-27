@@ -384,6 +384,11 @@ impl<'a, 'b> Parser<'a, 'b> {
         span: Span,
     ) -> Result<Identifier<'a>, ParseError> {
         match &token {
+            Token::Ident(v, Keyword::DOUBLE_QUOTED_IDENTIFIER)
+                if self.options.dialect.is_postgresql() =>
+            {
+                Ok(Identifier::new_case_sensitive(v, span))
+            }
             Token::Ident(v, kw) => {
                 let v = *v;
                 if kw.restricted(self.reserved()) {
@@ -413,6 +418,11 @@ impl<'a, 'b> Parser<'a, 'b> {
         restricted: Restrict,
     ) -> Result<Identifier<'a>, ParseError> {
         match &self.token {
+            Token::Ident(v, Keyword::DOUBLE_QUOTED_IDENTIFIER)
+                if self.options.dialect.is_postgresql() =>
+            {
+                Ok(Identifier::new_case_sensitive(v, self.consume()))
+            }
             Token::Ident(v, kw) => {
                 let v = *v;
                 if kw.restricted(restricted) {
@@ -435,9 +445,6 @@ impl<'a, 'b> Parser<'a, 'b> {
                     );
                 }
                 Ok(Identifier::new(v, self.consume()))
-            }
-            Token::String(v, StringType::DoubleQuoted) if self.options.dialect.is_postgresql() => {
-                Ok(Identifier::new_case_sensitive(v, self.consume()))
             }
             _ => self.expected_failure("identifier"),
         }

@@ -2631,7 +2631,10 @@ pub(crate) fn parse_expression_restricted<'a>(
                                         _ => "",
                                     },
                                     span: fn_span.clone(),
-                                    case_sensitive: false,
+                                    case_sensitive: matches!(
+                                        fn_tok,
+                                        Token::Ident(_, Keyword::DOUBLE_QUOTED_IDENTIFIER)
+                                    ),
                                 };
                                 all_idents.push(fn_ident);
                                 // function_span covers from first qualifier to function name

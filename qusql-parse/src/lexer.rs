@@ -1016,6 +1016,12 @@ impl<'a> Lexer<'a> {
                                 self.chars.next();
                             }
                             _ => {
+                                if self.dialect.is_postgresql() {
+                                    break Token::Ident(
+                                        self.s(start + 1..i),
+                                        Keyword::DOUBLE_QUOTED_IDENTIFIER,
+                                    );
+                                }
                                 break Token::String(
                                     self.s(start + 1..i),
                                     StringType::DoubleQuoted,
@@ -2262,12 +2268,12 @@ mod tests {
         }
     }
 
-    /// Tests dialect-specific backslash behaviour inside single- and double-quoted string literals.
+    /// Tests dialect-specific backslash behaviour inside single quotes and double quotes.
     ///
     /// In MariaDB, `\` escapes the next character, so `\'` keeps the string open.
-    /// In PostgreSQL, `\` is a plain literal character inside `'...'` / `"..."` (only
-    /// `E'...'` strings support backslash escapes), so `'\''` closes the string right
-    /// after the backslash.
+    /// In PostgreSQL, `\` is a plain literal character inside `'...'` (strings) / `"..."` (quoted
+    /// identifiers) (only `E'...'` strings support backslash escapes), so `'\''` closes the string
+    /// right after the backslash.
     #[test]
     fn test_backslash_string_escaping() {
         let pg = SQLDialect::PostgreSQL;
@@ -2334,18 +2340,18 @@ mod tests {
             panic!("Expected MariaDB single-quoted string '\\n'");
         }
 
-        // ── double-quoted strings ────────────────────────────────────────────
+        // ── double-quoted text ────────────────────────────────────────────
 
         // r#""\""# is the 3-char SQL text  "  \  "
-        // PostgreSQL: \ is literal → closing quote ends the string → content = "\"
-        if let Token::String(value, StringType::DoubleQuoted) = lex_single(r#""\""#, &pg) {
+        // PostgreSQL: \ is literal → closing quote ends the quoted identifier → content = "\"
+        if let Token::Ident(value, Keyword::DOUBLE_QUOTED_IDENTIFIER) = lex_single(r#""\""#, &pg) {
             assert_eq!(
                 value, r"\",
-                "PG: backslash should be literal in double-quoted string"
+                "PG: backslash should be literal in double-quoted identifier"
             );
         } else {
             panic!(
-                "Expected PG double-quoted string containing backslash, got {:?}",
+                "Expected PG double-quoted identifier containing backslash, got {:?}",
                 lex_single(r#""\""#, &pg)
             );
         }
