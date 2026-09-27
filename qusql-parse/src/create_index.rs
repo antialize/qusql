@@ -270,12 +270,27 @@ pub(crate) fn parse_create_index<'a>(
             None
         };
 
+        // Parse optional NULLS FIRST | NULLS LAST
+        let nulls_first_last = if let Some(nulls_span) = parser.skip_keyword(Keyword::NULLS) {
+            if let Some(first_span) = parser.skip_keyword(Keyword::FIRST) {
+                Some((true, nulls_span.join_span(&first_span)))
+            } else if let Some(last_span) = parser.skip_keyword(Keyword::LAST) {
+                Some((false, nulls_span.join_span(&last_span)))
+            } else {
+                return parser.err_here("Expected FIRST or LAST after NULLS");
+            }
+        } else {
+            None
+        };
+        parser.postgres_only(&nulls_first_last);
+
         column_names.push(IndexCol {
             expr,
             size,
             opclass,
             asc,
             desc,
+            nulls_first_last,
         });
 
         if parser.skip_token(Token::Comma).is_none() {
