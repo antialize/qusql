@@ -1,5 +1,7 @@
 import re
-from typing import Any, Iterable, Iterator, Optional, Protocol, TypeVar, cast, List
+from collections.abc import Iterable, Iterator
+from typing import Any, Protocol, TypeVar, cast
+
 import MySQLdb  # type: ignore[import-untyped]
 import MySQLdb.cursors  # type: ignore[import-untyped]
 
@@ -10,16 +12,16 @@ T = TypeVar("T")
 class SelectResult(Protocol[T]):
     rowcount: int
 
-    def fetchone(self) -> Optional[T]:
+    def fetchone(self) -> T | None:
         """
         Fetches a single row from the cursor. None indicates that
         no more rows are available.
         """
 
-    def fetchall(self) -> List[T]:
+    def fetchall(self) -> list[T]:
         """Fetchs all available rows from the cursor."""
 
-    def fetchmany(self, size: Optional[int] = None) -> List[T]:
+    def fetchmany(self, size: int | None = None) -> list[T]:
         """
         Fetch up to size rows from the cursor. Result set may be smaller
         than size. If size is not defined, cursor.arraysize is used.
@@ -39,7 +41,7 @@ class InsertWithLastRowIdResult:
 
 class InsertWithOptLastRowIdResult:
     rowcount: int
-    lastrowid: Optional[int]
+    lastrowid: int | None
 
 
 class UntypedResult:
@@ -48,18 +50,18 @@ class UntypedResult:
     """
 
     rowcount: int
-    lastrowid: Optional[int]
+    lastrowid: int | None
 
-    def fetchone(self) -> Optional[Any]:
+    def fetchone(self) -> Any | None:
         """
         Fetches a single row from the cursor. None indicates that
         no more rows are available.
         """
 
-    def fetchall(self) -> List[Any]:
+    def fetchall(self) -> list[Any]:
         """Fetchs all available rows from the cursor."""
 
-    def fetchmany(self, size: Optional[int] = None) -> List[Any]:
+    def fetchmany(self, size: int | None = None) -> list[Any]:
         """
         Fetch up to size rows from the cursor. Result set may be smaller
         than size. If size is not defined, cursor.arraysize is used.
@@ -91,7 +93,7 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
         c.execute(sql, args)
     else:
         arg_iter = iter(args)
-        flatargs: List[Any] = []
+        flatargs: list[Any] = []
 
         def replace_arg(mo: re.Match[str]) -> str:
             # Consume scalar args into flatargs until we reach the list arg
@@ -106,13 +108,13 @@ def execute(c: CursorType, sql: str, *args: Any) -> UntypedResult:
                         return "null"
                     return ", ".join(["%s"] * len(a))
                 flatargs.append(a)
-            raise Exception("No list argument found for _LIST_")
+            raise RuntimeError("No list argument found for _LIST_")
 
         sql = re.sub("_LIST_", replace_arg, sql)
         # Consume any remaining scalar args that follow the last _LIST_.
         for a in arg_iter:
             if isinstance(a, list | tuple):
-                raise Exception("Number of _LIST_ arguments do not match")
+                raise TypeError("Number of _LIST_ arguments do not match")
             flatargs.append(a)
         c.execute(sql, flatargs)
     return cast(UntypedResult, c)

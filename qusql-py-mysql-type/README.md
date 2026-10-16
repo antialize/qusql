@@ -52,14 +52,17 @@ id = execute(
     connection,
     "INSERT INTO `t1` (`cbool`, `cu8`, `cu16`, `cu32`, `cu64`, `ctext`)"
     "VALUES (%s, %s, %s, %s, %s, %s)",
-    True, 8, 1243, 42, 42, "Hello world"
+    True,
+    8,
+    1243,
+    42,
+    42,
+    "Hello world",
 ).lastrowid
 
 
 (cu16, ctext, ci32) = execute(
-    connection,
-    "SELECT `cu16`, `ctext`, `ci32` FROM `t1` WHERE `id`=%s",
-    id
+    connection, "SELECT `cu16`, `ctext`, `ci32` FROM `t1` WHERE `id`=%s", id
 ).fetchone()
 
 assert cu16 == 1243

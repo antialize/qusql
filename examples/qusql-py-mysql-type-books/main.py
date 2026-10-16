@@ -17,10 +17,10 @@ Run:
 
 import datetime
 import os
+from typing import cast
 
 import MySQLdb  # type: ignore[import-untyped]
 import MySQLdb.cursors  # type: ignore[import-untyped]
-from typing import cast
 from qusql_mysql_type import execute
 
 

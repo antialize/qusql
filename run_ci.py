@@ -29,9 +29,9 @@ WORKFLOW_FILE = ".github/workflows/rust.yml"
 _running_containers: list[str] = []
 
 
-def _cleanup_and_exit(signum: int, frame: Any) -> None:  # noqa: ARG001
+def _cleanup_and_exit(signum: int, frame: Any) -> None:
     print("\n[interrupted] Stopping containers...", flush=True)
-    for name in list(_running_containers):
+    for name in _running_containers:
         _stop_container(name)
     sys.exit(130)
 
@@ -57,12 +57,12 @@ def make_venv(tmpdir: str) -> str:
 
 
 def run_step(cmd: str, env: dict[str, str]) -> bool:
-    result = subprocess.run(["bash", "-e", "-c", cmd], env=env)
+    result = subprocess.run(["bash", "-e", "-c", cmd], env=env, check=False)
     return result.returncode == 0
 
 
 def _stop_container(name: str) -> None:
-    subprocess.run(["podman", "rm", "-f", name], capture_output=True)
+    subprocess.run(["podman", "rm", "-f", name], capture_output=True, check=False)
     if name in _running_containers:
         _running_containers.remove(name)
 
@@ -70,7 +70,9 @@ def _stop_container(name: str) -> None:
 def start_service(job_name: str, svc_name: str, svc: dict[str, Any]) -> bool:
     container_name = f"run_ci_{job_name}_{svc_name}"
     # Remove any pre-existing container with this name
-    subprocess.run(["podman", "rm", "-f", container_name], capture_output=True)
+    subprocess.run(
+        ["podman", "rm", "-f", container_name], capture_output=True, check=False
+    )
 
     args: list[str] = ["podman", "run", "-d", "--name", container_name]
 
@@ -97,7 +99,7 @@ def start_service(job_name: str, svc_name: str, svc: dict[str, Any]) -> bool:
     args.append(svc["image"])
 
     print(f"    podman run {' '.join(args[4:])}", flush=True)
-    result = subprocess.run(args, capture_output=True, text=True)
+    result = subprocess.run(args, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         print(f"    ERROR: {result.stderr.strip()}", flush=True)
         return False
@@ -128,6 +130,7 @@ def wait_healthy(
             r = subprocess.run(
                 ["podman", "exec", container_name, "bash", "-c", health_cmd],
                 capture_output=True,
+                check=False,
             )
             if r.returncode == 0:
                 return True
@@ -143,6 +146,7 @@ def wait_healthy(
                 ],
                 capture_output=True,
                 text=True,
+                check=False,
             )
             if r.stdout.strip() == "true":
                 return True

@@ -1,0 +1,12 @@
+# Ruff configuration.
+# The selected rules stay at ruff's defaults; this file only relaxes rules
+# where a strict reading conflicts with intentional test-harness style.
+[lint.per-file-ignores]
+# Test harnesses deliberately catch broad exceptions so that a failing
+# query/test is reported instead of crashing the runner.
+"parse-test/*.py" = ["BLE001"]
+"type-test/*.py" = ["BLE001"]
+"qusql-py-mysql-type-test/*.py" = ["BLE001"]
+# The mypy plugin must never crash mypy: every hook catches broad exceptions
+# and reports them as type-check errors/notes via api.fail/api.note.
+"qusql-py-mysql-type-plugin/**/*.py" = ["BLE001"]
