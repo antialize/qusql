@@ -61,6 +61,7 @@ use alloc::vec::Vec;
 use lexer::Token;
 use parser::Parser;
 mod alter_role;
+mod alter_sequence;
 mod alter_table;
 mod alter_type;
 mod byte_to_char;
@@ -104,6 +105,7 @@ mod visit;
 mod with_query;
 
 pub use alter_role::{AlterRole, AlterRoleAction, AlterRoleValue};
+pub use alter_sequence::{AlterSequence, AlterSequenceAction};
 pub use alter_table::{
     AddColumn, AddForeignKey, AddIndex, AddTableConstraint, Algorithm, AlterAlgorithm, AlterColumn,
     AlterColumnAction, AlterLock, AlterSpecification, AlterTable, AlterTableOwner, AutoIncrement,

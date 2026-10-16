@@ -33,7 +33,6 @@ rust_examples_dict: dict[str, tuple[str, int]] = {}
 
 
 def visit_md(p: str) -> None:
-    global rust_examples_dict
     with open(p) as f:
         for m in find_rust_examples.finditer(f.read()):
             rust_examples_dict[m.group(1).strip()] = (p, m.start())
@@ -64,7 +63,6 @@ found = [False for _ in rust_examples]
 
 
 def visit_rust(p: str) -> None:
-    global found
     with open(p) as f:
         for m in find_examples.finditer(f.read()):
             for g, v in enumerate(m.groups()):

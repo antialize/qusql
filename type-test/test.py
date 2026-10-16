@@ -54,6 +54,7 @@ def run_schema_test_cmd(sql_file: Path, dialect: str) -> tuple[int, str]:
         capture_output=True,
         text=True,
         cwd=WORKSPACE,
+        check=False,
     )
     return result.returncode, result.stdout.strip()
 
@@ -80,6 +81,7 @@ def run_queries_test_cmd(
         capture_output=True,
         text=True,
         cwd=WORKSPACE,
+        check=False,
     )
     return result.returncode, result.stdout.strip()
 

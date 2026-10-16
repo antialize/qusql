@@ -1,5 +1,4 @@
 import re
-from typing import List
 
 # Minimal Rust lexer using Python regex.
 # This module only extracts string literal tokens from Rust source.
@@ -22,7 +21,7 @@ MASTER_REGEX = re.compile(
 )
 
 
-def lex(text: str) -> List[str]:
+def lex(text: str) -> list[str]:
     """Return a list of string literal token values found in `text`.
 
     Only tokens of kind 'STRING' are returned; other token kinds are skipped.
@@ -58,7 +57,7 @@ def lex(text: str) -> List[str]:
             return ""
         return s[first + 1 : last]
 
-    tokens: List[str] = []
+    tokens: list[str] = []
     for m in MASTER_REGEX.finditer(text):
         kind = m.lastgroup
         val = m.group()

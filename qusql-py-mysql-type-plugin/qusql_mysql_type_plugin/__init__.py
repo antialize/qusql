@@ -1,38 +1,40 @@
 from collections import OrderedDict
-from typing import Any, Callable, Final, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any, Final
+
+from mypy.errorcodes import ErrorCode
+from mypy.nodes import Context, Expression, OpExpr, StrExpr
 from mypy.plugin import (
-    Plugin,
-    MethodSigContext,
     CheckerPluginInterface,
-    FunctionSigContext,
     FunctionContext,
+    FunctionSigContext,
+    MethodSigContext,
+    Plugin,
 )
 from mypy.types import (
-    Type,
-    CallableType,
+    ARG_POS,
     AnyType,
-    TypeOfAny,
-    UnionType,
+    CallableType,
+    Instance,
     NoneType,
     TupleType,
-    Instance,
+    Type,
     TypedDictType,
-    ARG_POS,
+    TypeOfAny,
+    UnionType,
 )
-from mypy.nodes import StrExpr, OpExpr, Expression, Context
-from mypy.errorcodes import ErrorCode
+
 import qusql_mysql_type_plugin.qusql_mysql_type_plugin as rs  # type: ignore
 
 
-def get_str_value(e: Expression) -> Optional[str]:
+def get_str_value(e: Expression) -> str | None:
     if isinstance(e, StrExpr):
         return e.value
-    if isinstance(e, OpExpr):
-        if e.op == "+":
-            left = get_str_value(e.left)
-            right = get_str_value(e.right)
-            if left is not None and right is not None:
-                return left + right
+    if isinstance(e, OpExpr) and e.op == "+":
+        left = get_str_value(e.left)
+        right = get_str_value(e.right)
+        if left is not None and right is not None:
+            return left + right
     return None
 
 
@@ -48,7 +50,8 @@ def get_schemas(api: CheckerPluginInterface, context: Context) -> Any:
     if schemas is not None:
         return schemas
     try:
-        src = open("mysql-type-schema.sql").read()
+        with open("mysql-type-schema.sql") as f:
+            src = f.read()
     except Exception as e:
         api.fail(f"Unable to read mysql-type-schema.sql: {e}", context)
         return None
@@ -56,19 +59,18 @@ def get_schemas(api: CheckerPluginInterface, context: Context) -> Any:
     (s, err, message) = rs.parse_schemas("mysql-type-schema.sql", src)
     if err:
         api.fail(message, context)
-    elif message:
-        if note := getattr(api, "note"):
-            note(message, context)
+    elif message and (note := api.note):
+        note(message, context)
     schemas = s
     return schemas
 
 
 def get_sql(
     sql_arg: int,
-    args: List[List[Expression]],
+    args: list[list[Expression]],
     api: CheckerPluginInterface,
     quiet: bool = False,
-) -> Optional[str]:
+) -> str | None:
     if len(args) <= sql_arg:
         return None
     if len(args[sql_arg]) < 1:
@@ -76,7 +78,7 @@ def get_sql(
     sql_arg_val = args[sql_arg][0]
     sql = get_str_value(sql_arg_val)
     if sql is None:
-        if not quiet and (note := getattr(api, "note")):
+        if not quiet and (note := api.note):
             note("Dynamic sql", sql_arg_val, code=DYNAMIC_SQL)
         return None
     return sql
@@ -88,7 +90,7 @@ def type_statement(
     context: Context,
     dict_cursor: bool,
     quiet: bool = False,
-) -> Optional[Any]:
+) -> Any | None:
     schemas = get_schemas(api, context)
     if schemas is None:
         return None
@@ -104,9 +106,8 @@ def type_statement(
     (stmt, err, message) = a
     if err and not quiet:
         api.fail(message, context)
-    elif message and not quiet:
-        if note := getattr(api, "note"):
-            note(message, context)
+    elif message and not quiet and (note := api.note):
+        note(message, context)
     return stmt
 
 
@@ -157,8 +158,8 @@ def map_type(
 
 def get_argument_types(
     stmt: Any, api: CheckerPluginInterface, context: Context
-) -> List[Type]:
-    ts: List[Type] = []
+) -> list[Type]:
+    ts: list[Type] = []
     if args := getattr(stmt, "arguments", None):
         for k, (v, not_null) in args.items():
             if not isinstance(k, int):
@@ -173,13 +174,13 @@ class CustomPlugin(Plugin):
     def make_typed_dict(self, api: Any, ntp: Any) -> Any:
         return TypedDictType(
             OrderedDict(ntp),
-            set([n for (n, _) in ntp]),
+            {n for (n, _) in ntp},
             api.named_generic_type("dict", []),
         )
 
     def get_function_signature_hook(
         self, fullname: str
-    ) -> Optional[Callable[[FunctionSigContext], CallableType]]:
+    ) -> Callable[[FunctionSigContext], CallableType] | None:
         if fullname in ("qusql_mysql_type.execute"):
             many = False
         elif fullname in ("qusql_mysql_type.executemany"):
@@ -240,7 +241,7 @@ class CustomPlugin(Plugin):
 
     def get_function_hook(
         self, fullname: str
-    ) -> Optional[Callable[[FunctionContext], Type]]:
+    ) -> Callable[[FunctionContext], Type] | None:
         method = "execute"
         if fullname in ("qusql_mysql_type.execute", "qusql_mysql_type.executemany"):
             aio = False
@@ -275,7 +276,7 @@ class CustomPlugin(Plugin):
                 nrt = NoneType()
                 if method in ("fetchall", "fetchone"):
                     if isinstance(stmt, rs.Select):
-                        ntp: List[Tuple[str, Type]] = []
+                        ntp: list[tuple[str, Type]] = []
                         for name, type_, not_null in stmt.columns:
                             t = map_type(type_, not_null, api, context.context)
                             ntp.append((name, t))
@@ -296,7 +297,7 @@ class CustomPlugin(Plugin):
                         return context.default_return_type
                 elif method == "execute":
                     if isinstance(stmt, rs.Select):
-                        ntp: List[Tuple[str, Type]] = []
+                        ntp: list[tuple[str, Type]] = []
                         for name, type_, not_null in stmt.columns:
                             t = map_type(type_, not_null, api, context.context)
                             ntp.append((name, t))
@@ -359,7 +360,7 @@ class CustomPlugin(Plugin):
 
     def get_method_signature_hook(
         self, fullname: str
-    ) -> Optional[Callable[[MethodSigContext], CallableType]]:
+    ) -> Callable[[MethodSigContext], CallableType] | None:
         if fullname in (
             "MySQLdb.cursors.Cursor.execute",
             "MySQLdb.cursors.DictCursor.execute",
@@ -401,7 +402,7 @@ class CustomPlugin(Plugin):
                     ans.arg_types[1] = TupleType(
                         ts, context.api.named_generic_type("tuple", ts)
                     )
-                if note := getattr(context.api, "note"):
+                if note := context.api.note:
                     note("Use db_execute instead", context.context, code=USE_DB_EXECUTE)
             except Exception as e:
                 context.api.fail(f"ICE 4: {e}", context.context)
@@ -415,7 +416,7 @@ class CustomPluginNew(CustomPlugin):
     def make_typed_dict(self, api: Any, ntp: Any) -> Any:
         return TypedDictType(
             OrderedDict(ntp),
-            set([n for (n, _) in ntp]),
+            {n for (n, _) in ntp},
             set(),
             api.named_generic_type("dict", []),
         )
@@ -423,7 +424,7 @@ class CustomPluginNew(CustomPlugin):
 
 def plugin(version: str):
     # ignore version argument if the plugin works with all mypy versions.
-    (major_s, minor_s, patch_s) = version.split(".")
+    (major_s, minor_s, _patch_s) = version.split(".")
     v = int(major_s) * 1000 + int(minor_s)
     if v >= 1015:
         return CustomPluginNew

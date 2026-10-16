@@ -2397,4 +2397,143 @@ mod tests {
             panic!("{errors} errors in postgresql_multirange_update_returning_unnest test");
         }
     }
+
+    #[test]
+    fn postgresql_alter_sequence() {
+        let schema_src = "
+        CREATE SEQUENCE tsng_datasets2_id_seq;
+        ALTER SEQUENCE tsng_datasets2_id_seq OWNER TO compute;
+        ALTER SEQUENCE tsng_datasets2_id_seq RENAME TO datasets_id_seq;
+        ALTER SEQUENCE IF EXISTS datasets_id_seq
+            INCREMENT BY 2
+            MINVALUE 1
+            MAXVALUE 1000
+            START WITH 1
+            RESTART WITH 42
+            CACHE 10
+            CYCLE
+            OWNED BY none;
+        ";
+
+        let opts = TypeOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::Dollar);
+        let mut issues = Issues::new(schema_src);
+        let schemas = parse_schemas(schema_src, &mut issues, &opts);
+        let mut errors = 0;
+        check_no_errors("schema", schema_src, issues.get(), &mut errors);
+
+        // The sequence was renamed: the registry must contain the new name and no
+        // longer the old one.
+        use crate::schema::{QualifiedIdentifier, lookup_name};
+        let search_path: &[&str] = &["public"];
+        let new_key = QualifiedIdentifier::Qualified(
+            Identifier::new("public", 0..0),
+            Identifier::new("datasets_id_seq", 0..0),
+        );
+        if lookup_name(&schemas.sequences, &new_key, search_path).is_none() {
+            println!("rename: datasets_id_seq missing from sequence registry");
+            errors += 1;
+        }
+        let old_key = QualifiedIdentifier::Qualified(
+            Identifier::new("public", 0..0),
+            Identifier::new("tsng_datasets2_id_seq", 0..0),
+        );
+        if lookup_name(&schemas.sequences, &old_key, search_path).is_some() {
+            println!("rename: old sequence name still in registry");
+            errors += 1;
+        }
+
+        // Altering an unknown sequence is an error (without IF EXISTS)
+        {
+            let src = "ALTER SEQUENCE unknown_seq OWNER TO compute;";
+            let mut issues = Issues::new(src);
+            let _schemas = parse_schemas(src, &mut issues, &opts);
+            if issues.get().is_empty() {
+                println!("unknown seq: expected an error, got none");
+                errors += 1;
+            }
+        }
+        // ... but fine with IF EXISTS
+        {
+            let src = "ALTER SEQUENCE IF EXISTS unknown_seq OWNER TO compute;";
+            let mut issues = Issues::new(src);
+            let _schemas = parse_schemas(src, &mut issues, &opts);
+            check_no_errors("if exists", src, issues.get(), &mut errors);
+        }
+        // Bare RESTART (with or without value) is valid in CREATE and ALTER
+        {
+            let src = "
+            CREATE SEQUENCE s1 RESTART;
+            CREATE SEQUENCE s2 RESTART WITH 42;
+            CREATE SEQUENCE s3 RESTART 42;
+            ALTER SEQUENCE s1 RESTART;
+            ALTER SEQUENCE s2 RESTART WITH 42;
+            ALTER SEQUENCE s3 RESTART 42;
+            ";
+            let mut issues = Issues::new(src);
+            let _schemas = parse_schemas(src, &mut issues, &opts);
+            check_no_errors("restart forms", src, issues.get(), &mut errors);
+        }
+        // RESTART WITH requires a value: bare RESTART alone may omit it
+        for src in [
+            "ALTER SEQUENCE s RESTART WITH;",
+            "CREATE SEQUENCE s RESTART WITH;",
+        ] {
+            let mut issues = Issues::new(src);
+            let _schemas = parse_schemas(src, &mut issues, &opts);
+            if issues.get().is_empty() {
+                println!("restart with: expected an error for '{src}', got none");
+                errors += 1;
+            }
+        }
+        // ALTER SEQUENCE with a bare name must resolve through the search path and
+        // rename the canonical (schema-qualified) entry.
+        {
+            let src = "
+            CREATE SCHEMA app;
+            CREATE SEQUENCE app.s;
+            SET search_path TO app;
+            ALTER SEQUENCE s RENAME TO t;
+            ";
+            let mut issues = Issues::new(src);
+            let schemas = parse_schemas(src, &mut issues, &opts);
+            check_no_errors("search path rename", src, issues.get(), &mut errors);
+            let in_app = |name: &str| {
+                lookup_name(
+                    &schemas.sequences,
+                    &QualifiedIdentifier::Unqualified(Identifier::new(name, 0..0)),
+                    ["app"].as_slice(),
+                )
+                .is_some()
+            };
+            if !in_app("t") {
+                println!("search path rename: app.t missing from sequence registry");
+                errors += 1;
+            }
+            if in_app("s") {
+                println!("search path rename: app.s still in sequence registry");
+                errors += 1;
+            }
+        }
+        // A bare name that is not on the search path must not resolve to a sequence
+        // in another schema.
+        {
+            let src = "
+            CREATE SCHEMA app;
+            CREATE SEQUENCE app.s;
+            ALTER SEQUENCE s RENAME TO t;
+            ";
+            let mut issues = Issues::new(src);
+            let _schemas = parse_schemas(src, &mut issues, &opts);
+            if issues.get().is_empty() {
+                println!("search path miss: expected an error, got none");
+                errors += 1;
+            }
+        }
+
+        if errors != 0 {
+            panic!("{errors} errors in postgresql_alter_sequence test");
+        }
+    }
 }

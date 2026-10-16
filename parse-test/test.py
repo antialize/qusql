@@ -7,13 +7,14 @@ It supports multiple SQL dialects (MySQL/MariaDB, PostgreSQL, SQLite) and provid
 both interactive and automated testing modes.
 """
 
-import rust_lexer
-import subprocess
-import json
-import sys
-from typing import TypedDict, NotRequired, Optional
 import argparse
+import json
+import subprocess
+import sys
 import time
+from typing import NotRequired, TypedDict
+
+import rust_lexer
 
 
 class TestCase(TypedDict):
@@ -181,6 +182,7 @@ def run_parser(
         cmd,
         capture_output=True,
         input=sql.encode(),
+        check=False,
     )
 
 
@@ -426,6 +428,7 @@ def validate_database(
             ],
             capture_output=True,
             text=True,
+            check=False,
         )
 
         if container_name in result.stdout:
@@ -473,6 +476,7 @@ def validate_database(
                 ["podman", "exec", container_name] + health_check_command,
                 capture_output=True,
                 text=True,
+                check=False,
             )
 
             if health_check_success in result.stdout:
@@ -481,14 +485,16 @@ def validate_database(
 
             time.sleep(1)
 
-        raise Exception(f"{container_image} failed to start in time")
+        raise RuntimeError(f"{container_image} failed to start in time")
 
     def stop_container():
         """Stop and remove database container"""
         print(f"\n🛑 Stopping {container_image} container...")
-        subprocess.run(["podman", "rm", "-f", container_name], capture_output=True)
+        subprocess.run(
+            ["podman", "rm", "-f", container_name], capture_output=True, check=False
+        )
 
-    def execute_sql(sql: str) -> tuple[bool, Optional[str]]:
+    def execute_sql(sql: str) -> tuple[bool, str | None]:
         """
         Execute SQL in database container.
         Returns (success: bool, error_message: Optional[str])
@@ -498,6 +504,7 @@ def validate_database(
             input=sql,
             capture_output=True,
             text=True,
+            check=False,
         )
 
         # Check both return code and stderr for errors
@@ -508,7 +515,7 @@ def validate_database(
         error = result.stderr if has_error else None
         return success, error
 
-    def test_case(test: dict) -> tuple[bool, Optional[str]]:
+    def test_case(test: dict) -> tuple[bool, str | None]:
         """
         Test a single case with fresh database.
         Returns (success: bool, error_message: Optional[str])
@@ -879,7 +886,8 @@ if __name__ == "__main__":
                 "cargo",
                 "build",
                 "--release",
-            ]
+            ],
+            check=False,
         )
 
     # Route to appropriate handler based on subcommand
