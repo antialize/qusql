@@ -835,6 +835,10 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 self.process_alter_table(*a);
                 Ok(())
             }
+            qusql_parse::Statement::AlterSequence(a) => {
+                self.process_alter_sequence(*a);
+                Ok(())
+            }
             qusql_parse::Statement::DropTable(t) => {
                 self.process_drop_table(*t);
                 Ok(())
@@ -1470,6 +1474,60 @@ impl<'a, 'b> SchemaCtx<'a, 'b> {
                 &self.schemas.types,
                 self.search_path.as_slice(),
             );
+        }
+    }
+
+    fn process_alter_sequence(&mut self, a: qusql_parse::AlterSequence<'a>) {
+        // Sequence option changes (increment, restart, cache, ...) have no effect on
+        // the parts of the schema we track; only existence and the qualified name matter.
+        // Keep the name unqualified so the search path can resolve it, and use the
+        // canonical key from the map for the removal/renaming below.
+        let lookup_key = match self.parse_qname_for_lookup(&a.name) {
+            Some(k) => k,
+            None => return,
+        };
+        let key = match lookup_name_key(
+            &self.schemas.sequences,
+            &lookup_key,
+            self.search_path.as_slice(),
+        ) {
+            Some((resolved_key, _)) => resolved_key.clone(),
+            None => {
+                if a.if_exists.is_none() {
+                    self.issues.err(
+                        alloc::format!("Unknown sequence `{}`", a.name.identifier.value),
+                        &a.name,
+                    );
+                }
+                return;
+            }
+        };
+        match a.action {
+            qusql_parse::AlterSequenceAction::RenameTo { new_name, .. } => {
+                let new_key = self.make_table_key(key.schema_name().cloned(), new_name);
+                if self.schemas.sequences.contains_key(&new_key) {
+                    self.issues
+                        .err("Sequence already exists", new_key.table_name());
+                    return;
+                }
+                if let Some(entry) = self.schemas.sequences.remove(&key) {
+                    self.schemas.sequences.insert(new_key, entry);
+                }
+            }
+            qusql_parse::AlterSequenceAction::SetSchema { new_schema, .. } => {
+                let new_key = self.make_table_key(Some(new_schema), key.table_name().clone());
+                if new_key != key && self.schemas.sequences.contains_key(&new_key) {
+                    self.issues
+                        .err("Sequence already exists in target schema", &a.name);
+                    return;
+                }
+                if let Some(entry) = self.schemas.sequences.remove(&key) {
+                    self.schemas.sequences.insert(new_key, entry);
+                }
+            }
+            // OWNER TO and option changes have no tracked schema effect.
+            qusql_parse::AlterSequenceAction::OwnerTo { .. }
+            | qusql_parse::AlterSequenceAction::Options(_) => {}
         }
     }
 }
