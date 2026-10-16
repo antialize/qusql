@@ -460,6 +460,13 @@ pub enum SequenceOption<'a> {
         value: i64,
         value_span: Span,
     },
+    /// RESTART [[WITH] value]
+    Restart {
+        restart_span: Span,
+        with_span: Option<Span>,
+        value: Option<i64>,
+        value_span: Option<Span>,
+    },
     /// CACHE value
     Cache {
         cache_span: Span,
@@ -510,6 +517,11 @@ impl<'a> Spanned for SequenceOption<'a> {
                 value_span,
                 ..
             } => start_span.join_span(value_span),
+            SequenceOption::Restart {
+                restart_span,
+                value_span,
+                ..
+            } => restart_span.join_span(value_span),
             SequenceOption::Cache {
                 cache_span,
                 value_span,
@@ -582,6 +594,33 @@ pub(crate) fn parse_sequence_options<'a>(
                     value,
                     value_span,
                 });
+            }
+            Token::Ident(_, Keyword::RESTART) => {
+                let restart_span = parser.consume_keyword(Keyword::RESTART)?;
+                let with_span = parser.skip_keyword(Keyword::WITH); // WITH is optional
+                // The value is only optional for bare RESTART, which resets to the
+                // sequence's start value. RESTART WITH requires a value.
+                let has_value = match &parser.token {
+                    Token::Integer(_) | Token::Minus | Token::Plus => true,
+                    _ => with_span.is_some(),
+                };
+                if has_value {
+                    // Errors via consume_signed_int if RESTART WITH is not followed by a value
+                    let (value, value_span) = parser.consume_signed_int::<i64>()?;
+                    options.push(SequenceOption::Restart {
+                        restart_span,
+                        with_span,
+                        value: Some(value),
+                        value_span: Some(value_span),
+                    });
+                } else {
+                    options.push(SequenceOption::Restart {
+                        restart_span,
+                        with_span,
+                        value: None,
+                        value_span: None,
+                    });
+                }
             }
             Token::Ident(_, Keyword::CACHE) => {
                 let cache_span = parser.consume_keyword(Keyword::CACHE)?;

@@ -13,11 +13,12 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    AlterOperator, AlterOperatorClass, AlterOperatorFamily, AlterRole, AlterTable, AlterType,
-    CreateConstraintTrigger, CreateDomain, CreateExtension, CreateIndex, CreateOperator,
+    AlterOperator, AlterOperatorClass, AlterOperatorFamily, AlterRole, AlterSequence, AlterTable,
+    AlterType, CreateConstraintTrigger, CreateDomain, CreateExtension, CreateIndex, CreateOperator,
     CreateOperatorClass, CreateOperatorFamily, CreateRole, CreateTrigger, DropOperatorClass,
     DropOperatorFamily, ExecuteFunction, QualifiedName, RenameTable, Span, Spanned, WithQuery,
     alter_role::parse_alter_role,
+    alter_sequence::parse_alter_sequence,
     alter_table::parse_alter_table,
     copy::{CopyFrom, CopyTo, parse_copy_statement},
     create::{
@@ -1184,6 +1185,13 @@ pub fn parse_alter<'a>(parser: &mut Parser<'a, '_>) -> Result<Statement<'a>, Par
         Token::Ident(_, Keyword::TABLE) => Ok(Statement::AlterTable(Box::new(parse_alter_table(
             parser, alter_span, online, ignore,
         )?))),
+        Token::Ident(_, Keyword::SEQUENCE) => {
+            let sequence_span = parser.consume_keyword(Keyword::SEQUENCE)?;
+            Ok(Statement::AlterSequence(Box::new(parse_alter_sequence(
+                parser,
+                alter_span.join_span(&sequence_span),
+            )?)))
+        }
         Token::Ident(_, Keyword::ROLE) => Ok(Statement::AlterRole(Box::new(parse_alter_role(
             parser, alter_span,
         )?))),
@@ -1407,6 +1415,7 @@ pub enum Statement<'a> {
     ShowEngines(Box<ShowEngines>),
     AlterTable(Box<AlterTable<'a>>),
     AlterRole(Box<AlterRole<'a>>),
+    AlterSequence(Box<AlterSequence<'a>>),
     AlterType(Box<AlterType<'a>>),
     AlterOperatorFamily(Box<AlterOperatorFamily<'a>>),
     Block(Box<Block<'a>>),
@@ -1524,6 +1533,7 @@ impl<'a> Spanned for Statement<'a> {
             Statement::AlterOperatorFamily(v) => v.span(),
             Statement::DropOperatorFamily(v) => v.span(),
             Statement::AlterRole(v) => v.span(),
+            Statement::AlterSequence(v) => v.span(),
             Statement::AlterType(v) => v.span(),
             Statement::AlterTable(v) => v.span(),
             Statement::Block(v) => v.opt_span().expect("Span of block"),

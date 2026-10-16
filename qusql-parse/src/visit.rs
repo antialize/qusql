@@ -405,6 +405,7 @@ pub fn walk_statement<'a, V: Visitor<'a>>(v: &mut V, stmt: &Statement<'a>) -> Re
         Statement::AlterSchema(_)
         | Statement::AlterTable(_)
         | Statement::AlterRole(_)
+        | Statement::AlterSequence(_)
         | Statement::AlterType(_)
         | Statement::AlterOperator(_)
         | Statement::AlterOperatorClass(_)
