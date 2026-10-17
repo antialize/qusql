@@ -189,6 +189,8 @@ pub struct IndexCol<'a> {
     pub asc: Option<Span>,
     /// Optional DESC ordering
     pub desc: Option<Span>,
+    /// Optional NULLS FIRST / NULLS LAST ordering; bool is `true` if FIRST
+    pub nulls_first_last: Option<(bool, Span)>,
 }
 
 impl<'a> Spanned for IndexCol<'a> {
@@ -198,6 +200,7 @@ impl<'a> Spanned for IndexCol<'a> {
             .join_span(&self.opclass)
             .join_span(&self.asc)
             .join_span(&self.desc)
+            .join_span(&self.nulls_first_last)
     }
 }
 
@@ -1709,6 +1712,7 @@ pub(crate) fn parse_index_cols<'a>(
                 opclass,
                 asc,
                 desc,
+                nulls_first_last: None,
             });
             if parser.skip_token(Token::Comma).is_none() {
                 break;
