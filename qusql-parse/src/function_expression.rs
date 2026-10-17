@@ -3526,7 +3526,7 @@ pub(crate) fn parse_function<'a>(
             Function::Other(alloc::vec![Identifier {
                 value: v,
                 span: span.clone(),
-                case_sensitive: false,
+                case_sensitive: matches!(k, Keyword::DOUBLE_QUOTED_IDENTIFIER),
             }])
         }
         _ => {

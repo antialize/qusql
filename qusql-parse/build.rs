@@ -66,7 +66,10 @@ fn read_keywords_from_keywords_rs(path: &Path) -> Vec<Keyword> {
         };
 
         // Skip special cases
-        if name == "NOT_A_KEYWORD" || name == "QUOTED_IDENTIFIER" {
+        if name == "NOT_A_KEYWORD"
+            || name == "QUOTED_IDENTIFIER"
+            || name == "DOUBLE_QUOTED_IDENTIFIER"
+        {
             continue;
         }
 
@@ -371,6 +374,11 @@ fn main() {
     writeln!(
         out,
         "        Keyword::QUOTED_IDENTIFIER => \"QUOTED_IDENTIFIER\","
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "        Keyword::DOUBLE_QUOTED_IDENTIFIER => \"DOUBLE_QUOTED_IDENTIFIER\","
     )
     .unwrap();
     for kw in &keywords {

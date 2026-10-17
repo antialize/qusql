@@ -580,3 +580,99 @@ pub fn parse_use_index() {
     let _result = parse_statement(sql, &mut issues, &options);
     assert!(issues.is_ok(), "{}", issues);
 }
+
+#[test]
+pub fn parse_double_quoted_ident() {
+    use core::ops::Deref;
+    let sql = "SELECT \"a\" FROM \"b\"";
+    let options = ParseOptions::new()
+        .dialect(SQLDialect::PostgreSQL)
+        .arguments(SQLArguments::QuestionMark)
+        .warn_unquoted_identifiers(false);
+
+    let mut issues = Issues::new(sql);
+    let result = parse_statement(sql, &mut issues, &options).unwrap();
+    assert!(issues.is_ok(), "{}", issues);
+    let Statement::Select(s) = result else {
+        panic!("Expected select, got {result:?}");
+    };
+    let [
+        SelectExpr {
+            expr: Expression::Identifier(id),
+            as_: None,
+        },
+    ] = s.select_exprs.as_slice()
+    else {
+        panic!("Expected one select expr (ident), got {:?}", s.select_exprs);
+    };
+    let [IdentifierPart::Name(n)] = id.parts.as_slice() else {
+        panic!("Expected one-part name identifier, got {id:?}");
+    };
+    assert_eq!(n.deref(), "a");
+    assert!(n.case_sensitive);
+    assert_eq!(n.span, 7..10);
+    let [
+        TableReference::Table {
+            identifier,
+            as_span: None,
+            as_: None,
+            ..
+        },
+    ] = s.table_references.as_deref().unwrap()
+    else {
+        panic!("Expected one table reference");
+    };
+    assert_eq!(identifier.span(), 16..19);
+    assert!(identifier.prefix.is_empty());
+    assert_eq!(identifier.identifier.deref(), "b");
+    assert!(identifier.identifier.case_sensitive);
+    assert_eq!(identifier.identifier.span, 16..19);
+}
+
+#[test]
+pub fn parse_double_quoted_function_names() {
+    use core::ops::Deref;
+    fn check_fn(sql: &str, span: core::ops::Range<usize>, expected_ids: &[(&str, bool)]) {
+        let options = ParseOptions::new()
+            .dialect(SQLDialect::PostgreSQL)
+            .arguments(SQLArguments::QuestionMark)
+            .warn_unquoted_identifiers(false);
+
+        let mut issues = Issues::new(sql);
+        let result = parse_statement(sql, &mut issues, &options).unwrap();
+        assert!(issues.is_ok(), "{}", issues);
+        let Statement::Select(s) = result else {
+            panic!("Expected select, got {result:?}");
+        };
+        let [
+            SelectExpr {
+                expr: Expression::Function(f),
+                as_: None,
+            },
+        ] = s.select_exprs.as_slice()
+        else {
+            panic!("Expected one select expr (fn), got {:?}", s.select_exprs);
+        };
+        assert!(f.args.is_empty());
+        assert_eq!(f.span(), span);
+        let Function::Other(ref ids) = f.function else {
+            panic!("Expected Function::Other, got {f:?}");
+        };
+        assert_eq!(ids.len(), expected_ids.len());
+        for (id, expected_id) in ids.into_iter().zip(expected_ids) {
+            assert_eq!(id.deref(), expected_id.0);
+            assert_eq!(id.case_sensitive, expected_id.1);
+        }
+    }
+    check_fn("SELECT \"MyFn\"()", 7..15, &[("MyFn", true)]);
+    check_fn(
+        "SELECT public.\"MyFn\"()",
+        7..22,
+        &[("public", false), ("MyFn", true)],
+    );
+    check_fn(
+        "SELECT public.MyFn()",
+        7..20,
+        &[("public", false), ("MyFn", false)],
+    );
+}

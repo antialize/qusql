@@ -330,6 +330,7 @@ pub(crate) enum Keyword {
     #[default]
     NOT_A_KEYWORD,
     QUOTED_IDENTIFIER,
+    DOUBLE_QUOTED_IDENTIFIER,
     // Possibly restricted keywords above. Keywords never restricted below.
     _LIST_,
     ABS,
